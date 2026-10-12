@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, ChevronLeft, ChevronRight, Leaf } from "lucide-react";
 import PropTypes from "prop-types";
+import Import from "./Import.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
 import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
@@ -217,6 +218,7 @@ export default function Library({ text, csrf, onLocked }) {
           {saved.duplicate_ids.length > 0 && <p>{text.duplicateWarning}</p>}
         </div>
       )}
+      <Import text={text} csrf={csrf} onLocked={onLocked} />
       <div className="library-caption">
         <span>
           {text.italian} <span aria-hidden="true">↔</span> {text.greek}

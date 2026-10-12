@@ -997,3 +997,37 @@ button:disabled {
   font-size: 14px;
   color: #304f3a;
 }
+
+.csv-import {
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border: 1px solid var(--border, #d9d5c9);
+  border-radius: 16px;
+  background: var(--paper, #fffdf7);
+}
+.csv-import label {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.csv-import input {
+  max-width: 100%;
+}
+.import-rows {
+  padding-left: 1.5rem;
+  overflow-wrap: anywhere;
+}
+.import-rows > li {
+  border-top: 1px solid #d9d5c9;
+  padding: 0.75rem 0;
+}
+.import-rows p {
+  margin: 0.4rem 0;
+}
+.import-rows dt {
+  font-weight: 600;
+}
+.import-rows dd {
+  margin-left: 0;
+  white-space: pre-wrap;
+}

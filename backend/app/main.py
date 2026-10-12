@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.auth import SharedGate
 from app.config import Settings
 from app.database import database
+from app.imports import import_router
 from app.models import LearningProgress, Profile, Tag, Unit, VocabularyEntry
 from app.practice import practice_router
 from app.schemas import (
@@ -116,6 +117,7 @@ def create_app():
         return {"status": "ok"}
 
     app.include_router(practice_router(sessions, gate))
+    app.include_router(import_router(sessions, gate))
 
     app.get("/api/auth/session")(gate.state)
     app.post("/api/auth/login")(gate.login)
