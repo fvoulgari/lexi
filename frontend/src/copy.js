@@ -2,6 +2,14 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    deleteEntry: "Delete entry",
+    confirmDelete: "Permanently delete",
+    deleteWarning:
+      "This permanently removes an entry only if it has no reviews.",
+    entryDeleted: "Entry deleted.",
+    entrySkipped:
+      "This unreviewed entry was deleted. It was skipped and the session count was adjusted.",
+
     practice: "Practice",
     randomPractice: "Random practice",
     practiceSize: "Session size",
@@ -143,6 +151,9 @@ export const copy = {
     skip: "Skip to content",
     libraryNote: "One word at a time.",
     errors: {
+      entry_reviewed: "This entry has reviews and cannot be deleted.",
+      entry_deleted:
+        "This unreviewed entry was deleted. It was skipped and the session count was adjusted.",
       incorrect_password: "That password isn’t quite right. Try again.",
       login_throttled: "Too many attempts. Please try again in a minute.",
       csrf_rejected: "This page needs refreshing. Reload and try again.",
@@ -155,6 +166,14 @@ export const copy = {
     },
   },
   el: {
+    deleteEntry: "Διαγραφή καταχώρισης",
+    confirmDelete: "Οριστική διαγραφή",
+    deleteWarning:
+      "Η καταχώριση διαγράφεται οριστικά μόνο αν δεν έχει αξιολογήσεις.",
+    entryDeleted: "Η καταχώριση διαγράφηκε.",
+    entrySkipped:
+      "Αυτή η καταχώριση χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
+
     practice: "Εξάσκηση",
     randomPractice: "Τυχαία εξάσκηση",
     practiceSize: "Μέγεθος συνεδρίας",
@@ -297,6 +316,10 @@ export const copy = {
     skip: "Μετάβαση στο περιεχόμενο",
     libraryNote: "Μια λέξη τη φορά.",
     errors: {
+      entry_reviewed:
+        "Αυτή η καταχώριση έχει αξιολογήσεις και δεν μπορεί να διαγραφεί.",
+      entry_deleted:
+        "Αυτή η καταχώριση χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
       incorrect_password: "Ο κωδικός δεν είναι σωστός. Δοκίμασε ξανά.",
       login_throttled: "Πολλές προσπάθειες. Δοκίμασε ξανά σε ένα λεπτό.",
       csrf_rejected:
@@ -310,6 +333,14 @@ export const copy = {
     },
   },
   it: {
+    deleteEntry: "Elimina voce",
+    confirmDelete: "Elimina definitivamente",
+    deleteWarning:
+      "La voce viene eliminata definitivamente solo se non ha revisioni.",
+    entryDeleted: "Voce eliminata.",
+    entrySkipped:
+      "Questa voce senza revisioni è stata eliminata. È stata saltata e il numero di carte è stato aggiornato.",
+
     practice: "Esercitazione",
     randomPractice: "Esercitazione casuale",
     practiceSize: "Dimensione della sessione",
@@ -451,6 +482,10 @@ export const copy = {
     skip: "Vai al contenuto",
     libraryNote: "Una parola alla volta.",
     errors: {
+      entry_reviewed:
+        "Questa voce ha delle revisioni e non può essere eliminata.",
+      entry_deleted:
+        "Questa voce senza revisioni è stata eliminata. È stata saltata e il numero di carte è stato aggiornato.",
       incorrect_password: "La password non è corretta. Riprova.",
       login_throttled: "Troppi tentativi. Riprova tra un minuto.",
       csrf_rejected: "Aggiorna la pagina e riprova.",

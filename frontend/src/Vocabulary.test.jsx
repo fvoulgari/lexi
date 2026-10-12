@@ -259,3 +259,69 @@ test("a pending save prevents switching to another entry until completion", asyn
   await user.type(screen.getByLabelText("Italian *"), "nuovo");
   expect(screen.getByLabelText("Italian *")).toHaveValue("nuovo");
 });
+
+test("delete confirms the meaning, explains review protection, and retries a failed deletion", async () => {
+  let protectedEntry = true;
+  server.use(
+    http.delete("*/api/vocabulary/:id", ({ request, params }) => {
+      expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
+      if (protectedEntry)
+        return HttpResponse.json(
+          { error: { code: "entry_reviewed" } },
+          { status: 409 },
+        );
+      entries = entries.filter((e) => e.id !== params.id);
+      return HttpResponse.json({ deleted: params.id });
+    }),
+  );
+  openLibrary();
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Delete entry: la casa" }),
+  );
+  expect(screen.getByRole("dialog")).toHaveTextContent("la casa");
+  expect(screen.getByRole("dialog")).toHaveTextContent("το σπίτι");
+  await user.click(screen.getByRole("button", { name: "Permanently delete" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "This entry has reviews and cannot be deleted.",
+  );
+  expect(screen.getByRole("heading", { name: "la casa" })).toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("Interface language"), "el");
+  expect(screen.getByRole("alert")).toHaveTextContent("έχει αξιολογήσεις");
+  await user.selectOptions(screen.getByLabelText("Γλώσσα εφαρμογής"), "it");
+  expect(screen.getByRole("alert")).toHaveTextContent("ha delle revisioni");
+  await user.selectOptions(
+    screen.getByLabelText("Lingua dell’interfaccia"),
+    "en",
+  );
+  protectedEntry = false;
+  await user.click(screen.getByRole("button", { name: "Permanently delete" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Entry deleted.");
+  expect(
+    screen.queryByRole("heading", { name: "la casa" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add entry" })).toHaveFocus();
+});
+
+test("cancel and Escape restore delete focus; connection failures retain the confirmation", async () => {
+  server.use(http.delete("*/api/vocabulary/:id", () => HttpResponse.error()));
+  openLibrary();
+  const user = userEvent.setup();
+  const action = await screen.findByRole("button", {
+    name: "Delete entry: la casa",
+  });
+  await user.click(action);
+  expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(action).toHaveFocus();
+  await user.click(action);
+  await user.click(screen.getByRole("button", { name: "Permanently delete" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Check your connection",
+  );
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "la casa" })).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(action).toHaveFocus();
+});

@@ -147,3 +147,12 @@ The gated API provides `POST /api/sessions` with `profile_id`, `direction` and `
 `GET /api/profiles/{id}/learning-records` returns independent counts and difficulty for each entry and direction. Review and aggregate changes commit together. Writes lock the practice session and then the learner so concurrent retries create one event per card and parallel sessions cannot lose aggregate updates. Difficulty maintains weighted sum and weight: on an accepted review multiply each previous value by 0.8, add the rating value (Again 1, Hard 0.5, Easy 0) to the sum, and add 1 to the weight; difficulty is sum / weight. Concurrent submissions follow serialized acceptance order, including when timestamps tie. Reading does not decay the score.
 
 The practice migration adds four tables without changing existing vocabulary. Application rollback can leave these tables in place; downgrading the migration deletes practice history. The API tests cover snapshots, retries, concurrent submissions, rollback on database failure, application restart, isolation and shortages; rendered tests cover reveal, retry, direction switches, summaries and fresh setup.
+
+
+## Delete accidental vocabulary
+
+Choose **Delete entry** on a vocabulary card, check the Italian–Greek meaning, then choose **Permanently delete**. Only entries without any reviews can be deleted. Revealing an answer alone does not prevent deletion. Reviewed entries return an explained conflict and keep their complete history.
+
+The gated `DELETE /api/vocabulary/{id}` endpoint requires CSRF and returns `{"deleted": "<id>"}`. Missing entries return 404; entries with reviews return 409 with `error.code=entry_reviewed`. Deletion and review acceptance lock the same vocabulary entry inside their transactions: if the review commits first, deletion is refused; if deletion commits first, the review returns `entry_deleted` without storing history or progress.
+
+Deleted entries disappear from library search and future practice selections. Existing session snapshots and card positions stay intact. Session reads include `skipped` on each card and `active_count` for the remaining undeleted queue. Reveal/review attempts on a deleted card return 409 with `entry_deleted`; the practice page skips it with a translated explanation and adjusts its count, preserving other cards and accepted reviews. Skipping the last card reaches the summary, including a defined zero-review summary. There is no database migration or change to review foreign keys.

@@ -13,7 +13,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.auth import SharedGate
 from app.config import Settings
 from app.database import database
-from app.models import LearningProgress, Profile, Tag, Unit, VocabularyEntry
+from app.models import (
+    LearningProgress,
+    Profile,
+    ReviewEvent,
+    Tag,
+    Unit,
+    VocabularyEntry,
+)
 from app.practice import practice_router
 from app.schemas import (
     ProfileCreate,
@@ -260,6 +267,33 @@ def create_app():
     )
     def create_entry(body: VocabularyCreate):
         return save_entry(body)
+
+    @app.delete(
+        "/api/vocabulary/{entry_id}",
+        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
+    )
+    def delete_entry(entry_id: UUID):
+        with sessions.begin() as db:
+            # Reviews take the same entry lock before inserting history.
+            entry = db.scalar(
+                select(VocabularyEntry)
+                .where(VocabularyEntry.id == entry_id)
+                .with_for_update(of=VocabularyEntry)
+            )
+            if entry is None:
+                raise HTTPException(404, "Vocabulary entry not found.")
+            if db.scalar(
+                select(ReviewEvent.id).where(ReviewEvent.entry_id == entry_id).limit(1)
+            ):
+                raise HTTPException(
+                    409,
+                    detail={
+                        "code": "entry_reviewed",
+                        "message": "This entry has reviews and cannot be deleted.",
+                    },
+                )
+            db.delete(entry)
+            return {"deleted": str(entry_id)}
 
     @app.patch(
         "/api/vocabulary/{entry_id}",
