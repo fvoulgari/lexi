@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, ChevronLeft, ChevronRight, Leaf } from "lucide-react";
 import PropTypes from "prop-types";
+import OrganizationForm from "./OrganizationForm.jsx";
+import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { request } from "./api.js";
 
 export default function Library({ text, csrf, onLocked }) {
   const client = useQueryClient();
+  const [creating, setCreating] = useState(null);
   const [editing, setEditing] = useState(undefined);
   const [saved, setSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -14,13 +17,46 @@ export default function Library({ text, csrf, onLocked }) {
     if (saved && !isSaving) document.getElementById("add-entry")?.focus();
   }, [saved, isSaving]);
   const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState({
+    q: "",
+    unit_ids: [],
+    word_types: [],
+    tag_ids: [],
+  });
+  const units = useQuery({
+    queryKey: ["units"],
+    queryFn: () => request("/api/units"),
+  });
+  const tags = useQuery({
+    queryKey: ["tags"],
+    queryFn: () => request("/api/tags"),
+  });
+  function changeFilter(key, value) {
+    setFilters((current) => ({ ...current, [key]: value }));
+    setPage(1);
+  }
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: "6",
+    q: filters.q,
+  });
+  for (const key of ["unit_ids", "word_types", "tag_ids"])
+    for (const value of filters[key]) {
+      if (value === "none" && key === "unit_ids") params.set("no_unit", "true");
+      else params.append(key, value);
+    }
   const library = useQuery({
-    queryKey: ["vocabulary", page],
-    queryFn: () => request(`/api/vocabulary?page=${page}&page_size=6`),
+    queryKey: ["vocabulary", page, filters],
+    queryFn: () => request(`/api/vocabulary?${params}`),
   });
   useEffect(() => {
-    if (library.error?.status === 401) onLocked();
-  }, [library.error, onLocked]);
+    if (
+      [library.error, units.error, tags.error].some(
+        (error) => error?.status === 401,
+      )
+    )
+      onLocked();
+  }, [library.error, units.error, tags.error, onLocked]);
   const pages = Math.max(1, Math.ceil((library.data?.total || 0) / 6));
 
   return (
@@ -39,6 +75,80 @@ export default function Library({ text, csrf, onLocked }) {
           <small>{library.data?.total === 1 ? text.entry : text.entries}</small>
         </span>
       </div>
+      <section className="library-filters" aria-label={text.filters}>
+        <label className="search-field">
+          {text.search}
+          <input
+            type="search"
+            maxLength={500}
+            value={filters.q}
+            onChange={(event) => changeFilter("q", event.target.value)}
+          />
+        </label>
+        <details>
+          <summary>{text.filters}</summary>
+          <p>{text.filterHint}</p>
+          <Choices
+            legend={text.units}
+            options={[
+              { id: "none", label: text.noUnit },
+              ...(units.data || []).map((unit) => ({
+                id: unit.id,
+                label: `${unit.code} — ${unit.title}`,
+              })),
+            ]}
+            selected={filters.unit_ids}
+            onChange={(value) => changeFilter("unit_ids", value)}
+          />
+          <Choices
+            legend={text.wordTypes}
+            options={[
+              "noun",
+              "verb",
+              "adjective",
+              "adverb",
+              "expression",
+              "other",
+            ].map((id) => ({ id, label: text[id] }))}
+            selected={filters.word_types}
+            onChange={(value) => changeFilter("word_types", value)}
+          />
+          <Choices
+            legend={text.tags}
+            options={(tags.data || []).map((tag) => ({
+              id: tag.id,
+              label: tag.name,
+            }))}
+            selected={filters.tag_ids}
+            onChange={(value) => changeFilter("tag_ids", value)}
+          />
+        </details>
+        <button
+          className="secondary"
+          onClick={() => {
+            setFilters({ q: "", unit_ids: [], word_types: [], tag_ids: [] });
+            setPage(1);
+          }}
+        >
+          {text.clearFilters}
+        </button>
+        {[units, tags].some((query) => query.isError) && (
+          <div>
+            <p role="alert" className="error">
+              {text.errors.request_failed}
+            </p>
+            <button
+              className="secondary"
+              onClick={() => {
+                units.refetch();
+                tags.refetch();
+              }}
+            >
+              {text.retry}
+            </button>
+          </div>
+        )}
+      </section>
       <button
         className="primary"
         id="add-entry"
@@ -50,6 +160,33 @@ export default function Library({ text, csrf, onLocked }) {
       >
         {text.addEntry}
       </button>
+      <div className="form-actions">
+        {["units", "tags"].map((kind) => (
+          <button
+            id={`create-${kind}`}
+            key={kind}
+            className="secondary"
+            disabled={isSaving || creating !== null}
+            onClick={() => setCreating(kind)}
+          >
+            {kind === "units" ? text.createUnit : text.createTag}
+          </button>
+        ))}
+      </div>
+      {creating && (
+        <OrganizationForm
+          key={creating}
+          kind={creating}
+          text={text}
+          csrf={csrf}
+          onLocked={onLocked}
+          onClose={() => {
+            const kind = creating;
+            setCreating(null);
+            document.getElementById(`create-${kind}`)?.focus();
+          }}
+        />
+      )}
       {editing !== undefined && (
         <VocabularyForm
           key={editing?.id || "new"}
@@ -121,6 +258,11 @@ export default function Library({ text, csrf, onLocked }) {
                       ? `${text.unit} ${entry.unit.code}`
                       : text.noUnit}
                   </span>
+                </div>
+                <div className="entry-tags">
+                  {(entry.tags || []).map((tag) => (
+                    <span key={tag.id}>{tag.name}</span>
+                  ))}
                 </div>
                 <h2 lang="it">{entry.italian}</h2>
                 <p lang="el">{entry.greek}</p>

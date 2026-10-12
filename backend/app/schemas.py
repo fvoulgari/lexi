@@ -19,6 +19,17 @@ class UnitOutput(BaseModel):
     sort_order: int
 
 
+class UnitCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)
+    ]
+    title: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)
+    ]
+    sort_order: int
+
+
 ProfileName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
 ]
@@ -58,6 +69,18 @@ class ProfileOutput(BaseModel):
     created_at: datetime
 
 
+class TagCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+    ]
+
+
+class TagOutput(TagCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+
+
 class VocabularyOutput(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
@@ -65,6 +88,7 @@ class VocabularyOutput(BaseModel):
     greek: str
     word_type: str
     unit: UnitOutput | None
+    tags: list[TagOutput]
     italian_gender: str | None
     greek_gender: str | None
     italian_plural: str | None
@@ -98,6 +122,7 @@ Gender = Literal["masculine", "feminine", "neuter"]
 class VocabularyFields(BaseModel):
     model_config = ConfigDict(extra="forbid")
     unit_id: UUID | None = None
+    tag_ids: list[UUID] = []
     italian_gender: Gender | None = None
     greek_gender: Gender | None = None
     italian_plural: PluralText | None = None

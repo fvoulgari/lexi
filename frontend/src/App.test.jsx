@@ -31,6 +31,8 @@ const server = setupServer(
     authenticated = true;
     return HttpResponse.json({ authenticated });
   }),
+  http.get("*/api/units", () => HttpResponse.json([])),
+  http.get("*/api/tags", () => HttpResponse.json([])),
   http.get("*/api/vocabulary", () =>
     HttpResponse.json({ items: [], total: 0, page: 1, page_size: 6 }),
   ),
