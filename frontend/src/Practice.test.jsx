@@ -40,6 +40,8 @@ const server = setupServer(
           entry_id: "e",
           snapshot: {
             italian: "la casa",
+            word_type: "noun",
+            unit: { code: "00", title: "Benvenuti" },
             greek: "το σπίτι",
             italian_gender: "feminine",
             italian_plural: "le case",
@@ -103,6 +105,14 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
   );
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   expect(await screen.findByText(/Only 1 entries/)).toBeInTheDocument();
+  expect(
+    screen.getByRole("option", { name: "Greek → Italian" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("option", { name: "Italian → Greek" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("00 · Benvenuti")).toBeInTheDocument();
+  expect(screen.getByText("Noun")).toBeInTheDocument();
   expect(screen.queryByText("la casa")).not.toBeInTheDocument();
   expect(screen.queryByText("answer hint")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();

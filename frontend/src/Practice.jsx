@@ -130,8 +130,12 @@ function Direction({ text, value, onChange, disabled = false }) {
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="greek_to_italian">{text.greekToItalian}</option>
-        <option value="italian_to_greek">{text.italianToGreek}</option>
+        <option value="greek_to_italian">
+          {text.greek} → {text.italian}
+        </option>
+        <option value="italian_to_greek">
+          {text.italian} → {text.greek}
+        </option>
       </select>
     </>
   );
@@ -311,6 +315,14 @@ function Flashcard({
         }}
       />
       <div className="flashcard">
+        <div className="card-metadata">
+          <span>
+            {entry.unit
+              ? `${entry.unit.code} · ${entry.unit.title}`
+              : text.noUnit}
+          </span>
+          {entry.word_type && <span>{text[entry.word_type]}</span>}
+        </div>
         <p lang={front === "greek" ? "el" : "it"} className="card-prompt">
           {entry[front]}
         </p>
@@ -329,7 +341,6 @@ function Flashcard({
             <h2 lang={back === "greek" ? "el" : "it"}>{entry[back]}</h2>
             <dl>
               {[
-                "word_type",
                 "italian_gender",
                 "greek_gender",
                 "italian_plural",
