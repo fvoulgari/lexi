@@ -385,3 +385,139 @@ def test_concurrent_conflicting_reviews_accept_one_and_replay_after_wording_edit
         logged_in.get(f"/api/sessions/{session['id']}").json()["cards"]
         == session["cards"]
     )
+
+
+def test_category_queue_combines_library_filters_and_persists(logged_in):
+    client = logged_in
+    csrf = headers(client)
+    units = client.get("/api/units").json()
+    tag_ids = [
+        client.post("/api/tags", json={"name": name}, headers=csrf).json()["id"]
+        for name in ("Home", "Reading")
+    ]
+    entries = client.get("/api/vocabulary?page_size=100").json()["items"]
+    for index, entry in enumerate(entries[:3]):
+        client.patch(
+            f"/api/vocabulary/{entry['id']}",
+            headers=csrf,
+            json={
+                "unit_id": None if index == 0 else units[0]["id"],
+                "word_type": "noun" if index < 2 else "verb",
+                "tag_ids": tag_ids if index == 0 else [tag_ids[1]],
+            },
+        )
+    filters = {
+        "unit_ids": [units[0]["id"]],
+        "no_unit": True,
+        "word_types": ["noun"],
+        "tag_ids": tag_ids,
+    }
+    profile = client.get("/api/profiles").json()[0]["id"]
+    response = client.post(
+        "/api/sessions",
+        headers=csrf,
+        json={
+            "profile_id": profile,
+            "direction": "italian_to_greek",
+            "size": 10,
+            **filters,
+        },
+    )
+    assert response.status_code == 201
+    session = response.json()
+    assert session["available"] == 2
+    assert session["requested_size"] == 10
+    assert {c["entry_id"] for c in session["cards"]} == {e["id"] for e in entries[:2]}
+    assert len(session["cards"]) == 2
+    assert client.get(f"/api/sessions/{session['id']}").json() == session
+    path = f"/api/sessions/{session['id']}/cards/0"
+    client.post(path + "/reveal", headers=csrf, json={"direction": "italian_to_greek"})
+    review = client.post(
+        path + "/reviews",
+        headers=csrf,
+        json={"direction": "italian_to_greek", "rating": "hard"},
+    ).json()
+    assert review["profile_id"] == profile
+    assert review["direction"] == "italian_to_greek"
+    assert client.get(f"/api/sessions/{session['id']}/summary").json()["total"] == 1
+    only_unassigned = client.post(
+        "/api/sessions",
+        headers=csrf,
+        json={
+            "profile_id": profile,
+            "direction": "greek_to_italian",
+            "size": None,
+            "no_unit": True,
+        },
+    ).json()
+    assert [c["entry_id"] for c in only_unassigned["cards"]] == [entries[0]["id"]]
+    empty = client.post(
+        "/api/sessions",
+        headers=csrf,
+        json={
+            "profile_id": profile,
+            "direction": "greek_to_italian",
+            "unit_ids": [units[1]["id"]],
+        },
+    )
+    assert empty.status_code == 409
+    assert empty.json()["error"]["code"] == "no_matches"
+
+
+def test_category_queue_size_all_and_filter_validation(logged_in):
+    client = logged_in
+    csrf = headers(client)
+    profile = client.get("/api/profiles").json()[0]["id"]
+    tag = client.post("/api/tags", json={"name": "Focused"}, headers=csrf).json()["id"]
+    expected = set()
+    for index in range(12):
+        response = client.post(
+            "/api/vocabulary",
+            headers=csrf,
+            json={
+                "italian": f"voce {index}",
+                "greek": f"λέξη {index}",
+                "word_type": "noun" if index < 6 else "verb",
+                "tag_ids": [tag],
+            },
+        )
+        assert response.status_code == 201
+        expected.add(response.json()["entry"]["id"])
+    body = {
+        "profile_id": profile,
+        "direction": "greek_to_italian",
+        "tag_ids": [tag],
+        "word_types": ["noun", "verb"],
+        "size": 10,
+    }
+    limited = client.post("/api/sessions", json=body, headers=csrf).json()
+    assert limited["available"] == 12
+    assert len(limited["cards"]) == 10
+    assert len({c["entry_id"] for c in limited["cards"]}) == 10
+    assert {c["entry_id"] for c in limited["cards"]} <= expected
+    all_cards = client.post(
+        "/api/sessions", json={**body, "size": None}, headers=csrf
+    ).json()
+    assert {c["entry_id"] for c in all_cards["cards"]} == expected
+    assert len(all_cards["cards"]) == 12
+    library = client.get(
+        "/api/vocabulary",
+        params=[
+            ("tag_ids", tag),
+            ("word_types", "noun"),
+            ("word_types", "verb"),
+            ("page_size", 100),
+        ],
+    ).json()
+    assert {e["id"] for e in library["items"]} == expected
+    for filters in (
+        {"unit_ids": ["bad"]},
+        {"tag_ids": ["bad"]},
+        {"word_types": ["bad"]},
+    ):
+        assert (
+            client.post(
+                "/api/sessions", headers=csrf, json={**body, **filters}
+            ).status_code
+            == 422
+        )

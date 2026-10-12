@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.auth import SharedGate
 from app.config import Settings
 from app.database import database
+from app.filters import category_conditions
 from app.models import LearningProgress, Profile, Tag, Unit, VocabularyEntry
 from app.practice import practice_router
 from app.schemas import (
@@ -152,15 +153,7 @@ def create_app():
                     VocabularyEntry.greek.ilike(pattern, escape="\\"),
                 )
             )
-        if unit_ids or no_unit:
-            units = [VocabularyEntry.unit_id.in_(unit_ids)]
-            if no_unit:
-                units.append(VocabularyEntry.unit_id.is_(None))
-            conditions.append(or_(*units))
-        if word_types:
-            conditions.append(VocabularyEntry.word_type.in_(word_types))
-        if tag_ids:
-            conditions.append(VocabularyEntry.tags.any(Tag.id.in_(tag_ids)))
+        conditions.extend(category_conditions(unit_ids, no_unit, word_types, tag_ids))
         with sessions() as db:
             total = db.scalar(
                 select(func.count()).select_from(VocabularyEntry).where(*conditions)

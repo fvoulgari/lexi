@@ -147,3 +147,11 @@ The gated API provides `POST /api/sessions` with `profile_id`, `direction` and `
 `GET /api/profiles/{id}/learning-records` returns independent counts and difficulty for each entry and direction. Review and aggregate changes commit together. Writes lock the practice session and then the learner so concurrent retries create one event per card and parallel sessions cannot lose aggregate updates. Difficulty maintains weighted sum and weight: on an accepted review multiply each previous value by 0.8, add the rating value (Again 1, Hard 0.5, Easy 0) to the sum, and add 1 to the weight; difficulty is sum / weight. Concurrent submissions follow serialized acceptance order, including when timestamps tie. Reading does not decay the score.
 
 The practice migration adds four tables without changing existing vocabulary. Application rollback can leave these tables in place; downgrading the migration deletes practice history. The API tests cover snapshots, retries, concurrent submissions, rollback on database failure, application restart, isolation and shortages; rendered tests cover reveal, retry, direction switches, summaries and fresh setup.
+
+## Category practice
+
+Choose **Category practice** in Practice setup to combine units, word types, and tags. The filter semantics match Vocabulary: values within each group are ORed and selected groups are ANDed. No unit includes unassigned entries alongside any selected units. Leaving all filters clear selects the whole library.
+
+The selected queue is shuffled, contains each matching entry at most once, and respects 10/25/50/All. Shortages show the actual count; zero matches keep setup open with Clear filters and a Vocabulary link. Category practice uses the existing reveal, direction-switch, review, and summary flow with independent learner and direction records.
+
+`POST /api/sessions` also accepts `unit_ids`, `no_unit`, `word_types`, and `tag_ids`. Omitted filters select the whole library. Matching counts and queues are computed in PostgreSQL and selected cards retain their persisted wording snapshots.

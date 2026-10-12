@@ -4,6 +4,10 @@ export const copy = {
   en: {
     practice: "Practice",
     randomPractice: "Random practice",
+    practiceType: "Practice type",
+    categoryPractice: "Category practice",
+    noCategoryMatches:
+      "No entries match these filters. Clear filters or add vocabulary and try again.",
     practiceSize: "Session size",
     startPractice: "Start practice",
     revealAnswer: "Reveal answer",
@@ -157,6 +161,10 @@ export const copy = {
   el: {
     practice: "Εξάσκηση",
     randomPractice: "Τυχαία εξάσκηση",
+    practiceType: "Τύπος εξάσκησης",
+    categoryPractice: "Εξάσκηση ανά κατηγορία",
+    noCategoryMatches:
+      "Δεν υπάρχουν καταχωρίσεις με αυτά τα φίλτρα. Καθάρισε τα φίλτρα ή πρόσθεσε λεξιλόγιο και ξαναδοκίμασε.",
     practiceSize: "Μέγεθος συνεδρίας",
     startPractice: "Έναρξη εξάσκησης",
     revealAnswer: "Εμφάνιση απάντησης",
@@ -312,6 +320,10 @@ export const copy = {
   it: {
     practice: "Esercitazione",
     randomPractice: "Esercitazione casuale",
+    practiceType: "Tipo di esercitazione",
+    categoryPractice: "Esercitazione per categorie",
+    noCategoryMatches:
+      "Nessuna voce corrisponde a questi filtri. Cancella i filtri o aggiungi vocaboli e riprova.",
     practiceSize: "Dimensione della sessione",
     startPractice: "Inizia esercitazione",
     revealAnswer: "Mostra risposta",

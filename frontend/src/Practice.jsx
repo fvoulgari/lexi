@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
 import { request } from "./api.js";
+import Choices from "./Choices.jsx";
 
 export default function Practice({ text, csrf, onLocked }) {
   const profiles = useQuery({
@@ -33,7 +34,7 @@ export default function Practice({ text, csrf, onLocked }) {
     if (error.status === 401) onLocked();
     else setError(error);
   }
-  async function start(direction, size) {
+  async function start(direction, size, type, filters) {
     setPending(true);
     setError(null);
     try {
@@ -41,8 +42,9 @@ export default function Practice({ text, csrf, onLocked }) {
         profile_id: profile.id,
         direction,
         size,
+        ...(type === "category" ? filters : {}),
       });
-      setSession({ ...result, direction });
+      setSession({ ...result, direction, type });
       try {
         localStorage.setItem("notebook-profile", profile.id);
       } catch {
@@ -82,7 +84,6 @@ export default function Practice({ text, csrf, onLocked }) {
     <section className="practice-page">
       <span className="eyebrow">ITALIAN NOTEBOOK</span>
       <h1>{text.practice}</h1>
-      <p>{text.randomPractice}</p>
       <div className="practice-setup">
         <label htmlFor="practice-profile">{text.profile}</label>
         <select
@@ -107,14 +108,9 @@ export default function Practice({ text, csrf, onLocked }) {
           profile={profile}
           pending={pending}
           onStart={start}
+          onLocked={onLocked}
+          error={error}
         />
-        {error && (
-          <p role="alert" className="error">
-            {error.code === "no_matches"
-              ? text.noMatches
-              : text.errors[error.code] || text.errors.request_failed}
-          </p>
-        )}
         <Link to="/">{text.returnHome}</Link>
       </div>
     </section>
@@ -140,7 +136,33 @@ function Direction({ text, value, onChange, disabled = false }) {
     </>
   );
 }
-function Setup({ text, profile, pending, onStart }) {
+function Setup({ text, profile, pending, onStart, onLocked, error }) {
+  const [type, setType] = useState("random");
+  const emptyFilters = {
+    unit_ids: [],
+    no_unit: false,
+    word_types: [],
+    tag_ids: [],
+  };
+  const [filters, setFilters] = useState(emptyFilters);
+  const units = useQuery({
+    queryKey: ["units"],
+    queryFn: () => request("/api/units"),
+    enabled: type === "category",
+  });
+  const tags = useQuery({
+    queryKey: ["tags"],
+    queryFn: () => request("/api/tags"),
+    enabled: type === "category",
+  });
+  useEffect(() => {
+    if ([units.error, tags.error].some((e) => e?.status === 401)) onLocked();
+  }, [units.error, tags.error, onLocked]);
+  const filterError = type === "category" && (units.isError || tags.isError);
+  const filterLoading =
+    type === "category" && (units.isPending || tags.isPending);
+  const changeFilter = (key, value) =>
+    setFilters((current) => ({ ...current, [key]: value }));
   const [direction, setDirection] = useState(
     profile?.preferred_direction || "greek_to_italian",
   );
@@ -151,9 +173,93 @@ function Setup({ text, profile, pending, onStart }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onStart(direction, size === "all" ? null : Number(size));
+        onStart(direction, size === "all" ? null : Number(size), type, filters);
       }}
     >
+      <label htmlFor="practice-type">{text.practiceType}</label>
+      <select
+        id="practice-type"
+        value={type}
+        disabled={pending}
+        onChange={(e) => setType(e.target.value)}
+      >
+        <option value="random">{text.randomPractice}</option>
+        <option value="category">{text.categoryPractice}</option>
+      </select>
+      {type === "category" && (
+        <section className="library-filters" aria-label={text.filters}>
+          <p>{text.filterHint}</p>
+          {filterLoading && <p role="status">{text.loading}</p>}
+          {filterError && (
+            <div>
+              <p role="alert">{text.errors.request_failed}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  units.refetch();
+                  tags.refetch();
+                }}
+              >
+                {text.retry}
+              </button>
+            </div>
+          )}
+          <Choices
+            legend={text.units}
+            disabled={pending || filterLoading || filterError}
+            options={[
+              { id: "none", label: text.noUnit },
+              ...(units.data || []).map((u) => ({
+                id: u.id,
+                label: `${u.code} — ${u.title}`,
+              })),
+            ]}
+            selected={[
+              ...filters.unit_ids,
+              ...(filters.no_unit ? ["none"] : []),
+            ]}
+            onChange={(values) =>
+              setFilters((current) => ({
+                ...current,
+                unit_ids: values.filter((v) => v !== "none"),
+                no_unit: values.includes("none"),
+              }))
+            }
+          />
+          <Choices
+            legend={text.wordTypes}
+            disabled={pending}
+            options={[
+              "noun",
+              "verb",
+              "adjective",
+              "adverb",
+              "expression",
+              "other",
+            ].map((id) => ({ id, label: text[id] }))}
+            selected={filters.word_types}
+            onChange={(values) => changeFilter("word_types", values)}
+          />
+          <Choices
+            legend={text.tags}
+            disabled={pending || filterLoading || filterError}
+            options={(tags.data || []).map((t) => ({
+              id: t.id,
+              label: t.name,
+            }))}
+            selected={filters.tag_ids}
+            onChange={(values) => changeFilter("tag_ids", values)}
+          />
+          <button
+            type="button"
+            className="secondary"
+            disabled={pending}
+            onClick={() => setFilters(emptyFilters)}
+          >
+            {text.clearFilters}
+          </button>
+        </section>
+      )}
       <Direction
         text={text}
         value={direction}
@@ -174,7 +280,24 @@ function Setup({ text, profile, pending, onStart }) {
         ))}
         <option value="all">{text.allEntries}</option>
       </select>
-      <button className="primary" disabled={!profile || pending}>
+      {error && (
+        <div>
+          <p role="alert" className="error">
+            {error.code === "no_matches"
+              ? type === "category"
+                ? text.noCategoryMatches
+                : text.noMatches
+              : text.errors[error.code] || text.errors.request_failed}
+          </p>
+          {error.code === "no_matches" && (
+            <Link to="/vocabulary">{text.vocabulary}</Link>
+          )}
+        </div>
+      )}
+      <button
+        className="primary"
+        disabled={!profile || pending || filterLoading || filterError}
+      >
         {pending ? text.loading : text.startPractice}
       </button>
     </form>
@@ -190,7 +313,11 @@ function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
     <section className="practice-page">
       {!finished && (
         <>
-          <h1>{text.randomPractice}</h1>
+          <h1>
+            {session.type === "category"
+              ? text.categoryPractice
+              : text.randomPractice}
+          </h1>
           <p>
             {profile.display_name} · {position + 1} / {session.cards.length}
           </p>
