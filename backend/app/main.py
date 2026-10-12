@@ -6,24 +6,28 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, select, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import func, or_, select, text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.auth import SharedGate
 from app.config import Settings
 from app.database import database
-from app.models import Profile, Unit, VocabularyEntry
+from app.models import Profile, Tag, Unit, VocabularyEntry
 from app.schemas import (
     ProfileCreate,
     ProfileOutput,
     ProfileUpdate,
+    TagCreate,
+    TagOutput,
+    UnitCreate,
     UnitOutput,
     VocabularyCreate,
     VocabularyOutput,
     VocabularyPage,
     VocabularySaved,
     VocabularyUpdate,
+    WordType,
 )
 
 
@@ -119,11 +123,48 @@ def create_app():
         response_model=VocabularyPage,
         dependencies=[Depends(gate.require)],
     )
-    def vocabulary(page: int = Query(1, ge=1), page_size: int = Query(6, ge=1, le=100)):
+    def vocabulary(
+        page: int = Query(1, ge=1),
+        page_size: int = Query(6, ge=1, le=100),
+        q: str = Query("", max_length=500),
+        unit_ids: list[UUID] = Query(default=[]),
+        no_unit: bool = False,
+        word_types: list[WordType] = Query(default=[]),
+        tag_ids: list[UUID] = Query(default=[]),
+    ):
+        conditions = []
+        if q.strip():
+            # Treat wildcard characters as literal search text.
+            pattern = (
+                "%"
+                + q.strip()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+                + "%"
+            )
+            conditions.append(
+                or_(
+                    VocabularyEntry.italian.ilike(pattern, escape="\\"),
+                    VocabularyEntry.greek.ilike(pattern, escape="\\"),
+                )
+            )
+        if unit_ids or no_unit:
+            units = [VocabularyEntry.unit_id.in_(unit_ids)]
+            if no_unit:
+                units.append(VocabularyEntry.unit_id.is_(None))
+            conditions.append(or_(*units))
+        if word_types:
+            conditions.append(VocabularyEntry.word_type.in_(word_types))
+        if tag_ids:
+            conditions.append(VocabularyEntry.tags.any(Tag.id.in_(tag_ids)))
         with sessions() as db:
-            total = db.scalar(select(func.count()).select_from(VocabularyEntry))
+            total = db.scalar(
+                select(func.count()).select_from(VocabularyEntry).where(*conditions)
+            )
             entries = db.scalars(
                 select(VocabularyEntry)
+                .where(*conditions)
                 .order_by(VocabularyEntry.italian, VocabularyEntry.id)
                 .offset((page - 1) * page_size)
                 .limit(page_size)
@@ -162,6 +203,18 @@ def create_app():
                         "fields": ["unit_id"],
                     },
                 )
+            tag_ids = values.pop("tag_ids", None)
+            if tag_ids is not None:
+                tags = db.scalars(select(Tag).where(Tag.id.in_(set(tag_ids)))).all()
+                if len(tags) != len(set(tag_ids)):
+                    raise HTTPException(
+                        422,
+                        detail={
+                            "code": "invalid_input",
+                            "message": "Choose existing tags.",
+                            "fields": ["tag_ids"],
+                        },
+                    )
             if entry_id is None:
                 entry = VocabularyEntry(**values)
                 db.add(entry)
@@ -171,6 +224,8 @@ def create_app():
                     raise HTTPException(404, detail="Vocabulary entry not found.")
                 for field, value in values.items():
                     setattr(entry, field, value)
+            if tag_ids is not None:
+                entry.tags = tags
             db.flush()
             db.refresh(entry)
 
@@ -270,6 +325,61 @@ def create_app():
     def units():
         with sessions() as db:
             return db.scalars(select(Unit).order_by(Unit.sort_order, Unit.code)).all()
+
+    @app.get(
+        "/api/tags",
+        response_model=list[TagOutput],
+        dependencies=[Depends(gate.require)],
+    )
+    def tags():
+        with sessions() as db:
+            return db.scalars(select(Tag).order_by(Tag.name, Tag.id)).all()
+
+    @app.post(
+        "/api/tags",
+        response_model=TagOutput,
+        status_code=201,
+        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
+    )
+    def create_tag(body: TagCreate):
+        try:
+            with sessions.begin() as db:
+                tag = Tag(**body.model_dump())
+                db.add(tag)
+                db.flush()
+                return TagOutput.model_validate(tag)
+        except IntegrityError:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "invalid_input",
+                    "message": "Tag name already exists.",
+                    "fields": ["name"],
+                },
+            ) from None
+
+    @app.post(
+        "/api/units",
+        response_model=UnitOutput,
+        status_code=201,
+        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
+    )
+    def create_unit(body: UnitCreate):
+        try:
+            with sessions.begin() as db:
+                unit = Unit(**body.model_dump())
+                db.add(unit)
+                db.flush()
+                return UnitOutput.model_validate(unit)
+        except IntegrityError:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "invalid_input",
+                    "message": "Unit code already exists.",
+                    "fields": ["code"],
+                },
+            ) from None
 
     @app.get(
         "/api/openapi.json",

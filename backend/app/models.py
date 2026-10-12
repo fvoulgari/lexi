@@ -3,10 +3,13 @@ from datetime import datetime
 
 from sqlalchemy import (
     CheckConstraint,
+    Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
+    Table,
     Text,
     func,
 )
@@ -40,9 +43,33 @@ class Unit(Base):
     sort_order: Mapped[int]
 
 
+entry_tags = Table(
+    "entry_tags",
+    Base.metadata,
+    Column(
+        "entry_id",
+        ForeignKey("vocabulary_entries.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "tag_id",
+        ForeignKey("tags.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    ),
+)
+
+
+class Tag(Base):
+    __tablename__ = "tags"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+
+
 class VocabularyEntry(Base):
     __tablename__ = "vocabulary_entries"
     __table_args__ = (
+        Index("ix_vocabulary_entries_italian_id", "italian", "id"),
         CheckConstraint(
             "word_type IN ('noun','verb','adjective','adverb','expression','other')",
             name="valid_word_type",
@@ -56,6 +83,9 @@ class VocabularyEntry(Base):
         ForeignKey("units.id", ondelete="SET NULL"), index=True
     )
     unit: Mapped[Unit | None] = relationship(lazy="joined")
+    tags: Mapped[list[Tag]] = relationship(
+        secondary=entry_tags, lazy="selectin", order_by=Tag.name
+    )
     italian_gender: Mapped[str | None] = mapped_column(String(20))
     greek_gender: Mapped[str | None] = mapped_column(String(20))
     italian_plural: Mapped[str | None] = mapped_column(String(500))

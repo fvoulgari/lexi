@@ -9,7 +9,7 @@ from sqlalchemy import create_engine, delete
 
 from alembic import command
 from app.main import create_app
-from app.models import GateSession, LoginThrottle, VocabularyEntry
+from app.models import GateSession, LoginThrottle, Tag, Unit, VocabularyEntry
 from app.seed import seed
 
 
@@ -41,6 +41,8 @@ def client(test_database):
     engine = create_engine(test_database)
     with engine.begin() as connection:
         connection.execute(delete(VocabularyEntry))
+        connection.execute(delete(Tag))
+        connection.execute(delete(Unit))
         connection.execute(delete(GateSession))
         connection.execute(delete(LoginThrottle))
     engine.dispose()

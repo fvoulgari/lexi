@@ -18,6 +18,7 @@ const server = setupServer(
   http.get("*/api/auth/session", () =>
     HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
   ),
+  http.get("*/api/tags", () => HttpResponse.json([])),
   http.get("*/api/vocabulary", () =>
     HttpResponse.json({
       items: entries,

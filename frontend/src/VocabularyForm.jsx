@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import PropTypes from "prop-types";
+import Choices from "./Choices.jsx";
 import { request } from "./api.js";
 
 const wordTypes = [
@@ -38,6 +39,22 @@ export default function VocabularyForm({
       ),
     ),
   );
+  const units = useQuery({
+    queryKey: ["units"],
+    queryFn: () => request("/api/units"),
+  });
+  const tags = useQuery({
+    queryKey: ["tags"],
+    queryFn: () => request("/api/tags"),
+  });
+  const [unitId, setUnitId] = useState(entry?.unit?.id || "");
+  const [tagIds, setTagIds] = useState(
+    (entry?.tags || []).map((tag) => tag.id),
+  );
+  useEffect(() => {
+    if ([units.error, tags.error].some((error) => error?.status === 401))
+      onLocked();
+  }, [units.error, tags.error, onLocked]);
   const [invalid, setInvalid] = useState([]);
   const [focusRequest, setFocusRequest] = useState(null);
   const firstInput = useRef(null);
@@ -53,14 +70,16 @@ export default function VocabularyForm({
       request(entry ? `/api/vocabulary/${entry.id}` : "/api/vocabulary", {
         method: entry ? "PATCH" : "POST",
         headers: { "X-CSRF-Token": csrf },
-        body: JSON.stringify(
-          Object.fromEntries(
+        body: JSON.stringify({
+          ...Object.fromEntries(
             Object.entries(values).map(([key, value]) => [
               key,
               value.trim() || null,
             ]),
           ),
-        ),
+          unit_id: unitId || null,
+          tag_ids: tagIds,
+        }),
       }),
     onMutate: () => onSavingChange(true),
     onSuccess: onSaved,
@@ -165,6 +184,46 @@ export default function VocabularyForm({
             </label>
           ))}
         </div>
+        <label className="search-field">
+          {text.unit}
+          <select
+            value={unitId}
+            onChange={(event) => setUnitId(event.target.value)}
+          >
+            <option value="">{text.noUnit}</option>
+            {(units.data || []).map((unit) => (
+              <option key={unit.id} value={unit.id}>
+                {unit.code} — {unit.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Choices
+          legend={text.assignTags}
+          options={(tags.data || []).map((tag) => ({
+            id: tag.id,
+            label: tag.name,
+          }))}
+          selected={tagIds}
+          onChange={setTagIds}
+        />
+        {[units, tags].some((query) => query.isError) && (
+          <div>
+            <p role="alert" className="error">
+              {text.errors.request_failed}
+            </p>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                units.refetch();
+                tags.refetch();
+              }}
+            >
+              {text.retry}
+            </button>
+          </div>
+        )}
         {(invalid.length > 0 || save.isError) && (
           <p className="error" role="alert" id="entry-errors">
             {invalid.length
@@ -173,7 +232,13 @@ export default function VocabularyForm({
           </p>
         )}
         <div className="form-actions">
-          <button type="submit" className="primary">
+          <button
+            type="submit"
+            className="primary"
+            disabled={
+              units.isPending || tags.isPending || units.isError || tags.isError
+            }
+          >
             {save.isPending ? text.saving : text.saveEntry}
           </button>
           <button type="button" className="secondary" onClick={onCancel}>
