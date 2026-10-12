@@ -197,3 +197,56 @@ test("failed tag creation retains the draft for retry with Greek labels", async 
     expect(screen.queryByLabelText("Όνομα ετικέτας")).not.toBeInTheDocument(),
   );
 });
+
+test("saving the final filtered-page result returns to a valid page and keeps filters", async () => {
+  let changed = false;
+  server.use(
+    http.get("*/api/vocabulary", ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      lastParams = params;
+      const second = params.get("page") === "2";
+      return HttpResponse.json({
+        total: changed ? 6 : 7,
+        items:
+          second && changed
+            ? []
+            : [
+                {
+                  id: "e",
+                  italian: second ? "last" : "first",
+                  greek: "ένα",
+                  word_type: "noun",
+                  tags: [{ id: "t", name: "Daily" }],
+                },
+              ],
+      });
+    }),
+    http.patch("*/api/vocabulary/e", async ({ request }) => {
+      changed = true;
+      return HttpResponse.json({
+        entry: { id: "e", ...(await request.json()) },
+        duplicate_ids: [],
+      });
+    }),
+  );
+  open();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("checkbox", { name: "Daily" }));
+  await user.click(await screen.findByRole("button", { name: "Next page" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Edit entry: last" }),
+  );
+  const { within } = await import("@testing-library/react");
+  await user.click(
+    within(screen.getByRole("group", { name: "Assign tags" })).getByRole(
+      "checkbox",
+      { name: "Daily" },
+    ),
+  );
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(
+    await screen.findByRole("heading", { name: "first" }),
+  ).toBeInTheDocument();
+  expect(lastParams.get("page")).toBe("1");
+  expect(lastParams.getAll("tag_ids")).toEqual(["t"]);
+});

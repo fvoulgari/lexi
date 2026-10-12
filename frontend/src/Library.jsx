@@ -200,6 +200,7 @@ export default function Library({ text, csrf, onLocked }) {
             document.getElementById("add-entry")?.focus();
           }}
           onSaved={(result) => {
+            setPage(1);
             setSaved(result);
             setEditing(undefined);
             client.invalidateQueries({ queryKey: ["vocabulary"] });
