@@ -9,6 +9,10 @@ export default function Library({ text, csrf, onLocked }) {
   const client = useQueryClient();
   const [editing, setEditing] = useState(undefined);
   const [saved, setSaved] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  useEffect(() => {
+    if (saved && !isSaving) document.getElementById("add-entry")?.focus();
+  }, [saved, isSaving]);
   const [page, setPage] = useState(1);
   const library = useQuery({
     queryKey: ["vocabulary", page],
@@ -38,6 +42,7 @@ export default function Library({ text, csrf, onLocked }) {
       <button
         className="primary"
         id="add-entry"
+        disabled={isSaving}
         onClick={() => {
           setSaved(null);
           setEditing(null);
@@ -51,6 +56,7 @@ export default function Library({ text, csrf, onLocked }) {
           entry={editing}
           text={text}
           csrf={csrf}
+          onSavingChange={setIsSaving}
           onLocked={onLocked}
           onCancel={() => {
             setEditing(undefined);
@@ -121,6 +127,7 @@ export default function Library({ text, csrf, onLocked }) {
                 <button
                   className="secondary"
                   aria-label={`${text.editEntry}: ${entry.italian}`}
+                  disabled={isSaving}
                   onClick={() => {
                     setSaved(null);
                     setEditing(entry);

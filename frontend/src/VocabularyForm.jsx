@@ -27,6 +27,7 @@ export default function VocabularyForm({
   text,
   csrf,
   onSaved,
+  onSavingChange,
   onCancel,
   onLocked,
 }) {
@@ -61,7 +62,9 @@ export default function VocabularyForm({
           ),
         ),
       }),
+    onMutate: () => onSavingChange(true),
     onSuccess: onSaved,
+    onSettled: () => onSavingChange(false),
     onError: (error) => {
       setInvalid(error.fields || []);
       if (error.fields?.length) setFocusRequest({ field: error.fields[0] });
@@ -186,6 +189,7 @@ VocabularyForm.propTypes = {
   text: PropTypes.object.isRequired,
   csrf: PropTypes.string.isRequired,
   onSaved: PropTypes.func.isRequired,
+  onSavingChange: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
   onLocked: PropTypes.func.isRequired,
 };

@@ -219,3 +219,42 @@ test("cancel restores focus and a connection error allows retry without losing t
   expect(screen.queryByLabelText("Notes")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Add entry" })).toHaveFocus();
 });
+
+test("a pending save prevents switching to another entry until completion", async () => {
+  let finishSave;
+  const responseReady = new Promise((resolve) => {
+    finishSave = resolve;
+  });
+  server.use(
+    http.patch("*/api/vocabulary/:id", async ({ request }) => {
+      const body = await request.json();
+      await responseReady;
+      entries[0] = { ...entries[0], ...body };
+      return HttpResponse.json({ entry: entries[0], duplicate_ids: [] });
+    }),
+  );
+  openLibrary();
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Edit entry: la casa" }),
+  );
+  await user.type(screen.getByLabelText("Notes"), " — revised");
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  try {
+    expect(
+      await screen.findByRole("button", { name: "Saving…" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add entry" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Edit entry: la casa" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  } finally {
+    finishSave();
+  }
+  expect(await screen.findByRole("status")).toHaveTextContent("Entry saved.");
+  expect(screen.getByRole("button", { name: "Add entry" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Add entry" }));
+  await user.type(screen.getByLabelText("Italian *"), "nuovo");
+  expect(screen.getByLabelText("Italian *")).toHaveValue("nuovo");
+});
