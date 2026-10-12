@@ -326,3 +326,62 @@ def test_sizes_and_same_entry_direction_records(logged_in):
         "greek_to_italian": 1,
         "italian_to_greek": 0,
     }
+
+
+def test_concurrent_conflicting_reviews_accept_one_and_replay_after_wording_edit(
+    logged_in,
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    session = start(logged_in).json()
+    card = session["cards"][0]
+    path = f"/api/sessions/{session['id']}/cards/0"
+    csrf = headers(logged_in)
+    direction = "italian_to_greek"
+    logged_in.post(path + "/reveal", json={"direction": direction}, headers=csrf)
+    barrier = Barrier(2)
+
+    def submit(rating):
+        barrier.wait()
+        return logged_in.post(
+            path + "/reviews",
+            json={"direction": direction, "rating": rating},
+            headers=csrf,
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        responses = list(executor.map(submit, ["again", "hard"]))
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    accepted = next(r.json() for r in responses if r.status_code == 200)
+    assert accepted["direction"] == direction
+    assert accepted["snapshot"] == card["snapshot"]
+    # Treat the accepted response as lost, edit the shared library, and retry.
+    assert (
+        logged_in.patch(
+            f"/api/vocabulary/{card['entry_id']}",
+            json={"italian": "wording for future sessions"},
+            headers=csrf,
+        ).status_code
+        == 200
+    )
+    retry = logged_in.post(
+        path + "/reviews",
+        json={"direction": direction, "rating": accepted["rating"]},
+        headers=csrf,
+    )
+    assert retry.json() == accepted
+    assert logged_in.get(f"/api/sessions/{session['id']}/summary").json()["total"] == 1
+    records = logged_in.get(
+        f"/api/profiles/{session['profile_id']}/learning-records"
+    ).json()
+    assert len(records) == 1
+    assert records[0]["reviews"] == 1
+    assert records[0]["direction"] == direction
+    fresh = start(logged_in, size=None).json()
+    fresh_card = next(c for c in fresh["cards"] if c["entry_id"] == card["entry_id"])
+    assert fresh_card["snapshot"]["italian"] == "wording for future sessions"
+    assert (
+        logged_in.get(f"/api/sessions/{session['id']}").json()["cards"]
+        == session["cards"]
+    )

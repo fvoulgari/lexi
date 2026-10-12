@@ -254,6 +254,7 @@ function Flashcard({
   const [error, setError] = useState(null);
   const revealButton = useRef(null);
   const answer = useRef(null);
+  const inFlight = useRef(false);
   useEffect(() => {
     revealButton.current?.focus();
   }, []);
@@ -268,6 +269,8 @@ function Flashcard({
     else setError(error);
   }
   async function reveal() {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setPending(true);
     onBusy(true);
     setError(null);
@@ -279,11 +282,14 @@ function Flashcard({
     } catch (error) {
       failed(error);
     } finally {
+      inFlight.current = false;
       setPending(false);
       onBusy(false);
     }
   }
   async function save(value) {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setRating(value);
     setPending(true);
     onBusy(true);
@@ -293,12 +299,15 @@ function Flashcard({
         direction,
         rating: value,
       });
+      onBusy(false);
       onSaved();
     } catch (error) {
       failed(error);
     } finally {
+      inFlight.current = false;
       setPending(false);
-      onBusy(false);
+      // Until acceptance is confirmed, finishing could hide a review whose
+      // response was lost. Keep the card available for the identical retry.
     }
   }
   return (

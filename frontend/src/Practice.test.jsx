@@ -126,6 +126,11 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
   await user.click(screen.getByRole("button", { name: "Hard" }));
   expect(await screen.findByRole("alert")).toBeInTheDocument();
   expect(screen.getByText("la casa")).toBeInTheDocument();
+  expect(screen.getByText("Selected rating: Hard")).toBeInTheDocument();
+  expect(screen.getByLabelText("Learning direction")).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: "Finish and see summary" }),
+  ).toBeDisabled();
   fail = false;
   await user.click(screen.getByRole("button", { name: "Retry" }));
   expect(
@@ -261,4 +266,81 @@ test("ratings stay disabled while reveal or review is saving", async () => {
   expect(
     await screen.findByRole("heading", { name: "Session summary" }),
   ).toBeInTheDocument();
+});
+
+test("a lost response retries the selected review before switching the remaining queue", async () => {
+  let sessions = 0;
+  const accepted = new Map();
+  server.use(
+    http.post("*/api/sessions", () => {
+      sessions += 1;
+      return HttpResponse.json({
+        id: "s",
+        requested_size: 10,
+        available: 2,
+        cards: [
+          { position: 0, snapshot: { italian: "la casa", greek: "το σπίτι" } },
+          {
+            position: 1,
+            snapshot: { italian: "il libro", greek: "το βιβλίο" },
+          },
+        ],
+      });
+    }),
+    http.post("*/api/sessions/s/cards/:position/reveal", () =>
+      HttpResponse.json({ revealed: true }),
+    ),
+    http.post(
+      "*/api/sessions/s/cards/:position/reviews",
+      async ({ request, params }) => {
+        const body = await request.json();
+        saves.push(body);
+        const previous = accepted.get(params.position);
+        if (previous) {
+          expect(body).toEqual(previous);
+          return HttpResponse.json({ id: "r0" });
+        }
+        accepted.set(params.position, body);
+        if (params.position === "0") return HttpResponse.error();
+        return HttpResponse.json({ id: "r1" });
+      },
+    ),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Reveal answer" }),
+  );
+  await user.dblClick(await screen.findByRole("button", { name: "Hard" }));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(saves).toHaveLength(1);
+  expect(screen.getByText("Selected rating: Hard")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "la casa" })).toBeInTheDocument();
+  await user.dblClick(screen.getByRole("button", { name: "Retry" }));
+  expect(await screen.findByText("το βιβλίο")).toBeInTheDocument();
+  expect(saves).toHaveLength(2);
+  expect(
+    screen.getByRole("button", { name: "Finish and see summary" }),
+  ).toBeEnabled();
+  await user.selectOptions(
+    screen.getByLabelText("Learning direction"),
+    "italian_to_greek",
+  );
+  expect(screen.queryByText("το βιβλίο")).not.toBeInTheDocument();
+  expect(screen.getByText("il libro")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(await screen.findByRole("button", { name: "Easy" }));
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+  expect(sessions).toBe(1);
+  expect([...accepted.values()]).toEqual([
+    { direction: "greek_to_italian", rating: "hard" },
+    { direction: "italian_to_greek", rating: "easy" },
+  ]);
 });
