@@ -1,6 +1,6 @@
 # Italian Notebook
 
-A calm, mobile-first Italian–Greek vocabulary notebook. This first slice implements the shared-password gate and a real PostgreSQL-backed, paginated library. Flashcard practice, import/export, and progress are delivered by the later GitHub tickets.
+A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Flashcard practice, import/export, and progress are delivered by the later GitHub tickets.
 
 ## Start locally with Docker
 
@@ -111,6 +111,14 @@ docker compose exec -T postgres pg_restore -U notebook -d notebook_restore < not
 
 Verify the restored library before planning a live database replacement. Do not publish the database port to perform backups. `docker compose down` retains the named volume; removing that volume discards local data.
 
+## Add and edit vocabulary meanings
+
+Choose **Add entry** in Vocabulary, or **Edit entry** on a library card. Each entry represents one meaning: add a new entry for a different meaning, and edit wording or grammatical information on the existing entry. Italian, Greek and one of the six word types are required. Independent Italian/Greek genders, plurals and examples, notes and pronunciation text are optional. Text retains accents and leading articles; only surrounding whitespace is trimmed. Blank optional text clears the field. Text fields are limited to 500 characters, or 10,000 for examples, notes and pronunciation.
+
+Saving refreshes the library and shows the saved pair. Matching Italian–Greek pairs produce a warning after saving, without blocking a distinct meaning. Matching uses Unicode NFC, case folding and surrounding whitespace trimming; accents and articles remain significant. Edits preserve the entry ID and unit.
+
+The gated API supports `POST /api/vocabulary`, `GET /api/vocabulary/{id}` and partial `PATCH /api/vocabulary/{id}`. Writes require the session's CSRF token. Save responses contain `entry` and `duplicate_ids`; validation errors identify fields in `error.fields`. Optional `unit_id` must reference an existing unit. The form leaves unit assignment unchanged; unit/tag management belongs to the later ticket.
+
 ## Current scope
 
-This slice provides a gated read-only vocabulary library, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Flashcard practice, library editing/filtering, CSV tools, progress, and PWA installation remain in the subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Flashcard practice, library filtering, CSV tools, progress, and PWA installation remain in the subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.

@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, ChevronLeft, ChevronRight, Leaf } from "lucide-react";
 import PropTypes from "prop-types";
+import VocabularyForm from "./VocabularyForm.jsx";
 import { request } from "./api.js";
 
-export default function Library({ text, onLocked }) {
+export default function Library({ text, csrf, onLocked }) {
+  const client = useQueryClient();
+  const [editing, setEditing] = useState(undefined);
+  const [saved, setSaved] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  useEffect(() => {
+    if (saved && !isSaving) document.getElementById("add-entry")?.focus();
+  }, [saved, isSaving]);
   const [page, setPage] = useState(1);
   const library = useQuery({
     queryKey: ["vocabulary", page],
@@ -31,6 +39,46 @@ export default function Library({ text, onLocked }) {
           <small>{library.data?.total === 1 ? text.entry : text.entries}</small>
         </span>
       </div>
+      <button
+        className="primary"
+        id="add-entry"
+        disabled={isSaving}
+        onClick={() => {
+          setSaved(null);
+          setEditing(null);
+        }}
+      >
+        {text.addEntry}
+      </button>
+      {editing !== undefined && (
+        <VocabularyForm
+          key={editing?.id || "new"}
+          entry={editing}
+          text={text}
+          csrf={csrf}
+          onSavingChange={setIsSaving}
+          onLocked={onLocked}
+          onCancel={() => {
+            setEditing(undefined);
+            document.getElementById("add-entry")?.focus();
+          }}
+          onSaved={(result) => {
+            setSaved(result);
+            setEditing(undefined);
+            client.invalidateQueries({ queryKey: ["vocabulary"] });
+            document.getElementById("add-entry")?.focus();
+          }}
+        />
+      )}
+      {saved && (
+        <div className="save-notice" role="status">
+          <p>
+            {text.entrySaved} <span lang="it">{saved.entry.italian}</span> —{" "}
+            <span lang="el">{saved.entry.greek}</span>
+          </p>
+          {saved.duplicate_ids.length > 0 && <p>{text.duplicateWarning}</p>}
+        </div>
+      )}
       <div className="library-caption">
         <span>
           {text.italian} <span aria-hidden="true">↔</span> {text.greek}
@@ -76,6 +124,17 @@ export default function Library({ text, onLocked }) {
                 </div>
                 <h2 lang="it">{entry.italian}</h2>
                 <p lang="el">{entry.greek}</p>
+                <button
+                  className="secondary"
+                  aria-label={`${text.editEntry}: ${entry.italian}`}
+                  disabled={isSaving}
+                  onClick={() => {
+                    setSaved(null);
+                    setEditing(entry);
+                  }}
+                >
+                  {text.editEntry}
+                </button>
                 {entry.unit && (
                   <div className="entry-footer">
                     <span className="entry-dot" aria-hidden="true" />
@@ -117,5 +176,6 @@ export default function Library({ text, onLocked }) {
 
 Library.propTypes = {
   text: PropTypes.object.isRequired,
+  csrf: PropTypes.string.isRequired,
   onLocked: PropTypes.func.isRequired,
 };

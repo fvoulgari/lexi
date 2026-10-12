@@ -16,6 +16,7 @@ export async function request(path, options = {}) {
     throw Object.assign(new Error(body.error?.message || "Request failed"), {
       code: body.error?.code || "request_failed",
       status: response.status,
+      fields: body.error?.fields,
     });
   }
   return body;
