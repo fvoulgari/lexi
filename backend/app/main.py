@@ -13,7 +13,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.auth import SharedGate
 from app.config import Settings
 from app.database import database
-from app.models import Profile, Tag, Unit, VocabularyEntry
+from app.models import LearningProgress, Profile, Tag, Unit, VocabularyEntry
+from app.practice import practice_router
 from app.schemas import (
     ProfileCreate,
     ProfileOutput,
@@ -113,6 +114,8 @@ def create_app():
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         return {"status": "ok"}
+
+    app.include_router(practice_router(sessions, gate))
 
     app.get("/api/auth/session")(gate.state)
     app.post("/api/auth/login")(gate.login)
@@ -289,6 +292,31 @@ def create_app():
             db.add(profile)
             db.flush()
             return ProfileOutput.model_validate(profile)
+
+    @app.get(
+        "/api/profiles/{profile_id}/learning-records",
+        dependencies=[Depends(gate.require)],
+    )
+    def learning_records(profile_id: UUID):
+        with sessions() as db:
+            if db.get(Profile, profile_id) is None:
+                raise HTTPException(404, "Learner profile not found.")
+            records = db.scalars(
+                select(LearningProgress)
+                .where(LearningProgress.profile_id == profile_id)
+                .order_by(LearningProgress.entry_id, LearningProgress.direction)
+            ).all()
+            return [
+                {
+                    "entry_id": str(r.entry_id),
+                    "direction": r.direction,
+                    "reviews": r.reviews,
+                    "counts": {"again": r.again, "hard": r.hard, "easy": r.easy},
+                    "difficulty": r.weighted_sum / r.weight,
+                    "last_reviewed_at": r.last_reviewed_at,
+                }
+                for r in records
+            ]
 
     @app.get(
         "/api/profiles/{profile_id}",

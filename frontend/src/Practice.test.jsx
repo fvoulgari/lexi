@@ -1,0 +1,253 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+import { MemoryRouter } from "react-router-dom";
+import {
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+  test,
+  expect,
+} from "vitest";
+import App from "./App.jsx";
+let saves;
+let fail;
+const server = setupServer(
+  http.get("*/api/auth/session", () =>
+    HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
+  ),
+  http.get("*/api/profiles", () =>
+    HttpResponse.json([
+      {
+        id: "f",
+        display_name: "Foteini",
+        preferred_direction: "greek_to_italian",
+        default_session_size: 25,
+      },
+    ]),
+  ),
+  http.post("*/api/sessions", () =>
+    HttpResponse.json({
+      id: "s",
+      available: 1,
+      requested_size: 25,
+      cards: [
+        {
+          position: 0,
+          entry_id: "e",
+          snapshot: {
+            italian: "la casa",
+            greek: "το σπίτι",
+            italian_gender: "feminine",
+            italian_plural: "le case",
+            pronunciation: "KA-za",
+            notes: "answer hint",
+          },
+        },
+      ],
+    }),
+  ),
+  http.post("*/api/sessions/s/cards/0/reveal", () =>
+    HttpResponse.json({ revealed: true }),
+  ),
+  http.post("*/api/sessions/s/cards/0/reviews", async ({ request }) => {
+    expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
+    saves.push(await request.json());
+    if (fail)
+      return HttpResponse.json(
+        { error: { code: "service_unavailable" } },
+        { status: 503 },
+      );
+    return HttpResponse.json({ id: "r" });
+  }),
+  http.get("*/api/sessions/s/summary", () =>
+    HttpResponse.json({
+      total: 1,
+      counts: { again: 0, hard: 1, easy: 0 },
+      remembered: 100,
+      needs_practice: [],
+    }),
+  ),
+);
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterAll(() => server.close());
+afterEach(() => server.resetHandlers());
+beforeEach(() => {
+  localStorage.clear();
+  localStorage.setItem("notebook-language", "en");
+  saves = [];
+  fail = false;
+});
+function openPractice() {
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MemoryRouter initialEntries={["/practice"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+test("keyboard reveal conceals hints and a failed save retries before advancing to summary", async () => {
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(await screen.findByText(/Only 1 entries/)).toBeInTheDocument();
+  expect(screen.queryByText("la casa")).not.toBeInTheDocument();
+  expect(screen.queryByText("answer hint")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
+  const reveal = screen.getByRole("button", { name: /Reveal answer/ });
+  reveal.focus();
+  await user.keyboard("{Enter}");
+  expect(await screen.findByText("la casa")).toBeInTheDocument();
+  expect(screen.getByText("KA-za")).toBeInTheDocument();
+  fail = true;
+  await user.click(screen.getByRole("button", { name: "Hard" }));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(screen.getByText("la casa")).toBeInTheDocument();
+  fail = false;
+  await user.click(screen.getByRole("button", { name: "Retry" }));
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText("100%")).toBeInTheDocument();
+  expect(saves).toEqual([
+    { direction: "greek_to_italian", rating: "hard" },
+    { direction: "greek_to_italian", rating: "hard" },
+  ]);
+  await user.click(screen.getByRole("button", { name: "Practice Again" }));
+  expect(
+    await screen.findByRole("button", { name: "Start practice" }),
+  ).toBeInTheDocument();
+});
+
+test("switching direction retains the queue and requires a fresh reveal", async () => {
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Reveal answer" }),
+  );
+  expect(await screen.findByText("la casa")).toBeInTheDocument();
+  await user.selectOptions(
+    screen.getByLabelText("Learning direction"),
+    "italian_to_greek",
+  );
+  expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
+  expect(screen.queryByText("το σπίτι")).not.toBeInTheDocument();
+  expect(screen.queryByText("KA-za")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(await screen.findByRole("button", { name: "Easy" }));
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+  expect(saves).toEqual([{ direction: "italian_to_greek", rating: "easy" }]);
+});
+
+test("zero matches remain in setup with an explanation", async () => {
+  server.use(
+    http.post("*/api/sessions", () =>
+      HttpResponse.json({ error: { code: "no_matches" } }, { status: 409 }),
+    ),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.selectOptions(screen.getByLabelText("Session size"), "all");
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "No vocabulary entries are available",
+  );
+  expect(screen.getByRole("button", { name: "Start practice" })).toBeEnabled();
+});
+
+test("finishing without a review is defined and reloading starts fresh setup", async () => {
+  server.use(
+    http.get("*/api/sessions/s/summary", () =>
+      HttpResponse.json({
+        total: 0,
+        counts: { again: 0, hard: 0, easy: 0 },
+        remembered: 0,
+        needs_practice: [],
+      }),
+    ),
+  );
+  const view = openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Finish and see summary" }),
+  );
+  expect(await screen.findByText("0%")).toBeInTheDocument();
+  expect(screen.getByText(/No reviews yet/)).toBeInTheDocument();
+  await user.click(screen.getByRole("link", { name: "Return Home" }));
+  expect(
+    await screen.findByRole("heading", { name: "Benvenuti." }),
+  ).toBeInTheDocument();
+  view.unmount();
+  openPractice();
+  expect(
+    await screen.findByRole("button", { name: "Start practice" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Reveal answer" }),
+  ).not.toBeInTheDocument();
+});
+
+test("ratings stay disabled while reveal or review is saving", async () => {
+  let accept;
+  server.use(
+    http.post(
+      "*/api/sessions/s/cards/0/reviews",
+      () =>
+        new Promise((resolve) => {
+          accept = () => resolve(HttpResponse.json({ id: "r" }));
+        }),
+    ),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Reveal answer" }),
+  );
+  await user.click(await screen.findByRole("button", { name: "Hard" }));
+  expect(await screen.findByText("Saving…")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
+  expect(screen.getByLabelText("Learning direction")).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: "Finish and see summary" }),
+  ).toBeDisabled();
+  expect(
+    screen.queryByRole("heading", { name: "Session summary" }),
+  ).not.toBeInTheDocument();
+  accept();
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+});

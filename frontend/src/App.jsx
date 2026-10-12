@@ -14,6 +14,7 @@ import { request } from "./api.js";
 import { copy, languages } from "./copy.js";
 import Library from "./Library.jsx";
 import Profiles from "./Profiles.jsx";
+import Practice from "./Practice.jsx";
 
 export default function App() {
   const [language, setLanguage] = useState(() => {
@@ -113,6 +114,7 @@ export default function App() {
             <LibraryBig size={18} aria-hidden="true" />
             {text.library}
           </NavLink>
+          <NavLink to="/practice">{text.practice}</NavLink>
           <NavLink to="/settings">{text.settings}</NavLink>
           <button disabled={logout.isPending} onClick={() => logout.mutate()}>
             <LogOut size={18} aria-hidden="true" />
@@ -203,6 +205,16 @@ export default function App() {
         ) : (
           <Routes>
             <Route
+              path="/practice"
+              element={
+                <Practice
+                  text={text}
+                  csrf={session.data.csrf_token}
+                  onLocked={lockNotebook}
+                />
+              }
+            />
+            <Route
               path="/settings"
               element={
                 <Profiles
@@ -232,7 +244,10 @@ export default function App() {
                   </span>
                   <h1>{text.welcome}</h1>
                   <p>{text.homeIntro}</p>
-                  <Link className="primary" to="/vocabulary">
+                  <Link className="primary" to="/practice">
+                    {text.startPractice}
+                  </Link>
+                  <Link className="secondary" to="/vocabulary">
                     {text.openLibrary}
                     <ArrowRight size={18} aria-hidden="true" />
                   </Link>

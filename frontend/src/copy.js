@@ -2,6 +2,29 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    practice: "Practice",
+    randomPractice: "Random practice",
+    practiceSize: "Session size",
+    startPractice: "Start practice",
+    revealAnswer: "Reveal answer",
+    again: "Again",
+    hard: "Hard",
+    easy: "Easy",
+    shortage:
+      "Only {count} entries are available for your requested {size} cards. Each appears once.",
+    noMatches:
+      "No vocabulary entries are available. Add entries to the library and try again.",
+    finishPractice: "Finish and see summary",
+    sessionSummary: "Session summary",
+    reviewed: "Submitted reviews",
+    remembered: "Remembered this session",
+    noReviews: "No reviews yet. Reveal alone does not count as a review.",
+    needsPractice: "Entries needing practice",
+    practiceAgain: "Practice Again",
+    returnHome: "Return Home",
+    practiceRetry: "Retry",
+    selectedRating: "Selected rating",
+
     assignTags: "Assign tags",
     search: "Search Italian or Greek",
     filters: "Filters",
@@ -132,6 +155,30 @@ export const copy = {
     },
   },
   el: {
+    practice: "Εξάσκηση",
+    randomPractice: "Τυχαία εξάσκηση",
+    practiceSize: "Μέγεθος συνεδρίας",
+    startPractice: "Έναρξη εξάσκησης",
+    revealAnswer: "Εμφάνιση απάντησης",
+    again: "Ξανά",
+    hard: "Δύσκολο",
+    easy: "Εύκολο",
+    shortage:
+      "Υπάρχουν μόνο {count} καταχωρίσεις για τις {size} κάρτες που ζήτησες. Κάθε μία εμφανίζεται μία φορά.",
+    noMatches:
+      "Δεν υπάρχουν καταχωρίσεις. Πρόσθεσε λεξιλόγιο και δοκίμασε ξανά.",
+    finishPractice: "Τέλος και σύνοψη",
+    sessionSummary: "Σύνοψη συνεδρίας",
+    reviewed: "Αποθηκευμένες αξιολογήσεις",
+    remembered: "Θυμήθηκα σε αυτή τη συνεδρία",
+    noReviews:
+      "Δεν υπάρχουν αξιολογήσεις ακόμη. Η εμφάνιση απάντησης δεν μετρά ως αξιολόγηση.",
+    needsPractice: "Καταχωρίσεις για εξάσκηση",
+    practiceAgain: "Εξάσκηση ξανά",
+    returnHome: "Επιστροφή στην αρχική",
+    practiceRetry: "Ξαναδοκίμασε",
+    selectedRating: "Επιλεγμένη αξιολόγηση",
+
     assignTags: "Επιλογή ετικετών",
     search: "Αναζήτηση στα ιταλικά ή ελληνικά",
     filters: "Φίλτρα",
@@ -263,6 +310,29 @@ export const copy = {
     },
   },
   it: {
+    practice: "Esercitazione",
+    randomPractice: "Esercitazione casuale",
+    practiceSize: "Dimensione della sessione",
+    startPractice: "Inizia esercitazione",
+    revealAnswer: "Mostra risposta",
+    again: "Ancora",
+    hard: "Difficile",
+    easy: "Facile",
+    shortage:
+      "Sono disponibili solo {count} voci per le {size} schede richieste. Ogni voce appare una sola volta.",
+    noMatches: "Nessuna voce disponibile. Aggiungi vocaboli e riprova.",
+    finishPractice: "Termina e mostra riepilogo",
+    sessionSummary: "Riepilogo della sessione",
+    reviewed: "Valutazioni salvate",
+    remembered: "Ricordato in questa sessione",
+    noReviews:
+      "Nessuna valutazione. Mostrare la risposta non conta come valutazione.",
+    needsPractice: "Voci da esercitare",
+    practiceAgain: "Esercitati di nuovo",
+    returnHome: "Torna alla home",
+    practiceRetry: "Riprova",
+    selectedRating: "Valutazione selezionata",
+
     assignTags: "Assegna etichette",
     search: "Cerca in italiano o greco",
     filters: "Filtri",
