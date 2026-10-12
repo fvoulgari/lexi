@@ -13,6 +13,7 @@ import { Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { request } from "./api.js";
 import { copy, languages } from "./copy.js";
 import Library from "./Library.jsx";
+import Profiles from "./Profiles.jsx";
 
 export default function App() {
   const [language, setLanguage] = useState(() => {
@@ -53,7 +54,9 @@ export default function App() {
       authenticated: false,
       csrf_token: csrf,
     });
-    queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "session" });
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== "session",
+    });
   }, [queryClient]);
   const logout = useMutation({
     mutationFn: () =>
@@ -110,6 +113,7 @@ export default function App() {
             <LibraryBig size={18} aria-hidden="true" />
             {text.library}
           </NavLink>
+          <NavLink to="/settings">{text.settings}</NavLink>
           <button disabled={logout.isPending} onClick={() => logout.mutate()}>
             <LogOut size={18} aria-hidden="true" />
             <span>{text.logout}</span>
@@ -198,6 +202,16 @@ export default function App() {
           </div>
         ) : (
           <Routes>
+            <Route
+              path="/settings"
+              element={
+                <Profiles
+                  text={text}
+                  csrf={session.data.csrf_token}
+                  onLocked={lockNotebook}
+                />
+              }
+            />
             <Route
               path="/vocabulary"
               element={<Library text={text} onLocked={lockNotebook} />}

@@ -2,6 +2,28 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    allEntries: "All",
+    settings: "Learners & settings",
+    profileIntro: "Choose a learner and set preferences for future practice.",
+    profilePrivacy:
+      "Profiles are not authenticated identities. Everyone inside the gate can select any profile.",
+    profile: "Learner profile",
+    chooseProfile: "Choose a profile",
+    newProfile: "Create learner profile",
+    missingProfile:
+      "The remembered learner is no longer available. Choose a profile.",
+    editProfile: "Edit learner profile",
+    displayName: "Display name",
+    direction: "Learning direction",
+    sessionSize: "Default session size",
+    sizeHint:
+      "Choose 10, 25, 50, or All entries. Preferences follow this learner across devices.",
+    nameRequired: "Enter a name of 1–80 characters.",
+    saving: "Saving…",
+    savePreferences: "Save preferences",
+    createProfile: "Create profile",
+    preferencesSaved: "Preferences saved.",
+
     tagline: "A little Italian, every day.",
     gateTitle: "Welcome to your notebook.",
     gateIntro:
@@ -61,6 +83,28 @@ export const copy = {
     },
   },
   el: {
+    allEntries: "Όλες",
+    settings: "Προφίλ και ρυθμίσεις",
+    profileIntro: "Επίλεξε προφίλ και προτιμήσεις για την εξάσκηση.",
+    profilePrivacy:
+      "Τα προφίλ δεν είναι πιστοποιημένες ταυτότητες. Όλοι όσοι έχουν πρόσβαση μπορούν να επιλέξουν οποιοδήποτε προφίλ.",
+    profile: "Προφίλ μαθητή",
+    chooseProfile: "Επίλεξε προφίλ",
+    newProfile: "Δημιουργία προφίλ μαθητή",
+    missingProfile:
+      "Το αποθηκευμένο προφίλ δεν είναι πλέον διαθέσιμο. Επίλεξε προφίλ.",
+    editProfile: "Επεξεργασία προφίλ",
+    displayName: "Όνομα εμφάνισης",
+    direction: "Κατεύθυνση μάθησης",
+    sessionSize: "Προεπιλεγμένο μέγεθος συνεδρίας",
+    sizeHint:
+      "Επίλεξε 10, 25, 50 ή όλες τις καταχωρίσεις. Οι προτιμήσεις ακολουθούν το προφίλ σε όλες τις συσκευές.",
+    nameRequired: "Συμπλήρωσε όνομα με 1–80 χαρακτήρες.",
+    saving: "Αποθήκευση…",
+    savePreferences: "Αποθήκευση προτιμήσεων",
+    createProfile: "Δημιουργία προφίλ",
+    preferencesSaved: "Οι προτιμήσεις αποθηκεύτηκαν.",
+
     tagline: "Λίγα ιταλικά, κάθε μέρα.",
     gateTitle: "Καλώς ήρθες στο τετράδιό σου.",
     gateIntro:
@@ -121,6 +165,28 @@ export const copy = {
     },
   },
   it: {
+    allEntries: "Tutte",
+    settings: "Profili e impostazioni",
+    profileIntro: "Scegli un profilo e le preferenze per la pratica.",
+    profilePrivacy:
+      "I profili non sono identità autenticate. Chiunque abbia accesso può scegliere qualsiasi profilo.",
+    profile: "Profilo studente",
+    chooseProfile: "Scegli un profilo",
+    newProfile: "Crea profilo studente",
+    missingProfile:
+      "Il profilo memorizzato non è più disponibile. Scegli un profilo.",
+    editProfile: "Modifica profilo",
+    displayName: "Nome visualizzato",
+    direction: "Direzione di apprendimento",
+    sessionSize: "Dimensione predefinita della sessione",
+    sizeHint:
+      "Scegli 10, 25, 50 o tutte le voci. Le preferenze seguono il profilo su tutti i dispositivi.",
+    nameRequired: "Inserisci un nome di 1–80 caratteri.",
+    saving: "Salvataggio…",
+    savePreferences: "Salva preferenze",
+    createProfile: "Crea profilo",
+    preferencesSaved: "Preferenze salvate.",
+
     tagline: "Un po’ di italiano, ogni giorno.",
     gateTitle: "Benvenuto nel tuo quaderno.",
     gateIntro:

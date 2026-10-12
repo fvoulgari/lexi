@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
@@ -12,7 +13,13 @@ from app.auth import SharedGate
 from app.config import Settings
 from app.database import database
 from app.models import Profile, Unit, VocabularyEntry
-from app.schemas import ProfileOutput, UnitOutput, VocabularyPage
+from app.schemas import (
+    ProfileCreate,
+    ProfileOutput,
+    ProfileUpdate,
+    UnitOutput,
+    VocabularyPage,
+)
 
 
 def create_app():
@@ -126,6 +133,46 @@ def create_app():
             return db.scalars(
                 select(Profile).order_by(Profile.created_at, Profile.id)
             ).all()
+
+    @app.post(
+        "/api/profiles",
+        response_model=ProfileOutput,
+        status_code=201,
+        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
+    )
+    def create_profile(body: ProfileCreate):
+        with sessions.begin() as db:
+            profile = Profile(**body.model_dump())
+            db.add(profile)
+            db.flush()
+            return ProfileOutput.model_validate(profile)
+
+    @app.get(
+        "/api/profiles/{profile_id}",
+        response_model=ProfileOutput,
+        dependencies=[Depends(gate.require)],
+    )
+    def read_profile(profile_id: UUID):
+        with sessions() as db:
+            profile = db.get(Profile, profile_id)
+            if profile is None:
+                raise HTTPException(404, detail="Learner profile not found.")
+            return profile
+
+    @app.patch(
+        "/api/profiles/{profile_id}",
+        response_model=ProfileOutput,
+        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
+    )
+    def update_profile(profile_id: UUID, body: ProfileUpdate):
+        with sessions.begin() as db:
+            profile = db.get(Profile, profile_id)
+            if profile is None:
+                raise HTTPException(404, detail="Learner profile not found.")
+            for field, value in body.model_dump(exclude_unset=True).items():
+                setattr(profile, field, value)
+            db.flush()
+            return ProfileOutput.model_validate(profile)
 
     @app.get(
         "/api/units",

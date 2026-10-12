@@ -1,6 +1,6 @@
 # Italian Notebook
 
-A calm, mobile-first Italian–Greek vocabulary notebook. This first slice implements the shared-password gate and a real PostgreSQL-backed, paginated library. Learner editing, flashcard practice, import/export, and progress are delivered by the later GitHub tickets.
+A calm, mobile-first Italian–Greek vocabulary notebook. This first slice implements the shared-password gate and a real PostgreSQL-backed, paginated library. Flashcard practice, import/export, and progress are delivered by the later GitHub tickets.
 
 ## Start locally with Docker
 
@@ -14,7 +14,7 @@ Requires Docker Desktop (or Docker Engine with Compose).
 
 Compose exposes the UI and API only on localhost. PostgreSQL has a persistent named volume and **no published port**. Startup runs Alembic migrations before serving requests. Seeding is explicit; rerunning it is idempotent for the original seed identities and does not overwrite existing data. Do not use it to reset a modified library.
 
-The initial library has ten entries in Unit 00, Benvenuti. Unit 01, Un nuovo inizio, is initially empty. Foteini and Spyros are seeded learner profiles; profile selection and creation come in the next slice. Interface language defaults to Greek and can be changed to English or Italian from the header.
+The initial library has ten entries in Unit 00, Benvenuti. Unit 01, Un nuovo inizio, is initially empty. Foteini and Spyros are seeded learner profiles; choose or create a learner from Learners & settings. Names are trimmed and must contain 1–80 characters. Learning direction defaults to Greek to Italian and session size to 25 (choices: 10, 25, 50, or All; the API represents All as `null`). These preferences are stored in PostgreSQL and follow the profile across devices. The last selected profile is remembered only on this device; a missing profile prompts a fresh selection. Interface language defaults to Greek and can be changed to English or Italian from the header.
 
 ## Run without application containers
 
@@ -113,4 +113,4 @@ Verify the restored library before planning a live database replacement. Do not 
 
 ## Current scope
 
-This slice provides a gated read-only vocabulary library, seeded learner/unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Flashcard practice, library editing/filtering, learner management, CSV tools, progress, and PWA installation remain in the subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated read-only vocabulary library, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Flashcard practice, library editing/filtering, CSV tools, progress, and PWA installation remain in the subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.

@@ -44,7 +44,7 @@ def test_private_responses_cannot_be_cached(logged_in):
 def test_seeded_profiles_and_units_are_only_visible_inside_gate(client, logged_in):
     assert {
         profile["display_name"] for profile in logged_in.get("/api/profiles").json()
-    } == {"Foteini", "Spyros"}
+    } >= {"Foteini", "Spyros"}
     assert [unit["code"] for unit in logged_in.get("/api/units").json()] == ["00", "01"]
     logged_in.cookies.clear()
     assert client.get("/api/profiles").status_code == 401
