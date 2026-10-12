@@ -28,7 +28,7 @@ const server = setupServer(
     return HttpResponse.json(profiles.find((p) => p.id === params.id));
   }),
   http.post("*/api/profiles", async ({ request }) => {
-    const profile = { id: "new", ...(await request.json()) };
+    const profile = { id: "m", ...(await request.json()) };
     profiles.push(profile);
     return HttpResponse.json(profile, { status: 201 });
   }),
@@ -71,7 +71,7 @@ test("switching learners loads persisted preferences and remembers selection", a
   localStorage.setItem("notebook-profile", "s");
   const view = openSettings();
   expect(await screen.findByLabelText("Display name")).toHaveValue("Spyros");
-  expect(screen.getByLabelText("Default session size")).toHaveValue(10);
+  expect(screen.getByLabelText("Default session size")).toHaveValue("10");
   const user = userEvent.setup();
   await user.selectOptions(screen.getByLabelText("Learner profile"), "f");
   expect(screen.getByLabelText("Display name")).toHaveValue("Foteini");
@@ -79,8 +79,7 @@ test("switching learners loads persisted preferences and remembers selection", a
     screen.getByLabelText("Learning direction"),
     "italian_to_greek",
   );
-  await user.clear(screen.getByLabelText("Default session size"));
-  await user.type(screen.getByLabelText("Default session size"), "30");
+  await user.selectOptions(screen.getByLabelText("Default session size"), "50");
   await user.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Preferences saved",
@@ -88,7 +87,9 @@ test("switching learners loads persisted preferences and remembers selection", a
   expect(localStorage.getItem("notebook-profile")).toBe("f");
   view.unmount();
   openSettings();
-  expect(await screen.findByLabelText("Default session size")).toHaveValue(30);
+  expect(await screen.findByLabelText("Default session size")).toHaveValue(
+    "50",
+  );
 });
 test("a missing remembered profile offers a fresh selection", async () => {
   localStorage.setItem("notebook-profile", "missing");
@@ -122,9 +123,28 @@ test("create a profile with defaults and validate blank names", async () => {
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Preferences saved",
   );
-  expect(screen.getByLabelText("Learner profile")).toHaveValue("new");
-  expect(screen.getByLabelText("Default session size")).toHaveValue(25);
+  expect(screen.getByLabelText("Learner profile")).toHaveValue("m");
+  expect(screen.getByLabelText("Default session size")).toHaveValue("25");
   expect(
     screen.getByText(/Everyone inside the gate can select any profile/),
   ).toBeInTheDocument();
+});
+
+test("All can be saved as a learner preference", async () => {
+  localStorage.setItem("notebook-profile", "f");
+  const view = openSettings();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Default session size"),
+    "all",
+  );
+  await user.click(screen.getByRole("button", { name: "Save preferences" }));
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Preferences saved",
+  );
+  view.unmount();
+  openSettings();
+  expect(await screen.findByLabelText("Default session size")).toHaveValue(
+    "all",
+  );
 });

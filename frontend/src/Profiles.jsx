@@ -14,6 +14,7 @@ export default function Profiles({ text, csrf, onLocked }) {
   const client = useQueryClient();
   const [selected, setSelected] = useState(rememberedProfile);
   const [creating, setCreating] = useState(false);
+  const [savedId, setSavedId] = useState(null);
   const profiles = useQuery({
     queryKey: ["profiles"],
     queryFn: () => request("/api/profiles"),
@@ -41,6 +42,7 @@ export default function Profiles({ text, csrf, onLocked }) {
         ? list.map((item) => (item.id === result.id ? result : item))
         : [...list, result];
     });
+    setSavedId(result.id);
     setSelected(result.id);
     setCreating(false);
   }
@@ -73,6 +75,7 @@ export default function Profiles({ text, csrf, onLocked }) {
               <select
                 value={profile?.id || ""}
                 onChange={(event) => {
+                  setSavedId(null);
                   setSelected(event.target.value);
                   setCreating(false);
                 }}
@@ -85,7 +88,13 @@ export default function Profiles({ text, csrf, onLocked }) {
                 ))}
               </select>
             </label>
-            <button className="primary" onClick={() => setCreating(true)}>
+            <button
+              className="primary"
+              onClick={() => {
+                setSavedId(null);
+                setCreating(true);
+              }}
+            >
               {text.newProfile}
             </button>
           </div>
@@ -97,8 +106,12 @@ export default function Profiles({ text, csrf, onLocked }) {
               text={text}
               csrf={csrf}
               onSaved={saved}
+              onChanged={() => setSavedId(null)}
               onLocked={onLocked}
             />
+          )}
+          {savedId === profile?.id && (
+            <p role="status">{text.preferencesSaved}</p>
           )}
         </>
       )}
@@ -106,14 +119,15 @@ export default function Profiles({ text, csrf, onLocked }) {
   );
 }
 
-function ProfileForm({ profile, text, csrf, onSaved, onLocked }) {
+function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
   const [name, setName] = useState(profile?.display_name || "");
   const [direction, setDirection] = useState(
     profile?.preferred_direction || "greek_to_italian",
   );
-  const [size, setSize] = useState(profile?.default_session_size ?? 25);
+  const [size, setSize] = useState(
+    profile ? (profile.default_session_size ?? "all") : 25,
+  );
   const [invalid, setInvalid] = useState(false);
-  const [saved, setSaved] = useState(false);
   const save = useMutation({
     mutationFn: () =>
       request(profile ? `/api/profiles/${profile.id}` : "/api/profiles", {
@@ -122,11 +136,10 @@ function ProfileForm({ profile, text, csrf, onSaved, onLocked }) {
         body: JSON.stringify({
           display_name: name.trim(),
           preferred_direction: direction,
-          default_session_size: Number(size),
+          default_session_size: size === "all" ? null : Number(size),
         }),
       }),
     onSuccess: (result) => {
-      setSaved(true);
       onSaved(result);
     },
     onError: (error) => {
@@ -138,7 +151,7 @@ function ProfileForm({ profile, text, csrf, onSaved, onLocked }) {
       className="profile-form"
       onSubmit={(event) => {
         event.preventDefault();
-        setSaved(false);
+        onChanged();
         if (!name.trim()) {
           setInvalid(true);
           return;
@@ -157,7 +170,7 @@ function ProfileForm({ profile, text, csrf, onSaved, onLocked }) {
           maxLength={80}
           onChange={(event) => {
             setName(event.target.value);
-            setSaved(false);
+            onChanged();
           }}
           aria-invalid={invalid}
           aria-describedby={invalid ? "profile-validation" : undefined}
@@ -168,7 +181,7 @@ function ProfileForm({ profile, text, csrf, onSaved, onLocked }) {
           value={direction}
           onChange={(event) => {
             setDirection(event.target.value);
-            setSaved(false);
+            onChanged();
           }}
         >
           <option value="greek_to_italian">
@@ -179,19 +192,19 @@ function ProfileForm({ profile, text, csrf, onSaved, onLocked }) {
           </option>
         </select>
         <label htmlFor="profile-size">{text.sessionSize}</label>
-        <input
+        <select
           id="profile-size"
-          type="number"
-          min={1}
-          max={100}
-          step={1}
-          required
           value={size}
           onChange={(event) => {
             setSize(event.target.value);
-            setSaved(false);
+            onChanged();
           }}
-        />
+        >
+          <option value="10">10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="all">{text.allEntries}</option>
+        </select>
         <p>{text.sizeHint}</p>
         {invalid && (
           <p id="profile-validation" className="error" role="alert">
@@ -211,9 +224,6 @@ function ProfileForm({ profile, text, csrf, onSaved, onLocked }) {
               : text.createProfile}
         </button>
       </fieldset>
-      {(saved || (!profile && save.isSuccess)) && (
-        <p role="status">{text.preferencesSaved}</p>
-      )}
     </form>
   );
 }

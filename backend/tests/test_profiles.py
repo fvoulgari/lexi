@@ -68,7 +68,6 @@ def test_profile_validation_and_missing_profiles(logged_in):
     profile = logged_in.get("/api/profiles").json()[0]
     for body in [
         {"display_name": None},
-        {"default_session_size": None},
         {"preferred_direction": None},
         {"display_name": "\n\t"},
     ]:
@@ -94,3 +93,23 @@ def test_profile_mutations_require_gate_and_csrf(client, logged_in):
         client.post("/api/profiles", json={"display_name": "Name"}).status_code == 401
     )
     assert client.patch(path, json={"display_name": "Name"}).status_code == 401
+
+
+def test_all_entries_preference_persists(logged_in):
+    profile = logged_in.post(
+        "/api/profiles",
+        json={"display_name": "All entries", "default_session_size": None},
+        headers=headers(logged_in),
+    ).json()
+    assert (
+        logged_in.get(f"/api/profiles/{profile['id']}").json()["default_session_size"]
+        is None
+    )
+    assert (
+        logged_in.patch(
+            f"/api/profiles/{profile['id']}",
+            json={"default_session_size": 30},
+            headers=headers(logged_in),
+        ).status_code
+        == 422
+    )

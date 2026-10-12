@@ -17,7 +17,7 @@ def upgrade():
             "default_session_size",
             sa.Integer(),
             server_default="25",
-            nullable=False,
+            nullable=True,
         ),
     )
 

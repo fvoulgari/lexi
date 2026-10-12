@@ -2,6 +2,7 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    allEntries: "All",
     settings: "Learners & settings",
     profileIntro: "Choose a learner and set preferences for future practice.",
     profilePrivacy:
@@ -16,7 +17,7 @@ export const copy = {
     direction: "Learning direction",
     sessionSize: "Default session size",
     sizeHint:
-      "Choose 1–100 entries. Preferences follow this learner across devices.",
+      "Choose 10, 25, 50, or All entries. Preferences follow this learner across devices.",
     nameRequired: "Enter a name of 1–80 characters.",
     saving: "Saving…",
     savePreferences: "Save preferences",
@@ -82,6 +83,7 @@ export const copy = {
     },
   },
   el: {
+    allEntries: "Όλες",
     settings: "Προφίλ και ρυθμίσεις",
     profileIntro: "Επίλεξε προφίλ και προτιμήσεις για την εξάσκηση.",
     profilePrivacy:
@@ -96,7 +98,7 @@ export const copy = {
     direction: "Κατεύθυνση μάθησης",
     sessionSize: "Προεπιλεγμένο μέγεθος συνεδρίας",
     sizeHint:
-      "Επίλεξε 1–100 καταχωρίσεις. Οι προτιμήσεις ακολουθούν το προφίλ σε όλες τις συσκευές.",
+      "Επίλεξε 10, 25, 50 ή όλες τις καταχωρίσεις. Οι προτιμήσεις ακολουθούν το προφίλ σε όλες τις συσκευές.",
     nameRequired: "Συμπλήρωσε όνομα με 1–80 χαρακτήρες.",
     saving: "Αποθήκευση…",
     savePreferences: "Αποθήκευση προτιμήσεων",
@@ -163,6 +165,7 @@ export const copy = {
     },
   },
   it: {
+    allEntries: "Tutte",
     settings: "Profili e impostazioni",
     profileIntro: "Scegli un profilo e le preferenze per la pratica.",
     profilePrivacy:
@@ -177,7 +180,7 @@ export const copy = {
     direction: "Direzione di apprendimento",
     sessionSize: "Dimensione predefinita della sessione",
     sizeHint:
-      "Scegli 1–100 voci. Le preferenze seguono il profilo su tutti i dispositivi.",
+      "Scegli 10, 25, 50 o tutte le voci. Le preferenze seguono il profilo su tutti i dispositivi.",
     nameRequired: "Inserisci un nome di 1–80 caratteri.",
     saving: "Salvataggio…",
     savePreferences: "Salva preferenze",

@@ -1,7 +1,15 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -16,7 +24,9 @@ class Profile(Base):
     preferred_direction: Mapped[str] = mapped_column(
         String(24), default="greek_to_italian"
     )
-    default_session_size: Mapped[int] = mapped_column(default=25, server_default="25")
+    default_session_size: Mapped[int | None] = mapped_column(
+        Integer().evaluates_none(), default=25, server_default="25"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
