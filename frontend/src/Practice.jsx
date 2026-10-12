@@ -355,9 +355,9 @@ function Flashcard({
                   <div key={field}>
                     <dt>{text.fields[field]}</dt>
                     <dd>
-                      {text[entry[field]] ||
-                        text.types?.[entry[field]] ||
-                        entry[field]}
+                      {field.endsWith("_gender")
+                        ? text[entry[field]]
+                        : entry[field]}
                     </dd>
                   </div>
                 ))}

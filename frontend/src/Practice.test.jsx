@@ -46,7 +46,7 @@ const server = setupServer(
             italian_gender: "feminine",
             italian_plural: "le case",
             pronunciation: "KA-za",
-            notes: "answer hint",
+            notes: "welcome",
           },
         },
       ],
@@ -114,13 +114,14 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
   expect(screen.getByText("00 · Benvenuti")).toBeInTheDocument();
   expect(screen.getByText("Noun")).toBeInTheDocument();
   expect(screen.queryByText("la casa")).not.toBeInTheDocument();
-  expect(screen.queryByText("answer hint")).not.toBeInTheDocument();
+  expect(screen.queryByText("welcome")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
   const reveal = screen.getByRole("button", { name: /Reveal answer/ });
   reveal.focus();
   await user.keyboard("{Enter}");
   expect(await screen.findByText("la casa")).toBeInTheDocument();
   expect(screen.getByText("KA-za")).toBeInTheDocument();
+  expect(screen.getByText("welcome")).toBeInTheDocument();
   fail = true;
   await user.click(screen.getByRole("button", { name: "Hard" }));
   expect(await screen.findByRole("alert")).toBeInTheDocument();
