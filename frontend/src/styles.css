@@ -720,3 +720,89 @@ main {
     text-align: center;
   }
 }
+
+.vocabulary-form {
+  margin: 24px 0;
+  padding: 28px;
+  border: 1px solid #cad9c6;
+  border-radius: 18px;
+  background: #fffdf8;
+}
+.vocabulary-form > p {
+  line-height: 1.7;
+  font-size: 14px;
+}
+.vocabulary-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.entry-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.entry-fields label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.entry-fields .wide-field {
+  grid-column: 1 / -1;
+}
+.entry-fields input,
+.entry-fields textarea,
+.entry-fields select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid #cad9c6;
+  border-radius: 10px;
+  background: #fffdf8;
+  color: #304f3a;
+  font: inherit;
+}
+.entry-fields textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+.entry-fields [aria-invalid="true"] {
+  border-color: #8f352c;
+}
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+.secondary {
+  min-height: 44px;
+  padding: 10px 14px;
+  background: #fffdf8;
+  border: 1px solid #cad9c6;
+  border-radius: 9px;
+  color: #304f3a;
+}
+.entry-card .secondary {
+  margin-bottom: 18px;
+}
+.save-notice {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #cad9c6;
+  border-radius: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.save-notice p:last-child {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .vocabulary-form {
+    padding: 20px;
+  }
+  .entry-fields {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,3 +1,4 @@
+import unicodedata
 from contextlib import asynccontextmanager
 from uuid import UUID
 
@@ -18,7 +19,11 @@ from app.schemas import (
     ProfileOutput,
     ProfileUpdate,
     UnitOutput,
+    VocabularyCreate,
+    VocabularyOutput,
     VocabularyPage,
+    VocabularySaved,
+    VocabularyUpdate,
 )
 
 
@@ -76,6 +81,13 @@ def create_app():
                 "error": {
                     "code": "invalid_input",
                     "message": "Check the submitted fields.",
+                    "fields": sorted(
+                        {
+                            str(error["loc"][1])
+                            for error in exc.errors()
+                            if len(error["loc"]) > 1 and error["loc"][0] == "body"
+                        }
+                    ),
                 }
             },
         )
@@ -122,6 +134,82 @@ def create_app():
                 "page": page,
                 "page_size": page_size,
             }
+
+    @app.get(
+        "/api/vocabulary/{entry_id}",
+        response_model=VocabularyOutput,
+        dependencies=[Depends(gate.require)],
+    )
+    def read_entry(entry_id: UUID):
+        with sessions() as db:
+            entry = db.get(VocabularyEntry, entry_id)
+            if entry is None:
+                raise HTTPException(404, detail="Vocabulary entry not found.")
+            return entry
+
+    def save_entry(body, entry_id=None):
+        with sessions.begin() as db:
+            values = body.model_dump(exclude_unset=True)
+            if (
+                values.get("unit_id") is not None
+                and db.get(Unit, values["unit_id"]) is None
+            ):
+                raise HTTPException(
+                    422,
+                    detail={
+                        "code": "invalid_input",
+                        "message": "Choose an existing unit.",
+                        "fields": ["unit_id"],
+                    },
+                )
+            if entry_id is None:
+                entry = VocabularyEntry(**values)
+                db.add(entry)
+            else:
+                entry = db.get(VocabularyEntry, entry_id)
+                if entry is None:
+                    raise HTTPException(404, detail="Vocabulary entry not found.")
+                for field, value in values.items():
+                    setattr(entry, field, value)
+            db.flush()
+            db.refresh(entry)
+
+            def normalized(value):
+                return unicodedata.normalize("NFC", value.strip()).casefold()
+
+            pair = (normalized(entry.italian), normalized(entry.greek))
+            duplicates = [
+                other.id
+                for other in db.execute(
+                    select(
+                        VocabularyEntry.id,
+                        VocabularyEntry.italian,
+                        VocabularyEntry.greek,
+                    ).where(VocabularyEntry.id != entry.id)
+                )
+                if (normalized(other.italian), normalized(other.greek)) == pair
+            ]
+            return {
+                "entry": VocabularyOutput.model_validate(entry),
+                "duplicate_ids": duplicates,
+            }
+
+    @app.post(
+        "/api/vocabulary",
+        response_model=VocabularySaved,
+        status_code=201,
+        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
+    )
+    def create_entry(body: VocabularyCreate):
+        return save_entry(body)
+
+    @app.patch(
+        "/api/vocabulary/{entry_id}",
+        response_model=VocabularySaved,
+        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
+    )
+    def update_entry(entry_id: UUID, body: VocabularyUpdate):
+        return save_entry(body, entry_id)
 
     @app.get(
         "/api/profiles",

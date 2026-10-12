@@ -2,7 +2,13 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 
 class UnitOutput(BaseModel):
@@ -76,3 +82,72 @@ class VocabularyPage(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+EntryText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+]
+OptionalText = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=10000)
+]
+PluralText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+WordType = Literal["noun", "verb", "adjective", "adverb", "expression", "other"]
+Gender = Literal["masculine", "feminine", "neuter"]
+
+
+class VocabularyFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    unit_id: UUID | None = None
+    italian_gender: Gender | None = None
+    greek_gender: Gender | None = None
+    italian_plural: PluralText | None = None
+    greek_plural: PluralText | None = None
+    italian_example: OptionalText | None = None
+    greek_example: OptionalText | None = None
+    notes: OptionalText | None = None
+    pronunciation: OptionalText | None = None
+
+    @field_validator(
+        "italian_plural",
+        "greek_plural",
+        "italian_example",
+        "greek_example",
+        "notes",
+        "pronunciation",
+    )
+    @classmethod
+    def empty_optional_text(cls, value):
+        return value or None
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def reject_invalid_text(cls, value):
+        if isinstance(value, str) and any(
+            ord(char) == 0 or 0xD800 <= ord(char) <= 0xDFFF for char in value
+        ):
+            raise ValueError("Text contains invalid Unicode characters.")
+        return value
+
+
+class VocabularyCreate(VocabularyFields):
+    italian: EntryText
+    greek: EntryText
+    word_type: WordType
+
+
+class VocabularyUpdate(VocabularyFields):
+    italian: EntryText | None = None
+    greek: EntryText | None = None
+    word_type: WordType | None = None
+
+    @field_validator("italian", "greek", "word_type", mode="before")
+    @classmethod
+    def required_fields_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError("Italian, Greek and word type cannot be null.")
+        return value
+
+
+class VocabularySaved(BaseModel):
+    entry: VocabularyOutput
+    duplicate_ids: list[UUID]

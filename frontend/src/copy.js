@@ -2,6 +2,37 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    addEntry: "Add entry",
+    editEntry: "Edit entry",
+    saveEntry: "Save entry",
+    cancel: "Cancel",
+    entrySaved: "Entry saved.",
+    chooseType: "Choose a word type",
+    unspecified: "Not specified",
+    masculine: "Masculine",
+    feminine: "Feminine",
+    neuter: "Neuter",
+    meaningHint:
+      "One meaning per entry. For a different meaning, add a new entry. Required fields are marked *.",
+    duplicateWarning:
+      "A matching Italian–Greek pair already exists. Your entry was saved; keep it if it represents a different meaning.",
+    checkFields: "Check these fields:",
+    fieldHint:
+      "Enter the required text and choose a listed value. Text is limited to 500 characters, or 10,000 for examples, notes and pronunciation.",
+    fields: {
+      italian: "Italian",
+      greek: "Greek",
+      word_type: "Word type",
+      italian_gender: "Italian gender",
+      greek_gender: "Greek gender",
+      italian_plural: "Italian plural",
+      greek_plural: "Greek plural",
+      italian_example: "Italian example",
+      greek_example: "Greek example",
+      notes: "Notes",
+      pronunciation: "Pronunciation text",
+    },
+
     allEntries: "All",
     settings: "Learners & settings",
     profileIntro: "Choose a learner and set preferences for future practice.",
@@ -83,6 +114,37 @@ export const copy = {
     },
   },
   el: {
+    addEntry: "Προσθήκη καταχώρισης",
+    editEntry: "Επεξεργασία καταχώρισης",
+    saveEntry: "Αποθήκευση καταχώρισης",
+    cancel: "Ακύρωση",
+    entrySaved: "Η καταχώριση αποθηκεύτηκε.",
+    chooseType: "Επίλεξε μέρος του λόγου",
+    unspecified: "Δεν έχει οριστεί",
+    masculine: "Αρσενικό",
+    feminine: "Θηλυκό",
+    neuter: "Ουδέτερο",
+    meaningHint:
+      "Μία σημασία ανά καταχώριση. Για διαφορετική σημασία, πρόσθεσε νέα καταχώριση. Τα υποχρεωτικά πεδία έχουν *.",
+    duplicateWarning:
+      "Υπάρχει ήδη ίδιο ζεύγος ιταλικών–ελληνικών. Η καταχώριση αποθηκεύτηκε· κράτησέ την αν εκφράζει διαφορετική σημασία.",
+    checkFields: "Έλεγξε τα πεδία:",
+    fieldHint:
+      "Συμπλήρωσε το υποχρεωτικό κείμενο και επίλεξε τιμή από τη λίστα. Όριο 500 χαρακτήρων ή 10.000 για παραδείγματα, σημειώσεις και προφορά.",
+    fields: {
+      italian: "Ιταλικά",
+      greek: "Ελληνικά",
+      word_type: "Μέρος του λόγου",
+      italian_gender: "Ιταλικό γένος",
+      greek_gender: "Ελληνικό γένος",
+      italian_plural: "Ιταλικός πληθυντικός",
+      greek_plural: "Ελληνικός πληθυντικός",
+      italian_example: "Ιταλικό παράδειγμα",
+      greek_example: "Ελληνικό παράδειγμα",
+      notes: "Σημειώσεις",
+      pronunciation: "Κείμενο προφοράς",
+    },
+
     allEntries: "Όλες",
     settings: "Προφίλ και ρυθμίσεις",
     profileIntro: "Επίλεξε προφίλ και προτιμήσεις για την εξάσκηση.",
@@ -165,6 +227,37 @@ export const copy = {
     },
   },
   it: {
+    addEntry: "Aggiungi voce",
+    editEntry: "Modifica voce",
+    saveEntry: "Salva voce",
+    cancel: "Annulla",
+    entrySaved: "Voce salvata.",
+    chooseType: "Scegli il tipo di parola",
+    unspecified: "Non specificato",
+    masculine: "Maschile",
+    feminine: "Femminile",
+    neuter: "Neutro",
+    meaningHint:
+      "Un significato per voce. Per un significato diverso, aggiungi una nuova voce. I campi obbligatori hanno *.",
+    duplicateWarning:
+      "Esiste già una coppia italiano–greco corrispondente. La voce è stata salvata; mantienila se esprime un significato diverso.",
+    checkFields: "Controlla questi campi:",
+    fieldHint:
+      "Inserisci il testo obbligatorio e scegli un valore dalla lista. Limite di 500 caratteri, o 10.000 per esempi, note e pronuncia.",
+    fields: {
+      italian: "Italiano",
+      greek: "Greco",
+      word_type: "Tipo di parola",
+      italian_gender: "Genere italiano",
+      greek_gender: "Genere greco",
+      italian_plural: "Plurale italiano",
+      greek_plural: "Plurale greco",
+      italian_example: "Esempio italiano",
+      greek_example: "Esempio greco",
+      notes: "Note",
+      pronunciation: "Testo di pronuncia",
+    },
+
     allEntries: "Tutte",
     settings: "Profili e impostazioni",
     profileIntro: "Scegli un profilo e le preferenze per la pratica.",

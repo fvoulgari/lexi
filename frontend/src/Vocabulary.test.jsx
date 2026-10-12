@@ -1,0 +1,221 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+import { setupServer } from "msw/node";
+import { MemoryRouter } from "react-router-dom";
+import {
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+  test,
+  expect,
+} from "vitest";
+import App from "./App.jsx";
+let entries;
+const server = setupServer(
+  http.get("*/api/auth/session", () =>
+    HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
+  ),
+  http.get("*/api/vocabulary", () =>
+    HttpResponse.json({
+      items: entries,
+      total: entries.length,
+      page: 1,
+      page_size: 6,
+    }),
+  ),
+  http.get("*/api/units", () =>
+    HttpResponse.json([{ id: "u", code: "00", title: "Benvenuti" }]),
+  ),
+  http.post("*/api/vocabulary", async ({ request }) => {
+    expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
+    const entry = { id: "new", ...(await request.json()) };
+    entries.push(entry);
+    return HttpResponse.json({ entry, duplicate_ids: [] }, { status: 201 });
+  }),
+  http.patch("*/api/vocabulary/:id", async ({ request, params }) => {
+    expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
+    const body = await request.json();
+    entries = entries.map((entry) =>
+      entry.id === params.id ? { ...entry, ...body } : entry,
+    );
+    return HttpResponse.json({
+      entry: entries.find((entry) => entry.id === params.id),
+      duplicate_ids: [],
+    });
+  }),
+);
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterAll(() => server.close());
+afterEach(() => server.resetHandlers());
+beforeEach(() => {
+  localStorage.clear();
+  localStorage.setItem("notebook-language", "en");
+  entries = [
+    {
+      id: "house",
+      italian: "la casa",
+      greek: "το σπίτι",
+      word_type: "noun",
+      italian_gender: "feminine",
+      greek_gender: "neuter",
+      notes: "Home",
+    },
+  ];
+});
+function openLibrary() {
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: {
+            queries: { retry: false },
+            mutations: { retry: false },
+          },
+        })
+      }
+    >
+      <MemoryRouter initialEntries={["/vocabulary"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+test("add a complete bilingual meaning and edit it from the library", async () => {
+  openLibrary();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Add entry" }));
+  await user.type(screen.getByLabelText("Italian *"), "il perché");
+  await user.type(screen.getByLabelText("Greek *"), "το γιατί");
+  await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
+  await user.selectOptions(
+    screen.getByLabelText("Italian gender"),
+    "masculine",
+  );
+  await user.selectOptions(screen.getByLabelText("Greek gender"), "neuter");
+  await user.type(screen.getByLabelText("Italian plural"), "i perché");
+  await user.type(screen.getByLabelText("Greek plural"), "τα γιατί");
+  await user.type(
+    screen.getByLabelText("Italian example"),
+    "Non so il perché.",
+  );
+  await user.type(screen.getByLabelText("Greek example"), "Δεν ξέρω το γιατί.");
+  await user.type(screen.getByLabelText("Pronunciation text"), "perˈke");
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Entry saved.");
+  expect(
+    await screen.findByRole("heading", { name: "il perché" }),
+  ).toBeInTheDocument();
+  await user.click(
+    screen.getByRole("button", { name: "Edit entry: il perché" }),
+  );
+  expect(screen.getByLabelText("Italian gender")).toHaveValue("masculine");
+  expect(screen.getByLabelText("Greek example")).toHaveValue(
+    "Δεν ξέρω το γιατί.",
+  );
+  await user.clear(screen.getByLabelText("Italian *"));
+  await user.type(screen.getByLabelText("Italian *"), "il motivo");
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(
+    await screen.findByRole("heading", { name: "il motivo" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "il perché" }),
+  ).not.toBeInTheDocument();
+});
+
+test("required fields are identified and failed saves keep the draft for retry", async () => {
+  let failed = true;
+  server.use(
+    http.post("*/api/vocabulary", async ({ request }) => {
+      if (failed)
+        return HttpResponse.json(
+          { error: { code: "invalid_input", fields: ["italian"] } },
+          { status: 422 },
+        );
+      const entry = { id: "retry", ...(await request.json()) };
+      entries.push(entry);
+      return HttpResponse.json({ entry, duplicate_ids: [] }, { status: 201 });
+    }),
+  );
+  openLibrary();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Add entry" }));
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Italian, Greek, Word type",
+  );
+  expect(screen.getByLabelText("Italian *")).toHaveFocus();
+  await user.type(screen.getByLabelText("Italian *"), "è");
+  await user.type(screen.getByLabelText("Greek *"), "είναι");
+  await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Check these fields: Italian",
+  );
+  expect(screen.getByLabelText("Italian *")).toHaveAttribute(
+    "aria-invalid",
+    "true",
+  );
+  expect(screen.getByLabelText("Greek *")).toHaveValue("είναι");
+  expect(screen.getByLabelText("Italian *")).toHaveFocus();
+  failed = false;
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Entry saved.");
+});
+
+test("matching-pair warnings appear after save and all interface languages retain the draft", async () => {
+  server.use(
+    http.post("*/api/vocabulary", async ({ request }) => {
+      const entry = { id: "duplicate", ...(await request.json()) };
+      entries.push(entry);
+      return HttpResponse.json(
+        { entry, duplicate_ids: ["house"] },
+        { status: 201 },
+      );
+    }),
+  );
+  openLibrary();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Add entry" }));
+  await user.type(screen.getByLabelText("Italian *"), "la casa");
+  await user.type(screen.getByLabelText("Greek *"), "το σπίτι");
+  await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
+  await user.selectOptions(screen.getByLabelText("Interface language"), "el");
+  expect(screen.getByLabelText("Ιταλικά *")).toHaveValue("la casa");
+  expect(screen.getByLabelText("Ελληνικά *")).toHaveValue("το σπίτι");
+  await user.selectOptions(screen.getByLabelText("Γλώσσα εφαρμογής"), "it");
+  expect(screen.getByLabelText("Italiano *")).toHaveValue("la casa");
+  expect(screen.getByLabelText("Tipo di parola *")).toHaveValue("noun");
+  await user.click(screen.getByRole("button", { name: "Salva voce" }));
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Esiste già una coppia italiano–greco corrispondente",
+  );
+  await user.selectOptions(
+    screen.getByLabelText("Lingua dell’interfaccia"),
+    "en",
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "A matching Italian–Greek pair already exists",
+  );
+});
+
+test("cancel restores focus and a connection error allows retry without losing text", async () => {
+  server.use(http.patch("*/api/vocabulary/:id", () => HttpResponse.error()));
+  openLibrary();
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Edit entry: la casa" }),
+  );
+  await user.type(screen.getByLabelText("Notes"), " — σπίτι");
+  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Check your connection",
+  );
+  expect(screen.getByLabelText("Notes")).toHaveValue("Home — σπίτι");
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByLabelText("Notes")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add entry" })).toHaveFocus();
+});

@@ -214,7 +214,13 @@ export default function App() {
             />
             <Route
               path="/vocabulary"
-              element={<Library text={text} onLocked={lockNotebook} />}
+              element={
+                <Library
+                  text={text}
+                  csrf={session.data.csrf_token}
+                  onLocked={lockNotebook}
+                />
+              }
             />
             <Route
               path="/"
