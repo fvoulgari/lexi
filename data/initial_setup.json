@@ -1,0 +1,7 @@
+{
+  "profiles": ["Foteini", "Spyros"],
+  "units": [
+    {"code": "00", "title": "Benvenuti", "sort_order": 0},
+    {"code": "01", "title": "Un nuovo inizio", "sort_order": 1}
+  ]
+}

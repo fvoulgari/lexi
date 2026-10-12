@@ -1,0 +1,11 @@
+italian,greek,type,unit,italian_gender,greek_gender,italian_plural,greek_plural
+la casa,το σπίτι,noun,00,feminine,neuter,le case,τα σπίτια
+il libro,το βιβλίο,noun,00,masculine,neuter,i libri,τα βιβλία
+la chiave,το κλειδί,noun,00,feminine,neuter,le chiavi,τα κλειδιά
+il gatto,η γάτα,noun,00,masculine,feminine,i gatti,οι γάτες
+il caffè,ο καφές,noun,00,masculine,masculine,i caffè,οι καφέδες
+la cucina,η κουζίνα,noun,00,feminine,feminine,le cucine,οι κουζίνες
+il gelato,το παγωτό,noun,00,masculine,neuter,i gelati,τα παγωτά
+essere,είμαι,verb,00,,,,
+avere,έχω,verb,00,,,,
+mi chiamo,με λένε,expression,00,,,,
