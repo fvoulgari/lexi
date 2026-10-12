@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 
 class UnitOutput(BaseModel):
@@ -12,11 +13,39 @@ class UnitOutput(BaseModel):
     sort_order: int
 
 
+ProfileName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+]
+Direction = Literal["greek_to_italian", "italian_to_greek"]
+SessionSize = Annotated[int, Field(strict=True, ge=1, le=100)]
+
+
+class ProfileCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    display_name: ProfileName
+    preferred_direction: Direction = "greek_to_italian"
+    default_session_size: SessionSize = 25
+
+
+class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    display_name: ProfileName | None = None
+    preferred_direction: Direction | None = None
+    default_session_size: SessionSize | None = None
+
+    @model_validator(mode="after")
+    def reject_explicit_null(self):
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError("Profile fields cannot be null.")
+        return self
+
+
 class ProfileOutput(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     display_name: str
-    preferred_direction: str
+    preferred_direction: Direction
+    default_session_size: int
     created_at: datetime
 
 
