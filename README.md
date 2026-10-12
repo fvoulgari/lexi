@@ -1,6 +1,6 @@
 # Italian Notebook
 
-A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Flashcard practice, import/export, and progress are delivered by the later GitHub tickets.
+A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. Import/export and progress dashboards are delivered by later GitHub tickets.
 
 ## Start locally with Docker
 
@@ -129,4 +129,19 @@ The gated API adds `GET/POST /api/tags` and `POST /api/units`; creation requires
 
 ## Current scope
 
-This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Flashcard practice, CSV tools, progress, and PWA installation remain in the subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV tools, further practice selection modes, progress dashboards, and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+
+
+## Random practice
+
+Open **Practice** or **Start practice** on Home. Choose a learner, learning direction and 10/25/50/All cards; learner preferences supply the initial choices. The queue is shuffled in PostgreSQL and never repeats an entry. A smaller library produces an explained shorter session; an empty library keeps setup open.
+
+Use **Reveal answer** by tap, Enter or Space, then choose Again, Hard or Easy. Grammar, plurals, examples, notes and pronunciation text appear only on the answer side. Switching direction retains the queue and hides the answer until it is revealed again. While saving, ratings and direction are disabled. A failed review keeps the answer and chosen rating; **Retry** submits that same review. Accepted retries return the original event, and conflicting ratings return 409.
+
+**Finish and see summary** allows a partial or zero-review summary. Remembered this session is `(Hard + Easy) / submitted reviews`, shown as 0% with an explanation when there are no reviews. Practice Again returns to setup; Return Home exits. Leaving or reloading opens fresh setup. Accepted reviews remain stored; no session ID or unfinished queue is saved on the device.
+
+The gated API provides `POST /api/sessions` with `profile_id`, `direction` and `size` (10/25/50 or null for All), `GET /api/sessions/{id}`, `POST /api/sessions/{id}/cards/{position}/reveal` with `direction`, `POST /api/sessions/{id}/cards/{position}/reviews` with `direction` and `rating` (`again`, `hard`, `easy`), and `GET /api/sessions/{id}/summary`. Positions are zero-based. Writes require CSRF. Session cards and review events preserve the selected vocabulary wording even after library edits. Review events have no update/delete API.
+
+`GET /api/profiles/{id}/learning-records` returns independent counts and difficulty for each entry and direction. Review and aggregate changes commit together. Writes lock the practice session and then the learner so concurrent retries create one event per card and parallel sessions cannot lose aggregate updates. Difficulty maintains weighted sum and weight: on an accepted review multiply each previous value by 0.8, add the rating value (Again 1, Hard 0.5, Easy 0) to the sum, and add 1 to the weight; difficulty is sum / weight. Concurrent submissions follow serialized acceptance order, including when timestamps tie. Reading does not decay the score.
+
+The practice migration adds four tables without changing existing vocabulary. Application rollback can leave these tables in place; downgrading the migration deletes practice history. The API tests cover snapshots, retries, concurrent submissions, rollback on database failure, application restart, isolation and shortages; rendered tests cover reveal, retry, direction switches, summaries and fresh setup.

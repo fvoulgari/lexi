@@ -2,15 +2,19 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     Column,
     DateTime,
+    Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
     Table,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -113,3 +117,75 @@ class LoginThrottle(Base):
     client_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int]
+
+
+class PracticeSession(Base):
+    __tablename__ = "practice_sessions"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    direction: Mapped[str] = mapped_column(String(24))
+    requested_size: Mapped[int | None] = mapped_column(Integer)
+    available: Mapped[int]
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class SessionCard(Base):
+    __tablename__ = "session_cards"
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("practice_sessions.id"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("vocabulary_entries.id", ondelete="SET NULL")
+    )
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    revealed_direction: Mapped[str | None] = mapped_column(String(24))
+
+
+class ReviewEvent(Base):
+    __tablename__ = "review_events"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["session_id", "position"],
+            ["session_cards.session_id", "session_cards.position"],
+        ),
+        UniqueConstraint("session_id", "position"),
+        CheckConstraint(
+            "rating IN ('again','hard','easy')", name="valid_review_rating"
+        ),
+        CheckConstraint(
+            "direction IN ('greek_to_italian','italian_to_greek')",
+            name="valid_review_direction",
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("practice_sessions.id"))
+    position: Mapped[int]
+    profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    entry_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("vocabulary_entries.id"))
+    direction: Mapped[str] = mapped_column(String(24))
+    rating: Mapped[str] = mapped_column(String(8))
+    snapshot: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class LearningProgress(Base):
+    __tablename__ = "learning_progress"
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id"), primary_key=True
+    )
+    entry_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("vocabulary_entries.id"), primary_key=True
+    )
+    direction: Mapped[str] = mapped_column(String(24), primary_key=True)
+    reviews: Mapped[int] = mapped_column(default=0)
+    again: Mapped[int] = mapped_column(default=0)
+    hard: Mapped[int] = mapped_column(default=0)
+    easy: Mapped[int] = mapped_column(default=0)
+    weighted_sum: Mapped[float] = mapped_column(Float, default=0)
+    weight: Mapped[float] = mapped_column(Float, default=0)
+    last_reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -176,3 +176,19 @@ class VocabularyUpdate(VocabularyFields):
 class VocabularySaved(BaseModel):
     entry: VocabularyOutput
     duplicate_ids: list[UUID]
+
+
+class SessionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    profile_id: UUID
+    direction: Direction
+    size: SessionSize = 25
+
+
+class RevealCard(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    direction: Direction
+
+
+class ReviewCard(RevealCard):
+    rating: Literal["again", "hard", "easy"]
