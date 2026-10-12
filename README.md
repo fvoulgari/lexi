@@ -138,6 +138,8 @@ Open **Practice** or **Start practice** on Home. Choose a learner, learning dire
 
 Use **Reveal answer** by tap, Enter or Space, then choose Again, Hard or Easy. Grammar, plurals, examples, notes and pronunciation text appear only on the answer side. Switching direction retains the queue and hides the answer until it is revealed again. While saving, ratings and direction are disabled. A failed review keeps the answer and chosen rating; **Retry** submits that same review. Accepted retries return the original event, and conflicting ratings return 409.
 
+After a failed save, finishing stays disabled until Retry confirms acceptance. This keeps a review whose response was lost available for recovery. Once confirmed, the next card allows direction changes and finishing again.
+
 **Finish and see summary** allows a partial or zero-review summary. Remembered this session is `(Hard + Easy) / submitted reviews`, shown as 0% with an explanation when there are no reviews. Practice Again returns to setup; Return Home exits. Leaving or reloading opens fresh setup. Accepted reviews remain stored; no session ID or unfinished queue is saved on the device.
 
 The gated API provides `POST /api/sessions` with `profile_id`, `direction` and `size` (10/25/50 or null for All), `GET /api/sessions/{id}`, `POST /api/sessions/{id}/cards/{position}/reveal` with `direction`, `POST /api/sessions/{id}/cards/{position}/reviews` with `direction` and `rating` (`again`, `hard`, `easy`), and `GET /api/sessions/{id}/summary`. Positions are zero-based. Writes require CSRF. Session cards and review events preserve the selected vocabulary wording even after library edits. Review events have no update/delete API.
