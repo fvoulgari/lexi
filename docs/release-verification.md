@@ -23,7 +23,7 @@ The disposable smoke created two vocabulary entries in one uniquely named unit/t
 
 ## Screen and interaction audit
 
-In the real browser, checked Gate, Home, Vocabulary, Practice setup, Progress and Learners & settings in **Greek, English and Italian**, at **390 × 844 mobile** and **1280 × 900 desktop** (the gate mobile check used 390 × 900). All 36 screen/language/size combinations had no horizontal document overflow. Every input/select/textarea had a label; document language and screen headings followed the selected interface language. Screenshots inspected the mobile home/settings/progress and desktop settings/gate layouts. This is a responsive browser audit, not a physical-phone or screen-reader certification.
+In the real browser, checked Gate, Home, Vocabulary, Practice setup, Progress and Learners & settings in **Greek, English and Italian**, at **390 × 844 mobile** and **1280 × 900 desktop** (the gate mobile check used 390 × 900). All 36 main-screen/language/size combinations had no horizontal document overflow. An additional 18 combinations checked practice prompts, revealed answers and zero-review summaries at 390 × 900 and 1280 × 900, also without horizontal overflow. Every input/select/textarea had a label; document language and screen headings followed the selected interface language. Screenshots inspected the mobile home/settings/progress and desktop settings/gate layouts. This is a responsive browser audit, not a physical-phone or screen-reader certification.
 
 Rendered acceptance tests additionally traverse the five authenticated screens in each language with an empty library/profile list, open vocabulary/unit/tag/learner forms, verify focus and required labels, and recover from a service error back to the gate. Existing rendered suites cover populated entries, import preview/confirmation/retry, add/edit/delete, practice reveal/direction switching/retry/summary, progress breakdowns, revoked sessions, missing profiles, storage failures and offline status.
 
@@ -43,3 +43,7 @@ PWA privacy review: the worker caches only an explicit build-time list of public
 - Profiles are shared display identities; authorized visitors may select every learner and edit the shared library. No per-person privacy boundary is implied.
 - Pending queues are not durable across reload, and private practice requires connectivity. PWA updates may need all app tabs closed.
 - One application replica is the release topology; concurrent migration coordination, continuous uptime monitoring, point-in-time recovery and automated offsite dumps remain deferred. Backups and monitoring need an operator owner.
+
+## Implementation review
+
+Parallel Standards and Spec reviews of the committed diff against `583209c` returned no actionable findings on either axis. Standards checked the repository instructions, glossary, ADR, design and testing conventions; Spec checked issue #16’s acceptance criteria.
