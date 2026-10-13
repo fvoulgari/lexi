@@ -997,3 +997,14 @@ button:disabled {
   font-size: 14px;
   color: #304f3a;
 }
+
+.delete-confirmation {
+  background: #fffdf7;
+  border: 1px solid #d8d2c4;
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-block: 1rem;
+}
+.entry-card > button + button {
+  margin-top: 0.5rem;
+}

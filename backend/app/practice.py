@@ -50,11 +50,13 @@ def practice_router(sessions, gate):
             "direction": session.direction,
             "requested_size": session.requested_size,
             "available": session.available,
+            "active_count": sum(c.entry_id is not None for c in cards),
             "cards": [
                 {
                     "position": c.position,
                     "entry_id": str(c.entry_id) if c.entry_id else None,
                     "snapshot": c.snapshot,
+                    "skipped": c.entry_id is None,
                 }
                 for c in cards
             ],
@@ -136,6 +138,25 @@ def practice_router(sessions, gate):
             raise HTTPException(404, "Session card not found.")
         return session, card
 
+    def require_entry(db, card):
+        entry = (
+            db.scalar(
+                select(VocabularyEntry)
+                .where(VocabularyEntry.id == card.entry_id)
+                .with_for_update(of=VocabularyEntry)
+            )
+            if card.entry_id
+            else None
+        )
+        if entry is None:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "entry_deleted",
+                    "message": "This unreviewed entry was deleted. Skip this card.",
+                },
+            )
+
     def event_output(event):
         return {
             "id": str(event.id),
@@ -153,6 +174,7 @@ def practice_router(sessions, gate):
     def reveal(session_id: UUID, position: int, body: RevealCard):
         with sessions.begin() as db:
             _, card = locked_card(db, session_id, position)
+            require_entry(db, card)
             card.revealed_direction = body.direction
             return {"revealed": True}
 
@@ -177,21 +199,13 @@ def practice_router(sessions, gate):
                 return event_output(existing)
             if card.revealed_direction != body.direction:
                 raise HTTPException(409, "Reveal this answer before rating it.")
-            if card.entry_id is None:
-                raise HTTPException(409, "This vocabulary entry was removed.")
             # Serialize aggregate updates across sessions for the same learner.
             db.scalar(
                 select(Profile)
                 .where(Profile.id == session.profile_id)
                 .with_for_update()
             )
-            entry = db.scalar(
-                select(VocabularyEntry)
-                .where(VocabularyEntry.id == card.entry_id)
-                .with_for_update(of=VocabularyEntry)
-            )
-            if entry is None:
-                raise HTTPException(409, "This vocabulary entry was removed.")
+            require_entry(db, card)
             event = ReviewEvent(
                 session_id=session_id,
                 position=position,

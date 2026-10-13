@@ -350,13 +350,22 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
   );
 }
 function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
+  const [cards, setCards] = useState(() =>
+    session.cards.filter((c) => !c.skipped),
+  );
+  const [skipped, setSkipped] = useState(() =>
+    session.cards.some((c) => c.skipped),
+  );
   const [position, setPosition] = useState(0);
   const [direction, setDirection] = useState(session.direction);
-  const [finished, setFinished] = useState(false);
+  const [finished, setFinished] = useState(() =>
+    session.cards.every((c) => c.skipped),
+  );
   const [busy, setBusy] = useState(false);
-  const card = session.cards[position];
+  const card = cards[position];
   return (
     <section className="practice-page">
+      {skipped && <p role="status">{text.entrySkipped}</p>}
       {!finished && (
         <>
           <h1>
@@ -367,18 +376,18 @@ function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
                 : text.randomPractice}
           </h1>
           <p>
-            {profile.display_name} · {position + 1} / {session.cards.length}
+            {profile.display_name} · {position + 1} / {cards.length}
           </p>
           {session.requested_size !== null &&
-            session.cards.length < session.requested_size && (
+            cards.length < session.requested_size && (
               <p role="status">
                 {text.shortage
-                  .replace("{count}", session.cards.length)
+                  .replace("{count}", cards.length)
                   .replace("{size}", session.requested_size)}
               </p>
             )}
           <Flashcard
-            key={position}
+            key={card.position}
             text={text}
             card={card}
             direction={direction}
@@ -387,8 +396,16 @@ function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
             sessionId={session.id}
             onLocked={onLocked}
             onBusy={setBusy}
+            onSkipped={() => {
+              setBusy(false);
+              setSkipped(true);
+              setCards((current) =>
+                current.filter((c) => c.position !== card.position),
+              );
+              if (position + 1 === cards.length) setFinished(true);
+            }}
             onSaved={() => {
-              if (position + 1 === session.cards.length) setFinished(true);
+              if (position + 1 === cards.length) setFinished(true);
               else setPosition(position + 1);
             }}
           />
@@ -421,6 +438,7 @@ function Flashcard({
   sessionId,
   onLocked,
   onSaved,
+  onSkipped,
   onBusy,
 }) {
   const [revealed, setRevealed] = useState(false);
@@ -440,7 +458,10 @@ function Flashcard({
   const back = front === "greek" ? "italian" : "greek";
   const entry = card.snapshot;
   function failed(error) {
-    if (error.status === 401) onLocked();
+    if (error.code === "entry_deleted") {
+      onBusy(false);
+      onSkipped();
+    } else if (error.status === 401) onLocked();
     else setError(error);
   }
   async function reveal() {
