@@ -1,6 +1,6 @@
 # Italian Notebook
 
-A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. Import/export and progress dashboards are delivered by later GitHub tickets.
+A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. CSV import supports preview and confirmation; export and progress dashboards are delivered by later GitHub tickets.
 
 ## Start locally with Docker
 
@@ -129,7 +129,7 @@ The gated API adds `GET/POST /api/tags` and `POST /api/units`; creation requires
 
 ## Current scope
 
-This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV tools, further practice selection modes, progress dashboards, and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV export, further practice selection modes, progress dashboards, and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
 
 
 ## Random practice
@@ -148,6 +148,30 @@ The gated API provides `POST /api/sessions` with `profile_id`, `direction` and `
 
 The practice migration adds four tables without changing existing vocabulary. Application rollback can leave these tables in place; downgrading the migration deletes practice history. The API tests cover snapshots, retries, concurrent submissions, rollback on database failure, application restart, isolation and shortages; rendered tests cover reveal, retry, direction switches, summaries and fresh setup.
 
+## Preview and confirm CSV imports
+
+In Vocabulary, choose a **CSV file**, then **Preview import**. Inspect valid, duplicate and invalid rows, expandable entry details, and proposed new units/tags. **Confirm import** explicitly imports valid nonduplicate rows, rechecking current library data in one transaction. Failed confirmations retain the file and preview for retry. Changing the file clears its preview. No vocabulary, units or tags are written during preview.
+
+Download the gated example from the import panel or `GET /api/imports/example`. Use UTF-8 CSV (an optional UTF-8 BOM is accepted), at most **1 MiB and 2000 data rows**. Standard CSV quoting allows commas/newlines inside quoted text. Column headers are case-sensitive and unique; unsupported headers and malformed CSV are file errors. Missing/extra row cells are row errors. Row numbers count logical CSV records (header is row 1), including multiline records.
+
+Required columns: `italian`, `greek`, `word_type` (`noun`, `verb`, `adjective`, `adverb`, `expression`, `other`). Optional columns: `italian_gender`, `greek_gender`, legacy `gender`, `italian_plural`, `greek_plural`, `italian_example`, `greek_example`, `notes`, `pronunciation`, `unit_code`, `unit_title`, `unit_sort_order`, `tags`. Existing vocabulary field lengths and gender values (`masculine`, `feminine`, `neuter`) apply. Blank optional text becomes null. `gender` is an Italian-gender alias; disagreeing nonblank alias/explicit values invalidate that row. Greek gender remains independent. Legacy `type`, `unit`, `plural`, and `example` alias `word_type`, `unit_code`, `italian_plural`, and `italian_example`; disagreeing nonblank alias/explicit values are row errors. Pronunciation is plain text.
+
+`tags` uses pipe-separated names, for example `daily|questions`; names are trimmed, empty names ignored, and repeated names collapsed. A literal pipe cannot be part of an imported tag name. Names match existing tags exactly, preserving case and accents. New names are created only for imported rows.
+
+`unit_code` remains text, preserving leading zeros. Existing codes reuse their unit; omitted title/order use current metadata. A new code requires `unit_title`; optional integer `unit_sort_order` defaults to 0. Conflicting titles/orders for an existing or proposed code invalidate that row; imports never edit existing unit metadata. Title/order without a code are row errors.
+
+Duplicate policy: matching Italian–Greek pairs use Unicode NFC, case folding and surrounding whitespace trimming. Accents and articles remain significant; word type and optional metadata do not distinguish duplicates for import. Existing library pairs and subsequent valid upload pairs are skipped. Invalid rows do not reserve a pair. Existing entries are never overwritten. Repeat confirmations safely skip pairs already imported; if entries have subsequently been deleted or changed, confirmation uses that current state.
+
+`POST /api/imports/preview` and `POST /api/imports/confirm` accept the raw CSV body (`Content-Type: text/csv`) and require the gate and CSRF header. Both return `counts` (`imported`, `valid`, `skipped`, `duplicate`, `error`), `rows` with logical row number/status/errors/entry details, and `proposed_units`/`proposed_tags`. `valid` counts eligible rows, including those imported; `skipped` is duplicate + error. Confirmation serializes against vocabulary/unit/tag writes while checking and inserting. No migration is needed. Import diagnostics preserve detailed backend validation messages; navigation and workflow labels support all three interface languages.
+
+
+## Delete accidental vocabulary
+
+Choose **Delete entry** on a vocabulary card, check the Italian–Greek meaning, then choose **Permanently delete**. Only entries without any reviews can be deleted. Revealing an answer alone does not prevent deletion. Reviewed entries return an explained conflict and keep their complete history.
+
+The gated `DELETE /api/vocabulary/{id}` endpoint requires CSRF and returns `{"deleted": "<id>"}`. Missing entries return 404; entries with reviews return 409 with `error.code=entry_reviewed`. Deletion and review acceptance lock the same vocabulary entry inside their transactions: if the review commits first, deletion is refused; if deletion commits first, the review returns `entry_deleted` without storing history or progress.
+
+Deleted entries disappear from library search and future practice selections. Existing session snapshots and card positions stay intact. Session reads include `skipped` on each card and `active_count` for the remaining undeleted queue. Reveal/review attempts on a deleted card return 409 with `entry_deleted`; the practice page skips it with a translated explanation and adjusts its count, preserving other cards and accepted reviews. Skipping the last card reaches the summary, including a defined zero-review summary. There is no database migration or change to review foreign keys.
 ## Category practice
 
 Choose **Category practice** in Practice setup to combine units, word types, and tags. The filter semantics match Vocabulary: values within each group are ORed and selected groups are ANDed. No unit includes unassigned entries alongside any selected units. Leaving all filters clear selects the whole library.

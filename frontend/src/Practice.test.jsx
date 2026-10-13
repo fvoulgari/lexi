@@ -500,6 +500,103 @@ test("difficult selection follows direction and uses the review flow", async () 
   });
 });
 
+test.each(["reveal", "reviews"])(
+  "a deleted card at %s is skipped with an adjusted count and the remaining queue preserved",
+  async (stage) => {
+    server.use(
+      http.post("*/api/sessions", () =>
+        HttpResponse.json({
+          id: "s",
+          requested_size: 10,
+          available: 2,
+          cards: [
+            {
+              position: 0,
+              entry_id: "e",
+              snapshot: { italian: "la casa", greek: "το σπίτι" },
+            },
+            {
+              position: 1,
+              entry_id: "b",
+              snapshot: { italian: "il libro", greek: "το βιβλίο" },
+            },
+          ],
+        }),
+      ),
+      http.post(`*/api/sessions/s/cards/0/${stage}`, () =>
+        HttpResponse.json(
+          { error: { code: "entry_deleted" } },
+          { status: 409 },
+        ),
+      ),
+      http.post("*/api/sessions/s/cards/1/reveal", () =>
+        HttpResponse.json({ revealed: true }),
+      ),
+      http.post("*/api/sessions/s/cards/1/reviews", () =>
+        HttpResponse.json({ id: "r1" }),
+      ),
+    );
+    openPractice();
+    const user = userEvent.setup();
+    await user.selectOptions(
+      await screen.findByLabelText("Learner profile"),
+      "f",
+    );
+    await user.click(screen.getByRole("button", { name: "Start practice" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Reveal answer" }),
+    );
+    if (stage === "reviews")
+      await user.click(await screen.findByRole("button", { name: "Hard" }));
+    expect(
+      await screen.findByText(
+        /It was skipped and the session count was adjusted/,
+      ),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("το βιβλίο")).toBeInTheDocument();
+    expect(screen.getByText("Foteini · 1 / 1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Finish and see summary" }),
+    ).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+    await user.click(await screen.findByRole("button", { name: "Easy" }));
+    expect(
+      await screen.findByRole("heading", { name: "Session summary" }),
+    ).toBeInTheDocument();
+  },
+);
+
+test("deleting the final unreviewed card reaches a zero-review summary with an explanation", async () => {
+  server.use(
+    http.post("*/api/sessions/s/cards/0/reveal", () =>
+      HttpResponse.json({ error: { code: "entry_deleted" } }, { status: 409 }),
+    ),
+    http.get("*/api/sessions/s/summary", () =>
+      HttpResponse.json({
+        total: 0,
+        counts: { again: 0, hard: 0, easy: 0 },
+        remembered: 0,
+        needs_practice: [],
+      }),
+    ),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Reveal answer" }),
+  );
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/It was skipped/)).toBeInTheDocument();
+  expect(screen.getByText("0%")).toBeInTheDocument();
+});
+
 test("mixed setup follows the reveal, review and summary journey", async () => {
   let body;
   server.use(
