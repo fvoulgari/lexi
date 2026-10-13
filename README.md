@@ -51,7 +51,9 @@ GitHub Actions runs the backend and frontend checks below on pull requests targe
 when both **Backend checks** and **Frontend checks** succeed; failed, skipped, or
 cancelled checks fail the gate. CI uses Python 3.14, Node 24, and disposable
 PostgreSQL 17. PR checks have read-only repository access. Successful main checks publish the
-production image to GHCR; see [image publication](docs/image-publication.md) for
+production image to GHCR. Published releases and prereleases run the same checks
+on their tagged commit and publish exact release/SHA tags without changing latest;
+see [image publication](docs/image-publication.md) for
 tags, ordering, public-package setup, and verification.
 
 
