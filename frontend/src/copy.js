@@ -3,6 +3,13 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 export const copy = {
   en: {
     practice: "Practice",
+    practiceSelection: "Practice selection",
+    difficultPractice: "Difficult practice",
+    noDifficultEntries:
+      "No difficult entries for this learner and direction. Review vocabulary first or choose another direction.",
+    difficultyExplanation:
+      "Difficult entries have at least one review and a weighted difficulty score of 0.5 or more. Inactivity does not change difficulty.",
+
     randomPractice: "Random practice",
     practiceType: "Practice type",
     categoryPractice: "Category practice",
@@ -160,6 +167,13 @@ export const copy = {
   },
   el: {
     practice: "Εξάσκηση",
+    practiceSelection: "Επιλογή εξάσκησης",
+    difficultPractice: "Εξάσκηση δύσκολων καταχωρίσεων",
+    noDifficultEntries:
+      "Δεν υπάρχουν δύσκολες καταχωρίσεις για αυτό το προφίλ και την κατεύθυνση. Κάνε πρώτα εξάσκηση ή επίλεξε άλλη κατεύθυνση.",
+    difficultyExplanation:
+      "Οι δύσκολες καταχωρίσεις έχουν τουλάχιστον μία αξιολόγηση και σταθμισμένη βαθμολογία δυσκολίας τουλάχιστον 0,5. Η αδράνεια δεν αλλάζει τη δυσκολία.",
+
     randomPractice: "Τυχαία εξάσκηση",
     practiceType: "Τύπος εξάσκησης",
     categoryPractice: "Εξάσκηση ανά κατηγορία",
@@ -319,6 +333,13 @@ export const copy = {
   },
   it: {
     practice: "Esercitazione",
+    practiceSelection: "Selezione esercitazione",
+    difficultPractice: "Esercitazione delle voci difficili",
+    noDifficultEntries:
+      "Nessuna voce difficile per questo profilo e questa direzione. Esercitati prima o scegli un’altra direzione.",
+    difficultyExplanation:
+      "Le voci difficili hanno almeno una valutazione e un punteggio ponderato di difficoltà di almeno 0,5. L’inattività non cambia la difficoltà.",
+
     randomPractice: "Esercitazione casuale",
     practiceType: "Tipo di esercitazione",
     categoryPractice: "Esercitazione per categorie",

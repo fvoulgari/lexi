@@ -155,3 +155,9 @@ Choose **Category practice** in Practice setup to combine units, word types, and
 The selected queue is shuffled, contains each matching entry at most once, and respects 10/25/50/All. Shortages show the actual count; zero matches keep setup open with Clear filters and a Vocabulary link. Category practice uses the existing reveal, direction-switch, review, and summary flow with independent learner and direction records.
 
 `POST /api/sessions` also accepts `unit_ids`, `no_unit`, `word_types`, and `tag_ids`. Omitted filters select the whole library. Matching counts and queues are computed in PostgreSQL and selected cards retain their persisted wording snapshots.
+
+## Difficult entries
+
+In Practice, choose a learner and direction, then select **Difficult practice** to see the eligible vocabulary entries and start a shuffled queue using the usual reveal/rating flow. Entries qualify only after at least one accepted review in that learner and direction, with normalized weighted difficulty >= 0.5. Again contributes 1, Hard 0.5, and Easy 0; each successively older review has 0.8 times the weight of the newer one. Inactivity never changes eligibility. Empty sets explain how to proceed, and smaller sets use the existing shortage message. Session summaries continue to show submitted Again/Hard entries needing practice.
+
+`GET /api/profiles/{id}/difficult-entries?direction=greek_to_italian` (or `italian_to_greek`) returns the current entries, score and review count. `POST /api/sessions` accepts optional `mode: "difficult"`; the default remains `"random"`. Difficult selection is performed on the server using the selected learner and direction. No database migration is needed.

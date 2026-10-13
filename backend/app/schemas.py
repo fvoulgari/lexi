@@ -179,6 +179,7 @@ class VocabularySaved(BaseModel):
 
 
 class SessionCreate(BaseModel):
+    mode: Literal["random", "difficult"] = "random"
     model_config = ConfigDict(extra="forbid")
     profile_id: UUID
     direction: Direction

@@ -43,6 +43,7 @@ export default function Practice({ text, csrf, onLocked }) {
         direction,
         size,
         ...(type === "category" ? filters : {}),
+        ...(type === "difficult" ? { mode: "difficult" } : {}),
       });
       setSession({ ...result, direction, type });
       try {
@@ -166,6 +167,19 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
   const [direction, setDirection] = useState(
     profile?.preferred_direction || "greek_to_italian",
   );
+  const difficult = useQuery({
+    queryKey: ["difficult-entries", profile?.id, direction],
+    queryFn: () =>
+      request(
+        `/api/profiles/${profile.id}/difficult-entries?direction=${direction}`,
+      ),
+    enabled: !!profile && type === "difficult",
+    staleTime: 0,
+    retry: false,
+  });
+  useEffect(() => {
+    if (difficult.error?.status === 401) onLocked();
+  }, [difficult.error, onLocked]);
   const [size, setSize] = useState(
     profile ? (profile.default_session_size ?? "all") : 25,
   );
@@ -185,6 +199,7 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
       >
         <option value="random">{text.randomPractice}</option>
         <option value="category">{text.categoryPractice}</option>
+        <option value="difficult">{text.difficultPractice}</option>
       </select>
       {type === "category" && (
         <section className="library-filters" aria-label={text.filters}>
@@ -266,6 +281,35 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
         onChange={setDirection}
         disabled={pending}
       />
+      {type === "difficult" && profile && (
+        <section aria-label={text.difficultPractice}>
+          <p>{text.difficultyExplanation}</p>
+          {difficult.isPending ? (
+            <p role="status">{text.loading}</p>
+          ) : difficult.isError ? (
+            <>
+              <p role="alert">
+                {text.errors[difficult.error.code] ||
+                  text.errors.request_failed}
+              </p>
+              <button type="button" onClick={() => difficult.refetch()}>
+                {text.retry}
+              </button>
+            </>
+          ) : difficult.data.length ? (
+            <ul>
+              {difficult.data.map(({ entry }) => (
+                <li key={entry.id}>
+                  <span lang="it">{entry.italian}</span> ·{" "}
+                  <span lang="el">{entry.greek}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p role="status">{text.noDifficultEntries}</p>
+          )}
+        </section>
+      )}
       <label htmlFor="practice-size">{text.practiceSize}</label>
       <select
         id="practice-size"
@@ -283,11 +327,13 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
       {error && (
         <div>
           <p role="alert" className="error">
-            {error.code === "no_matches"
-              ? type === "category"
-                ? text.noCategoryMatches
-                : text.noMatches
-              : text.errors[error.code] || text.errors.request_failed}
+            {error.code === "no_difficult_entries"
+              ? text.noDifficultEntries
+              : error.code === "no_matches"
+                ? type === "category"
+                  ? text.noCategoryMatches
+                  : text.noMatches
+                : text.errors[error.code] || text.errors.request_failed}
           </p>
           {error.code === "no_matches" && (
             <Link to="/vocabulary">{text.vocabulary}</Link>
@@ -316,7 +362,9 @@ function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
           <h1>
             {session.type === "category"
               ? text.categoryPractice
-              : text.randomPractice}
+              : session.type === "difficult"
+                ? text.difficultPractice
+                : text.randomPractice}
           </h1>
           <p>
             {profile.display_name} · {position + 1} / {session.cards.length}
