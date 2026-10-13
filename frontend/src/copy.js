@@ -1,7 +1,9 @@
+import { progressCopy } from "./progress-copy.js";
 export const languages = { el: "Ελληνικά", en: "English", it: "Italiano" };
 
 export const copy = {
   en: {
+    ...progressCopy.en,
     csvExample: "Download example CSV",
     csvImport: "Import vocabulary",
     csvFile: "CSV file",
@@ -204,6 +206,7 @@ export const copy = {
     },
   },
   el: {
+    ...progressCopy.el,
     csvExample: "Λήψη παραδείγματος CSV",
     csvImport: "Εισαγωγή λεξιλογίου",
     csvFile: "Αρχείο CSV",
@@ -409,6 +412,7 @@ export const copy = {
     },
   },
   it: {
+    ...progressCopy.it,
     csvExample: "Scarica CSV di esempio",
     csvImport: "Importa vocabolario",
     csvFile: "File CSV",

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import PropTypes from "prop-types";
 import { request } from "./api.js";
 import Choices from "./Choices.jsx";
@@ -138,7 +138,10 @@ function Direction({ text, value, onChange, disabled = false }) {
   );
 }
 function Setup({ text, profile, pending, onStart, onLocked, error }) {
-  const [type, setType] = useState("random");
+  const [searchParams] = useSearchParams();
+  const [type, setType] = useState(
+    searchParams.get("mode") === "difficult" ? "difficult" : "random",
+  );
   const emptyFilters = {
     unit_ids: [],
     no_unit: false,
@@ -165,7 +168,11 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
   const changeFilter = (key, value) =>
     setFilters((current) => ({ ...current, [key]: value }));
   const [direction, setDirection] = useState(
-    profile?.preferred_direction || "greek_to_italian",
+    ["greek_to_italian", "italian_to_greek"].includes(
+      searchParams.get("direction"),
+    )
+      ? searchParams.get("direction")
+      : profile?.preferred_direction || "greek_to_italian",
   );
   const difficult = useQuery({
     queryKey: ["difficult-entries", profile?.id, direction],
