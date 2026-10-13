@@ -344,3 +344,74 @@ test("a lost response retries the selected review before switching the remaining
     { direction: "italian_to_greek", rating: "easy" },
   ]);
 });
+
+test("difficult selection follows direction and uses the review flow", async () => {
+  let selection;
+  server.use(
+    http.get("*/api/profiles/f/difficult-entries", ({ request }) =>
+      HttpResponse.json(
+        new URL(request.url).searchParams.get("direction") ===
+          "greek_to_italian"
+          ? [
+              {
+                entry: { id: "e", italian: "la casa", greek: "το σπίτι" },
+                difficulty: 0.5,
+                reviews: 1,
+              },
+            ]
+          : [],
+      ),
+    ),
+    http.post("*/api/sessions", async ({ request }) => {
+      selection = await request.json();
+      return HttpResponse.json({
+        id: "s",
+        available: 1,
+        requested_size: 25,
+        cards: [
+          {
+            position: 0,
+            entry_id: "e",
+            snapshot: { italian: "la casa", greek: "το σπίτι" },
+          },
+        ],
+      });
+    }),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.selectOptions(
+    screen.getByLabelText("Practice selection"),
+    "difficult",
+  );
+  expect(await screen.findByRole("listitem")).toBeInTheDocument();
+  await user.selectOptions(
+    screen.getByLabelText("Learning direction"),
+    "italian_to_greek",
+  );
+  expect(await screen.findByText(/No difficult entries/)).toBeInTheDocument();
+  expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+  await user.selectOptions(
+    screen.getByLabelText("Learning direction"),
+    "greek_to_italian",
+  );
+  await screen.findByRole("listitem");
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Reveal answer" }),
+  );
+  await user.click(await screen.findByRole("button", { name: "Hard" }));
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+  expect(selection).toEqual({
+    profile_id: "f",
+    direction: "greek_to_italian",
+    size: 25,
+    mode: "difficult",
+  });
+});
