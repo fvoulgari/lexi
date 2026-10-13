@@ -29,6 +29,19 @@ const server = setupServer(
       },
     ]),
   ),
+  http.get("*/api/profiles/f/progress", () =>
+    HttpResponse.json({
+      vocabulary_count: 1,
+      total_reviews: 0,
+      entries_practised: 0,
+      difficult_entries: 0,
+      counts: { again: 0, hard: 0, easy: 0 },
+      directions: [],
+      units: [],
+      word_types: [],
+      recent_session: null,
+    }),
+  ),
   http.post("*/api/sessions", () =>
     HttpResponse.json({
       id: "s",
@@ -219,7 +232,7 @@ test("finishing without a review is defined and reloading starts fresh setup", a
   expect(screen.getByText(/No reviews yet/)).toBeInTheDocument();
   await user.click(screen.getByRole("link", { name: "Return Home" }));
   expect(
-    await screen.findByRole("heading", { name: "Benvenuti." }),
+    await screen.findByRole("heading", { name: "Welcome, Foteini" }),
   ).toBeInTheDocument();
   view.unmount();
   openPractice();
@@ -595,4 +608,48 @@ test("deleting the final unreviewed card reaches a zero-review summary with an e
   ).toBeInTheDocument();
   expect(screen.getByText(/It was skipped/)).toBeInTheDocument();
   expect(screen.getByText("0%")).toBeInTheDocument();
+});
+
+test("mixed setup follows the reveal, review and summary journey", async () => {
+  let body;
+  server.use(
+    http.post("*/api/sessions", async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json({
+        id: "s",
+        available: 1,
+        requested_size: null,
+        cards: [
+          {
+            position: 0,
+            entry_id: "e",
+            snapshot: { italian: "casa", greek: "σπίτι" },
+          },
+        ],
+      });
+    }),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.selectOptions(screen.getByLabelText("Practice type"), "mixed");
+  await user.selectOptions(screen.getByLabelText("Session size"), "all");
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(
+    await screen.findByRole("heading", { name: "Mixed practice" }),
+  ).toBeInTheDocument();
+  expect(body).toEqual({
+    profile_id: "f",
+    direction: "greek_to_italian",
+    size: null,
+    mode: "mixed",
+  });
+  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Easy" }));
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
 });

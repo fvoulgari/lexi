@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import pytest
+
 
 def headers(client):
     return {"X-CSRF-Token": client.get("/api/auth/session").json()["csrf_token"]}
@@ -521,3 +523,200 @@ def test_category_queue_size_all_and_filter_validation(logged_in):
             ).status_code
             == 422
         )
+
+
+def test_mixed_small_library_and_persisted_queue(logged_in):
+    profile = logged_in.get("/api/profiles").json()[0]["id"]
+    for size in (10, 25, 50, None):
+        response = logged_in.post(
+            "/api/sessions",
+            json={
+                "profile_id": profile,
+                "direction": "greek_to_italian",
+                "size": size,
+                "mode": "mixed",
+            },
+            headers=headers(logged_in),
+        )
+        assert response.status_code == 201
+        session = response.json()
+        assert len(session["cards"]) == 10
+        assert len({c["entry_id"] for c in session["cards"]}) == 10
+        assert logged_in.get(f"/api/sessions/{session['id']}").json() == session
+
+
+@pytest.mark.parametrize(
+    "size,difficult_count,recent_count", [(10, 4, 3), (25, 10, 8), (50, 20, 15)]
+)
+def test_mixed_quotas_overlap_and_recent_boundary(
+    logged_in, monkeypatch, size, difficult_count, recent_count
+):
+    import os
+    from datetime import datetime, timedelta, timezone
+    from uuid import UUID
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    import app.practice as practice
+    from app.models import LearningProgress
+
+    now = datetime(2026, 10, 13, 12, tzinfo=timezone.utc)
+
+    class Clock:
+        @staticmethod
+        def now(tz):
+            return now
+
+    monkeypatch.setattr(practice, "datetime", Clock)
+    client = logged_in
+    csrf = headers(client)
+    for index in range(90):
+        assert (
+            client.post(
+                "/api/vocabulary",
+                headers=csrf,
+                json={
+                    "italian": f"entry {index}",
+                    "greek": f"έννοια {index}",
+                    "word_type": "noun",
+                },
+            ).status_code
+            == 201
+        )
+    entries = client.get("/api/vocabulary?page_size=100").json()["items"]
+    profile = client.get("/api/profiles").json()[0]["id"]
+    # Overlapping difficult/recent entries followed by recent-only entries.
+    # The last recent entry is exactly seven days old.
+    engine = create_engine(os.environ["DATABASE_URL"])
+    with Session(engine) as db:
+        for index, entry in enumerate(entries[: difficult_count + recent_count]):
+            db.add(
+                LearningProgress(
+                    profile_id=UUID(profile),
+                    entry_id=UUID(entry["id"]),
+                    direction="greek_to_italian",
+                    reviews=1,
+                    again=int(index < difficult_count),
+                    hard=0,
+                    easy=int(index >= difficult_count),
+                    weighted_sum=1 if index < difficult_count else 0,
+                    weight=1,
+                    last_reviewed_at=now - timedelta(days=7)
+                    if index == difficult_count + recent_count - 1
+                    else now,
+                )
+            )
+        db.commit()
+    engine.dispose()
+    response = client.post(
+        "/api/sessions",
+        headers=csrf,
+        json={
+            "profile_id": profile,
+            "direction": "greek_to_italian",
+            "size": size,
+            "mode": "mixed",
+        },
+    )
+    assert response.status_code == 201
+    cards = response.json()["cards"]
+    selected = {c["entry_id"] for c in cards}
+    assert len(selected) == size
+    assert {e["id"] for e in entries[: difficult_count + recent_count]} <= selected
+
+
+@pytest.mark.parametrize(
+    "history_direction,partial",
+    [
+        ("greek_to_italian", False),
+        ("italian_to_greek", False),
+        ("greek_to_italian", True),
+    ],
+)
+def test_mixed_isolation_excluded_times_and_partial_backfill(
+    logged_in, monkeypatch, history_direction, partial
+):
+    import os
+    from datetime import datetime, timedelta, timezone
+    from uuid import UUID
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    import app.practice as practice
+    from app.models import LearningProgress, VocabularyEntry
+
+    now = datetime(2026, 10, 13, 12, tzinfo=timezone.utc)
+
+    class Clock:
+        @staticmethod
+        def now(tz):
+            return now
+
+    monkeypatch.setattr(practice, "datetime", Clock)
+    # Control sampling order so random backfill cannot accidentally mask bad pools.
+    monkeypatch.setattr(practice.func, "random", lambda: VocabularyEntry.italian)
+    client = logged_in
+    csrf = headers(client)
+    entries = []
+    for index in range(40):
+        response = client.post(
+            "/api/vocabulary",
+            headers=csrf,
+            json={
+                "italian": f"aaa entry {index - 12 if index >= 27 else index:02}",
+                "greek": f"έννοια {index}",
+                "word_type": "noun",
+            },
+        )
+        assert response.status_code == 201
+        entries.append(response.json()["entry"])
+    profiles = client.get("/api/profiles").json()
+    profile = profiles[0]["id"]
+    engine = create_engine(os.environ["DATABASE_URL"])
+    with Session(engine) as db:
+        for index in range(20, 31):
+            if partial and index in (22, 23, 25, 26):
+                continue
+            timestamp = now
+            if index == 27:
+                timestamp = now - timedelta(days=7, microseconds=1)
+            if index == 28:
+                timestamp = now + timedelta(microseconds=1)
+            db.add(
+                LearningProgress(
+                    profile_id=UUID(profiles[1]["id"] if index == 30 else profile),
+                    entry_id=UUID(entries[index]["id"]),
+                    direction="italian_to_greek" if index == 29 else history_direction,
+                    reviews=1,
+                    again=int(index < 24 or index >= 29),
+                    hard=0,
+                    easy=int(24 <= index < 29),
+                    weighted_sum=int(index < 24 or index >= 29),
+                    weight=1,
+                    last_reviewed_at=timestamp,
+                )
+            )
+        db.commit()
+    engine.dispose()
+    response = client.post(
+        "/api/sessions",
+        headers=csrf,
+        json={
+            "profile_id": profile,
+            "direction": "greek_to_italian",
+            "size": 10,
+            "mode": "mixed",
+        },
+    )
+    assert response.status_code == 201
+    selected = {c["entry_id"] for c in response.json()["cards"]}
+    indices = (
+        list(range(10))
+        if history_direction != "greek_to_italian"
+        else list(range(7)) + [20, 21, 24]
+        if partial
+        else [0, 1, 2, 20, 21, 22, 23, 24, 25, 26]
+    )
+    assert selected == {entries[i]["id"] for i in indices}

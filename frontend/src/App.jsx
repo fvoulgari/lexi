@@ -9,12 +9,13 @@ import {
   LibraryBig,
   LogOut,
 } from "lucide-react";
-import { Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { request } from "./api.js";
 import { copy, languages } from "./copy.js";
 import Library from "./Library.jsx";
 import Profiles from "./Profiles.jsx";
 import Practice from "./Practice.jsx";
+import Progress from "./Progress.jsx";
 
 export default function App() {
   const [language, setLanguage] = useState(() => {
@@ -127,6 +128,7 @@ export default function App() {
             {text.library}
           </NavLink>
           <NavLink to="/practice">{text.practice}</NavLink>
+          <NavLink to="/progress">{text.progress}</NavLink>
           <NavLink to="/settings">{text.settings}</NavLink>
           <button disabled={logout.isPending} onClick={() => logout.mutate()}>
             <LogOut size={18} aria-hidden="true" />
@@ -266,27 +268,17 @@ export default function App() {
             />
             <Route
               path="/"
+              element={<Progress text={text} onLocked={lockNotebook} />}
+            />
+            <Route
+              path="/progress"
               element={
-                <section className="home-page">
-                  <span className="eyebrow">
-                    <Leaf size={15} aria-hidden="true" />
-                    ITALIAN NOTEBOOK
-                  </span>
-                  <h1>{text.welcome}</h1>
-                  <p>{text.homeIntro}</p>
-                  <Link className="primary" to="/practice">
-                    {text.startPractice}
-                  </Link>
-                  <Link className="secondary" to="/vocabulary">
-                    {text.openLibrary}
-                    <ArrowRight size={18} aria-hidden="true" />
-                  </Link>
-                  <div className="home-note">
-                    <BookOpen size={22} aria-hidden="true" />
-                    <span>{text.tagline}</span>
-                    <small>Ελληνικά ↔ Italiano</small>
-                  </div>
-                </section>
+                <Progress
+                  key="detail"
+                  text={text}
+                  onLocked={lockNotebook}
+                  detailed
+                />
               }
             />
             <Route path="*" element={<Navigate to="/vocabulary" replace />} />

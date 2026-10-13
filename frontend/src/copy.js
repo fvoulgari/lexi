@@ -1,7 +1,9 @@
+import { progressCopy } from "./progress-copy.js";
 export const languages = { el: "Ελληνικά", en: "English", it: "Italiano" };
 
 export const copy = {
   en: {
+    ...progressCopy.en,
     csvExample: "Download example CSV",
     csvImport: "Import vocabulary",
     csvFile: "CSV file",
@@ -37,6 +39,9 @@ export const copy = {
     practice: "Practice",
     practiceSelection: "Practice selection",
     difficultPractice: "Difficult practice",
+    mixedPractice: "Mixed practice",
+    mixedExplanation:
+      "40% difficult, 30% reviewed in the last seven days, 30% random. Shortages are filled from the library without repeats.",
     noDifficultEntries:
       "No difficult entries for this learner and direction. Review vocabulary first or choose another direction.",
     difficultyExplanation:
@@ -201,6 +206,7 @@ export const copy = {
     },
   },
   el: {
+    ...progressCopy.el,
     csvExample: "Λήψη παραδείγματος CSV",
     csvImport: "Εισαγωγή λεξιλογίου",
     csvFile: "Αρχείο CSV",
@@ -236,6 +242,9 @@ export const copy = {
     practice: "Εξάσκηση",
     practiceSelection: "Επιλογή εξάσκησης",
     difficultPractice: "Εξάσκηση δύσκολων καταχωρίσεων",
+    mixedPractice: "Μικτή εξάσκηση",
+    mixedExplanation:
+      "40% δύσκολες, 30% με επανάληψη τις τελευταίες επτά ημέρες, 30% τυχαίες. Τα κενά συμπληρώνονται από τη βιβλιοθήκη χωρίς επαναλήψεις.",
     noDifficultEntries:
       "Δεν υπάρχουν δύσκολες καταχωρίσεις για αυτό το προφίλ και την κατεύθυνση. Κάνε πρώτα εξάσκηση ή επίλεξε άλλη κατεύθυνση.",
     difficultyExplanation:
@@ -403,6 +412,7 @@ export const copy = {
     },
   },
   it: {
+    ...progressCopy.it,
     csvExample: "Scarica CSV di esempio",
     csvImport: "Importa vocabolario",
     csvFile: "File CSV",
@@ -438,6 +448,9 @@ export const copy = {
     practice: "Esercitazione",
     practiceSelection: "Selezione esercitazione",
     difficultPractice: "Esercitazione delle voci difficili",
+    mixedPractice: "Esercitazione mista",
+    mixedExplanation:
+      "40% difficili, 30% ripassate negli ultimi sette giorni, 30% casuali. Le carenze sono colmate dalla biblioteca senza ripetizioni.",
     noDifficultEntries:
       "Nessuna voce difficile per questo profilo e questa direzione. Esercitati prima o scegli un’altra direzione.",
     difficultyExplanation:
