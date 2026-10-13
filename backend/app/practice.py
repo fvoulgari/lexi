@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 
+from app.filters import category_conditions
 from app.models import (
     LearningProgress,
     PracticeSession,
@@ -66,7 +67,11 @@ def practice_router(sessions, gate):
         with sessions.begin() as db:
             if db.get(Profile, body.profile_id) is None:
                 raise HTTPException(404, "Learner profile not found.")
-            selection = select(VocabularyEntry)
+            selection = select(VocabularyEntry).where(
+                *category_conditions(
+                    body.unit_ids, body.no_unit, body.word_types, body.tag_ids
+                )
+            )
             if body.mode == "difficult":
                 eligible = difficult_progress(body.profile_id, body.direction)
                 selection = selection.where(
@@ -84,7 +89,10 @@ def practice_router(sessions, gate):
                         "code": "no_difficult_entries"
                         if body.mode == "difficult"
                         else "no_matches",
-                        "message": "No entries match. Try another selection.",
+                        "message": (
+                            "No entries match. Clear filters or add vocabulary "
+                            "and try again."
+                        ),
                     },
                 )
             entries = db.scalars(

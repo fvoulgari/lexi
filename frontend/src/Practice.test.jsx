@@ -345,6 +345,161 @@ test("a lost response retries the selected review before switching the remaining
   ]);
 });
 
+test("category practice combines selections, explains shortages and reaches summary", async () => {
+  server.use(
+    http.get("*/api/units", () =>
+      HttpResponse.json([{ id: "u", code: "00", title: "Benvenuti" }]),
+    ),
+    http.get("*/api/tags", () =>
+      HttpResponse.json([{ id: "t", name: "Home" }]),
+    ),
+    http.post("*/api/sessions", async ({ request }) => {
+      expect(await request.json()).toEqual({
+        profile_id: "f",
+        direction: "italian_to_greek",
+        size: 10,
+        unit_ids: ["u"],
+        no_unit: true,
+        word_types: ["noun", "verb"],
+        tag_ids: ["t"],
+      });
+      return HttpResponse.json({
+        id: "s",
+        requested_size: 10,
+        available: 1,
+        cards: [
+          { position: 0, snapshot: { italian: "la casa", greek: "το σπίτι" } },
+        ],
+      });
+    }),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.selectOptions(screen.getByLabelText("Practice type"), "category");
+  await user.click(await screen.findByLabelText("00 — Benvenuti"));
+  await user.click(screen.getByLabelText("No unit"));
+  await user.click(screen.getByLabelText("Noun"));
+  await user.click(screen.getByLabelText("Verb"));
+  await user.click(screen.getByLabelText("Home"));
+  await user.selectOptions(
+    screen.getByLabelText("Learning direction"),
+    "italian_to_greek",
+  );
+  await user.selectOptions(screen.getByLabelText("Session size"), "10");
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(
+    await screen.findByRole("heading", { name: "Category practice" }),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/Only 1 entries/)).toBeInTheDocument();
+  expect(screen.getByText("la casa")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(await screen.findByRole("button", { name: "Hard" }));
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+  expect(saves).toEqual([{ direction: "italian_to_greek", rating: "hard" }]);
+  await user.click(screen.getByRole("button", { name: "Practice Again" }));
+  expect(screen.getByLabelText("Practice type")).toHaveValue("random");
+});
+
+test("empty category selections offer clear filters and library actions", async () => {
+  server.use(
+    http.get("*/api/units", () => HttpResponse.json([])),
+    http.get("*/api/tags", () => HttpResponse.json([])),
+    http.post("*/api/sessions", () =>
+      HttpResponse.json({ error: { code: "no_matches" } }, { status: 409 }),
+    ),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.selectOptions(screen.getByLabelText("Practice type"), "category");
+  await user.click(await screen.findByLabelText("No unit"));
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Clear filters");
+  expect(screen.getByRole("link", { name: "Vocabulary" })).toHaveAttribute(
+    "href",
+    "/vocabulary",
+  );
+  await user.click(screen.getByRole("button", { name: "Clear filters" }));
+  expect(screen.getByLabelText("No unit")).not.toBeChecked();
+});
+
+test("difficult selection follows direction and uses the review flow", async () => {
+  let selection;
+  server.use(
+    http.get("*/api/profiles/f/difficult-entries", ({ request }) =>
+      HttpResponse.json(
+        new URL(request.url).searchParams.get("direction") ===
+          "greek_to_italian"
+          ? [
+              {
+                entry: { id: "e", italian: "la casa", greek: "το σπίτι" },
+                difficulty: 0.5,
+                reviews: 1,
+              },
+            ]
+          : [],
+      ),
+    ),
+    http.post("*/api/sessions", async ({ request }) => {
+      selection = await request.json();
+      return HttpResponse.json({
+        id: "s",
+        available: 1,
+        requested_size: 25,
+        cards: [
+          {
+            position: 0,
+            entry_id: "e",
+            snapshot: { italian: "la casa", greek: "το σπίτι" },
+          },
+        ],
+      });
+    }),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.selectOptions(screen.getByLabelText("Practice type"), "difficult");
+  expect(await screen.findByRole("listitem")).toBeInTheDocument();
+  await user.selectOptions(
+    screen.getByLabelText("Learning direction"),
+    "italian_to_greek",
+  );
+  expect(await screen.findByText(/No difficult entries/)).toBeInTheDocument();
+  expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+  await user.selectOptions(
+    screen.getByLabelText("Learning direction"),
+    "greek_to_italian",
+  );
+  await screen.findByRole("listitem");
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Reveal answer" }),
+  );
+  await user.click(await screen.findByRole("button", { name: "Hard" }));
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+  expect(selection).toEqual({
+    profile_id: "f",
+    direction: "greek_to_italian",
+    size: 25,
+    mode: "difficult",
+  });
+});
+
 test.each(["reveal", "reviews"])(
   "a deleted card at %s is skipped with an adjusted count and the remaining queue preserved",
   async (stage) => {
@@ -440,75 +595,4 @@ test("deleting the final unreviewed card reaches a zero-review summary with an e
   ).toBeInTheDocument();
   expect(screen.getByText(/It was skipped/)).toBeInTheDocument();
   expect(screen.getByText("0%")).toBeInTheDocument();
-});
-
-test("difficult selection follows direction and uses the review flow", async () => {
-  let selection;
-  server.use(
-    http.get("*/api/profiles/f/difficult-entries", ({ request }) =>
-      HttpResponse.json(
-        new URL(request.url).searchParams.get("direction") ===
-          "greek_to_italian"
-          ? [
-              {
-                entry: { id: "e", italian: "la casa", greek: "το σπίτι" },
-                difficulty: 0.5,
-                reviews: 1,
-              },
-            ]
-          : [],
-      ),
-    ),
-    http.post("*/api/sessions", async ({ request }) => {
-      selection = await request.json();
-      return HttpResponse.json({
-        id: "s",
-        available: 1,
-        requested_size: 25,
-        cards: [
-          {
-            position: 0,
-            entry_id: "e",
-            snapshot: { italian: "la casa", greek: "το σπίτι" },
-          },
-        ],
-      });
-    }),
-  );
-  openPractice();
-  const user = userEvent.setup();
-  await user.selectOptions(
-    await screen.findByLabelText("Learner profile"),
-    "f",
-  );
-  await user.selectOptions(
-    screen.getByLabelText("Practice selection"),
-    "difficult",
-  );
-  expect(await screen.findByRole("listitem")).toBeInTheDocument();
-  await user.selectOptions(
-    screen.getByLabelText("Learning direction"),
-    "italian_to_greek",
-  );
-  expect(await screen.findByText(/No difficult entries/)).toBeInTheDocument();
-  expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
-  await user.selectOptions(
-    screen.getByLabelText("Learning direction"),
-    "greek_to_italian",
-  );
-  await screen.findByRole("listitem");
-  await user.click(screen.getByRole("button", { name: "Start practice" }));
-  await user.click(
-    await screen.findByRole("button", { name: "Reveal answer" }),
-  );
-  await user.click(await screen.findByRole("button", { name: "Hard" }));
-  expect(
-    await screen.findByRole("heading", { name: "Session summary" }),
-  ).toBeInTheDocument();
-  expect(selection).toEqual({
-    profile_id: "f",
-    direction: "greek_to_italian",
-    size: 25,
-    mode: "difficult",
-  });
 });

@@ -19,6 +19,10 @@ export const copy = {
       "Difficult entries have at least one review and a weighted difficulty score of 0.5 or more. Inactivity does not change difficulty.",
 
     randomPractice: "Random practice",
+    practiceType: "Practice type",
+    categoryPractice: "Category practice",
+    noCategoryMatches:
+      "No entries match these filters. Clear filters or add vocabulary and try again.",
     practiceSize: "Session size",
     startPractice: "Start practice",
     revealAnswer: "Reveal answer",
@@ -190,6 +194,10 @@ export const copy = {
       "Οι δύσκολες καταχωρίσεις έχουν τουλάχιστον μία αξιολόγηση και σταθμισμένη βαθμολογία δυσκολίας τουλάχιστον 0,5. Η αδράνεια δεν αλλάζει τη δυσκολία.",
 
     randomPractice: "Τυχαία εξάσκηση",
+    practiceType: "Τύπος εξάσκησης",
+    categoryPractice: "Εξάσκηση ανά κατηγορία",
+    noCategoryMatches:
+      "Δεν υπάρχουν καταχωρίσεις με αυτά τα φίλτρα. Καθάρισε τα φίλτρα ή πρόσθεσε λεξιλόγιο και ξαναδοκίμασε.",
     practiceSize: "Μέγεθος συνεδρίας",
     startPractice: "Έναρξη εξάσκησης",
     revealAnswer: "Εμφάνιση απάντησης",
@@ -364,6 +372,10 @@ export const copy = {
       "Le voci difficili hanno almeno una valutazione e un punteggio ponderato di difficoltà di almeno 0,5. L’inattività non cambia la difficoltà.",
 
     randomPractice: "Esercitazione casuale",
+    practiceType: "Tipo di esercitazione",
+    categoryPractice: "Esercitazione per categorie",
+    noCategoryMatches:
+      "Nessuna voce corrisponde a questi filtri. Cancella i filtri o aggiungi vocaboli e riprova.",
     practiceSize: "Dimensione della sessione",
     startPractice: "Inizia esercitazione",
     revealAnswer: "Mostra risposta",
