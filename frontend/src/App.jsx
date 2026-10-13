@@ -31,6 +31,16 @@ export default function App() {
     "system",
   );
   const reducedMotion = useReducedMotion(motion);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
   const [password, setPassword] = useState("");
   const text = copy[language];
   const queryClient = useQueryClient();
@@ -38,6 +48,8 @@ export default function App() {
     queryKey: ["session"],
     queryFn: () => request("/api/auth/session"),
     retry: false,
+    enabled: online,
+    networkMode: "always",
   });
   const login = useMutation({
     mutationFn: () =>
@@ -130,13 +142,31 @@ export default function App() {
           </button>
         </nav>
       )}
+      {!online && session.data?.authenticated && (
+        <p className="connection-notice" role="status">
+          {text.offlineNote}
+        </p>
+      )}
       {logout.isError && (
         <p className="error logout-error" role="alert">
           {text.errors[logout.error.code] || text.errors.request_failed}
         </p>
       )}
       <main id="main">
-        {session.isPending ? (
+        {(!online || session.error?.code === "connection_error") &&
+        !session.data?.authenticated ? (
+          <section className="status" aria-labelledby="offline-title">
+            <h1 id="offline-title">{text.offlineTitle}</h1>
+            <p role="status">{text.offlineNote}</p>
+            <button
+              className="primary"
+              disabled={!online}
+              onClick={() => session.refetch()}
+            >
+              {text.retry}
+            </button>
+          </section>
+        ) : session.isPending ? (
           <p className="status" role="status">
             {text.loading}
           </p>
@@ -271,6 +301,7 @@ export default function App() {
           </Routes>
         )}
       </main>
+      <footer className="install-note">{text.installNote}</footer>
     </div>
   );
 }

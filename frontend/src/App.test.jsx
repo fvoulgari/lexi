@@ -302,3 +302,35 @@ test("device settings work when browser storage is unavailable", async () => {
     set.mockRestore();
   }
 });
+
+test("offline launches show a connection gate and recover online", async () => {
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: false,
+  });
+  renderApp();
+  expect(
+    await screen.findByRole("heading", { name: "You’re offline" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Shared password")).not.toBeInTheDocument();
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: true,
+  });
+  act(() => window.dispatchEvent(new Event("online")));
+  expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
+});
+
+test("a failed connection gates the notebook even when the browser reports online", async () => {
+  server.use(http.get("*/api/auth/session", () => HttpResponse.error()));
+  renderApp();
+  expect(
+    await screen.findByRole("heading", { name: "You’re offline" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Shared password")).not.toBeInTheDocument();
+  server.resetHandlers();
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Try again" }));
+  expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
+});

@@ -3,6 +3,9 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    exportLibrary: "Export full library (CSV)",
+    exporting: "Exporting…",
+    exportStarted: "CSV download started.",
     ...progressCopy.en,
     csvExample: "Download example CSV",
     csvImport: "Import vocabulary",
@@ -218,6 +221,9 @@ export const copy = {
     },
   },
   el: {
+    exportLibrary: "Εξαγωγή όλης της βιβλιοθήκης (CSV)",
+    exporting: "Εξαγωγή…",
+    exportStarted: "Η λήψη CSV ξεκίνησε.",
     ...progressCopy.el,
     csvExample: "Λήψη παραδείγματος CSV",
     csvImport: "Εισαγωγή λεξιλογίου",
@@ -436,6 +442,9 @@ export const copy = {
     },
   },
   it: {
+    exportLibrary: "Esporta tutta la biblioteca (CSV)",
+    exporting: "Esportazione…",
+    exportStarted: "Download CSV avviato.",
     ...progressCopy.it,
     csvExample: "Scarica CSV di esempio",
     csvImport: "Importa vocabolario",
@@ -651,3 +660,29 @@ export const copy = {
     },
   },
 };
+
+const connectionCopy = {
+  en: {
+    offlineTitle: "You’re offline",
+    offlineNote:
+      "Connect to open your notebook. Vocabulary and practice need an internet connection. Keep this page open to retry the current card.",
+    installNote:
+      "Install Italian Notebook from your browser menu. On iPhone or iPad, use Share → Add to Home Screen.",
+  },
+  el: {
+    offlineTitle: "Είσαι εκτός σύνδεσης",
+    offlineNote:
+      "Συνδέσου για να ανοίξεις το τετράδιο. Το λεξιλόγιο και η εξάσκηση χρειάζονται σύνδεση στο διαδίκτυο. Κράτησε τη σελίδα ανοιχτή για να δοκιμάσεις ξανά την τρέχουσα κάρτα.",
+    installNote:
+      "Εγκατάστησε το Italian Notebook από το μενού του προγράμματος περιήγησης. Σε iPhone ή iPad: Κοινή χρήση → Προσθήκη στην αρχική οθόνη.",
+  },
+  it: {
+    offlineTitle: "Sei offline",
+    offlineNote:
+      "Connettiti per aprire il quaderno. Vocabolario e pratica richiedono una connessione internet. Lascia aperta questa pagina per riprovare la scheda corrente.",
+    installNote:
+      "Installa Italian Notebook dal menu del browser. Su iPhone o iPad: Condividi → Aggiungi alla schermata Home.",
+  },
+};
+for (const language of Object.keys(connectionCopy))
+  Object.assign(copy[language], connectionCopy[language]);
