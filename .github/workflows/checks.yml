@@ -5,13 +5,42 @@ on:
     branches: [main]
   push:
     branches: [main]
+  release:
+    types: [published]
 
 permissions:
   contents: read
 
 jobs:
+  source:
+    name: Resolve checked source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      release-tag: ${{ steps.source.outputs.release-tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Resolve release tag to a commit
+        id: source
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          sha="$EVENT_SHA"
+          if [[ "$EVENT_NAME" = release ]]; then
+            sha=$(bash scripts/release-source.sh)
+          fi
+          printf 'sha=%s\n' "$sha" >> "$GITHUB_OUTPUT"
+          printf 'release-tag=%s\n' "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+
   backend:
     name: Backend checks
+    needs: source
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -37,6 +66,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.source.outputs.sha }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
@@ -55,6 +85,7 @@ jobs:
 
   frontend:
     name: Frontend checks
+    needs: source
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -64,6 +95,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.source.outputs.sha }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
@@ -99,11 +131,12 @@ jobs:
     name: Image publication validation
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    needs: checks
+    needs: [source, checks]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.source.outputs.sha }}
       - name: Test registry publication and latest ordering
         run: python3 -m unittest discover -s scripts/tests -v
       - name: Build production image without publishing
@@ -112,9 +145,12 @@ jobs:
 
   publish:
     name: Publish main SHA image
+    concurrency:
+      group: ghcr-lexi-sha-${{ needs.source.outputs.sha }}
+      queue: max
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    needs: [checks, publication-validation]
+    needs: [source, checks, publication-validation]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -123,6 +159,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.source.outputs.sha }}
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Log in to GHCR
         env:
@@ -136,17 +173,17 @@ jobs:
           platforms: linux/amd64
           push: true
           provenance: false
-          tags: ghcr.io/fvoulgari/lexi:sha-${{ github.sha }}
+          tags: ghcr.io/fvoulgari/lexi:sha-${{ needs.source.outputs.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/fvoulgari/lexi
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ needs.source.outputs.sha }}
             io.github.fvoulgari.lexi.main-run-number=${{ github.run_number }}
 
   promote:
     name: Promote latest main image
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    needs: publish
+    needs: [source, publish]
     permissions:
       contents: read
       packages: write
@@ -157,6 +194,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ needs.source.outputs.sha }}
       - name: Log in to GHCR
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -165,6 +203,36 @@ jobs:
       - name: Promote only if newer than current latest
         env:
           IMAGE: ghcr.io/fvoulgari/lexi
-          SOURCE_SHA: ${{ github.sha }}
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
           MAIN_RUN_NUMBER: ${{ github.run_number }}
         run: bash scripts/promote-latest.sh
+
+  release-publish:
+    name: Publish release image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [source, checks, publication-validation]
+    if: github.event_name == 'release' && github.event.action == 'published'
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: ghcr-lexi-sha-${{ needs.source.outputs.sha }}
+      queue: max
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.source.outputs.sha }}
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+      - name: Publish exact release tag and source SHA
+        env:
+          IMAGE: ghcr.io/fvoulgari/lexi
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+          RELEASE_TAG: ${{ needs.source.outputs.release-tag }}
+        run: bash scripts/publish-release.sh

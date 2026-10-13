@@ -107,6 +107,84 @@ class ImagePublicationTests(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             docker("pull", f"{self.image}:latest")
 
+    def test_stable_and_prerelease_tags_preserve_latest_and_existing_sha(self):
+        latest_sha = self.publish(30)
+        self.assertEqual(self.promote(latest_sha, 30).returncode, 0)
+        with tempfile.TemporaryDirectory() as repository:
+
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", *args], cwd=repository, text=True, timeout=10
+                ).strip()
+
+            git("init", "-q")
+            git("config", "user.name", "CI test")
+            git("config", "user.email", "ci@example.invalid")
+            Path(repository, "Dockerfile").write_text("FROM scratch\n")
+            git("add", "Dockerfile")
+            git("commit", "-qm", "Release source")
+            sha = git("rev-parse", "HEAD")
+            git("tag", "v1.2.0")
+            git("tag", "-a", "v1.3.0-rc.1", "-m", "Annotated prerelease")
+            self.assertNotEqual(git("rev-parse", "v1.3.0-rc.1"), sha)
+            for tag in ["v1.2.0", "v1.3.0-rc.1"]:
+                if tag == "v1.3.0-rc.1":
+                    # A main SHA build may exist before its latest promotion.
+                    docker(
+                        "build",
+                        "--platform",
+                        "linux/amd64",
+                        "--label",
+                        f"{LABEL}=99",
+                        "--label",
+                        f"org.opencontainers.image.revision={sha}",
+                        "-t",
+                        f"{self.image}:sha-{sha}",
+                        repository,
+                    )
+                    docker("push", f"{self.image}:sha-{sha}")
+                    original_id = docker(
+                        "inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}"
+                    )
+                result = subprocess.run(
+                    ["bash", str(ROOT / "scripts/publish-release.sh")],
+                    cwd=repository,
+                    env={
+                        **os.environ,
+                        "IMAGE": self.image,
+                        "SOURCE_SHA": sha,
+                        "RELEASE_TAG": tag,
+                    },
+                    capture_output=True,
+                    text=True,
+                    timeout=90,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(self.revision(tag), sha)
+                self.assertEqual(self.revision(f"sha-{sha}"), sha)
+                self.assertEqual(self.revision("latest"), latest_sha)
+                if tag == "v1.3.0-rc.1":
+                    self.assertEqual(
+                        docker(
+                            "inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}"
+                        ),
+                        original_id,
+                    )
+                    self.assertEqual(
+                        docker(
+                            "inspect",
+                            "--format",
+                            f'{{{{ index .Config.Labels "{LABEL}" }}}}',
+                            f"{self.image}:sha-{sha}",
+                        ),
+                        "99",
+                    )
+            digest = docker("inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}")
+            self.assertEqual(
+                docker("inspect", "--format", "{{.Id}}", f"{self.image}:v1.3.0-rc.1"),
+                digest,
+            )
+
     def test_registry_failure_does_not_count_as_missing_latest(self):
         result = self.promote("0" * 40, 40, "127.0.0.1:1/lexi")
         self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
