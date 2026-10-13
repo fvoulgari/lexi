@@ -74,9 +74,11 @@ npm run build
 
 Tests observe public HTTP behavior and rendered user interactions: gate authentication, CSRF, throttling across restarts, logout revocation, secret rotation, production-cookie flags, pagination, seeded metadata, connection retries, language selection, and returning to the gate after session revocation. There is no TypeScript typecheck; JavaScript lint/build and Python validation run instead.
 
-Against an untouched, seeded running app, supply `SHARED_PASSWORD` and run `python3 scripts/smoke.py` from the repository root. It checks the gate, CSRF, profiles/units, both library pages, and logout through real HTTP. Set `SMOKE_BASE_URL` to the target origin. This smoke check expects the initial ten-entry library.
+Against a running app, supply `SHARED_PASSWORD` and run `python3 scripts/smoke.py` from the repository root. It checks health, the frontend shell, gate, CSRF, profiles/units, pagination, private cache policy and logout through real HTTP. Set `SMOKE_BASE_URL` to the target origin. The [release runbook](docs/railway-release.md) documents opt-in disposable import/practice/progress checks and restart/restore verification.
 
 ## Production image and Railway
+
+Follow the [Railway release runbook](docs/railway-release.md) for deployment, proxy trust, migrations, backups and recovery. See the [verification record](docs/release-verification.md) for release evidence. Production deployment requires separate authorization.
 
 Build the single application image with `docker build -t italian-notebook .`. It packages the React build and FastAPI together, runs as a non-root user, and listens on Railway's `PORT` (8000 by default). Runtime dependencies are pinned; frontend builds use the lockfile. Development-only frontend/backend Dockerfiles support local Compose.
 
@@ -129,7 +131,7 @@ The gated API adds `GET/POST /api/tags` and `POST /api/units`; creation requires
 
 ## Current scope
 
-This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Release verification and the disposable backup/restore rehearsal are recorded in [the release verification record](docs/release-verification.md).
 
 
 ## Random practice

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -9,7 +9,13 @@ import {
   LibraryBig,
   LogOut,
 } from "lucide-react";
-import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import {
+  NavLink,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import { request } from "./api.js";
 import { copy, languages } from "./copy.js";
 import Library from "./Library.jsx";
@@ -20,6 +26,11 @@ import DeviceSettings from "./DeviceSettings.jsx";
 import { useDeviceSetting, useReducedMotion } from "./device-settings.js";
 
 export default function App() {
+  const location = useLocation();
+  const main = useRef(null);
+  useEffect(() => {
+    main.current?.focus();
+  }, [location.pathname]);
   const [language, setLanguage] = useDeviceSetting(
     "notebook-language",
     Object.keys(copy),
@@ -152,7 +163,7 @@ export default function App() {
           {text.errors[logout.error.code] || text.errors.request_failed}
         </p>
       )}
-      <main id="main">
+      <main id="main" ref={main} tabIndex={-1}>
         {(!online || session.error?.code === "connection_error") &&
         !session.data?.authenticated ? (
           <section className="status" aria-labelledby="offline-title">
