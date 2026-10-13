@@ -23,6 +23,7 @@ from app.models import (
     VocabularyEntry,
 )
 from app.practice import difficult_progress, practice_router
+from app.progress import progress_router
 from app.schemas import (
     Direction,
     ProfileCreate,
@@ -125,6 +126,7 @@ def create_app():
         return {"status": "ok"}
 
     app.include_router(practice_router(sessions, gate))
+    app.include_router(progress_router(sessions, gate))
 
     app.get("/api/auth/session")(gate.state)
     app.post("/api/auth/login")(gate.login)

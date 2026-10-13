@@ -29,6 +29,19 @@ const server = setupServer(
       },
     ]),
   ),
+  http.get("*/api/profiles/f/progress", () =>
+    HttpResponse.json({
+      vocabulary_count: 1,
+      total_reviews: 0,
+      entries_practised: 0,
+      difficult_entries: 0,
+      counts: { again: 0, hard: 0, easy: 0 },
+      directions: [],
+      units: [],
+      word_types: [],
+      recent_session: null,
+    }),
+  ),
   http.post("*/api/sessions", () =>
     HttpResponse.json({
       id: "s",
@@ -219,7 +232,7 @@ test("finishing without a review is defined and reloading starts fresh setup", a
   expect(screen.getByText(/No reviews yet/)).toBeInTheDocument();
   await user.click(screen.getByRole("link", { name: "Return Home" }));
   expect(
-    await screen.findByRole("heading", { name: "Benvenuti." }),
+    await screen.findByRole("heading", { name: "Welcome, Foteini" }),
   ).toBeInTheDocument();
   view.unmount();
   openPractice();

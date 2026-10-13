@@ -1,7 +1,9 @@
+import { progressCopy } from "./progress-copy.js";
 export const languages = { el: "Ελληνικά", en: "English", it: "Italiano" };
 
 export const copy = {
   en: {
+    ...progressCopy.en,
     deleteEntry: "Delete entry",
     confirmDelete: "Permanently delete",
     deleteWarning:
@@ -177,6 +179,7 @@ export const copy = {
     },
   },
   el: {
+    ...progressCopy.el,
     deleteEntry: "Διαγραφή καταχώρισης",
     confirmDelete: "Οριστική διαγραφή",
     deleteWarning:
@@ -355,6 +358,7 @@ export const copy = {
     },
   },
   it: {
+    ...progressCopy.it,
     deleteEntry: "Elimina voce",
     confirmDelete: "Elimina definitivamente",
     deleteWarning:

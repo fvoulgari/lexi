@@ -1008,3 +1008,94 @@ button:disabled {
 .entry-card > button + button {
   margin-top: 0.5rem;
 }
+
+.progress-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: clamp(20px, 5vw, 56px);
+}
+.progress-page > select {
+  display: block;
+  max-width: 100%;
+  margin: 8px 0 24px;
+}
+.progress-stats,
+.rating-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.progress-stats > div,
+.rating-counts > div {
+  min-width: 0;
+}
+.progress-stats dt,
+.rating-counts dt {
+  overflow-wrap: anywhere;
+}
+.progress-stats dd {
+  font-size: 1.8rem;
+  color: var(--olive, #455739);
+  margin: 6px 0 0;
+}
+.rating-counts dd {
+  font-size: 1.2rem;
+  margin: 4px 0 0;
+}
+.progress-card {
+  margin: 24px 0;
+  padding: 24px;
+  border: 1px solid #d9d6c9;
+  border-radius: 16px;
+  background: #fffdf7;
+}
+.progress-card h2 {
+  margin-top: 0;
+}
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 24px;
+}
+.breakdown-grid article {
+  min-width: 0;
+  border-top: 1px solid #d9d6c9;
+}
+.breakdown-grid h3 {
+  overflow-wrap: anywhere;
+}
+.progress-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin: 24px 0;
+}
+.progress-actions a {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .main-navigation {
+    flex-wrap: wrap;
+  }
+  .progress-card {
+    padding: 16px;
+  }
+  .progress-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+.progress-page a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 0;
+}
+.progress-page a.primary,
+.progress-page a.secondary {
+  padding: 12px 20px;
+}
