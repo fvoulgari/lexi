@@ -46,6 +46,13 @@ Vite proxies `/api` to the backend, keeping browser requests on one origin. Over
 
 ## Tests and checks
 
+GitHub Actions runs the backend and frontend checks below on pull requests targeting
+`main` and every push to `main`. The **Application checks passed** job succeeds only
+when both **Backend checks** and **Frontend checks** succeed; failed, skipped, or
+cancelled checks fail the gate. CI uses Python 3.14, Node 24, and disposable
+PostgreSQL 17. The workflow has read-only repository access and does not publish images.
+
+
 API tests use a **disposable real PostgreSQL database**, not SQLite. The configured test database name must end in `_test`; fixtures migrate and seed it and clear gate-session/throttle tables between tests. Never point tests at a live database.
 
 ```sh
