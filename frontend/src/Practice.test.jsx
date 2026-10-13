@@ -149,7 +149,7 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
   expect(
     await screen.findByRole("heading", { name: "Session summary" }),
   ).toBeInTheDocument();
-  expect(screen.getByText("100%")).toBeInTheDocument();
+  expect(await screen.findByText("100%")).toBeInTheDocument();
   expect(saves).toEqual([
     { direction: "greek_to_italian", rating: "hard" },
     { direction: "greek_to_italian", rating: "hard" },
