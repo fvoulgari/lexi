@@ -141,11 +141,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
             title={text.directionBreakdown}
             rows={data.directions}
             text={text}
-            label={(key) =>
-              key === "greek_to_italian"
-                ? `${text.greek} → ${text.italian}`
-                : `${text.italian} → ${text.greek}`
-            }
+            label={(key) => directionLabel(text, key)}
           />
           <Breakdown
             title={text.unitBreakdown}
@@ -256,11 +252,7 @@ function DifficultEntries({ text, profileId, direction, count, onLocked }) {
   }, [entries.error, onLocked]);
   return (
     <div>
-      <h3>
-        {direction === "greek_to_italian"
-          ? `${text.greek} → ${text.italian}`
-          : `${text.italian} → ${text.greek}`}
-      </h3>
+      <h3>{directionLabel(text, direction)}</h3>
       <Link to={`/practice?mode=difficult&direction=${direction}`}>
         {text.practiseDifficult} ({count})
       </Link>
@@ -285,4 +277,10 @@ function DifficultEntries({ text, profileId, direction, count, onLocked }) {
       )}
     </div>
   );
+}
+
+function directionLabel(text, direction) {
+  return direction === "greek_to_italian"
+    ? `${text.greek} → ${text.italian}`
+    : `${text.italian} → ${text.greek}`;
 }

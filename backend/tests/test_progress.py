@@ -33,6 +33,9 @@ def test_progress_counts_history_and_deduplicates_directions(logged_in):
     submit(client, first, entry["entry_id"], "greek_to_italian", "again")
     second = start(client, size=None).json()
     submit(client, second, entry["entry_id"], "italian_to_greek", "hard")
+    both = client.get(f"/api/profiles/{first['profile_id']}/progress").json()
+    assert both["difficult_entries"] == 1
+    assert [row["difficult_entries"] for row in both["directions"]] == [1, 1]
     third = start(client, size=None).json()
     submit(client, third, entry["entry_id"], "greek_to_italian", "easy")
     # Unreviewed sessions do not replace the recent review summary.
