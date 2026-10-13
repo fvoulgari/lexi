@@ -66,8 +66,8 @@ def test_export_full_library_with_unicode_and_metadata(logged_in):
         "pronunciation",
     ):
         assert entry[field] == saved[field]
-    assert entry["type"] == "noun"
-    assert entry["unit"] == "007"
+    assert entry["word_type"] == "noun"
+    assert entry["unit_code"] == "007"
     assert entry["unit_title"] == "Έβδομο"
     assert entry["unit_sort_order"] == "7"
     assert json.loads(entry["tags"]) == ['cibo, "καφές"']
@@ -174,7 +174,7 @@ def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
         "pronunciation",
     ):
         assert row[field] == "'" + saved[field]
-    assert row["unit"] == "'=007"
+    assert row["unit_code"] == "'=007"
     assert row["unit_title"] == "'+title"
     assert row["unit_sort_order"] == "'-7"
     assert json.loads(row["tags"]) == ['=SUM(A1); "Ελλάδα"']
@@ -186,3 +186,118 @@ def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
     assert ordinary["italian_gender"] == ""
     assert ordinary["notes"] == ""
     assert ordinary["tags"] == "[]"
+
+
+def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in):
+    unit = logged_in.post(
+        "/api/units",
+        headers=headers(logged_in),
+        json={
+            "code": "007",
+            "title": "=Έβδομο",
+            "sort_order": -7,
+        },
+    ).json()
+    tag = logged_in.post(
+        "/api/tags",
+        headers=headers(logged_in),
+        json={
+            "name": 'cibo|καφές, "Ελλάδα"',
+        },
+    ).json()
+    saved = logged_in.post(
+        "/api/vocabulary",
+        headers=headers(logged_in),
+        json={
+            "italian": "'=literal",
+            "greek": "=τύπος",
+            "word_type": "noun",
+            "unit_id": unit["id"],
+            "tag_ids": [tag["id"]],
+            "italian_gender": "masculine",
+            "greek_gender": "neuter",
+            "italian_plural": "+plural",
+            "greek_plural": "πληθυντικός",
+            "italian_example": '"Quoted",\nexample',
+            "greek_example": "Ελλάδα",
+            "notes": "'ordinary",
+            "pronunciation": "@sound",
+        },
+    ).json()["entry"]
+    content = logged_in.get("/api/vocabulary/export.csv").content
+
+    def upload(action):
+        return logged_in.post(
+            f"/api/imports/{action}",
+            content=content,
+            headers={**headers(logged_in), "Content-Type": "text/csv"},
+        )
+
+    preview = upload("preview")
+    assert preview.status_code == 200
+    assert preview.json()["counts"]["duplicate"] == 11
+    for entry in logged_in.get("/api/vocabulary?page_size=100").json()["items"]:
+        assert (
+            logged_in.delete(
+                f"/api/vocabulary/{entry['id']}", headers=headers(logged_in)
+            ).status_code
+            == 200
+        )
+    preview = upload("preview").json()
+    assert preview["counts"]["valid"] == 11
+    assert logged_in.get("/api/vocabulary").json()["total"] == 0
+    result = upload("confirm").json()
+    assert result["counts"]["imported"] == 11
+    restored = next(
+        entry
+        for entry in logged_in.get("/api/vocabulary?page_size=100").json()["items"]
+        if entry["italian"] == "'=literal"
+    )
+    for field in (
+        "italian",
+        "greek",
+        "word_type",
+        "italian_gender",
+        "greek_gender",
+        "italian_plural",
+        "greek_plural",
+        "italian_example",
+        "greek_example",
+        "notes",
+        "pronunciation",
+        "unit",
+        "tags",
+    ):
+        assert restored[field] == saved[field]
+    assert upload("confirm").json()["counts"]["duplicate"] == 11
+
+
+def test_versioned_import_validates_tags_and_leaves_legacy_text_unchanged(logged_in):
+    def upload(row):
+        content = io.StringIO(newline="")
+        writer = csv.writer(content)
+        writer.writerow(["italian", "greek", "word_type", "csv_format", "tags"])
+        writer.writerow(row)
+        return logged_in.post(
+            "/api/imports/preview",
+            content=content.getvalue(),
+            headers={**headers(logged_in), "Content-Type": "text/csv"},
+        ).json()
+
+    for version, tags in [
+        ("future-v2", "[]"),
+        ("italian-notebook-v1", "bad json"),
+        ("italian-notebook-v1", "{}"),
+        ("italian-notebook-v1", "[1]"),
+    ]:
+        result = upload(["nuovo", "νέο", "noun", version, tags])
+        assert result["counts"]["error"] == 1
+        assert result["proposed_tags"] == []
+    legacy = upload(["'=literal", "νέο", "noun", "", "daily|questions"])
+    assert legacy["rows"][0]["entry"]["italian"] == "'=literal"
+    assert legacy["rows"][0]["tags"] == ["daily", "questions"]
+    versioned = upload(
+        ["''=literal", "νέο", "noun", "italian-notebook-v1", '["daily|questions"]']
+    )
+    assert versioned["rows"][0]["entry"]["italian"] == "'=literal"
+    assert versioned["proposed_tags"] == ["daily|questions"]

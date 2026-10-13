@@ -1,6 +1,6 @@
 # Italian Notebook
 
-A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. CSV export is available; import and progress dashboards are delivered by later GitHub tickets.
+A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. CSV import supports preview and confirmation, and the full library can be exported safely as CSV. Progress dashboards are delivered by later GitHub tickets.
 
 ## Start locally with Docker
 
@@ -129,7 +129,7 @@ The gated API adds `GET/POST /api/tags` and `POST /api/units`; creation requires
 
 ## Current scope
 
-This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV import, further practice selection modes, progress dashboards, and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Further practice selection modes, progress dashboards, and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
 
 
 ## Random practice
@@ -147,6 +147,22 @@ The gated API provides `POST /api/sessions` with `profile_id`, `direction` and `
 `GET /api/profiles/{id}/learning-records` returns independent counts and difficulty for each entry and direction. Review and aggregate changes commit together. Writes lock the practice session and then the learner so concurrent retries create one event per card and parallel sessions cannot lose aggregate updates. Difficulty maintains weighted sum and weight: on an accepted review multiply each previous value by 0.8, add the rating value (Again 1, Hard 0.5, Easy 0) to the sum, and add 1 to the weight; difficulty is sum / weight. Concurrent submissions follow serialized acceptance order, including when timestamps tie. Reading does not decay the score.
 
 The practice migration adds four tables without changing existing vocabulary. Application rollback can leave these tables in place; downgrading the migration deletes practice history. The API tests cover snapshots, retries, concurrent submissions, rollback on database failure, application restart, isolation and shortages; rendered tests cover reveal, retry, direction switches, summaries and fresh setup.
+
+## Preview and confirm CSV imports
+
+In Vocabulary, choose a **CSV file**, then **Preview import**. Inspect valid, duplicate and invalid rows, expandable entry details, and proposed new units/tags. **Confirm import** explicitly imports valid nonduplicate rows, rechecking current library data in one transaction. Failed confirmations retain the file and preview for retry. Changing the file clears its preview. No vocabulary, units or tags are written during preview.
+
+Download the gated example from the import panel or `GET /api/imports/example`. Use UTF-8 CSV (an optional UTF-8 BOM is accepted), at most **1 MiB and 2000 data rows**. Standard CSV quoting allows commas/newlines inside quoted text. Column headers are case-sensitive and unique; unsupported headers and malformed CSV are file errors. Missing/extra row cells are row errors. Row numbers count logical CSV records (header is row 1), including multiline records.
+
+Required columns: `italian`, `greek`, `word_type` (`noun`, `verb`, `adjective`, `adverb`, `expression`, `other`). Optional columns: `italian_gender`, `greek_gender`, legacy `gender`, `italian_plural`, `greek_plural`, `italian_example`, `greek_example`, `notes`, `pronunciation`, `unit_code`, `unit_title`, `unit_sort_order`, `tags`, `csv_format`. Existing vocabulary field lengths and gender values (`masculine`, `feminine`, `neuter`) apply. Blank optional text becomes null. `gender` is an Italian-gender alias; disagreeing nonblank alias/explicit values invalidate that row. Greek gender remains independent. Legacy `type`, `unit`, `plural`, and `example` alias `word_type`, `unit_code`, `italian_plural`, and `italian_example`; disagreeing nonblank alias/explicit values are row errors. Pronunciation is plain text.
+
+`tags` uses pipe-separated names, for example `daily|questions`; names are trimmed, empty names ignored, and repeated names collapsed. A literal pipe cannot be part of a tag name in this legacy encoding. Exported rows carry `csv_format=italian-notebook-v1`, use JSON arrays for tags (including literal pipes), and reversibly decode spreadsheet safety prefixes before validation. See [the CSV format](docs/csv-format.md). Names match existing tags exactly, preserving case and accents. New names are created only for imported rows.
+
+`unit_code` remains text, preserving leading zeros. Existing codes reuse their unit; omitted title/order use current metadata. A new code requires `unit_title`; optional integer `unit_sort_order` defaults to 0. Conflicting titles/orders for an existing or proposed code invalidate that row; imports never edit existing unit metadata. Title/order without a code are row errors.
+
+Duplicate policy: matching Italian–Greek pairs use Unicode NFC, case folding and surrounding whitespace trimming. Accents and articles remain significant; word type and optional metadata do not distinguish duplicates for import. Existing library pairs and subsequent valid upload pairs are skipped. Invalid rows do not reserve a pair. Existing entries are never overwritten. Repeat confirmations safely skip pairs already imported; if entries have subsequently been deleted or changed, confirmation uses that current state.
+
+`POST /api/imports/preview` and `POST /api/imports/confirm` accept the raw CSV body (`Content-Type: text/csv`) and require the gate and CSRF header. Both return `counts` (`imported`, `valid`, `skipped`, `duplicate`, `error`), `rows` with logical row number/status/errors/entry details, and `proposed_units`/`proposed_tags`. `valid` counts eligible rows, including those imported; `skipped` is duplicate + error. Confirmation serializes against vocabulary/unit/tag writes while checking and inserting. No migration is needed. Import diagnostics preserve detailed backend validation messages; navigation and workflow labels support all three interface languages.
 
 
 ## Delete accidental vocabulary
@@ -175,4 +191,4 @@ In Practice, choose a learner and direction, then select **Difficult practice** 
 
 In Vocabulary, choose **Export full library (CSV)**. The action downloads `italian-notebook.csv` with every shared vocabulary entry, regardless of search, filters or pagination. While preparing, the button is disabled. A status announces that the browser download started; it does not claim the file was saved. Errors are displayed and the button allows retry. Expired admission returns to the gate. The protected read-only `GET /api/vocabulary/export.csv` API returns an attachment with `text/csv; charset=utf-8` and `Cache-Control: no-store`. No learner preferences or practice records are exported.
 
-See [the CSV format](docs/csv-format.md) for columns, spreadsheet safety and the compatibility contract for the planned import workflow in issue #11. CSV import is not yet implemented.
+See [the CSV format](docs/csv-format.md) for columns, spreadsheet safety and import compatibility.

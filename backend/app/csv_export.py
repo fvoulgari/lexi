@@ -2,13 +2,15 @@ import csv
 import io
 import json
 
+from app.csv_format import FORMAT_VERSION, spreadsheet_text
+
 COLUMNS = (
     "italian",
     "greek",
-    "type",
+    "word_type",
     "italian_gender",
     "greek_gender",
-    "unit",
+    "unit_code",
     "unit_title",
     "unit_sort_order",
     "tags",
@@ -18,17 +20,8 @@ COLUMNS = (
     "greek_example",
     "notes",
     "pronunciation",
+    "csv_format",
 )
-
-
-def spreadsheet_text(value):
-    value = "" if value is None else str(value)
-    # Escape literal apostrophes too, so import can remove exactly one prefix.
-    if value.startswith(("'", "\t", "\r", "\n")) or value.lstrip().startswith(
-        ("=", "+", "-", "@", "＝", "＋", "－", "＠")
-    ):
-        return "'" + value
-    return value
 
 
 def export_library(entries):
@@ -38,8 +31,8 @@ def export_library(entries):
     for entry in entries:
         values = {
             **{field: getattr(entry, field, None) for field in COLUMNS},
-            "type": entry.word_type,
-            "unit": entry.unit.code if entry.unit else "",
+            "csv_format": FORMAT_VERSION,
+            "unit_code": entry.unit.code if entry.unit else "",
             "unit_title": entry.unit.title if entry.unit else "",
             "unit_sort_order": entry.unit.sort_order if entry.unit else "",
             "tags": json.dumps([tag.name for tag in entry.tags], ensure_ascii=False),
