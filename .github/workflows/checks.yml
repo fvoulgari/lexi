@@ -94,3 +94,77 @@ jobs:
         run: |
           test "$BACKEND_RESULT" = success
           test "$FRONTEND_RESULT" = success
+
+  publication-validation:
+    name: Image publication validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: checks
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Test registry publication and latest ordering
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Build production image without publishing
+        if: github.event_name == 'pull_request'
+        run: docker build --platform linux/amd64 -t lexi-ci .
+
+  publish:
+    name: Publish main SHA image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [checks, publication-validation]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+      - name: Build and publish SHA image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ghcr.io/fvoulgari/lexi:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/fvoulgari/lexi
+            org.opencontainers.image.revision=${{ github.sha }}
+            io.github.fvoulgari.lexi.main-run-number=${{ github.run_number }}
+
+  promote:
+    name: Promote latest main image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: publish
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: ghcr-lexi-main-latest
+      queue: max
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Log in to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+      - name: Promote only if newer than current latest
+        env:
+          IMAGE: ghcr.io/fvoulgari/lexi
+          SOURCE_SHA: ${{ github.sha }}
+          MAIN_RUN_NUMBER: ${{ github.run_number }}
+        run: bash scripts/promote-latest.sh

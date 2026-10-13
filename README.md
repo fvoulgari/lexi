@@ -50,7 +50,9 @@ GitHub Actions runs the backend and frontend checks below on pull requests targe
 `main` and every push to `main`. The **Application checks passed** job succeeds only
 when both **Backend checks** and **Frontend checks** succeed; failed, skipped, or
 cancelled checks fail the gate. CI uses Python 3.14, Node 24, and disposable
-PostgreSQL 17. The workflow has read-only repository access and does not publish images.
+PostgreSQL 17. PR checks have read-only repository access. Successful main checks publish the
+production image to GHCR; see [image publication](docs/image-publication.md) for
+tags, ordering, public-package setup, and verification.
 
 
 API tests use a **disposable real PostgreSQL database**, not SQLite. The configured test database name must end in `_test`; fixtures migrate and seed it and clear gate-session/throttle tables between tests. Never point tests at a live database.
