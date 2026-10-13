@@ -482,6 +482,21 @@ def create_app():
     def frontend(path: str):
         if path == "api" or path.startswith("api/"):
             raise HTTPException(404, detail="Endpoint not found.")
+        public_files = {
+            "sw.js": "text/javascript",
+            "manifest.webmanifest": "application/manifest+json",
+            "icon-192.png": "image/png",
+            "icon-512.png": "image/png",
+            "apple-touch-icon.png": "image/png",
+        }
+        if path in public_files:
+            asset = settings.static_dir / path
+            if not asset.is_file():
+                raise HTTPException(404, detail="Static file not found.")
+            return FileResponse(
+                asset,
+                media_type=public_files[path],
+            )
         index = settings.static_dir / "index.html"
         if not index.is_file():
             raise HTTPException(

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -194,4 +194,36 @@ test("interface language can change independently of vocabulary languages", asyn
   ).toBeInTheDocument();
   expect(localStorage.getItem("notebook-language")).toBe("it");
   expect(document.documentElement.lang).toBe("it");
+});
+
+test("offline launches show a connection gate and recover online", async () => {
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: false,
+  });
+  renderApp();
+  expect(
+    await screen.findByRole("heading", { name: "You’re offline" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Shared password")).not.toBeInTheDocument();
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: true,
+  });
+  act(() => window.dispatchEvent(new Event("online")));
+  expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
+});
+
+test("a failed connection gates the notebook even when the browser reports online", async () => {
+  server.use(http.get("*/api/auth/session", () => HttpResponse.error()));
+  renderApp();
+  expect(
+    await screen.findByRole("heading", { name: "You’re offline" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Shared password")).not.toBeInTheDocument();
+  server.resetHandlers();
+  await userEvent
+    .setup()
+    .click(screen.getByRole("button", { name: "Try again" }));
+  expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
 });

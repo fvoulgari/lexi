@@ -129,7 +129,7 @@ The gated API adds `GET/POST /api/tags` and `POST /api/units`; creation requires
 
 ## Current scope
 
-This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV export and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV export remains in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
 
 
 ## Random practice
@@ -186,6 +186,16 @@ In Practice, choose a learner and direction, then select **Difficult practice** 
 
 `GET /api/profiles/{id}/difficult-entries?direction=greek_to_italian` (or `italian_to_greek`) returns the current entries, score and review count. `POST /api/sessions` accepts optional `mode: "difficult"`; the default remains `"random"`. Difficult selection is performed on the server using the selected learner and direction. No database migration is needed.
 
+
+## Install and use offline
+
+On an HTTPS deployment, use the browser’s Install/Add to Home Screen menu. On iPhone/iPad, use Share → Add to Home Screen. Development mode does not register a worker; use a production build to verify installation.
+
+The installed notebook caches only the generic HTML shell, compiled JS/CSS, manifest and public icons. Vocabulary and all API responses remain online-only. An offline launch shows a translated connection gate; a connection loss while practising leaves the current card in memory for Retry. Keep the page open to retry; reloading does not restore a private queue. Lock notebook clears the current private UI after the server confirms logout; a failed logout reports an error and does not claim to have revoked the session.
+
+Each build generates a content-versioned worker and an explicit static-file allowlist. A new worker waits until existing notebook tabs close, preserving an open practice card; activation deletes older notebook static caches. No runtime responses are written to Cache Storage. No immediate reload is forced.
+
+Run `cd frontend && npx playwright install chromium && npm run test:pwa` for Chromium checks against the production build (manifest, static cache contents, logout/offline launch, current-card retry, keyboard/touch interaction, 320px overflow and cache replacement). Browser API fixtures deliberately contain a private vocabulary marker to verify it never enters the cache. API tests separately verify the production static routes and private cache headers. Physical iOS/Android installation still needs a device check against HTTPS.
 
 ## Home and Progress
 

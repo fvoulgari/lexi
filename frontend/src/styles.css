@@ -1043,6 +1043,27 @@ button:disabled {
   margin-top: 0.5rem;
 }
 
+.connection-notice, .install-note {
+  max-width: 1088px;
+  margin: 16px auto;
+  padding: 16px 20px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.connection-notice { background: #fffdf8; border: 1px solid #cad9c6; border-radius: 12px; }
+.install-note { font-size: 12px; }
+.practice-page, .practice-setup, .session-summary { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .practice-page { padding: 0; }
+  .topbar { flex-wrap: wrap; }
+  .brand { min-width: 0; }
+  .main-navigation { flex-wrap: wrap; }
+  .install-note { padding-bottom: 140px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
 .progress-page {
   max-width: 1080px;
   margin: 0 auto;
