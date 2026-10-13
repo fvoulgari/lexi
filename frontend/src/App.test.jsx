@@ -11,6 +11,7 @@ import {
   beforeEach,
   expect,
   test,
+  vi,
 } from "vitest";
 import App from "./App.jsx";
 
@@ -54,7 +55,7 @@ function renderApp() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={["/vocabulary"]}>
         <App />
@@ -194,6 +195,112 @@ test("interface language can change independently of vocabulary languages", asyn
   ).toBeInTheDocument();
   expect(localStorage.getItem("notebook-language")).toBe("it");
   expect(document.documentElement.lang).toBe("it");
+});
+
+test("device settings persist without changing learning direction", async () => {
+  authenticated = true;
+  server.use(
+    http.get("*/api/profiles", () =>
+      HttpResponse.json([
+        {
+          id: "foteini",
+          display_name: "Foteini",
+          preferred_direction: "italian_to_greek",
+          default_session_size: 25,
+        },
+      ]),
+    ),
+  );
+  localStorage.setItem("notebook-profile", "foteini");
+  const user = userEvent.setup();
+  const first = renderApp();
+  await user.click(
+    await screen.findByRole("link", { name: "Learners & settings" }),
+  );
+  expect(await screen.findByLabelText("Learning direction")).toHaveValue(
+    "italian_to_greek",
+  );
+  await user.selectOptions(screen.getByLabelText("Motion"), "reduce");
+  await user.selectOptions(
+    screen.getByLabelText("Interface language on this device"),
+    "it",
+  );
+  expect(screen.getByLabelText("Direzione di apprendimento")).toHaveValue(
+    "italian_to_greek",
+  );
+  first.unmount();
+  renderApp();
+  await user.click(
+    await screen.findByRole("link", { name: "Profili e impostazioni" }),
+  );
+  expect(
+    screen.getByLabelText("Lingua dell’interfaccia su questo dispositivo"),
+  ).toHaveValue("it");
+  expect(screen.getByLabelText("Movimento")).toHaveValue("reduce");
+  expect(
+    await screen.findByLabelText("Direzione di apprendimento"),
+  ).toHaveValue("italian_to_greek");
+});
+
+test("operating-system reduced motion overrides full motion and updates live", async () => {
+  authenticated = true;
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+  const media = new EventTarget();
+  media.matches = true;
+  vi.stubGlobal("matchMedia", () => media);
+  try {
+    renderApp();
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("link", { name: "Learners & settings" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Motion"), "full");
+    expect(screen.getByText("Reduced motion is active.")).toBeInTheDocument();
+    expect(document.documentElement).toHaveAttribute("data-motion", "reduce");
+    act(() => {
+      media.matches = false;
+      media.dispatchEvent(new Event("change"));
+    });
+    expect(screen.getByText("Full motion is active.")).toBeInTheDocument();
+    expect(document.documentElement).toHaveAttribute("data-motion", "full");
+    await user.selectOptions(screen.getByLabelText("Motion"), "reduce");
+    expect(screen.getByText("Reduced motion is active.")).toBeInTheDocument();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Greek is the default and invalid device preferences recover safely", async () => {
+  localStorage.setItem("notebook-language", "unknown");
+  localStorage.setItem("notebook-motion", "unknown");
+  renderApp();
+  expect(await screen.findByLabelText("Κοινός κωδικός")).toBeInTheDocument();
+  expect(document.documentElement.lang).toBe("el");
+  expect(localStorage.getItem("notebook-motion")).toBe("system");
+});
+
+test("device settings work when browser storage is unavailable", async () => {
+  authenticated = true;
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+  const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("blocked");
+  });
+  const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("blocked");
+  });
+  try {
+    renderApp();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByRole("combobox"), "en");
+    await user.click(
+      await screen.findByRole("link", { name: "Learners & settings" }),
+    );
+    await user.selectOptions(screen.getByLabelText("Motion"), "reduce");
+    expect(screen.getByText("Reduced motion is active.")).toBeInTheDocument();
+  } finally {
+    get.mockRestore();
+    set.mockRestore();
+  }
 });
 
 test("offline launches show a connection gate and recover online", async () => {

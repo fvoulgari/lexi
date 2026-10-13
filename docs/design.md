@@ -49,3 +49,7 @@ The supplied product brief defines the initial release, delivered in stages. Fut
 ## Status
 
 All interview choices are resolved. Awaiting the user's confirmation of shared understanding before implementation begins. This document records refinements to the supplied product brief; the brief's other v1 requirements remain in scope.
+
+## Localization for later screens
+
+Every later ticket must localize its added interface text in Greek, English, and Italian. Add matching keys to `frontend/src/copy.js` and use the shell-provided `text` dictionary, including accessible labels, status messages, validation, and errors. Keep learner names and vocabulary content as entered. The shell sets the document language; interface language never changes a learner's learning direction. Use system sans-serif and Georgia/serif fallbacks that support Greek and accented Italian, flexible widths, wrapped labels, and at least 44px interaction targets. Device motion and OS reduced motion apply globally, including future transitions and animations.
