@@ -43,7 +43,7 @@ export default function Practice({ text, csrf, onLocked }) {
         direction,
         size,
         ...(type === "category" ? filters : {}),
-        ...(type === "difficult" ? { mode: "difficult" } : {}),
+        ...(["difficult", "mixed"].includes(type) ? { mode: type } : {}),
       });
       setSession({ ...result, direction, type });
       try {
@@ -200,7 +200,9 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
         <option value="random">{text.randomPractice}</option>
         <option value="category">{text.categoryPractice}</option>
         <option value="difficult">{text.difficultPractice}</option>
+        <option value="mixed">{text.mixedPractice}</option>
       </select>
+      {type === "mixed" && <p>{text.mixedExplanation}</p>}
       {type === "category" && (
         <section className="library-filters" aria-label={text.filters}>
           <p>{text.filterHint}</p>
@@ -364,7 +366,9 @@ function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
               ? text.categoryPractice
               : session.type === "difficult"
                 ? text.difficultPractice
-                : text.randomPractice}
+                : session.type === "mixed"
+                  ? text.mixedPractice
+                  : text.randomPractice}
           </h1>
           <p>
             {profile.display_name} · {position + 1} / {session.cards.length}

@@ -499,3 +499,47 @@ test("difficult selection follows direction and uses the review flow", async () 
     mode: "difficult",
   });
 });
+
+test("mixed setup follows the reveal, review and summary journey", async () => {
+  let body;
+  server.use(
+    http.post("*/api/sessions", async ({ request }) => {
+      body = await request.json();
+      return HttpResponse.json({
+        id: "s",
+        available: 1,
+        requested_size: null,
+        cards: [
+          {
+            position: 0,
+            entry_id: "e",
+            snapshot: { italian: "casa", greek: "σπίτι" },
+          },
+        ],
+      });
+    }),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.selectOptions(
+    await screen.findByLabelText("Learner profile"),
+    "f",
+  );
+  await user.selectOptions(screen.getByLabelText("Practice type"), "mixed");
+  await user.selectOptions(screen.getByLabelText("Session size"), "all");
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(
+    await screen.findByRole("heading", { name: "Mixed practice" }),
+  ).toBeInTheDocument();
+  expect(body).toEqual({
+    profile_id: "f",
+    direction: "greek_to_italian",
+    size: null,
+    mode: "mixed",
+  });
+  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Easy" }));
+  expect(
+    await screen.findByRole("heading", { name: "Session summary" }),
+  ).toBeInTheDocument();
+});

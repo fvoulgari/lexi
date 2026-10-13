@@ -1,5 +1,7 @@
 """Random queues retain their selected wording independently of library edits."""
 
+from datetime import datetime, timedelta, timezone
+from random import shuffle
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -26,6 +28,46 @@ def difficult_progress(profile_id, direction):
         LearningProgress.weight > 0,
         LearningProgress.weighted_sum >= 0.5 * LearningProgress.weight,
     )
+
+
+def mixed_entries(db, selection, profile_id, direction, size):
+    """Largest remainders; ties prefer difficult, recent, then random."""
+    entries = list(db.scalars(selection.order_by(func.random())).all())
+    count = min(size, len(entries)) if size is not None else len(entries)
+    quotas = [count * percent // 10 for percent in (4, 3, 3)]
+    priority = sorted(range(3), key=lambda i: (-(count * (4, 3, 3)[i] % 10), i))
+    for i in priority[: count - sum(quotas)]:
+        quotas[i] += 1
+    difficult = set(
+        db.scalars(
+            difficult_progress(profile_id, direction).with_only_columns(
+                LearningProgress.entry_id
+            )
+        )
+    )
+    now = datetime.now(timezone.utc)
+    recent = set(
+        db.scalars(
+            select(LearningProgress.entry_id).where(
+                LearningProgress.profile_id == profile_id,
+                LearningProgress.direction == direction,
+                LearningProgress.reviews > 0,
+                LearningProgress.last_reviewed_at >= now - timedelta(days=7),
+                LearningProgress.last_reviewed_at <= now,
+            )
+        )
+    )
+    selected = []
+    used = set()
+    for pool, quota in ((difficult, quotas[0]), (recent, quotas[1])):
+        candidates = [e for e in entries if e.id in pool and e.id not in used]
+        chosen = candidates[:quota]
+        selected.extend(chosen)
+        used.update(e.id for e in chosen)
+    selected.extend(e for e in entries if e.id not in used)
+    selected = selected[:count]
+    shuffle(selected)
+    return selected
 
 
 def practice_router(sessions, gate):
@@ -93,9 +135,14 @@ def practice_router(sessions, gate):
                         ),
                     },
                 )
-            entries = db.scalars(
-                selection.order_by(func.random()).limit(body.size)
-            ).all()
+            if body.mode == "mixed":
+                entries = mixed_entries(
+                    db, selection, body.profile_id, body.direction, body.size
+                )
+            else:
+                entries = db.scalars(
+                    selection.order_by(func.random()).limit(body.size)
+                ).all()
             session = PracticeSession(
                 profile_id=body.profile_id,
                 direction=body.direction,

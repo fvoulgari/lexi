@@ -521,3 +521,97 @@ def test_category_queue_size_all_and_filter_validation(logged_in):
             ).status_code
             == 422
         )
+
+
+def test_mixed_small_library_and_persisted_queue(logged_in):
+    profile = logged_in.get("/api/profiles").json()[0]["id"]
+    for size in (10, 25, 50, None):
+        response = logged_in.post(
+            "/api/sessions",
+            json={
+                "profile_id": profile,
+                "direction": "greek_to_italian",
+                "size": size,
+                "mode": "mixed",
+            },
+            headers=headers(logged_in),
+        )
+        assert response.status_code == 201
+        session = response.json()
+        assert len(session["cards"]) == 10
+        assert len({c["entry_id"] for c in session["cards"]}) == 10
+        assert logged_in.get(f"/api/sessions/{session['id']}").json() == session
+
+
+def test_mixed_quotas_overlap_and_recent_boundary(logged_in, monkeypatch):
+    import os
+    from datetime import datetime, timedelta, timezone
+    from uuid import UUID
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    import app.practice as practice
+    from app.models import LearningProgress
+
+    now = datetime(2026, 10, 13, 12, tzinfo=timezone.utc)
+
+    class Clock:
+        @staticmethod
+        def now(tz):
+            return now
+
+    monkeypatch.setattr(practice, "datetime", Clock)
+    client = logged_in
+    csrf = headers(client)
+    for index in range(40):
+        assert (
+            client.post(
+                "/api/vocabulary",
+                headers=csrf,
+                json={
+                    "italian": f"entry {index}",
+                    "greek": f"έννοια {index}",
+                    "word_type": "noun",
+                },
+            ).status_code
+            == 201
+        )
+    entries = client.get("/api/vocabulary?page_size=100").json()["items"]
+    profile = client.get("/api/profiles").json()[0]["id"]
+    # Ten overlapping difficult/recent entries, then eight recent-only entries.
+    # The eighth is exactly seven days old, so selecting all eight tests the cutoff.
+    engine = create_engine(os.environ["DATABASE_URL"])
+    with Session(engine) as db:
+        for index, entry in enumerate(entries[:18]):
+            db.add(
+                LearningProgress(
+                    profile_id=UUID(profile),
+                    entry_id=UUID(entry["id"]),
+                    direction="greek_to_italian",
+                    reviews=1,
+                    again=int(index < 10),
+                    hard=0,
+                    easy=int(index >= 10),
+                    weighted_sum=1 if index < 10 else 0,
+                    weight=1,
+                    last_reviewed_at=now - timedelta(days=7) if index == 17 else now,
+                )
+            )
+        db.commit()
+    engine.dispose()
+    response = client.post(
+        "/api/sessions",
+        headers=csrf,
+        json={
+            "profile_id": profile,
+            "direction": "greek_to_italian",
+            "size": 25,
+            "mode": "mixed",
+        },
+    )
+    assert response.status_code == 201
+    cards = response.json()["cards"]
+    selected = {c["entry_id"] for c in cards}
+    assert len(selected) == 25
+    assert {e["id"] for e in entries[:18]} <= selected
