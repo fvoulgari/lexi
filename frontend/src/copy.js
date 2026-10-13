@@ -3,6 +3,9 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    exportLibrary: "Export full library (CSV)",
+    exporting: "Exporting…",
+    exportStarted: "CSV download started.",
     ...progressCopy.en,
     csvExample: "Download example CSV",
     csvImport: "Import vocabulary",
@@ -206,6 +209,9 @@ export const copy = {
     },
   },
   el: {
+    exportLibrary: "Εξαγωγή όλης της βιβλιοθήκης (CSV)",
+    exporting: "Εξαγωγή…",
+    exportStarted: "Η λήψη CSV ξεκίνησε.",
     ...progressCopy.el,
     csvExample: "Λήψη παραδείγματος CSV",
     csvImport: "Εισαγωγή λεξιλογίου",
@@ -412,6 +418,9 @@ export const copy = {
     },
   },
   it: {
+    exportLibrary: "Esporta tutta la biblioteca (CSV)",
+    exporting: "Esportazione…",
+    exportStarted: "Download CSV avviato.",
     ...progressCopy.it,
     csvExample: "Scarica CSV di esempio",
     csvImport: "Importa vocabolario",

@@ -1,6 +1,6 @@
 # Italian Notebook
 
-A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. Home and Progress show independent learner review histories. CSV import supports preview and confirmation; export is delivered by a later GitHub ticket.
+A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. Home and Progress show independent learner review histories. CSV import supports preview and confirmation, and the full library can be exported safely as CSV.
 
 ## Start locally with Docker
 
@@ -129,7 +129,7 @@ The gated API adds `GET/POST /api/tags` and `POST /api/units`; creation requires
 
 ## Current scope
 
-This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV export remains in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
 
 
 ## Random practice
@@ -154,9 +154,9 @@ In Vocabulary, choose a **CSV file**, then **Preview import**. Inspect valid, du
 
 Download the gated example from the import panel or `GET /api/imports/example`. Use UTF-8 CSV (an optional UTF-8 BOM is accepted), at most **1 MiB and 2000 data rows**. Standard CSV quoting allows commas/newlines inside quoted text. Column headers are case-sensitive and unique; unsupported headers and malformed CSV are file errors. Missing/extra row cells are row errors. Row numbers count logical CSV records (header is row 1), including multiline records.
 
-Required columns: `italian`, `greek`, `word_type` (`noun`, `verb`, `adjective`, `adverb`, `expression`, `other`). Optional columns: `italian_gender`, `greek_gender`, legacy `gender`, `italian_plural`, `greek_plural`, `italian_example`, `greek_example`, `notes`, `pronunciation`, `unit_code`, `unit_title`, `unit_sort_order`, `tags`. Existing vocabulary field lengths and gender values (`masculine`, `feminine`, `neuter`) apply. Blank optional text becomes null. `gender` is an Italian-gender alias; disagreeing nonblank alias/explicit values invalidate that row. Greek gender remains independent. Legacy `type`, `unit`, `plural`, and `example` alias `word_type`, `unit_code`, `italian_plural`, and `italian_example`; disagreeing nonblank alias/explicit values are row errors. Pronunciation is plain text.
+Required columns: `italian`, `greek`, `word_type` (`noun`, `verb`, `adjective`, `adverb`, `expression`, `other`). Optional columns: `italian_gender`, `greek_gender`, legacy `gender`, `italian_plural`, `greek_plural`, `italian_example`, `greek_example`, `notes`, `pronunciation`, `unit_code`, `unit_title`, `unit_sort_order`, `tags`, `csv_format`. Existing vocabulary field lengths and gender values (`masculine`, `feminine`, `neuter`) apply. Blank optional text becomes null. `gender` is an Italian-gender alias; disagreeing nonblank alias/explicit values invalidate that row. Greek gender remains independent. Legacy `type`, `unit`, `plural`, and `example` alias `word_type`, `unit_code`, `italian_plural`, and `italian_example`; disagreeing nonblank alias/explicit values are row errors. Pronunciation is plain text.
 
-`tags` uses pipe-separated names, for example `daily|questions`; names are trimmed, empty names ignored, and repeated names collapsed. A literal pipe cannot be part of an imported tag name. Names match existing tags exactly, preserving case and accents. New names are created only for imported rows.
+`tags` uses pipe-separated names, for example `daily|questions`; names are trimmed, empty names ignored, and repeated names collapsed. A literal pipe cannot be part of a tag name in this legacy encoding. Exported rows carry `csv_format=italian-notebook-v1`, use JSON arrays for tags (including literal pipes), and reversibly decode spreadsheet safety prefixes before validation. See [the CSV format](docs/csv-format.md). Names match existing tags exactly, preserving case and accents. New names are created only for imported rows.
 
 `unit_code` remains text, preserving leading zeros. Existing codes reuse their unit; omitted title/order use current metadata. A new code requires `unit_title`; optional integer `unit_sort_order` defaults to 0. Conflicting titles/orders for an existing or proposed code invalidate that row; imports never edit existing unit metadata. Title/order without a code are row errors.
 
@@ -186,6 +186,12 @@ In Practice, choose a learner and direction, then select **Difficult practice** 
 
 `GET /api/profiles/{id}/difficult-entries?direction=greek_to_italian` (or `italian_to_greek`) returns the current entries, score and review count. `POST /api/sessions` accepts optional `mode: "difficult"`; the default remains `"random"`. Difficult selection is performed on the server using the selected learner and direction. No database migration is needed.
 
+
+## Export vocabulary as CSV
+
+In Vocabulary, choose **Export full library (CSV)**. The action downloads `italian-notebook.csv` with every shared vocabulary entry, regardless of search, filters or pagination. While preparing, the button is disabled. A status announces that the browser download started; it does not claim the file was saved. Errors are displayed and the button allows retry. Expired admission returns to the gate. The protected read-only `GET /api/vocabulary/export.csv` API returns an attachment with `text/csv; charset=utf-8` and `Cache-Control: no-store`. No learner preferences or practice records are exported.
+
+See [the CSV format](docs/csv-format.md) for columns, spreadsheet safety and import compatibility.
 
 ## Install and use offline
 

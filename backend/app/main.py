@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.auth import SharedGate
 from app.config import Settings
+from app.csv_export import export_library
 from app.database import database
 from app.duplicates import normalized_pair
 from app.filters import category_conditions
@@ -183,6 +184,26 @@ def create_app():
                 "page": page,
                 "page_size": page_size,
             }
+
+    @app.get(
+        "/api/vocabulary/export.csv",
+        dependencies=[Depends(gate.require)],
+        response_class=Response,
+    )
+    def export_vocabulary():
+        with sessions() as db:
+            entries = db.scalars(
+                select(VocabularyEntry).order_by(
+                    VocabularyEntry.italian, VocabularyEntry.id
+                )
+            ).all()
+            return Response(
+                export_library(entries),
+                media_type="text/csv; charset=utf-8",
+                headers={
+                    "Content-Disposition": 'attachment; filename="italian-notebook.csv"'
+                },
+            )
 
     @app.get(
         "/api/vocabulary/{entry_id}",

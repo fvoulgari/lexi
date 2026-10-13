@@ -2,12 +2,14 @@
 
 import csv
 import io
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy import select, text
 
+from app.csv_format import FORMAT_VERSION, restore_text
 from app.duplicates import normalized_pair
 from app.models import Tag, Unit, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
@@ -38,6 +40,7 @@ COLUMNS = {
     "unit_title",
     "unit_sort_order",
     "tags",
+    "csv_format",
 }
 
 
@@ -97,6 +100,11 @@ def evaluate(db, rows, confirm):
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
+            version = row.pop("csv_format", "")
+            if version and version != FORMAT_VERSION:
+                raise ValueError("Unsupported csv_format version.")
+            if version:
+                row = {key: restore_text(value) for key, value in row.items()}
             for alias, field in ALIASES.items():
                 value = row.pop(alias, "")
                 if value and row.get(field) and value != row[field]:
@@ -106,7 +114,16 @@ def evaluate(db, rows, confirm):
             code = row.pop("unit_code", "")
             title = row.pop("unit_title", "")
             order = row.pop("unit_sort_order", "")
-            names = list(dict.fromkeys(row.pop("tags", "").split("|")))
+            tag_text = row.pop("tags", "")
+            if version:
+                decoded_names = json.loads(tag_text or "[]")
+                if not isinstance(decoded_names, list) or any(
+                    not isinstance(name, str) for name in decoded_names
+                ):
+                    raise ValueError("tags must be a JSON array of names.")
+                names = decoded_names
+            else:
+                names = tag_text.split("|")
             names = list(
                 dict.fromkeys(
                     TagCreate(name=name).name for name in names if name.strip()

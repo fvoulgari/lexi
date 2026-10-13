@@ -6,10 +6,24 @@ import Import from "./Import.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
 import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
-import { request } from "./api.js";
+import { downloadLibrary, request } from "./api.js";
 
 export default function Library({ text, csrf, onLocked }) {
   const client = useQueryClient();
+  const [exportState, setExportState] = useState("idle");
+  const [exportError, setExportError] = useState(null);
+  async function exportCsv() {
+    setExportState("pending");
+    setExportError(null);
+    try {
+      await downloadLibrary();
+      setExportState("success");
+    } catch (error) {
+      setExportState("error");
+      setExportError(error);
+      if (error.status === 401) onLocked();
+    }
+  }
   const [creating, setCreating] = useState(null);
   const [editing, setEditing] = useState(undefined);
   const [deleting, setDeleting] = useState(null);
@@ -204,6 +218,13 @@ export default function Library({ text, csrf, onLocked }) {
         {text.addEntry}
       </button>
       <div className="form-actions">
+        <button
+          className="secondary"
+          disabled={exportState === "pending"}
+          onClick={exportCsv}
+        >
+          {exportState === "pending" ? text.exporting : text.exportLibrary}
+        </button>
         {["units", "tags"].map((kind) => (
           <button
             id={`create-${kind}`}
@@ -216,6 +237,12 @@ export default function Library({ text, csrf, onLocked }) {
           </button>
         ))}
       </div>
+      {exportState === "success" && <p role="status">{text.exportStarted}</p>}
+      {exportState === "error" && (
+        <p role="alert" className="error">
+          {text.errors[exportError?.code] || text.errors.request_failed}
+        </p>
+      )}
       {creating && (
         <OrganizationForm
           key={creating}
