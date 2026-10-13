@@ -175,3 +175,22 @@ def test_concurrent_confirmations_import_pair_once(logged_in):
             results = [f.result().json()["counts"] for f in futures]
     assert sorted(r["imported"] for r in results) == [0, 1]
     assert logged_in.get("/api/vocabulary?q=nuovo").json()["total"] == 1
+
+
+def test_legacy_columns_and_conflicting_aliases(logged_in):
+    csv = (
+        "italian,greek,type,unit,unit_title,plural,example\n"
+        "il perché,το γιατί,noun,07,Domande,i perché,Non so il perché.\n"
+    )
+    result = upload(logged_in, csv, "confirm")
+    assert result.status_code == 200
+    assert result.json()["counts"]["imported"] == 1
+    entry = logged_in.get("/api/vocabulary?q=perché").json()["items"][0]
+    assert entry["italian_plural"] == "i perché"
+    assert entry["italian_example"] == "Non so il perché."
+    assert entry["unit"]["code"] == "07"
+    conflict = upload(
+        logged_in, "italian,greek,type,word_type\nnuovo,νέο,noun,verb\n"
+    ).json()
+    assert conflict["counts"]["error"] == 1
+    assert "conflicts" in conflict["rows"][0]["errors"][0]

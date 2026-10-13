@@ -16,6 +16,11 @@ const report = {
       italian: "il perché",
       greek: "το γιατί",
       status: "valid",
+      entry: {
+        word_type: "noun",
+        italian_gender: "masculine",
+        pronunciation: "perˈke",
+      },
       errors: [],
     },
     {
@@ -74,6 +79,9 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
   expect(await screen.findByText("greek: required")).toBeInTheDocument();
   expect(screen.getByText("07 — Domande")).toBeInTheDocument();
   expect(screen.getByText("questions")).toBeInTheDocument();
+  await user.click(screen.getByText("Entry details"));
+  expect(screen.getByText("Italian gender")).toBeInTheDocument();
+  expect(screen.getByText("Pronunciation text")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Confirm import" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
   expect(

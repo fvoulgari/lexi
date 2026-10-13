@@ -128,20 +128,16 @@ export default function Import({ text, csrf, onLocked }) {
                         .filter(([, value]) => value != null && value !== "")
                         .map(([key, value]) => (
                           <div key={key}>
-                            <dt>
-                              {text[
-                                {
-                                  word_type: "wordType",
-                                  italian_gender: "italianGender",
-                                  greek_gender: "greekGender",
-                                  italian_plural: "italianPlural",
-                                  greek_plural: "greekPlural",
-                                  italian_example: "italianExample",
-                                  greek_example: "greekExample",
-                                }[key] || key
-                              ] || key}
-                            </dt>
-                            <dd>{value}</dd>
+                            <dt>{text.fields[key] || key}</dt>
+                            <dd>
+                              {[
+                                "word_type",
+                                "italian_gender",
+                                "greek_gender",
+                              ].includes(key)
+                                ? text[value]
+                                : value}
+                            </dd>
                           </div>
                         ))}
                     </dl>

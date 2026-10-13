@@ -2,18 +2,25 @@
 
 import csv
 import io
-import unicodedata
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy import select, text
 
+from app.duplicates import normalized_pair
 from app.models import Tag, Unit, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
 
 MAX_BYTES = 1_048_576
 MAX_ROWS = 2000
+ALIASES = {
+    "type": "word_type",
+    "unit": "unit_code",
+    "plural": "italian_plural",
+    "example": "italian_example",
+    "gender": "italian_gender",
+}
 COLUMNS = {
     "italian",
     "greek",
@@ -34,10 +41,6 @@ COLUMNS = {
 }
 
 
-def normalized(value):
-    return unicodedata.normalize("NFC", value.strip()).casefold()
-
-
 def invalid(message):
     raise HTTPException(422, {"code": "invalid_csv", "message": message})
 
@@ -53,9 +56,14 @@ async def read_csv(request):
         fields = reader.fieldnames
         if not fields or len(fields) != len(set(fields)):
             invalid("CSV needs unique column headers.")
-        if set(fields) - COLUMNS:
-            invalid("Unsupported columns: " + ", ".join(sorted(set(fields) - COLUMNS)))
-        if not {"italian", "greek", "word_type"} <= set(fields):
+        if set(fields) - (COLUMNS | ALIASES.keys()):
+            invalid(
+                "Unsupported columns: "
+                + ", ".join(sorted(set(fields) - (COLUMNS | ALIASES.keys())))
+            )
+        if not {"italian", "greek", "word_type"} <= {
+            ALIASES.get(field, field) for field in fields
+        }:
             invalid("Required columns: italian, greek, word_type.")
         rows = []
         for row in reader:
@@ -73,7 +81,7 @@ def evaluate(db, rows, confirm):
     units = {u.code: u for u in db.scalars(select(Unit))}
     tags = {t.name: t for t in db.scalars(select(Tag))}
     pairs = {
-        (normalized(it), normalized(el))
+        normalized_pair(it, el)
         for it, el in db.execute(select(VocabularyEntry.italian, VocabularyEntry.greek))
     }
     proposed_units, proposed_tags, results = {}, set(), []
@@ -89,11 +97,12 @@ def evaluate(db, rows, confirm):
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
-            legacy = row.pop("gender", "")
-            if legacy and row.get("italian_gender") and legacy != row["italian_gender"]:
-                raise ValueError("gender conflicts with italian_gender.")
-            if legacy:
-                row["italian_gender"] = legacy
+            for alias, field in ALIASES.items():
+                value = row.pop(alias, "")
+                if value and row.get(field) and value != row[field]:
+                    raise ValueError(f"{alias} conflicts with {field}.")
+                if value:
+                    row[field] = value
             code = row.pop("unit_code", "")
             title = row.pop("unit_title", "")
             order = row.pop("unit_sort_order", "")
@@ -128,7 +137,7 @@ def evaluate(db, rows, confirm):
             errors = [str(exc)]
         status = "error" if errors else "valid"
         if not errors:
-            pair = (normalized(entry.italian), normalized(entry.greek))
+            pair = normalized_pair(entry.italian, entry.greek)
             if pair in pairs:
                 status = "duplicate"
             else:
