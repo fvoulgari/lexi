@@ -1,9 +1,13 @@
 export async function request(path, options = {}) {
   const { responseType, ...fetchOptions } = options;
+  if (!navigator.onLine) {
+    throw Object.assign(new Error("Connection unavailable"), { code: "connection_error" });
+  }
   let response;
   try {
     response = await fetch(new URL(path, window.location.origin), {
       credentials: "same-origin",
+      cache: "no-store",
       ...fetchOptions,
       headers: { "Content-Type": "application/json", ...options.headers },
     });

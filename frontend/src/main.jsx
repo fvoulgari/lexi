@@ -6,7 +6,10 @@ import App from "./App.jsx";
 import "./styles.css";
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  defaultOptions: {
+    queries: { retry: false, staleTime: 30_000, networkMode: "always" },
+    mutations: { networkMode: "always" },
+  },
 });
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -17,3 +20,13 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </QueryClientProvider>
   </React.StrictMode>,
 );
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .catch(() => {
+        // The online notebook remains usable if installation is unavailable.
+      });
+  });
+}

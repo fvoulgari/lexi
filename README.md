@@ -1,6 +1,6 @@
 # Italian Notebook
 
-A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. CSV import supports preview and confirmation, and the full library can be exported safely as CSV. Progress dashboards are delivered by later GitHub tickets.
+A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. Home and Progress show independent learner review histories. CSV import supports preview and confirmation, and the full library can be exported safely as CSV.
 
 ## Start locally with Docker
 
@@ -129,7 +129,7 @@ The gated API adds `GET/POST /api/tags` and `POST /api/units`; creation requires
 
 ## Current scope
 
-This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Further practice selection modes, progress dashboards, and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
 
 
 ## Random practice
@@ -192,3 +192,42 @@ In Practice, choose a learner and direction, then select **Difficult practice** 
 In Vocabulary, choose **Export full library (CSV)**. The action downloads `italian-notebook.csv` with every shared vocabulary entry, regardless of search, filters or pagination. While preparing, the button is disabled. A status announces that the browser download started; it does not claim the file was saved. Errors are displayed and the button allows retry. Expired admission returns to the gate. The protected read-only `GET /api/vocabulary/export.csv` API returns an attachment with `text/csv; charset=utf-8` and `Cache-Control: no-store`. No learner preferences or practice records are exported.
 
 See [the CSV format](docs/csv-format.md) for columns, spreadsheet safety and import compatibility.
+
+## Install and use offline
+
+On an HTTPS deployment, use the browser’s Install/Add to Home Screen menu. On iPhone/iPad, use Share → Add to Home Screen. Development mode does not register a worker; use a production build to verify installation.
+
+The installed notebook caches only the generic HTML shell, compiled JS/CSS, manifest and public icons. Vocabulary and all API responses remain online-only. An offline launch shows a translated connection gate; a connection loss while practising leaves the current card in memory for Retry. Keep the page open to retry; reloading does not restore a private queue. Lock notebook clears the current private UI after the server confirms logout; a failed logout reports an error and does not claim to have revoked the session.
+
+Each build generates a content-versioned worker and an explicit static-file allowlist. A new worker waits until existing notebook tabs close, preserving an open practice card; activation deletes older notebook static caches. No runtime responses are written to Cache Storage. No immediate reload is forced.
+
+Run `cd frontend && npx playwright install chromium && npm run test:pwa` for Chromium checks against the production build (manifest, static cache contents, logout/offline launch, current-card retry, keyboard/touch interaction, 320px overflow and cache replacement). Browser API fixtures deliberately contain a private vocabulary marker to verify it never enters the cache. API tests separately verify the production static routes and private cache headers. Physical iOS/Android installation still needs a device check against HTTPS.
+
+## Home and Progress
+
+Home greets the selected learner and shows the shared vocabulary count, total reviews,
+entries practised, difficult entries, and the most recently reviewed session's recall.
+Choose a learner on either Home or Progress; the choice follows links into Practice.
+Start practice opens setup with that learner's preferences. Practise difficult entries
+opens difficult setup in a direction that has eligible entries.
+
+Progress adds Again/Hard/Easy distributions and unit, word type and learning direction
+breakdowns, plus difficult-entry lists and practice links for each direction. Overall
+entries practised and difficult entries deduplicate vocabulary IDs across directions;
+direction views count independently. Unit and word type use saved review-time metadata,
+so later library edits do not rewrite history. Empty profiles have zero counts and an
+explicit invitation to begin practice. Remembered this session describes session recall,
+not mastery or completion.
+
+`GET /api/profiles/{id}/progress` requires the shared gate and returns vocabulary count,
+review counts/distributions, distinct entries practised, distinct difficult entries,
+unit/type/direction breakdowns and a nullable recent-session summary. Only accepted
+reviews count; reveals and idempotent retries do not inflate totals. No schema migration
+is required.
+
+For responsive browser checks, install Playwright and its Chromium browser (or set
+`PLAYWRIGHT_CHANNEL=chrome` to use installed Chrome). Run the local app against a
+seeded disposable test database, then run
+`PROGRESS_BASE_URL=http://127.0.0.1:8813 SHARED_PASSWORD=your-test-password node scripts/progress-rendered.cjs`.
+The check covers Home and Progress at 320/390/1280px in all three interface languages,
+keyboard focus, touch targets, horizontal overflow, and browser errors.

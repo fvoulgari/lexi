@@ -1,3 +1,4 @@
+import { progressCopy } from "./progress-copy.js";
 export const languages = { el: "Ελληνικά", en: "English", it: "Italiano" };
 
 export const copy = {
@@ -5,6 +6,7 @@ export const copy = {
     exportLibrary: "Export full library (CSV)",
     exporting: "Exporting…",
     exportStarted: "CSV download started.",
+    ...progressCopy.en,
     csvExample: "Download example CSV",
     csvImport: "Import vocabulary",
     csvFile: "CSV file",
@@ -40,6 +42,9 @@ export const copy = {
     practice: "Practice",
     practiceSelection: "Practice selection",
     difficultPractice: "Difficult practice",
+    mixedPractice: "Mixed practice",
+    mixedExplanation:
+      "40% difficult, 30% reviewed in the last seven days, 30% random. Shortages are filled from the library without repeats.",
     noDifficultEntries:
       "No difficult entries for this learner and direction. Review vocabulary first or choose another direction.",
     difficultyExplanation:
@@ -207,6 +212,7 @@ export const copy = {
     exportLibrary: "Εξαγωγή όλης της βιβλιοθήκης (CSV)",
     exporting: "Εξαγωγή…",
     exportStarted: "Η λήψη CSV ξεκίνησε.",
+    ...progressCopy.el,
     csvExample: "Λήψη παραδείγματος CSV",
     csvImport: "Εισαγωγή λεξιλογίου",
     csvFile: "Αρχείο CSV",
@@ -242,6 +248,9 @@ export const copy = {
     practice: "Εξάσκηση",
     practiceSelection: "Επιλογή εξάσκησης",
     difficultPractice: "Εξάσκηση δύσκολων καταχωρίσεων",
+    mixedPractice: "Μικτή εξάσκηση",
+    mixedExplanation:
+      "40% δύσκολες, 30% με επανάληψη τις τελευταίες επτά ημέρες, 30% τυχαίες. Τα κενά συμπληρώνονται από τη βιβλιοθήκη χωρίς επαναλήψεις.",
     noDifficultEntries:
       "Δεν υπάρχουν δύσκολες καταχωρίσεις για αυτό το προφίλ και την κατεύθυνση. Κάνε πρώτα εξάσκηση ή επίλεξε άλλη κατεύθυνση.",
     difficultyExplanation:
@@ -412,6 +421,7 @@ export const copy = {
     exportLibrary: "Esporta tutta la biblioteca (CSV)",
     exporting: "Esportazione…",
     exportStarted: "Download CSV avviato.",
+    ...progressCopy.it,
     csvExample: "Scarica CSV di esempio",
     csvImport: "Importa vocabolario",
     csvFile: "File CSV",
@@ -447,6 +457,9 @@ export const copy = {
     practice: "Esercitazione",
     practiceSelection: "Selezione esercitazione",
     difficultPractice: "Esercitazione delle voci difficili",
+    mixedPractice: "Esercitazione mista",
+    mixedExplanation:
+      "40% difficili, 30% ripassate negli ultimi sette giorni, 30% casuali. Le carenze sono colmate dalla biblioteca senza ripetizioni.",
     noDifficultEntries:
       "Nessuna voce difficile per questo profilo e questa direzione. Esercitati prima o scegli un’altra direzione.",
     difficultyExplanation:
@@ -611,3 +624,29 @@ export const copy = {
     },
   },
 };
+
+const connectionCopy = {
+  en: {
+    offlineTitle: "You’re offline",
+    offlineNote:
+      "Connect to open your notebook. Vocabulary and practice need an internet connection. Keep this page open to retry the current card.",
+    installNote:
+      "Install Italian Notebook from your browser menu. On iPhone or iPad, use Share → Add to Home Screen.",
+  },
+  el: {
+    offlineTitle: "Είσαι εκτός σύνδεσης",
+    offlineNote:
+      "Συνδέσου για να ανοίξεις το τετράδιο. Το λεξιλόγιο και η εξάσκηση χρειάζονται σύνδεση στο διαδίκτυο. Κράτησε τη σελίδα ανοιχτή για να δοκιμάσεις ξανά την τρέχουσα κάρτα.",
+    installNote:
+      "Εγκατάστησε το Italian Notebook από το μενού του προγράμματος περιήγησης. Σε iPhone ή iPad: Κοινή χρήση → Προσθήκη στην αρχική οθόνη.",
+  },
+  it: {
+    offlineTitle: "Sei offline",
+    offlineNote:
+      "Connettiti per aprire il quaderno. Vocabolario e pratica richiedono una connessione internet. Lascia aperta questa pagina per riprovare la scheda corrente.",
+    installNote:
+      "Installa Italian Notebook dal menu del browser. Su iPhone o iPad: Condividi → Aggiungi alla schermata Home.",
+  },
+};
+for (const language of Object.keys(connectionCopy))
+  Object.assign(copy[language], connectionCopy[language]);
