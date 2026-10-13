@@ -2,6 +2,30 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    csvExample: "Download example CSV",
+    csvImport: "Import vocabulary",
+    csvFile: "CSV file",
+    csvPreview: "Preview import",
+    csvConfirm: "Confirm import",
+    csvResult: "Import results",
+    csvRow: "Row",
+    csvDetails: "Entry details",
+    csvUnits: "Proposed new units",
+    csvTags: "Proposed new tags",
+    csvHint:
+      "Upload UTF-8 CSV, up to 1 MiB and 2000 rows. Required columns: italian, greek, word_type. Separate tags with |. New units need unit_code and unit_title.",
+    csvConfirmHint:
+      "Confirm to import valid rows. Duplicates and invalid rows are skipped. Current library data is checked again; existing entries are never overwritten.",
+    csvLimit: "CSV exceeds the 1 MiB limit.",
+    csvInvalid: "Check the CSV file.",
+    csvCounts: {
+      imported: "Imported",
+      valid: "Valid",
+      skipped: "Skipped",
+      duplicate: "Duplicate",
+      error: "Error",
+    },
+
     deleteEntry: "Delete entry",
     confirmDelete: "Permanently delete",
     deleteWarning:
@@ -177,6 +201,30 @@ export const copy = {
     },
   },
   el: {
+    csvExample: "Λήψη παραδείγματος CSV",
+    csvImport: "Εισαγωγή λεξιλογίου",
+    csvFile: "Αρχείο CSV",
+    csvPreview: "Προεπισκόπηση εισαγωγής",
+    csvConfirm: "Επιβεβαίωση εισαγωγής",
+    csvResult: "Αποτελέσματα εισαγωγής",
+    csvRow: "Γραμμή",
+    csvDetails: "Λεπτομέρειες εγγραφής",
+    csvUnits: "Προτεινόμενες νέες ενότητες",
+    csvTags: "Προτεινόμενες νέες ετικέτες",
+    csvHint:
+      "Ανεβάστε CSV UTF-8, έως 1 MiB και 2000 γραμμές. Απαιτούνται: italian, greek, word_type. Διαχωρίστε ετικέτες με |. Οι νέες ενότητες χρειάζονται unit_code και unit_title.",
+    csvConfirmHint:
+      "Επιβεβαιώστε για εισαγωγή έγκυρων γραμμών. Διπλότυπες και μη έγκυρες γραμμές παραλείπονται. Η βιβλιοθήκη ελέγχεται ξανά· υπάρχουσες εγγραφές δεν αντικαθίστανται.",
+    csvLimit: "Το CSV υπερβαίνει το όριο 1 MiB.",
+    csvInvalid: "Ελέγξτε το αρχείο CSV.",
+    csvCounts: {
+      imported: "Εισήχθησαν",
+      valid: "Έγκυρες",
+      skipped: "Παραλείφθηκαν",
+      duplicate: "Διπλότυπη",
+      error: "Σφάλμα",
+    },
+
     deleteEntry: "Διαγραφή καταχώρισης",
     confirmDelete: "Οριστική διαγραφή",
     deleteWarning:
@@ -355,6 +403,30 @@ export const copy = {
     },
   },
   it: {
+    csvExample: "Scarica CSV di esempio",
+    csvImport: "Importa vocabolario",
+    csvFile: "File CSV",
+    csvPreview: "Anteprima importazione",
+    csvConfirm: "Conferma importazione",
+    csvResult: "Risultati importazione",
+    csvRow: "Riga",
+    csvDetails: "Dettagli della voce",
+    csvUnits: "Nuove unità proposte",
+    csvTags: "Nuove etichette proposte",
+    csvHint:
+      "Carica CSV UTF-8, fino a 1 MiB e 2000 righe. Colonne obbligatorie: italian, greek, word_type. Separa le etichette con |. Le nuove unità richiedono unit_code e unit_title.",
+    csvConfirmHint:
+      "Conferma per importare le righe valide. Duplicati e righe non valide vengono saltati. La biblioteca viene verificata di nuovo; le voci esistenti non vengono sovrascritte.",
+    csvLimit: "Il CSV supera il limite di 1 MiB.",
+    csvInvalid: "Controlla il file CSV.",
+    csvCounts: {
+      imported: "Importate",
+      valid: "Valide",
+      skipped: "Saltate",
+      duplicate: "Duplicata",
+      error: "Errore",
+    },
+
     deleteEntry: "Elimina voce",
     confirmDelete: "Elimina definitivamente",
     deleteWarning:

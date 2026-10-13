@@ -1,4 +1,3 @@
-import unicodedata
 from contextlib import asynccontextmanager
 from uuid import UUID
 
@@ -13,7 +12,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.auth import SharedGate
 from app.config import Settings
 from app.database import database
+from app.duplicates import normalized_pair
 from app.filters import category_conditions
+from app.imports import import_router
 from app.models import (
     LearningProgress,
     Profile,
@@ -125,6 +126,7 @@ def create_app():
         return {"status": "ok"}
 
     app.include_router(practice_router(sessions, gate))
+    app.include_router(import_router(sessions, gate))
 
     app.get("/api/auth/session")(gate.state)
     app.post("/api/auth/login")(gate.login)
@@ -233,10 +235,7 @@ def create_app():
             db.flush()
             db.refresh(entry)
 
-            def normalized(value):
-                return unicodedata.normalize("NFC", value.strip()).casefold()
-
-            pair = (normalized(entry.italian), normalized(entry.greek))
+            pair = normalized_pair(entry.italian, entry.greek)
             duplicates = [
                 other.id
                 for other in db.execute(
@@ -246,7 +245,7 @@ def create_app():
                         VocabularyEntry.greek,
                     ).where(VocabularyEntry.id != entry.id)
                 )
-                if (normalized(other.italian), normalized(other.greek)) == pair
+                if normalized_pair(other.italian, other.greek) == pair
             ]
             return {
                 "entry": VocabularyOutput.model_validate(entry),
