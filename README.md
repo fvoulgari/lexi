@@ -1,6 +1,6 @@
 # Italian Notebook
 
-A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. Import/export and progress dashboards are delivered by later GitHub tickets.
+A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. CSV export is available; import and progress dashboards are delivered by later GitHub tickets.
 
 ## Start locally with Docker
 
@@ -129,7 +129,7 @@ The gated API adds `GET/POST /api/tags` and `POST /api/units`; creation requires
 
 ## Current scope
 
-This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV tools, further practice selection modes, progress dashboards, and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
+This slice provides a gated vocabulary library with add/edit forms, learner selection/creation/editing and persisted preferences, seeded unit metadata, pagination, language selection, health checks, migrations, container builds, tests, and startup documentation. CSV import, further practice selection modes, progress dashboards, and PWA installation remain in subsequent tickets. Full Railway release verification and a backup/restore rehearsal belong to the final release ticket.
 
 
 ## Random practice
@@ -169,3 +169,10 @@ The selected queue is shuffled, contains each matching entry at most once, and r
 In Practice, choose a learner and direction, then select **Difficult practice** to see the eligible vocabulary entries and start a shuffled queue using the usual reveal/rating flow. Entries qualify only after at least one accepted review in that learner and direction, with normalized weighted difficulty >= 0.5. Again contributes 1, Hard 0.5, and Easy 0; each successively older review has 0.8 times the weight of the newer one. Inactivity never changes eligibility. Empty sets explain how to proceed, and smaller sets use the existing shortage message. Session summaries continue to show submitted Again/Hard entries needing practice.
 
 `GET /api/profiles/{id}/difficult-entries?direction=greek_to_italian` (or `italian_to_greek`) returns the current entries, score and review count. `POST /api/sessions` accepts optional `mode: "difficult"`; the default remains `"random"`. Difficult selection is performed on the server using the selected learner and direction. No database migration is needed.
+
+
+## Export vocabulary as CSV
+
+In Vocabulary, choose **Export full library (CSV)**. The action downloads `italian-notebook.csv` with every shared vocabulary entry, regardless of search, filters or pagination. While preparing, the button is disabled. A status announces that the browser download started; it does not claim the file was saved. Errors are displayed and the button allows retry. Expired admission returns to the gate. The protected read-only `GET /api/vocabulary/export.csv` API returns an attachment with `text/csv; charset=utf-8` and `Cache-Control: no-store`. No learner preferences or practice records are exported.
+
+See [the CSV format](docs/csv-format.md) for columns, spreadsheet safety and the compatibility contract for the planned import workflow in issue #11. CSV import is not yet implemented.

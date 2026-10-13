@@ -2,6 +2,9 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    exportLibrary: "Export full library (CSV)",
+    exporting: "Exporting…",
+    exportStarted: "CSV download started.",
     deleteEntry: "Delete entry",
     confirmDelete: "Permanently delete",
     deleteWarning:
@@ -177,6 +180,9 @@ export const copy = {
     },
   },
   el: {
+    exportLibrary: "Εξαγωγή όλης της βιβλιοθήκης (CSV)",
+    exporting: "Εξαγωγή…",
+    exportStarted: "Η λήψη CSV ξεκίνησε.",
     deleteEntry: "Διαγραφή καταχώρισης",
     confirmDelete: "Οριστική διαγραφή",
     deleteWarning:
@@ -355,6 +361,9 @@ export const copy = {
     },
   },
   it: {
+    exportLibrary: "Esporta tutta la biblioteca (CSV)",
+    exporting: "Esportazione…",
+    exportStarted: "Download CSV avviato.",
     deleteEntry: "Elimina voce",
     confirmDelete: "Elimina definitivamente",
     deleteWarning:
