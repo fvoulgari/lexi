@@ -665,7 +665,7 @@ def test_mixed_isolation_excluded_times_and_partial_backfill(
             "/api/vocabulary",
             headers=csrf,
             json={
-                "italian": f"aaa entry {index:02}",
+                "italian": f"aaa entry {index - 12 if index >= 27 else index:02}",
                 "greek": f"έννοια {index}",
                 "word_type": "noun",
             },
