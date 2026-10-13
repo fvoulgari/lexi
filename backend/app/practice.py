@@ -16,6 +16,17 @@ from app.models import (
 from app.schemas import RevealCard, ReviewCard, SessionCreate, VocabularyOutput
 
 
+def difficult_progress(profile_id, direction):
+    """Eligibility uses accepted reviews only, with no time-based decay."""
+    return select(LearningProgress).where(
+        LearningProgress.profile_id == profile_id,
+        LearningProgress.direction == direction,
+        LearningProgress.reviews > 0,
+        LearningProgress.weight > 0,
+        LearningProgress.weighted_sum >= 0.5 * LearningProgress.weight,
+    )
+
+
 def practice_router(sessions, gate):
     router = APIRouter(prefix="/api/sessions", dependencies=[Depends(gate.require)])
     writes = [Depends(gate.check_csrf)]
@@ -55,17 +66,29 @@ def practice_router(sessions, gate):
         with sessions.begin() as db:
             if db.get(Profile, body.profile_id) is None:
                 raise HTTPException(404, "Learner profile not found.")
-            available = db.scalar(select(func.count()).select_from(VocabularyEntry))
+            selection = select(VocabularyEntry)
+            if body.mode == "difficult":
+                eligible = difficult_progress(body.profile_id, body.direction)
+                selection = selection.where(
+                    VocabularyEntry.id.in_(
+                        eligible.with_only_columns(LearningProgress.entry_id)
+                    )
+                )
+            available = db.scalar(
+                select(func.count()).select_from(selection.subquery())
+            )
             if not available:
                 raise HTTPException(
                     409,
                     detail={
-                        "code": "no_matches",
-                        "message": "No entries match. Add vocabulary and try again.",
+                        "code": "no_difficult_entries"
+                        if body.mode == "difficult"
+                        else "no_matches",
+                        "message": "No entries match. Try another selection.",
                     },
                 )
             entries = db.scalars(
-                select(VocabularyEntry).order_by(func.random()).limit(body.size)
+                selection.order_by(func.random()).limit(body.size)
             ).all()
             session = PracticeSession(
                 profile_id=body.profile_id,

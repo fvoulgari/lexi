@@ -21,8 +21,9 @@ from app.models import (
     Unit,
     VocabularyEntry,
 )
-from app.practice import practice_router
+from app.practice import difficult_progress, practice_router
 from app.schemas import (
+    Direction,
     ProfileCreate,
     ProfileOutput,
     ProfileUpdate,
@@ -326,6 +327,31 @@ def create_app():
             db.add(profile)
             db.flush()
             return ProfileOutput.model_validate(profile)
+
+    @app.get(
+        "/api/profiles/{profile_id}/difficult-entries",
+        dependencies=[Depends(gate.require)],
+    )
+    def difficult_entries(profile_id: UUID, direction: Direction):
+        with sessions() as db:
+            if db.get(Profile, profile_id) is None:
+                raise HTTPException(404, "Learner profile not found.")
+            records = db.scalars(
+                difficult_progress(profile_id, direction).order_by(
+                    LearningProgress.entry_id
+                )
+            ).all()
+            return [
+                {
+                    "entry": VocabularyOutput.model_validate(
+                        db.get(VocabularyEntry, record.entry_id)
+                    ).model_dump(mode="json"),
+                    "direction": record.direction,
+                    "difficulty": record.weighted_sum / record.weight,
+                    "reviews": record.reviews,
+                }
+                for record in records
+            ]
 
     @app.get(
         "/api/profiles/{profile_id}/learning-records",

@@ -33,7 +33,7 @@ export default function Practice({ text, csrf, onLocked }) {
     if (error.status === 401) onLocked();
     else setError(error);
   }
-  async function start(direction, size) {
+  async function start(direction, size, mode) {
     setPending(true);
     setError(null);
     try {
@@ -41,8 +41,9 @@ export default function Practice({ text, csrf, onLocked }) {
         profile_id: profile.id,
         direction,
         size,
+        mode,
       });
-      setSession({ ...result, direction });
+      setSession({ ...result, direction, mode });
       try {
         localStorage.setItem("notebook-profile", profile.id);
       } catch {
@@ -107,12 +108,15 @@ export default function Practice({ text, csrf, onLocked }) {
           profile={profile}
           pending={pending}
           onStart={start}
+          onLocked={onLocked}
         />
         {error && (
           <p role="alert" className="error">
-            {error.code === "no_matches"
-              ? text.noMatches
-              : text.errors[error.code] || text.errors.request_failed}
+            {error.code === "no_difficult_entries"
+              ? text.noDifficultEntries
+              : error.code === "no_matches"
+                ? text.noMatches
+                : text.errors[error.code] || text.errors.request_failed}
           </p>
         )}
         <Link to="/">{text.returnHome}</Link>
@@ -140,10 +144,24 @@ function Direction({ text, value, onChange, disabled = false }) {
     </>
   );
 }
-function Setup({ text, profile, pending, onStart }) {
+function Setup({ text, profile, pending, onStart, onLocked }) {
   const [direction, setDirection] = useState(
     profile?.preferred_direction || "greek_to_italian",
   );
+  const [mode, setMode] = useState("random");
+  const difficult = useQuery({
+    queryKey: ["difficult-entries", profile?.id, direction],
+    queryFn: () =>
+      request(
+        `/api/profiles/${profile.id}/difficult-entries?direction=${direction}`,
+      ),
+    enabled: !!profile && mode === "difficult",
+    staleTime: 0,
+    retry: false,
+  });
+  useEffect(() => {
+    if (difficult.error?.status === 401) onLocked();
+  }, [difficult.error, onLocked]);
   const [size, setSize] = useState(
     profile ? (profile.default_session_size ?? "all") : 25,
   );
@@ -151,7 +169,7 @@ function Setup({ text, profile, pending, onStart }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onStart(direction, size === "all" ? null : Number(size));
+        onStart(direction, size === "all" ? null : Number(size), mode);
       }}
     >
       <Direction
@@ -160,6 +178,45 @@ function Setup({ text, profile, pending, onStart }) {
         onChange={setDirection}
         disabled={pending}
       />
+      <label htmlFor="practice-mode">{text.practiceSelection}</label>
+      <select
+        id="practice-mode"
+        value={mode}
+        disabled={pending}
+        onChange={(e) => setMode(e.target.value)}
+      >
+        <option value="random">{text.randomPractice}</option>
+        <option value="difficult">{text.difficultPractice}</option>
+      </select>
+      {mode === "difficult" && profile && (
+        <section aria-label={text.difficultPractice}>
+          <p>{text.difficultyExplanation}</p>
+          {difficult.isPending ? (
+            <p role="status">{text.loading}</p>
+          ) : difficult.isError ? (
+            <>
+              <p role="alert">
+                {text.errors[difficult.error.code] ||
+                  text.errors.request_failed}
+              </p>
+              <button type="button" onClick={() => difficult.refetch()}>
+                {text.retry}
+              </button>
+            </>
+          ) : difficult.data.length ? (
+            <ul>
+              {difficult.data.map(({ entry }) => (
+                <li key={entry.id}>
+                  <span lang="it">{entry.italian}</span> ·{" "}
+                  <span lang="el">{entry.greek}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p role="status">{text.noDifficultEntries}</p>
+          )}
+        </section>
+      )}
       <label htmlFor="practice-size">{text.practiceSize}</label>
       <select
         id="practice-size"
@@ -199,7 +256,11 @@ function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
       {skipped && <p role="status">{text.entrySkipped}</p>}
       {!finished && (
         <>
-          <h1>{text.randomPractice}</h1>
+          <h1>
+            {session.mode === "difficult"
+              ? text.difficultPractice
+              : text.randomPractice}
+          </h1>
           <p>
             {profile.display_name} · {position + 1} / {cards.length}
           </p>
