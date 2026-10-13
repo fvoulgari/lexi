@@ -494,7 +494,6 @@ def create_app():
             return FileResponse(
                 asset,
                 media_type=public_files[path],
-                headers={"Cache-Control": "no-cache"},
             )
         index = settings.static_dir / "index.html"
         if not index.is_file():

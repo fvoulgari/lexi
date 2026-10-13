@@ -108,28 +108,54 @@ try {
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   await page.goto(origin);
-  await page.waitForFunction(async () => !!(await navigator.serviceWorker.getRegistration())?.active);
+  await page.waitForFunction(
+    async () => !!(await navigator.serviceWorker.getRegistration())?.active,
+  );
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
   await page.locator(".language-picker select").selectOption("en");
   const cdp = await context.newCDPSession(page);
   const manifest = await cdp.send("Page.getAppManifest");
   assert.equal(manifest.errors.length, 0);
   assert.equal(JSON.parse(manifest.data).display, "standalone");
+  assert.deepEqual(
+    (await cdp.send("Page.getInstallabilityErrors")).installabilityErrors,
+    [],
+  );
+  for (const size of [192, 512]) {
+    assert.deepEqual(
+      await page.evaluate(async (size) => {
+        const image = new Image();
+        image.src = `/icon-${size}.png`;
+        await image.decode();
+        return [image.naturalWidth, image.naturalHeight];
+      }, size),
+      [size, size],
+    );
+  }
+  const noOverflow = async () =>
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+  await noOverflow();
   await page.getByLabel("Shared password").fill("password");
   await page.getByRole("button", { name: "Open my notebook" }).click();
   await page.getByRole("link", { name: "Vocabulary", exact: true }).click();
   await page.getByText("PRIVATE CASA").waitFor();
   await page.getByRole("link", { name: "Practice", exact: true }).click();
   await page.getByLabel("Learner profile", { exact: true }).selectOption("1");
+  await noOverflow();
   await page.getByRole("button", { name: "Start practice", exact: true }).tap();
   const reveal = page.getByRole("button", { name: "Reveal answer" });
   await reveal.waitFor();
   await reveal.focus();
   await page.keyboard.press("Enter");
   await page.getByRole("heading", { name: "casa", exact: true }).waitFor();
-  assert.equal(
-    await page.evaluate(() => document.activeElement.className),
-    "card-answer",
+  assert.ok(
+    await page
+      .getByRole("heading", { name: "casa", exact: true })
+      .evaluate((el) => el.parentElement === document.activeElement),
   );
   assert.ok(
     await page.evaluate(
@@ -141,16 +167,29 @@ try {
       .getByRole("button", { name: "Easy", exact: true })
       .evaluate((el) => el.getBoundingClientRect().height >= 44),
   );
+  assert.ok(
+    await page
+      .getByRole("heading", { name: "casa", exact: true })
+      .evaluate((el) => {
+        const style = getComputedStyle(el);
+        return (
+          style.animationName === "none" && style.transitionDuration === "0s"
+        );
+      }),
+  );
   await context.setOffline(true);
-  await page.getByRole("button", { name: "Easy", exact: true }).tap();
+  await page.getByRole("button", { name: "Easy", exact: true }).focus();
+  await page.keyboard.press("Enter");
   await page
     .getByRole("alert")
     .filter({ hasText: "Check your connection" })
     .waitFor();
   await page.getByRole("heading", { name: "casa", exact: true }).waitFor();
   await context.setOffline(false);
-  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await page.getByRole("button", { name: "Retry", exact: true }).focus();
+  await page.keyboard.press("Space");
   await page.getByRole("heading", { name: "Session summary" }).waitFor();
+  await noOverflow();
   await page.getByRole("button", { name: "Lock notebook" }).click();
   await page.getByLabel("Shared password").waitFor();
   const cached = await page.evaluate(async () => {
@@ -174,7 +213,18 @@ try {
   await page.getByRole("heading", { name: "You’re offline" }).waitFor();
   assert.equal(await page.getByLabel("Shared password").count(), 0);
   assert.equal(await page.getByText("PRIVATE CASA").count(), 0);
+  assert.ok(
+    await page.evaluate(async () => {
+      try {
+        await fetch("/api/vocabulary", { cache: "no-store" });
+        return false;
+      } catch {
+        return true;
+      }
+    }),
+  );
   await context.setOffline(false);
+  await page.getByRole("button", { name: "Try again" }).click();
   await page.getByLabel("Shared password").waitFor();
   updated = true;
   await page.evaluate(async () =>

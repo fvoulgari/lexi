@@ -145,10 +145,18 @@ export default function App() {
         </p>
       )}
       <main id="main">
-        {!online && !session.data?.authenticated ? (
+        {(!online || session.error?.code === "connection_error") &&
+        !session.data?.authenticated ? (
           <section className="status" aria-labelledby="offline-title">
             <h1 id="offline-title">{text.offlineTitle}</h1>
             <p role="status">{text.offlineNote}</p>
+            <button
+              className="primary"
+              disabled={!online}
+              onClick={() => session.refetch()}
+            >
+              {text.retry}
+            </button>
           </section>
         ) : session.isPending ? (
           <p className="status" role="status">

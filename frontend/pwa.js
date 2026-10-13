@@ -33,7 +33,7 @@ export function staticPwa() {
         resolve(output, "sw.js"),
         template
           .replace("__CACHE_VERSION__", hash.digest("hex").slice(0, 16))
-          .replace(
+          .replaceAll(
             "__STATIC_FILES__",
             JSON.stringify(files.map((file) => `/${file}`)),
           ),
