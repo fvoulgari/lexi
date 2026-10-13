@@ -14,6 +14,7 @@ import {
   vi,
 } from "vitest";
 import App from "./App.jsx";
+import { copy } from "./copy.js";
 
 let authenticated = false;
 const server = setupServer(
@@ -334,3 +335,24 @@ test("a failed connection gates the notebook even when the browser reports onlin
     .click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
 });
+
+test.each(["el", "en", "it"])(
+  "keyboard navigation focuses the new screen in %s",
+  async (language) => {
+    authenticated = true;
+    localStorage.setItem("notebook-language", language);
+    server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+    renderApp();
+    const user = userEvent.setup();
+    const link = await screen.findByRole("link", {
+      name: copy[language].practice,
+      exact: true,
+    });
+    link.focus();
+    await user.keyboard("{Enter}");
+    expect(
+      await screen.findByRole("heading", { name: copy[language].practice }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveFocus();
+  },
+);
