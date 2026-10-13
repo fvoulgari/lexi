@@ -184,6 +184,10 @@ class SessionCreate(BaseModel):
     profile_id: UUID
     direction: Direction
     size: SessionSize = 25
+    unit_ids: list[UUID] = []
+    no_unit: bool = False
+    word_types: list[WordType] = []
+    tag_ids: list[UUID] = []
 
 
 class RevealCard(BaseModel):

@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 
+from app.filters import category_conditions
 from app.models import (
     LearningProgress,
     PracticeSession,
@@ -49,11 +50,13 @@ def practice_router(sessions, gate):
             "direction": session.direction,
             "requested_size": session.requested_size,
             "available": session.available,
+            "active_count": sum(c.entry_id is not None for c in cards),
             "cards": [
                 {
                     "position": c.position,
                     "entry_id": str(c.entry_id) if c.entry_id else None,
                     "snapshot": c.snapshot,
+                    "skipped": c.entry_id is None,
                 }
                 for c in cards
             ],
@@ -64,7 +67,11 @@ def practice_router(sessions, gate):
         with sessions.begin() as db:
             if db.get(Profile, body.profile_id) is None:
                 raise HTTPException(404, "Learner profile not found.")
-            selection = select(VocabularyEntry)
+            selection = select(VocabularyEntry).where(
+                *category_conditions(
+                    body.unit_ids, body.no_unit, body.word_types, body.tag_ids
+                )
+            )
             if body.mode == "difficult":
                 eligible = difficult_progress(body.profile_id, body.direction)
                 selection = selection.where(
@@ -82,7 +89,10 @@ def practice_router(sessions, gate):
                         "code": "no_difficult_entries"
                         if body.mode == "difficult"
                         else "no_matches",
-                        "message": "No entries match. Try another selection.",
+                        "message": (
+                            "No entries match. Clear filters or add vocabulary "
+                            "and try again."
+                        ),
                     },
                 )
             entries = db.scalars(
@@ -128,6 +138,25 @@ def practice_router(sessions, gate):
             raise HTTPException(404, "Session card not found.")
         return session, card
 
+    def require_entry(db, card):
+        entry = (
+            db.scalar(
+                select(VocabularyEntry)
+                .where(VocabularyEntry.id == card.entry_id)
+                .with_for_update(of=VocabularyEntry)
+            )
+            if card.entry_id
+            else None
+        )
+        if entry is None:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "entry_deleted",
+                    "message": "This unreviewed entry was deleted. Skip this card.",
+                },
+            )
+
     def event_output(event):
         return {
             "id": str(event.id),
@@ -145,6 +174,7 @@ def practice_router(sessions, gate):
     def reveal(session_id: UUID, position: int, body: RevealCard):
         with sessions.begin() as db:
             _, card = locked_card(db, session_id, position)
+            require_entry(db, card)
             card.revealed_direction = body.direction
             return {"revealed": True}
 
@@ -169,21 +199,13 @@ def practice_router(sessions, gate):
                 return event_output(existing)
             if card.revealed_direction != body.direction:
                 raise HTTPException(409, "Reveal this answer before rating it.")
-            if card.entry_id is None:
-                raise HTTPException(409, "This vocabulary entry was removed.")
             # Serialize aggregate updates across sessions for the same learner.
             db.scalar(
                 select(Profile)
                 .where(Profile.id == session.profile_id)
                 .with_for_update()
             )
-            entry = db.scalar(
-                select(VocabularyEntry)
-                .where(VocabularyEntry.id == card.entry_id)
-                .with_for_update(of=VocabularyEntry)
-            )
-            if entry is None:
-                raise HTTPException(409, "This vocabulary entry was removed.")
+            require_entry(db, card)
             event = ReviewEvent(
                 session_id=session_id,
                 position=position,

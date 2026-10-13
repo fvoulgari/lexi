@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, ChevronLeft, ChevronRight, Leaf } from "lucide-react";
 import PropTypes from "prop-types";
@@ -12,6 +12,20 @@ export default function Library({ text, csrf, onLocked }) {
   const client = useQueryClient();
   const [creating, setCreating] = useState(null);
   const [editing, setEditing] = useState(undefined);
+  const [deleting, setDeleting] = useState(null);
+  const [deleteError, setDeleteError] = useState(null);
+  const [deleted, setDeleted] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const cancelDelete = useRef(null);
+  const deleteTrigger = useRef(null);
+  useEffect(() => {
+    if (deleted && !deletePending)
+      document.getElementById("add-entry")?.focus();
+  }, [deleted, deletePending]);
+  useEffect(() => {
+    if (deleting) cancelDelete.current?.focus();
+    else deleteTrigger.current?.focus();
+  }, [deleting]);
   const [saved, setSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   useEffect(() => {
@@ -59,6 +73,34 @@ export default function Library({ text, csrf, onLocked }) {
       onLocked();
   }, [library.error, units.error, tags.error, onLocked]);
   const pages = Math.max(1, Math.ceil((library.data?.total || 0) / 6));
+
+  function closeDelete() {
+    setDeleting(null);
+    setDeleteError(null);
+  }
+  async function deleteEntry() {
+    if (deletePending) return;
+    setDeletePending(true);
+    setDeleteError(null);
+    try {
+      await request(`/api/vocabulary/${deleting.id}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": csrf },
+      });
+      setDeleting(null);
+      setSaved(null);
+      setEditing(undefined);
+      // Return to a valid page even when deleting the last result on this page.
+      setPage(1);
+      await client.invalidateQueries({ queryKey: ["vocabulary"] });
+      setDeleted(true);
+    } catch (error) {
+      if (error.status === 401) onLocked();
+      else setDeleteError(error);
+    } finally {
+      setDeletePending(false);
+    }
+  }
 
   return (
     <section className="library-page">
@@ -153,7 +195,7 @@ export default function Library({ text, csrf, onLocked }) {
       <button
         className="primary"
         id="add-entry"
-        disabled={isSaving}
+        disabled={isSaving || deletePending}
         onClick={() => {
           setSaved(null);
           setEditing(null);
@@ -209,6 +251,46 @@ export default function Library({ text, csrf, onLocked }) {
           }}
         />
       )}
+      {deleting && (
+        <section
+          className="delete-confirmation"
+          role="dialog"
+          aria-labelledby="delete-title"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !deletePending) closeDelete();
+          }}
+        >
+          <h2 id="delete-title">{text.deleteEntry}</h2>
+          <p>
+            <span lang="it">{deleting.italian}</span> —{" "}
+            <span lang="el">{deleting.greek}</span>
+          </p>
+          <p>{text.deleteWarning}</p>
+          {deleteError && (
+            <p role="alert" className="error">
+              {text.errors[deleteError.code] || text.errors.request_failed}
+            </p>
+          )}
+          <div className="form-actions">
+            <button
+              ref={cancelDelete}
+              className="secondary"
+              disabled={deletePending}
+              onClick={closeDelete}
+            >
+              {text.cancel}
+            </button>
+            <button
+              className="primary"
+              disabled={deletePending}
+              onClick={deleteEntry}
+            >
+              {deletePending ? text.saving : text.confirmDelete}
+            </button>
+          </div>
+        </section>
+      )}
+      {deleted && <p role="status">{text.entryDeleted}</p>}
       {saved && (
         <div className="save-notice" role="status">
           <p>
@@ -272,13 +354,30 @@ export default function Library({ text, csrf, onLocked }) {
                 <button
                   className="secondary"
                   aria-label={`${text.editEntry}: ${entry.italian}`}
-                  disabled={isSaving}
+                  disabled={isSaving || deletePending}
                   onClick={() => {
                     setSaved(null);
+                    setDeleted(false);
                     setEditing(entry);
                   }}
                 >
                   {text.editEntry}
+                </button>
+                <button
+                  id={`delete-${entry.id}`}
+                  className="secondary"
+                  aria-label={`${text.deleteEntry}: ${entry.italian}`}
+                  disabled={isSaving || deletePending || deleting !== null}
+                  onClick={() => {
+                    deleteTrigger.current = document.getElementById(
+                      `delete-${entry.id}`,
+                    );
+                    setDeleted(false);
+                    setDeleteError(null);
+                    setDeleting(entry);
+                  }}
+                >
+                  {text.deleteEntry}
                 </button>
                 {entry.unit && (
                   <div className="entry-footer">

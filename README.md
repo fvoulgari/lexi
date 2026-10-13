@@ -164,6 +164,22 @@ Duplicate policy: matching Italian–Greek pairs use Unicode NFC, case folding a
 
 `POST /api/imports/preview` and `POST /api/imports/confirm` accept the raw CSV body (`Content-Type: text/csv`) and require the gate and CSRF header. Both return `counts` (`imported`, `valid`, `skipped`, `duplicate`, `error`), `rows` with logical row number/status/errors/entry details, and `proposed_units`/`proposed_tags`. `valid` counts eligible rows, including those imported; `skipped` is duplicate + error. Confirmation serializes against vocabulary/unit/tag writes while checking and inserting. No migration is needed. Import diagnostics preserve detailed backend validation messages; navigation and workflow labels support all three interface languages.
 
+
+## Delete accidental vocabulary
+
+Choose **Delete entry** on a vocabulary card, check the Italian–Greek meaning, then choose **Permanently delete**. Only entries without any reviews can be deleted. Revealing an answer alone does not prevent deletion. Reviewed entries return an explained conflict and keep their complete history.
+
+The gated `DELETE /api/vocabulary/{id}` endpoint requires CSRF and returns `{"deleted": "<id>"}`. Missing entries return 404; entries with reviews return 409 with `error.code=entry_reviewed`. Deletion and review acceptance lock the same vocabulary entry inside their transactions: if the review commits first, deletion is refused; if deletion commits first, the review returns `entry_deleted` without storing history or progress.
+
+Deleted entries disappear from library search and future practice selections. Existing session snapshots and card positions stay intact. Session reads include `skipped` on each card and `active_count` for the remaining undeleted queue. Reveal/review attempts on a deleted card return 409 with `entry_deleted`; the practice page skips it with a translated explanation and adjusts its count, preserving other cards and accepted reviews. Skipping the last card reaches the summary, including a defined zero-review summary. There is no database migration or change to review foreign keys.
+## Category practice
+
+Choose **Category practice** in Practice setup to combine units, word types, and tags. The filter semantics match Vocabulary: values within each group are ORed and selected groups are ANDed. No unit includes unassigned entries alongside any selected units. Leaving all filters clear selects the whole library.
+
+The selected queue is shuffled, contains each matching entry at most once, and respects 10/25/50/All. Shortages show the actual count; zero matches keep setup open with Clear filters and a Vocabulary link. Category practice uses the existing reveal, direction-switch, review, and summary flow with independent learner and direction records.
+
+`POST /api/sessions` also accepts `unit_ids`, `no_unit`, `word_types`, and `tag_ids`. Omitted filters select the whole library. Matching counts and queues are computed in PostgreSQL and selected cards retain their persisted wording snapshots.
+
 ## Difficult entries
 
 In Practice, choose a learner and direction, then select **Difficult practice** to see the eligible vocabulary entries and start a shuffled queue using the usual reveal/rating flow. Entries qualify only after at least one accepted review in that learner and direction, with normalized weighted difficulty >= 0.5. Again contributes 1, Hard 0.5, and Easy 0; each successively older review has 0.8 times the weight of the newer one. Inactivity never changes eligibility. Empty sets explain how to proceed, and smaller sets use the existing shortage message. Session summaries continue to show submitted Again/Hard entries needing practice.
