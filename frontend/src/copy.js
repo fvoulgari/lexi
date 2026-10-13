@@ -35,6 +35,18 @@ export const copy = {
     entryDeleted: "Entry deleted.",
     entrySkipped:
       "This unreviewed entry was deleted. It was skipped and the session count was adjusted.",
+    motionReducedActive: "Reduced motion is active.",
+    motionFullActive: "Full motion is active.",
+    deviceSettings: "Device settings",
+    deviceSettingsHint:
+      "These settings are saved automatically on this device. They do not change your learning direction.",
+    deviceLanguage: "Interface language on this device",
+    motion: "Motion",
+    motionSystem: "Follow device setting",
+    motionReduce: "Reduce motion",
+    motionFull: "Full motion",
+    motionHint:
+      "Your operating system’s reduced motion setting always takes priority.",
 
     practice: "Practice",
     practiceSelection: "Practice selection",
@@ -238,6 +250,18 @@ export const copy = {
     entryDeleted: "Η καταχώριση διαγράφηκε.",
     entrySkipped:
       "Αυτή η καταχώριση χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
+    motionReducedActive: "Η μειωμένη κίνηση είναι ενεργή.",
+    motionFullActive: "Η πλήρης κίνηση είναι ενεργή.",
+    deviceSettings: "Ρυθμίσεις συσκευής",
+    deviceSettingsHint:
+      "Αυτές οι ρυθμίσεις αποθηκεύονται αυτόματα σε αυτή τη συσκευή. Δεν αλλάζουν την κατεύθυνση εκμάθησης.",
+    deviceLanguage: "Γλώσσα διεπαφής σε αυτή τη συσκευή",
+    motion: "Κίνηση",
+    motionSystem: "Χρήση ρύθμισης συσκευής",
+    motionReduce: "Μειωμένη κίνηση",
+    motionFull: "Πλήρης κίνηση",
+    motionHint:
+      "Η ρύθμιση μειωμένης κίνησης του λειτουργικού συστήματος έχει πάντα προτεραιότητα.",
 
     practice: "Εξάσκηση",
     practiceSelection: "Επιλογή εξάσκησης",
@@ -444,6 +468,18 @@ export const copy = {
     entryDeleted: "Voce eliminata.",
     entrySkipped:
       "Questa voce senza revisioni è stata eliminata. È stata saltata e il numero di carte è stato aggiornato.",
+    motionReducedActive: "Il movimento ridotto è attivo.",
+    motionFullActive: "Il movimento completo è attivo.",
+    deviceSettings: "Impostazioni del dispositivo",
+    deviceSettingsHint:
+      "Queste impostazioni vengono salvate automaticamente su questo dispositivo. Non cambiano la direzione di apprendimento.",
+    deviceLanguage: "Lingua dell’interfaccia su questo dispositivo",
+    motion: "Movimento",
+    motionSystem: "Segui le impostazioni del dispositivo",
+    motionReduce: "Riduci il movimento",
+    motionFull: "Movimento completo",
+    motionHint:
+      "La preferenza del sistema operativo per il movimento ridotto ha sempre la priorità.",
 
     practice: "Esercitazione",
     practiceSelection: "Selezione esercitazione",

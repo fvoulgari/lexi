@@ -16,17 +16,21 @@ import Library from "./Library.jsx";
 import Profiles from "./Profiles.jsx";
 import Practice from "./Practice.jsx";
 import Progress from "./Progress.jsx";
+import DeviceSettings from "./DeviceSettings.jsx";
+import { useDeviceSetting, useReducedMotion } from "./device-settings.js";
 
 export default function App() {
-  const [language, setLanguage] = useState(() => {
-    try {
-      return Object.hasOwn(copy, localStorage.getItem("notebook-language"))
-        ? localStorage.getItem("notebook-language")
-        : "el";
-    } catch {
-      return "el";
-    }
-  });
+  const [language, setLanguage] = useDeviceSetting(
+    "notebook-language",
+    Object.keys(copy),
+    "el",
+  );
+  const [motion, setMotion] = useDeviceSetting(
+    "notebook-motion",
+    ["system", "reduce", "full"],
+    "system",
+  );
+  const reducedMotion = useReducedMotion(motion);
   const [password, setPassword] = useState("");
   const text = copy[language];
   const queryClient = useQueryClient();
@@ -70,12 +74,14 @@ export default function App() {
   });
   useEffect(() => {
     document.documentElement.lang = language;
-    try {
-      localStorage.setItem("notebook-language", language);
-    } catch {
-      /* The setting still works without device storage. */
-    }
   }, [language]);
+
+  useEffect(() => {
+    document.documentElement.dataset.motion = reducedMotion ? "reduce" : "full";
+    return () => {
+      delete document.documentElement.dataset.motion;
+    };
+  }, [reducedMotion]);
 
   return (
     <div className="notebook-app">
@@ -219,11 +225,21 @@ export default function App() {
             <Route
               path="/settings"
               element={
-                <Profiles
-                  text={text}
-                  csrf={session.data.csrf_token}
-                  onLocked={lockNotebook}
-                />
+                <>
+                  <DeviceSettings
+                    text={text}
+                    language={language}
+                    setLanguage={setLanguage}
+                    reducedMotion={reducedMotion}
+                    motion={motion}
+                    setMotion={setMotion}
+                  />
+                  <Profiles
+                    text={text}
+                    csrf={session.data.csrf_token}
+                    onLocked={lockNotebook}
+                  />
+                </>
               }
             />
             <Route
