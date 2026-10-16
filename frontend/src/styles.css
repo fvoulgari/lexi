@@ -257,7 +257,7 @@ main {
   line-height: 1.7;
 }
 .library-page h1 {
-  font-size: 42px;
+  font-size: clamp(28px, 4vw, 36px);
 }
 .main-navigation {
   max-width: 1088px;
@@ -310,33 +310,13 @@ main {
   margin: 0;
 }
 .library-count {
-  border: 1px solid #cad9c6;
-  border-radius: 50%;
-  width: 82px;
-  height: 82px;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  font:
-    30px Georgia,
-    serif;
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid #dce3d4; border-radius: 999px; background: #f8f7f0; color: #65715c; font-size: 13px; white-space: nowrap;
 }
 .library-count small {
-  font:
-    10px system-ui,
-    sans-serif;
-  margin-top: 4px;
+  font: inherit;
 }
 .library-caption {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 11px;
-  color: #53745b;
-  border-top: 1px solid #cad9c6;
-  padding: 20px 0;
+  display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: #65715c; padding: 12px 0 18px;
 }
 .library-caption span span {
   padding: 0 8px;
@@ -344,7 +324,8 @@ main {
 .library-caption > span:last-child {
   font-style: italic;
 }
-.entry-grid {
+.library-page .entry-grid {
+  grid-auto-rows: 1fr;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -607,18 +588,9 @@ main {
   .page-heading p {
     font-size: 13px;
   }
-  .library-count {
-    width: 62px;
-    height: 62px;
-    font-size: 24px;
-    margin-top: 26px;
-  }
-  .library-count small {
-    font-size: 8px;
-  }
-  .entry-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+  .library-page .entry-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
   .entry-card {
     padding: 18px;
@@ -648,9 +620,6 @@ main {
   }
 }
 @media (max-width: 390px) {
-  .entry-grid {
-    grid-template-columns: 1fr;
-  }
   .library-caption > span:last-child {
     display: none;
   }
@@ -816,11 +785,7 @@ main {
 }
 
 .library-filters {
-  margin-bottom: 24px;
-  padding: 20px;
-  border: 1px solid #cad9c6;
-  border-radius: 16px;
-  background: #fffdf8;
+  margin-bottom: 12px; padding: 14px 16px; border: 1px solid #dfe5d7; border-radius: 16px; background: #fffef8;
 }
 .search-field {
   display: grid;
@@ -836,13 +801,10 @@ main {
   color: #304f3a;
 }
 .library-filters summary {
-  cursor: pointer;
-  padding: 16px 0;
-  min-height: 48px;
+  cursor: pointer; padding: 8px 0; min-height: 44px; color: #526e52;
 }
 .library-filters p {
-  font-size: 14px;
-  line-height: 1.7;
+  font-size: 13px; line-height: 1.6; margin-bottom: 12px;
 }
 .choice-group {
   margin: 12px 0;
@@ -887,7 +849,7 @@ main {
   overflow-wrap: anywhere;
 }
 @media (max-width: 760px) {
-  .entry-grid {
+  .library-page .entry-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -1006,21 +968,39 @@ button:disabled {
   color: #304f3a;
 }
 
-.csv-import {
-  margin: 1.5rem 0;
-  padding: 1.25rem;
-  border: 1px solid var(--border, #d9d5c9);
-  border-radius: 16px;
-  background: var(--paper, #fffdf7);
+.library-tools .csv-import {
+  margin: 22px 0 0; padding: 23px 0 0;
+  border: 0; border-top: 1px solid #dfe5d5; border-radius: 0; background: transparent;
+  min-width: 0; color: #354c39;
 }
-.csv-import label {
-  display: grid;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+.library-tools .csv-import > h2 { margin: 0 0 10px; font: 400 23px/1.3 Georgia, "Times New Roman", serif; }
+.library-tools .csv-intro { font-size: 13px; line-height: 1.65; color: #697761; margin: 0 0 18px; }
+.library-tools .csv-import label { display: grid; gap: 8px; margin-bottom: 16px; font-size: 13px; }
+.library-tools .csv-import input[type="file"] {
+  display: block; width: 100%; min-width: 0; max-width: 100%; padding: 8px;
+  border: 1px dashed #c8d4bc; border-radius: 11px; background: #f0f3e8;
+  color: #486044; font-size: 13px; text-overflow: ellipsis;
 }
-.csv-import input {
-  max-width: 100%;
+.library-tools .csv-import input::file-selector-button {
+  padding: 10px 12px; margin-right: 10px; min-height: 40px;
+  border: 1px solid #d8dfce; border-radius: 8px; background: #fffef9;
+  color: #486044; font: inherit; cursor: pointer;
 }
+.library-tools .csv-preview-actions { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.library-tools .csv-preview-actions a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #607357; font-size: 13px; text-underline-offset: 4px; }
+.library-tools .csv-import .primary { background: #526e52; color: #fffef9; min-height: 44px; padding: 10px 15px; font-size: 14px; border-radius: 10px; }
+.library-tools .csv-import .primary:hover { background: #435e43; }
+.library-tools .csv-example-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; min-width: 0; }
+.library-tools .csv-example-toggle { min-height: 44px; padding: 8px 0; border: 0; background: transparent; color: #526e52; font: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
+.library-tools .csv-example-table { margin-top: 16px; max-width: 100%; overflow-x: auto; border: 1px solid #dde3d4; border-radius: 10px; background: #fffef9; }
+.library-tools .csv-example-table table { width: 100%; border-collapse: collapse; font-size: 13px; color: #354c39; }
+.library-tools .csv-example-table th, .library-tools .csv-example-table td { padding: 10px 12px; text-align: start; border-bottom: 1px solid #e3e8dc; }
+.library-tools .csv-example-table th { font-weight: 500; background: #edf1e5; }
+.library-tools .csv-example-table tr:last-child td { border-bottom: 0; }
+.library-tools .csv-requirements { margin-top: 18px; color: #697761; font-size: 13px; line-height: 1.65; }
+.library-tools .csv-requirements summary { cursor: pointer; min-height: 44px; padding-block: 10px; }
+.library-tools .csv-requirements p { margin: 8px 0 0; overflow-wrap: anywhere; }
+.library-tools .csv-import > div { overflow-wrap: anywhere; }
 .import-rows {
   padding-left: 1.5rem;
   overflow-wrap: anywhere;
@@ -1652,4 +1632,79 @@ button:disabled {
   .lexi-home .home-difficult-button {
     transition: none;
   }
+}
+
+/* Vocabulary browsing controls. */
+.library-page .page-heading {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  padding: 8px 0 22px;
+  gap: 12px 18px;
+}
+.library-page .page-heading h1 { margin: 0; }
+.library-page #add-entry { margin-left: auto; }
+.library-page .search-field { gap: 6px; font-size: 13px; }
+.library-page .search-field input { background: #f8f7f0; }
+.library-page .filter-count {
+  display: inline-grid; place-items: center; min-width: 24px; height: 24px;
+  margin-left: 8px; padding-inline: 5px; border-radius: 50%; background: #e8eddf;
+}
+.library-page .library-tools {
+  padding: 24px; border: 1px solid #dde3d4; border-radius: 18px;
+  background: #f8f7ef; color: #354c39; margin-bottom: 12px; min-width: 0;
+}
+.library-page .library-tools > h2 {
+  display: flex; align-items: center; gap: 9px; margin: 0 0 18px;
+  font: 500 16px/1.4 system-ui, sans-serif;
+}
+.library-page .library-tools-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.library-page .library-tools-buttons > button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 10px 15px; border: 1px solid #d8dfce; border-radius: 10px;
+  background: #fffef9; color: #486044; font-size: 14px; line-height: 1.4;
+}
+.library-page .library-tools-buttons > button:hover { background: #edf1e5; }
+.library-page .library-tools svg { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .library-page .library-tools { padding: 19px; }
+}
+@media (max-width: 420px) {
+  .library-tools .csv-preview-actions { flex-direction: column; align-items: stretch; }
+  .library-tools .csv-preview-actions a { align-self: flex-start; }
+}
+.library-page .entry-card { position: relative; background: #fffef8; border-color: #dfe5d7; }
+.library-page .entry-meta { padding-right: 36px; align-items: flex-start; flex-wrap: wrap; line-height: 1.5; }
+.library-page .entry-card h2 { margin-top: 24px; }
+.library-page .entry-card > p { margin-bottom: 0; }
+.library-page .card-actions-trigger {
+  position: absolute; top: 12px; right: 10px; display: grid; place-items: center;
+  width: 44px; height: 44px; border: 0; border-radius: 10px; cursor: pointer;
+  color: #526e52; background: transparent;
+}
+.library-page .card-actions-trigger:hover,
+.library-page .card-actions-trigger[aria-expanded="true"] { background: #e8eddf; }
+.card-actions-menu {
+  position: fixed; z-index: 30; width: max-content; min-width: min(170px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow: auto;
+  padding: 6px; border: 1px solid #dfe5d7; border-radius: 13px;
+  background: #fffef8; color: #344336; box-shadow: 0 8px 26px #34433624;
+}
+.card-actions-menu button {
+  display: block; width: 100%; min-height: 44px; padding: 10px 14px;
+  border: 0; border-radius: 8px; background: transparent; color: #344336;
+  font: inherit; font-size: 14px; text-align: start; overflow-wrap: anywhere;
+}
+.card-actions-menu button:hover,
+.card-actions-menu button:focus-visible { background: #e8eddf; outline-offset: -3px; }
+.card-actions-menu .card-action-delete { color: #8f443b; }
+.card-actions-menu .card-action-delete:hover,
+.card-actions-menu .card-action-delete:focus-visible { background: #f5e9e4; }
+.library-page .choice-group { border-color: #dfe5d7 !important; }
+@media (min-width: 761px) and (max-width: 1100px) {
+  .library-page .entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .library-page #add-entry { margin-left: 0; }
+  .library-page .page-heading > div { flex-basis: 100%; }
+  .library-page .entry-card { padding: 20px; }
 }

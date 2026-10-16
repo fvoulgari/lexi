@@ -87,7 +87,7 @@ function openLibrary() {
 test("add a complete bilingual meaning and edit it from the library", async () => {
   openLibrary();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Add card" }));
+  await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "il perché");
   await user.type(screen.getByLabelText("Greek *"), "το γιατί");
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
@@ -109,9 +109,7 @@ test("add a complete bilingual meaning and edit it from the library", async () =
   expect(
     await screen.findByRole("heading", { name: "il perché" }),
   ).toBeInTheDocument();
-  await user.click(
-    screen.getByRole("button", { name: "Edit card: il perché" }),
-  );
+  await user.click(await cardAction("Edit card: il perché"));
   expect(screen.getByLabelText("Italian gender")).toHaveValue("masculine");
   expect(screen.getByLabelText("Greek example")).toHaveValue(
     "Δεν ξέρω το γιατί.",
@@ -143,7 +141,7 @@ test("required fields are identified and failed saves keep the draft for retry",
   );
   openLibrary();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Add card" }));
+  await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Italian, Greek, Word type",
@@ -180,7 +178,7 @@ test("matching-pair warnings appear after save and all interface languages retai
   );
   openLibrary();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Add card" }));
+  await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "la casa");
   await user.type(screen.getByLabelText("Greek *"), "το σπίτι");
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
@@ -207,9 +205,7 @@ test("cancel restores focus and a connection error allows retry without losing t
   server.use(http.patch("*/api/vocabulary/:id", () => HttpResponse.error()));
   openLibrary();
   const user = userEvent.setup();
-  await user.click(
-    await screen.findByRole("button", { name: "Edit card: la casa" }),
-  );
+  await user.click(await cardAction("Edit card: la casa"));
   await user.type(screen.getByLabelText("Notes"), " — σπίτι");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -218,7 +214,7 @@ test("cancel restores focus and a connection error allows retry without losing t
   expect(screen.getByLabelText("Notes")).toHaveValue("Home — σπίτι");
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.queryByLabelText("Notes")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Add card" })).toHaveFocus();
+  expect(screen.getByRole("button", { name: "New card" })).toHaveFocus();
 });
 
 test("a pending save prevents switching to another card until completion", async () => {
@@ -236,26 +232,22 @@ test("a pending save prevents switching to another card until completion", async
   );
   openLibrary();
   const user = userEvent.setup();
-  await user.click(
-    await screen.findByRole("button", { name: "Edit card: la casa" }),
-  );
+  await user.click(await cardAction("Edit card: la casa"));
   await user.type(screen.getByLabelText("Notes"), " — revised");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   try {
     expect(
       await screen.findByRole("button", { name: "Saving…" }),
     ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add card" })).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Edit card: la casa" }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "New card" })).toBeDisabled();
+    expect(screen.getByRole("button", {name: "Card actions: la casa"})).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   } finally {
     finishSave();
   }
   expect(await screen.findByRole("status")).toHaveTextContent("Card saved.");
-  expect(screen.getByRole("button", { name: "Add card" })).toBeEnabled();
-  await user.click(screen.getByRole("button", { name: "Add card" }));
+  expect(screen.getByRole("button", { name: "New card" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "nuovo");
   expect(screen.getByLabelText("Italian *")).toHaveValue("nuovo");
 });
@@ -276,9 +268,7 @@ test("delete confirms the meaning, explains review protection, and retries a fai
   );
   openLibrary();
   const user = userEvent.setup();
-  await user.click(
-    await screen.findByRole("button", { name: "Delete card: la casa" }),
-  );
+  await user.click(await cardAction("Delete card: la casa"));
   expect(screen.getByRole("dialog")).toHaveTextContent("la casa");
   expect(screen.getByRole("dialog")).toHaveTextContent("το σπίτι");
   await user.click(screen.getByRole("button", { name: "Permanently delete" }));
@@ -300,22 +290,20 @@ test("delete confirms the meaning, explains review protection, and retries a fai
   expect(
     screen.queryByRole("heading", { name: "la casa" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Add card" })).toHaveFocus();
+  expect(screen.getByRole("button", { name: "New card" })).toHaveFocus();
 });
 
 test("cancel and Escape restore delete focus; connection failures retain the confirmation", async () => {
   server.use(http.delete("*/api/vocabulary/:id", () => HttpResponse.error()));
   openLibrary();
   const user = userEvent.setup();
-  const action = await screen.findByRole("button", {
-    name: "Delete card: la casa",
-  });
+  const action = await cardAction("Delete card: la casa");
   await user.click(action);
   expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(action).toHaveFocus();
-  await user.click(action);
+  expect(screen.getByLabelText("Card actions: la casa")).toHaveFocus();
+  await user.click(await cardAction("Delete card: la casa"));
   await user.click(screen.getByRole("button", { name: "Permanently delete" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Check your connection",
@@ -323,5 +311,60 @@ test("cancel and Escape restore delete focus; connection failures retain the con
   expect(screen.getByRole("dialog")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "la casa" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Cancel" }));
-  expect(action).toHaveFocus();
+  expect(screen.getByLabelText("Card actions: la casa")).toHaveFocus();
+});
+
+async function cardAction(name) {
+  const italian = name.split(": ").slice(1).join(": ");
+  const summary = await screen.findByLabelText(
+    `${name.startsWith("Modifica") ? "Azioni scheda" : "Card actions"}: ${italian}`,
+  );
+  if (summary.getAttribute("aria-expanded") !== "true") await userEvent.click(summary);
+  return screen.getByRole("menuitem", { name });
+}
+
+test("floating card actions support one open menu, keyboard navigation and dismissal", async () => {
+  entries.push({id: "book", italian: "il libro", greek: "το βιβλίο", word_type: "noun"});
+  openLibrary();
+  const user = userEvent.setup();
+  const house = await screen.findByRole("button", {name: "Card actions: la casa"});
+  house.focus();
+  await user.keyboard("{ArrowDown}");
+  const edit = screen.getByRole("menuitem", {name: "Edit card: la casa"});
+  const remove = screen.getByRole("menuitem", {name: "Delete card: la casa"});
+  expect(edit).toHaveFocus();
+  expect(screen.getByRole("menu").parentElement).toBe(document.body);
+  await user.keyboard("{ArrowDown}");
+  expect(remove).toHaveFocus();
+  await user.keyboard("{ArrowDown}");
+  expect(edit).toHaveFocus();
+  await user.keyboard("{End}");
+  expect(remove).toHaveFocus();
+  await user.keyboard("{Home}");
+  expect(edit).toHaveFocus();
+  await user.keyboard("d");
+  expect(remove).toHaveFocus();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  expect(house).toHaveFocus();
+  await user.keyboard("{ArrowUp}");
+  expect(screen.getByRole("menuitem", {name: "Delete card: la casa"})).toHaveFocus();
+  const book = screen.getByRole("button", {name: "Card actions: il libro"});
+  await user.click(book);
+  expect(screen.getAllByRole("menu")).toHaveLength(1);
+  expect(house).toHaveAttribute("aria-expanded", "false");
+  expect(book).toHaveAttribute("aria-expanded", "true");
+  await user.click(screen.getByRole("heading", {name: "Your vocabulary"}));
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  expect(book).toHaveFocus();
+  await user.click(book);
+  await user.keyboard("{Tab}");
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  await user.click(house);
+  await user.click(screen.getByRole("menuitem", {name: "Delete card: la casa"}));
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  expect(screen.getByRole("button", {name: "Cancel"})).toHaveFocus();
+  await user.click(screen.getByRole("button", {name: "Cancel"}));
+  expect(house).toHaveFocus();
 });

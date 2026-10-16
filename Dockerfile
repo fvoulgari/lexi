@@ -3,6 +3,7 @@ WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
+COPY backend/app/csv_example.json /backend/app/csv_example.json
 RUN npm run build
 
 FROM python:3.14-slim AS runtime

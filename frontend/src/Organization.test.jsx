@@ -26,7 +26,7 @@ const server = setupServer(
           tags: [],
         },
       ],
-      total: 7,
+      total: 13,
     });
   }),
 );
@@ -47,13 +47,19 @@ function open(text = copy.en) {
 test("combined filters persist through pages and changing search resets page", async () => {
   open();
   const user = userEvent.setup();
+  await user.click(screen.getByText("Filters", { exact: true }));
   await user.click(
     await screen.findByRole("checkbox", { name: "003 — Travel" }),
   );
   await user.click(screen.getByRole("checkbox", { name: "No unit" }));
   await user.click(screen.getByRole("checkbox", { name: "Noun" }));
   await user.click(screen.getByRole("checkbox", { name: "Expression" }));
-  await user.click(screen.getByRole("checkbox", { name: "Daily" }));
+  expect(
+    screen.getByText("Filters", { exact: false, selector: "summary" }),
+  ).toHaveTextContent("4");
+  expect(
+    screen.queryByRole("checkbox", { name: "Daily" }),
+  ).not.toBeInTheDocument();
   await user.click(await screen.findByRole("button", { name: "Next page" }));
   expect(
     await screen.findByRole("heading", { name: "due" }),
@@ -61,16 +67,17 @@ test("combined filters persist through pages and changing search resets page", a
   expect(lastParams.getAll("unit_ids")).toEqual(["u"]);
   expect(lastParams.get("no_unit")).toBe("true");
   expect(lastParams.getAll("word_types")).toEqual(["noun", "expression"]);
-  expect(lastParams.getAll("tag_ids")).toEqual(["t"]);
+  expect(lastParams.has("tag_ids")).toBe(false);
   await user.type(screen.getByLabelText("Search Italian or Greek"), "σπίτι");
   await waitFor(() => expect(lastParams.get("q")).toBe("σπίτι"));
   expect(lastParams.get("page")).toBe("1");
+  expect(lastParams.get("page_size")).toBe("12");
   await user.click(screen.getByRole("button", { name: "Clear filters" }));
   await waitFor(() => expect(lastParams.has("tag_ids")).toBe(false));
   expect(screen.getByLabelText("Search Italian or Greek")).toHaveValue("");
 });
 
-test("create a unit and tags then assign them independently of word type", async () => {
+test("create a unit and assign it while tag controls remain hidden", async () => {
   let units = [];
   let tags = [];
   let saved;
@@ -98,35 +105,35 @@ test("create a unit and tags then assign them independently of word type", async
   );
   open();
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Create unit" }));
+  await user.click(screen.getByRole("button", { name: "New unit" }));
   await user.type(screen.getByLabelText("Unit code"), "007");
   await user.type(screen.getByLabelText("Title"), "A new chapter");
   await user.clear(screen.getByLabelText("Order"));
   await user.type(screen.getByLabelText("Order"), "7");
   await user.click(screen.getByRole("button", { name: "Create" }));
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "New unit" })).toHaveFocus(),
+  );
+  await user.click(screen.getByText("Filters", { exact: true }));
   await screen.findByRole("checkbox", { name: "007 — A new chapter" });
-  for (const name of ["Travel", "Food"]) {
-    await user.click(screen.getByRole("button", { name: "Create tag" }));
-    await user.type(screen.getByLabelText("Tag name"), name);
-    await user.click(screen.getByRole("button", { name: "Create" }));
-    await screen.findByRole("checkbox", { name });
-  }
-  await user.click(screen.getByRole("button", { name: "Add card" }));
+  expect(
+    screen.queryByRole("button", { name: "Create tag" }),
+  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "viaggiare");
   await user.type(screen.getByLabelText("Greek *"), "ταξιδεύω");
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
   await user.selectOptions(screen.getByLabelText("Unit"), "new-unit");
-  const form = screen.getByRole("group", { name: "Assign tags" });
-  const { within } = await import("@testing-library/react");
-  await user.click(within(form).getByRole("checkbox", { name: "Travel" }));
-  await user.click(within(form).getByRole("checkbox", { name: "Food" }));
+  expect(
+    screen.queryByRole("group", { name: "Assign tags" }),
+  ).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Save card" }));
-  await waitFor(() => expect(saved?.tag_ids).toEqual(["tag-0", "tag-1"]));
+  await waitFor(() => expect(saved?.tag_ids).toEqual([]));
   expect(saved.unit_id).toBe("new-unit");
   expect(saved.word_type).toBe("verb");
 });
 
-test("editing retains assignments across languages and clears them on save", async () => {
+test("editing preserves hidden tags while allowing unit changes in Italian", async () => {
   let saved;
   server.use(
     http.get("*/api/vocabulary", () =>
@@ -154,26 +161,21 @@ test("editing retains assignments across languages and clears them on save", asy
   );
   open(copy.it);
   const user = userEvent.setup();
-  await user.click(
-    await screen.findByRole("button", { name: "Modifica scheda: casa" }),
-  );
+  await user.click(await cardAction("Modifica scheda: casa"));
   expect(screen.getByLabelText("Unità")).toHaveValue("u");
-  const { within } = await import("@testing-library/react");
-  const assignments = within(
-    screen.getByRole("group", { name: "Assegna etichette" }),
-  );
-  expect(assignments.getByRole("checkbox", { name: "Daily" })).toBeChecked();
+  expect(
+    screen.queryByRole("group", { name: "Assegna etichette" }),
+  ).not.toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText("Unità"), "");
-  await user.click(assignments.getByRole("checkbox", { name: "Daily" }));
   await user.click(screen.getByRole("button", { name: "Salva scheda" }));
-  await waitFor(() => expect(saved?.tag_ids).toEqual([]));
+  await waitFor(() => expect(saved?.tag_ids).toEqual(["t"]));
   expect(saved.unit_id).toBeNull();
 });
 
-test("failed tag creation retains the draft for retry with Greek labels", async () => {
+test("failed unit creation retains the draft for retry with Greek labels", async () => {
   let fail = true;
   server.use(
-    http.post("*/api/tags", async ({ request }) =>
+    http.post("*/api/units", async ({ request }) =>
       fail
         ? HttpResponse.error()
         : HttpResponse.json(
@@ -184,17 +186,18 @@ test("failed tag creation retains the draft for retry with Greek labels", async 
   );
   open(copy.el);
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Δημιουργία ετικέτας" }));
-  await user.type(screen.getByLabelText("Όνομα ετικέτας"), "Ταξίδι");
+  await user.click(screen.getByRole("button", { name: copy.el.toolsNewUnit }));
+  await user.type(screen.getByLabelText(copy.el.unitCode), "007");
+  await user.type(screen.getByLabelText(copy.el.unitTitle), "Ταξίδι");
   await user.click(screen.getByRole("button", { name: "Δημιουργία" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Έλεγξε τη σύνδεσή σου",
   );
-  expect(screen.getByLabelText("Όνομα ετικέτας")).toHaveValue("Ταξίδι");
+  expect(screen.getByLabelText(copy.el.unitTitle)).toHaveValue("Ταξίδι");
   fail = false;
   await user.click(screen.getByRole("button", { name: "Δημιουργία" }));
   await waitFor(() =>
-    expect(screen.queryByLabelText("Όνομα ετικέτας")).not.toBeInTheDocument(),
+    expect(screen.queryByLabelText(copy.el.unitTitle)).not.toBeInTheDocument(),
   );
 });
 
@@ -206,7 +209,7 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
       lastParams = params;
       const second = params.get("page") === "2";
       return HttpResponse.json({
-        total: changed ? 6 : 7,
+        total: changed ? 12 : 13,
         items:
           second && changed
             ? []
@@ -231,22 +234,42 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
   );
   open();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("checkbox", { name: "Daily" }));
+  await user.click(screen.getByText("Filters", { exact: true }));
+  await user.click(await screen.findByRole("checkbox", { name: "Noun" }));
   await user.click(await screen.findByRole("button", { name: "Next page" }));
-  await user.click(
-    await screen.findByRole("button", { name: "Edit card: last" }),
-  );
-  const { within } = await import("@testing-library/react");
-  await user.click(
-    within(screen.getByRole("group", { name: "Assign tags" })).getByRole(
-      "checkbox",
-      { name: "Daily" },
-    ),
-  );
+  await user.click(await cardAction("Edit card: last"));
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(
     await screen.findByRole("heading", { name: "first" }),
   ).toBeInTheDocument();
   expect(lastParams.get("page")).toBe("1");
-  expect(lastParams.getAll("tag_ids")).toEqual(["t"]);
+  expect(lastParams.get("page_size")).toBe("12");
+  expect(lastParams.has("tag_ids")).toBe(false);
+  expect(lastParams.getAll("word_types")).toEqual(["noun"]);
+});
+
+async function cardAction(name) {
+  const italian = name.split(": ").slice(1).join(": ");
+  const summary = await screen.findByLabelText(
+    `${name.startsWith("Modifica") ? "Azioni scheda" : "Card actions"}: ${italian}`,
+  );
+  if (summary.getAttribute("aria-expanded") !== "true") await userEvent.click(summary);
+  return screen.getByRole("menuitem", { name });
+}
+
+test("library loading, retry and empty results remain accessible", async () => {
+  let resolveRequest;
+  const pending = new Promise((resolve) => { resolveRequest = resolve; });
+  server.use(http.get("*/api/vocabulary", async () => {
+    await pending;
+    return HttpResponse.json({error: {code: "service_unavailable"}}, {status: 503});
+  }));
+  open();
+  expect(screen.getByRole("status")).toHaveTextContent(copy.en.loading);
+  resolveRequest();
+  expect(await screen.findByRole("alert")).toHaveTextContent(copy.en.errors.service_unavailable);
+  server.use(http.get("*/api/vocabulary", () => HttpResponse.json({items: [], total: 0})));
+  await userEvent.click(screen.getByRole("button", {name: "Try again"}));
+  expect(await screen.findByRole("heading", {name: "A fresh page"})).toBeInTheDocument();
+  expect(screen.queryByRole("button", {name: "Clear filters"})).not.toBeInTheDocument();
 });

@@ -64,6 +64,7 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Import CSV" }));
   await user.upload(
     screen.getByLabelText("CSV file"),
     new File(
@@ -75,7 +76,7 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
   expect(
     screen.queryByRole("button", { name: "Confirm import" }),
   ).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Preview import" }));
+  await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(await screen.findByText("greek: required")).toBeInTheDocument();
   expect(screen.getByText("07 — Domande")).toBeInTheDocument();
   expect(screen.getByText("questions")).toBeInTheDocument();
@@ -84,6 +85,10 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
   expect(screen.getByText("Pronunciation text")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Confirm import" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
+  await user.click(screen.getByRole("button", { name: "Import CSV" }));
+  expect(screen.getByRole("status", { hidden: true })).not.toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Import CSV" }));
+  expect(screen.getByRole("status")).toHaveTextContent("Imported: 1");
   expect(
     screen.queryByRole("button", { name: "Confirm import" }),
   ).not.toBeInTheDocument();
@@ -101,13 +106,14 @@ test("failed confirmation retains preview for retry and changing file clears it"
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Import CSV" }));
   const file = new File(
     ["italian,greek,word_type\nil perché,το γιατί,noun\n"],
     "test.csv",
     { type: "text/csv" },
   );
   await user.upload(screen.getByLabelText("CSV file"), file);
-  await user.click(screen.getByRole("button", { name: "Preview import" }));
+  await user.click(screen.getByRole("button", { name: "Preview" }));
   await user.click(
     await screen.findByRole("button", { name: "Confirm import" }),
   );
@@ -135,6 +141,7 @@ test("interface language changes retain the file and preview", async () => {
   );
   const rendered = render(view(copy.en));
   const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Import CSV" }));
   await user.upload(
     screen.getByLabelText("CSV file"),
     new File(
@@ -143,7 +150,7 @@ test("interface language changes retain the file and preview", async () => {
       { type: "text/csv" },
     ),
   );
-  await user.click(screen.getByRole("button", { name: "Preview import" }));
+  await user.click(screen.getByRole("button", { name: "Preview" }));
   await screen.findByRole("button", { name: "Confirm import" });
   rendered.rerender(view(copy.el));
   expect(
@@ -155,3 +162,129 @@ test("interface language changes retain the file and preview", async () => {
     screen.getByRole("button", { name: "Conferma importazione" }),
   ).toBeEnabled();
 });
+
+test.each(["success", "error"])(
+  "a pending preview reopens the panel on %s",
+  async (outcome) => {
+    let finish;
+    const pending = new Promise((resolve) => {
+      finish = resolve;
+    });
+    server.use(
+      http.post("*/api/imports/preview", async () => {
+        await pending;
+        return outcome === "success"
+          ? HttpResponse.json(report)
+          : HttpResponse.json(
+              { error: { code: "invalid_csv", message: "Invalid row" } },
+              { status: 422 },
+            );
+      }),
+    );
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    const toggle = screen.getByRole("button", { name: "Import CSV" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    const panel = document.getElementById(toggle.getAttribute("aria-controls"));
+    expect(panel).not.toBeVisible();
+    await user.click(toggle);
+    expect(
+      screen.getByText("CSV format and requirements").closest("details"),
+    ).not.toHaveAttribute("open");
+    expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
+    const file = new File(
+      ["italian,greek,word_type\nil perché,το γιατί,noun\n"],
+      "pending.csv",
+      { type: "text/csv" },
+    );
+    await user.upload(screen.getByLabelText("CSV file"), file);
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    await user.click(toggle);
+    expect(panel).not.toBeVisible();
+    finish();
+    if (outcome === "success") {
+      expect(
+        await screen.findByRole("button", { name: "Confirm import" }),
+      ).toBeVisible();
+      expect(screen.getByRole("heading", { name: "Preview" })).toHaveFocus();
+    } else {
+      expect(await screen.findByRole("alert")).toHaveTextContent("Invalid row");
+    }
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(panel).toBeVisible();
+    expect(screen.getByLabelText("CSV file").files[0]).toBe(file);
+  },
+);
+
+test.each(["el", "en", "it"])(
+  "inline CSV example toggles without changing headers or selected file in %s",
+  async (language) => {
+    const text = copy[language];
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <Library text={text} csrf="csrf" onLocked={() => {}} />
+      </QueryClientProvider>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: text.toolsImport }));
+    const toggle = screen.getByRole("button", { name: text.csvViewExample });
+    const example = document.getElementById(
+      toggle.getAttribute("aria-controls"),
+    );
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(example).not.toBeVisible();
+    const file = new File(
+      ["italian,greek,word_type\ncasa,σπίτι,noun"],
+      "cards.csv",
+      { type: "text/csv" },
+    );
+    await user.upload(screen.getByLabelText(text.csvFile), file);
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(example).toBeVisible();
+    const { within } = await import("@testing-library/react");
+    const table = within(example).getByRole("table");
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((cell) => cell.textContent),
+    ).toEqual(["italian", "greek", "word_type"]);
+    expect(
+      within(table)
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent),
+    ).toEqual([
+      "casa",
+      "σπίτι",
+      "noun",
+      "parlare",
+      "μιλάω",
+      "verb",
+      "bello",
+      "όμορφος",
+      "adjective",
+    ]);
+    expect(screen.getByRole("link", { name: text.csvExample })).toHaveAttribute(
+      "href",
+      "/api/imports/example",
+    );
+    expect(screen.getByRole("link", { name: text.csvExample })).toHaveAttribute(
+      "download",
+    );
+    await user.click(toggle);
+    expect(example).not.toBeVisible();
+    expect(screen.getByLabelText(text.csvFile).files[0]).toBe(file);
+  },
+);

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, ChevronLeft, ChevronRight, Leaf } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, Upload, Download, FolderPlus } from "lucide-react";
 import PropTypes from "prop-types";
+import CardActions from "./CardActions.jsx";
 import Import from "./Import.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
 import Choices from "./Choices.jsx";
@@ -10,6 +11,15 @@ import { downloadLibrary, request } from "./api.js";
 
 export default function Library({ text, csrf, onLocked }) {
   const client = useQueryClient();
+  const [importOpen, setImportOpen] = useState(false);
+  const importPanelId = useId();
+  const showImport = useCallback(() => setImportOpen(true), []);
+  function restoreFocus(target) {
+    if (!target?.isConnected) return;
+    const disclosure = target.closest("details");
+    if (disclosure) disclosure.open = true;
+    target.focus();
+  }
   const [exportState, setExportState] = useState("idle");
   const [exportError, setExportError] = useState(null);
   async function exportCsv() {
@@ -25,6 +35,14 @@ export default function Library({ text, csrf, onLocked }) {
     }
   }
   const [creating, setCreating] = useState(null);
+  const returnToTools = useRef(false);
+  useEffect(() => {
+    if (creating === null && returnToTools.current) {
+      returnToTools.current = false;
+      restoreFocus(document.getElementById("create-units"));
+    }
+  }, [creating]);
+  const [openCard, setOpenCard] = useState(null);
   const [editing, setEditing] = useState(undefined);
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
@@ -38,7 +56,7 @@ export default function Library({ text, csrf, onLocked }) {
   }, [deleted, deletePending]);
   useEffect(() => {
     if (deleting) cancelDelete.current?.focus();
-    else deleteTrigger.current?.focus();
+    else restoreFocus(deleteTrigger.current);
   }, [deleting]);
   const [saved, setSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,15 +68,10 @@ export default function Library({ text, csrf, onLocked }) {
     q: "",
     unit_ids: [],
     word_types: [],
-    tag_ids: [],
   });
   const units = useQuery({
     queryKey: ["units"],
     queryFn: () => request("/api/units"),
-  });
-  const tags = useQuery({
-    queryKey: ["tags"],
-    queryFn: () => request("/api/tags"),
   });
   function changeFilter(key, value) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -66,10 +79,10 @@ export default function Library({ text, csrf, onLocked }) {
   }
   const params = new URLSearchParams({
     page: String(page),
-    page_size: "6",
+    page_size: "12",
     q: filters.q,
   });
-  for (const key of ["unit_ids", "word_types", "tag_ids"])
+  for (const key of ["unit_ids", "word_types"])
     for (const value of filters[key]) {
       if (value === "none" && key === "unit_ids") params.set("no_unit", "true");
       else params.append(key, value);
@@ -79,14 +92,11 @@ export default function Library({ text, csrf, onLocked }) {
     queryFn: () => request(`/api/vocabulary?${params}`),
   });
   useEffect(() => {
-    if (
-      [library.error, units.error, tags.error].some(
-        (error) => error?.status === 401,
-      )
-    )
+    if ([library.error, units.error].some((error) => error?.status === 401))
       onLocked();
-  }, [library.error, units.error, tags.error, onLocked]);
-  const pages = Math.max(1, Math.ceil((library.data?.total || 0) / 6));
+  }, [library.error, units.error, onLocked]);
+  const filterCount = filters.unit_ids.length + filters.word_types.length;
+  const pages = Math.max(1, Math.ceil((library.data?.total || 0) / 12));
 
   function closeDelete() {
     setDeleting(null);
@@ -120,17 +130,24 @@ export default function Library({ text, csrf, onLocked }) {
     <section className="library-page">
       <div className="page-heading">
         <div>
-          <span className="eyebrow">
-            <Leaf size={15} aria-hidden="true" />
-            {text.vocabulary}
-          </span>
           <h1>{text.libraryTitle}</h1>
-          <p>{text.libraryIntro}</p>
         </div>
         <span className="library-count">
           {library.data?.total ?? "—"}{" "}
           <small>{library.data?.total === 1 ? text.entry : text.entries}</small>
         </span>
+        <button
+          className="primary"
+          id="add-entry"
+          disabled={isSaving || deletePending}
+          onClick={() => {
+            setSaved(null);
+            setEditing(null);
+          }}
+        >
+          <Plus size={18} aria-hidden="true" />
+          {text.addEntry}
+        </button>
       </div>
       <section className="library-filters" aria-label={text.filters}>
         <label className="search-field">
@@ -143,7 +160,12 @@ export default function Library({ text, csrf, onLocked }) {
           />
         </label>
         <details>
-          <summary>{text.filters}</summary>
+          <summary>
+            {text.filters}
+            {filterCount > 0 && (
+              <span className="filter-count">{filterCount}</span>
+            )}
+          </summary>
           <p>{text.filterHint}</p>
           <Choices
             legend={text.units}
@@ -158,7 +180,7 @@ export default function Library({ text, csrf, onLocked }) {
             onChange={(value) => changeFilter("unit_ids", value)}
           />
           <Choices
-            legend={text.wordTypes}
+            legend={text.filterType}
             options={[
               "noun",
               "verb",
@@ -170,26 +192,19 @@ export default function Library({ text, csrf, onLocked }) {
             selected={filters.word_types}
             onChange={(value) => changeFilter("word_types", value)}
           />
-          <Choices
-            legend={text.tags}
-            options={(tags.data || []).map((tag) => ({
-              id: tag.id,
-              label: tag.name,
-            }))}
-            selected={filters.tag_ids}
-            onChange={(value) => changeFilter("tag_ids", value)}
-          />
         </details>
-        <button
-          className="secondary"
-          onClick={() => {
-            setFilters({ q: "", unit_ids: [], word_types: [], tag_ids: [] });
-            setPage(1);
-          }}
-        >
-          {text.clearFilters}
-        </button>
-        {[units, tags].some((query) => query.isError) && (
+        {(filters.q || filterCount > 0) && (
+          <button
+            className="secondary"
+            onClick={() => {
+              setFilters({ q: "", unit_ids: [], word_types: [] });
+              setPage(1);
+            }}
+          >
+            {text.clearFilters}
+          </button>
+        )}
+        {units.isError && (
           <div>
             <p role="alert" className="error">
               {text.errors.request_failed}
@@ -198,7 +213,6 @@ export default function Library({ text, csrf, onLocked }) {
               className="secondary"
               onClick={() => {
                 units.refetch();
-                tags.refetch();
               }}
             >
               {text.retry}
@@ -206,57 +220,74 @@ export default function Library({ text, csrf, onLocked }) {
           </div>
         )}
       </section>
-      <button
-        className="primary"
-        id="add-entry"
-        disabled={isSaving || deletePending}
-        onClick={() => {
-          setSaved(null);
-          setEditing(null);
-        }}
+      <section
+        className="library-tools"
+        aria-labelledby="library-tools-heading"
       >
-        {text.addEntry}
-      </button>
-      <div className="form-actions">
-        <button
-          className="secondary"
-          disabled={exportState === "pending"}
-          onClick={exportCsv}
-        >
-          {exportState === "pending" ? text.exporting : text.exportLibrary}
-        </button>
-        {["units", "tags"].map((kind) => (
+        <h2 id="library-tools-heading">
+          <SlidersHorizontal size={17} aria-hidden="true" />
+          {text.libraryTools}
+        </h2>
+        <div className="library-tools-buttons">
           <button
-            id={`create-${kind}`}
-            key={kind}
+            type="button"
+            className="secondary"
+            aria-expanded={importOpen}
+            aria-controls={importPanelId}
+            onClick={() => setImportOpen((open) => !open)}
+          >
+            <Upload size={17} aria-hidden="true" />
+            {text.toolsImport}
+          </button>
+          <button
+            className="secondary"
+            disabled={exportState === "pending"}
+            onClick={exportCsv}
+            aria-label={
+              exportState === "pending" ? text.exporting : text.exportLibrary
+            }
+          >
+            <Download size={17} aria-hidden="true" />
+            {exportState === "pending" ? text.exporting : text.toolsExport}
+          </button>
+          <button
+            id="create-units"
             className="secondary"
             disabled={isSaving || creating !== null}
-            onClick={() => setCreating(kind)}
+            onClick={() => setCreating("units")}
           >
-            {kind === "units" ? text.createUnit : text.createTag}
+            <FolderPlus size={17} aria-hidden="true" />
+            {text.toolsNewUnit}
           </button>
-        ))}
-      </div>
-      {exportState === "success" && <p role="status">{text.exportStarted}</p>}
-      {exportState === "error" && (
-        <p role="alert" className="error">
-          {text.errors[exportError?.code] || text.errors.request_failed}
-        </p>
-      )}
-      {creating && (
-        <OrganizationForm
-          key={creating}
-          kind={creating}
-          text={text}
-          csrf={csrf}
-          onLocked={onLocked}
-          onClose={() => {
-            const kind = creating;
-            setCreating(null);
-            document.getElementById(`create-${kind}`)?.focus();
-          }}
-        />
-      )}
+        </div>
+        {exportState === "success" && <p role="status">{text.exportStarted}</p>}
+        {exportState === "error" && (
+          <p role="alert" className="error">
+            {text.errors[exportError?.code] || text.errors.request_failed}
+          </p>
+        )}
+        {creating && (
+          <OrganizationForm
+            key={creating}
+            kind={creating}
+            text={text}
+            csrf={csrf}
+            onLocked={onLocked}
+            onClose={() => {
+              returnToTools.current = true;
+              setCreating(null);
+            }}
+          />
+        )}
+        <div id={importPanelId} hidden={!importOpen}>
+          <Import
+            text={text}
+            csrf={csrf}
+            onLocked={onLocked}
+            onAttention={showImport}
+          />
+        </div>
+      </section>
       {editing !== undefined && (
         <VocabularyForm
           key={editing?.id || "new"}
@@ -327,7 +358,7 @@ export default function Library({ text, csrf, onLocked }) {
           {saved.duplicate_ids.length > 0 && <p>{text.duplicateWarning}</p>}
         </div>
       )}
-      <Import text={text} csrf={csrf} onLocked={onLocked} />
+
       <div className="library-caption">
         <span>
           {text.italian} <span aria-hidden="true">↔</span> {text.greek}
@@ -367,51 +398,33 @@ export default function Library({ text, csrf, onLocked }) {
                   </span>
                   <span>
                     {entry.unit
-                      ? `${text.unit} ${entry.unit.code}`
+                      ? `${entry.unit.code} · ${entry.unit.title}`
                       : text.noUnit}
                   </span>
                 </div>
-                <div className="entry-tags">
-                  {(entry.tags || []).map((tag) => (
-                    <span key={tag.id}>{tag.name}</span>
-                  ))}
-                </div>
                 <h2 lang="it">{entry.italian}</h2>
                 <p lang="el">{entry.greek}</p>
-                <button
-                  className="secondary"
-                  aria-label={`${text.editEntry}: ${entry.italian}`}
-                  disabled={isSaving || deletePending}
-                  onClick={() => {
+                <CardActions
+                  entry={entry}
+                  text={text}
+                  open={openCard === entry.id}
+                  onOpenChange={(open) => setOpenCard(open ? entry.id : null)}
+                  editDisabled={isSaving || deletePending}
+                  deleteDisabled={
+                    isSaving || deletePending || deleting !== null
+                  }
+                  onEdit={() => {
                     setSaved(null);
                     setDeleted(false);
                     setEditing(entry);
                   }}
-                >
-                  {text.editEntry}
-                </button>
-                <button
-                  id={`delete-${entry.id}`}
-                  className="secondary"
-                  aria-label={`${text.deleteEntry}: ${entry.italian}`}
-                  disabled={isSaving || deletePending || deleting !== null}
-                  onClick={() => {
-                    deleteTrigger.current = document.getElementById(
-                      `delete-${entry.id}`,
-                    );
+                  onDelete={(trigger) => {
+                    deleteTrigger.current = trigger;
                     setDeleted(false);
                     setDeleteError(null);
                     setDeleting(entry);
                   }}
-                >
-                  {text.deleteEntry}
-                </button>
-                {entry.unit && (
-                  <div className="entry-footer">
-                    <span className="entry-dot" aria-hidden="true" />
-                    {entry.unit.title}
-                  </div>
-                )}
+                />
               </li>
             ))}
           </ul>

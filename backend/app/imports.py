@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
@@ -215,11 +216,13 @@ def import_router(sessions, gate):
 
     @router.get("/example")
     def example():
+        sample = json.loads(Path(__file__).with_name("csv_example.json").read_text())
+        output = io.StringIO(newline="")
+        writer = csv.writer(output, lineterminator="\n")
+        writer.writerow(sample["headers"])
+        writer.writerows(sample["rows"])
         return Response(
-            "italian,greek,word_type,italian_gender,greek_gender,unit_code,"
-            "unit_title,unit_sort_order,tags,pronunciation\n"
-            "il perché,το γιατί,noun,masculine,neuter,07,Domande,7,"
-            "questions|daily,perˈke\n",
+            output.getvalue(),
             media_type="text/csv; charset=utf-8",
             headers={
                 "Content-Disposition": 'attachment; filename="vocabulary-example.csv"'

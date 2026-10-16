@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import PropTypes from "prop-types";
+import { FileDown, ArrowRight } from "lucide-react";
+import csvExample from "../../backend/app/csv_example.json";
 import { request } from "./api.js";
 
-export default function Import({ text, csrf, onLocked }) {
+export default function Import({ text, csrf, onLocked, onAttention }) {
   const client = useQueryClient();
+  const [exampleOpen, setExampleOpen] = useState(false);
+  const exampleId = useId();
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
@@ -12,6 +16,7 @@ export default function Import({ text, csrf, onLocked }) {
   const [busy, setBusy] = useState(false);
   const reportHeading = useRef(null);
   async function submit(action) {
+    onAttention();
     setBusy(true);
     setError(null);
     try {
@@ -39,6 +44,7 @@ export default function Import({ text, csrf, onLocked }) {
             : text.errors[failure.code] || failure.message,
         );
     } finally {
+      onAttention();
       setBusy(false);
     }
   }
@@ -48,13 +54,8 @@ export default function Import({ text, csrf, onLocked }) {
   }, [report]);
   return (
     <section className="csv-import" aria-label={text.csvImport}>
-      <h2>{text.csvImport}</h2>
-      <p>{text.csvHint}</p>
-      <p>
-        <a href="/api/imports/example" download>
-          {text.csvExample}
-        </a>
-      </p>
+      <h2>{text.csvImportHeading}</h2>
+      <p className="csv-intro">{text.csvIntro}</p>
       <label>
         {text.csvFile}
         <input
@@ -69,13 +70,62 @@ export default function Import({ text, csrf, onLocked }) {
           }}
         />
       </label>
-      <button
-        className="secondary"
-        disabled={!file || busy}
-        onClick={() => submit("preview")}
-      >
-        {busy ? text.saving : text.csvPreview}
-      </button>
+      <div className="csv-preview-actions">
+        <div className="csv-example-actions">
+          <button
+            type="button"
+            className="csv-example-toggle"
+            aria-expanded={exampleOpen}
+            aria-controls={exampleId}
+            onClick={() => setExampleOpen((open) => !open)}
+          >
+            {text.csvViewExample}
+          </button>
+          <a href="/api/imports/example" download>
+            <FileDown size={17} aria-hidden="true" />
+            {text.csvExample}
+          </a>
+        </div>
+        <button
+          className="primary"
+          disabled={!file || busy}
+          onClick={() => submit("preview")}
+        >
+          {busy ? text.saving : text.csvPreview}
+          <ArrowRight size={17} aria-hidden="true" />
+        </button>
+      </div>
+      <div id={exampleId} hidden={!exampleOpen} className="csv-example-table">
+        <table aria-label={text.csvViewExample}>
+          <thead>
+            <tr>
+              {csvExample.headers.map((header) => (
+                <th scope="col" key={header}>
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {csvExample.rows.map((row) => (
+              <tr key={row[0]}>
+                {row.map((value, index) => (
+                  <td
+                    key={index}
+                    lang={index === 0 ? "it" : index === 1 ? "el" : undefined}
+                  >
+                    {value}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <details className="csv-requirements">
+        <summary>{text.csvFormat}</summary>
+        <p>{text.csvHint}</p>
+      </details>
       {error && (
         <p role="alert" className="error">
           {error}
@@ -181,4 +231,5 @@ Import.propTypes = {
   text: PropTypes.object.isRequired,
   csrf: PropTypes.string.isRequired,
   onLocked: PropTypes.func.isRequired,
+  onAttention: PropTypes.func.isRequired,
 };

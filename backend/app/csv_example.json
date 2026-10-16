@@ -1,0 +1,8 @@
+{
+  "headers": ["italian", "greek", "word_type"],
+  "rows": [
+    ["casa", "σπίτι", "noun"],
+    ["parlare", "μιλάω", "verb"],
+    ["bello", "όμορφος", "adjective"]
+  ]
+}

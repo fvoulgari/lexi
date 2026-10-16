@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PropTypes from "prop-types";
-import Choices from "./Choices.jsx";
 import { request } from "./api.js";
 
 const wordTypes = [
@@ -43,18 +42,10 @@ export default function VocabularyForm({
     queryKey: ["units"],
     queryFn: () => request("/api/units"),
   });
-  const tags = useQuery({
-    queryKey: ["tags"],
-    queryFn: () => request("/api/tags"),
-  });
   const [unitId, setUnitId] = useState(entry?.unit?.id || "");
-  const [tagIds, setTagIds] = useState(
-    (entry?.tags || []).map((tag) => tag.id),
-  );
   useEffect(() => {
-    if ([units.error, tags.error].some((error) => error?.status === 401))
-      onLocked();
-  }, [units.error, tags.error, onLocked]);
+    if (units.error?.status === 401) onLocked();
+  }, [units.error, onLocked]);
   const [invalid, setInvalid] = useState([]);
   const [focusRequest, setFocusRequest] = useState(null);
   const firstInput = useRef(null);
@@ -78,7 +69,7 @@ export default function VocabularyForm({
             ]),
           ),
           unit_id: unitId || null,
-          tag_ids: tagIds,
+          tag_ids: (entry?.tags || []).map((tag) => tag.id),
         }),
       }),
     onMutate: () => onSavingChange(true),
@@ -198,16 +189,7 @@ export default function VocabularyForm({
             ))}
           </select>
         </label>
-        <Choices
-          legend={text.assignTags}
-          options={(tags.data || []).map((tag) => ({
-            id: tag.id,
-            label: tag.name,
-          }))}
-          selected={tagIds}
-          onChange={setTagIds}
-        />
-        {[units, tags].some((query) => query.isError) && (
+        {units.isError && (
           <div>
             <p role="alert" className="error">
               {text.errors.request_failed}
@@ -217,7 +199,6 @@ export default function VocabularyForm({
               className="secondary"
               onClick={() => {
                 units.refetch();
-                tags.refetch();
               }}
             >
               {text.retry}
@@ -235,9 +216,7 @@ export default function VocabularyForm({
           <button
             type="submit"
             className="primary"
-            disabled={
-              units.isPending || tags.isPending || units.isError || tags.isError
-            }
+            disabled={units.isPending || units.isError}
           >
             {save.isPending ? text.saving : text.saveEntry}
           </button>

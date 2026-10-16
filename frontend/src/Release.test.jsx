@@ -63,6 +63,8 @@ test.each(["el", "en", "it"])(
     expect(
       await screen.findByRole("heading", { name: text.empty }),
     ).toBeVisible();
+    expect(screen.getByLabelText(text.csvFile)).not.toBeVisible();
+    await user.click(screen.getByRole("button", {name: text.toolsImport}));
     expect(screen.getByLabelText(text.csvFile)).toBeVisible();
     expect(
       screen.getByRole("button", { name: text.csvPreview }),
@@ -73,8 +75,7 @@ test.each(["el", "en", "it"])(
     expect(screen.getByLabelText(`${text.fields.word_type} *`)).toBeRequired();
     await user.click(screen.getByRole("button", { name: text.cancel }));
     for (const [trigger, label] of [
-      [text.createUnit, text.unitCode],
-      [text.createTag, text.tagName],
+      [text.toolsNewUnit, text.unitCode],
     ]) {
       await user.click(screen.getByRole("button", { name: trigger }));
       expect(screen.getByLabelText(label)).toHaveFocus();

@@ -74,7 +74,7 @@ test("a learner enters the shared password before seeing the library", async () 
   );
   await user.click(screen.getByRole("button", { name: "Open my notebook" }));
   expect(
-    await screen.findByRole("heading", { name: "Your vocabulary notebook" }),
+    await screen.findByRole("heading", { name: "Your vocabulary" }),
   ).toBeInTheDocument();
 });
 
@@ -102,7 +102,7 @@ test("login refreshes a CSRF token rotated after the gate loaded", async () => {
   await user.type(input, "our-notebook-password");
   await user.click(screen.getByRole("button", { name: "Open my notebook" }));
   expect(
-    await screen.findByRole("heading", { name: "Your vocabulary notebook" }),
+    await screen.findByRole("heading", { name: "Your vocabulary" }),
   ).toBeInTheDocument();
 });
 
@@ -158,7 +158,7 @@ test("an incorrect password shows an error without revealing the library", async
     "That password isn’t quite right. Try again.",
   );
   expect(
-    screen.queryByRole("heading", { name: "Your vocabulary notebook" }),
+    screen.queryByRole("heading", { name: "Your vocabulary" }),
   ).not.toBeInTheDocument();
 });
 
@@ -171,7 +171,7 @@ test("locking the notebook removes the authenticated library", async () => {
   );
   expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
   expect(
-    screen.queryByRole("heading", { name: "Your vocabulary notebook" }),
+    screen.queryByRole("heading", { name: "Your vocabulary" }),
   ).not.toBeInTheDocument();
 });
 
@@ -215,12 +215,12 @@ test("a revoked session returns the learner to the gate", async () => {
 test("interface language can change independently of vocabulary languages", async () => {
   authenticated = true;
   renderApp();
-  await screen.findByRole("heading", { name: "Your vocabulary notebook" });
+  await screen.findByRole("heading", { name: "Your vocabulary" });
   await userEvent
     .setup()
     .selectOptions(screen.getByLabelText("Interface language"), "it");
   expect(
-    screen.getByRole("heading", { name: "Il tuo quaderno di vocaboli" }),
+    screen.getByRole("heading", { name: "Il tuo vocabolario" }),
   ).toBeInTheDocument();
   expect(localStorage.getItem("notebook-language")).toBe("it");
   expect(document.documentElement.lang).toBe("it");

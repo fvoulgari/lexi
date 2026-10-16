@@ -133,8 +133,14 @@ def test_example_is_gated_utf8_and_importable(logged_in):
         upload(logged_in, "\ufeff" + response.content.decode("utf-8")).json()["counts"][
             "valid"
         ]
-        == 1
+        == 3
     )
+    assert response.text.splitlines() == [
+        "italian,greek,word_type",
+        "casa,σπίτι,noun",
+        "parlare,μιλάω,verb",
+        "bello,όμορφος,adjective",
+    ]
     logged_in.cookies.clear()
     assert logged_in.get("/api/imports/example").status_code == 401
 
