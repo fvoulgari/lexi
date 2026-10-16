@@ -103,12 +103,12 @@ test.each(["el", "en", "it"])(
     await user.click(
       nav.getByRole("link", { name: text.settings, exact: true }),
     );
-    expect(await screen.findByLabelText(text.deviceLanguage)).toHaveValue(
+    expect(await within(screen.getByRole("region", {name: text.deviceSettings})).findByLabelText(text.deviceLanguage)).toHaveValue(
       language,
     );
-    expect(screen.getByLabelText(text.motion)).toBeVisible();
-    await user.click(screen.getByRole("button", { name: text.newProfile }));
-    expect(screen.getByLabelText(text.displayName)).toBeVisible();
+    expect(screen.queryByLabelText(text.motion)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: text.settingsNewProfile }));
+    expect(screen.getByLabelText(text.settingsName)).toBeVisible();
   },
 );
 

@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -40,12 +46,7 @@ export default function App() {
     Object.keys(copy),
     "el",
   );
-  const [motion, setMotion] = useDeviceSetting(
-    "notebook-motion",
-    ["system", "reduce", "full"],
-    "system",
-  );
-  const reducedMotion = useReducedMotion(motion);
+  const reducedMotion = useReducedMotion("system");
   const [online, setOnline] = useState(() => navigator.onLine);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -123,9 +124,7 @@ export default function App() {
           <span className="brand-icon">
             <BookOpen size={24} aria-hidden="true" />
           </span>
-          <div>
-            Lexi
-          </div>
+          <div>Lexi</div>
         </div>
         <label className="language-picker">
           <span className="sr-only">{text.language}</span>
@@ -282,21 +281,24 @@ export default function App() {
             <Route
               path="/settings"
               element={
-                <>
-                  <DeviceSettings
-                    text={text}
-                    language={language}
-                    setLanguage={setLanguage}
-                    reducedMotion={reducedMotion}
-                    motion={motion}
-                    setMotion={setMotion}
-                  />
+                <section
+                  className="settings-page"
+                  aria-labelledby="settings-page-title"
+                >
+                  <header className="settings-heading">
+                    <h1 id="settings-page-title">{text.settingsPageTitle}</h1>
+                  </header>
                   <Profiles
                     text={text}
                     csrf={session.data.csrf_token}
                     onLocked={lockNotebook}
                   />
-                </>
+                  <DeviceSettings
+                    text={text}
+                    language={language}
+                    setLanguage={setLanguage}
+                  />
+                </section>
               }
             />
             <Route

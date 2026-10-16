@@ -48,14 +48,11 @@ export default function Profiles({ text, csrf, onLocked }) {
   }
 
   return (
-    <section className="profiles-page">
-      <div className="page-heading">
-        <div>
-          <h1>{text.settings}</h1>
-          <p>{text.profileIntro}</p>
-        </div>
-      </div>
-      <p className="privacy-note">{text.profilePrivacy}</p>
+    <section
+      className="profiles-page settings-card"
+      aria-labelledby="profile-settings-title"
+    >
+      <h2 id="profile-settings-title">{text.settingsProfileTitle}</h2>
       {profiles.isPending ? (
         <p role="status">{text.loading}</p>
       ) : profiles.isError ? (
@@ -89,15 +86,18 @@ export default function Profiles({ text, csrf, onLocked }) {
               </select>
             </label>
             <button
-              className="primary"
+              className="secondary"
               onClick={() => {
                 setSavedId(null);
                 setCreating(true);
               }}
             >
-              {text.newProfile}
+              {text.settingsNewProfile}
             </button>
           </div>
+          <p className="settings-helper profile-sharing">
+            {text.settingsPrivacy}
+          </p>
           {missing && <p>{text.missingProfile}</p>}
           {(creating || profile) && (
             <ProfileForm
@@ -160,52 +160,60 @@ function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
         save.mutate();
       }}
     >
-      <h2>{profile ? text.editProfile : text.newProfile}</h2>
+      {!profile && <h3>{text.settingsNewProfile}</h3>}
       <fieldset disabled={save.isPending}>
-        <label htmlFor="profile-name">{text.displayName}</label>
-        <input
-          id="profile-name"
-          value={name}
-          required
-          maxLength={80}
-          onChange={(event) => {
-            setName(event.target.value);
-            onChanged();
-          }}
-          aria-invalid={invalid}
-          aria-describedby={invalid ? "profile-validation" : undefined}
-        />
-        <label htmlFor="profile-direction">{text.direction}</label>
-        <select
-          id="profile-direction"
-          value={direction}
-          onChange={(event) => {
-            setDirection(event.target.value);
-            onChanged();
-          }}
-        >
-          <option value="greek_to_italian">
-            {text.greek} → {text.italian}
-          </option>
-          <option value="italian_to_greek">
-            {text.italian} → {text.greek}
-          </option>
-        </select>
-        <label htmlFor="profile-size">{text.sessionSize}</label>
-        <select
-          id="profile-size"
-          value={size}
-          onChange={(event) => {
-            setSize(event.target.value);
-            onChanged();
-          }}
-        >
-          <option value="10">10</option>
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="all">{text.allEntries}</option>
-        </select>
-        <p>{text.sizeHint}</p>
+        <div className="profile-fields">
+          <label className="profile-name-field" htmlFor="profile-name">
+            {text.settingsName}
+            <input
+              id="profile-name"
+              value={name}
+              required
+              maxLength={80}
+              onChange={(event) => {
+                setName(event.target.value);
+                onChanged();
+              }}
+              aria-invalid={invalid}
+              aria-describedby={invalid ? "profile-validation" : undefined}
+            />
+          </label>
+          <label htmlFor="profile-direction">
+            {text.settingsDirection}
+            <select
+              id="profile-direction"
+              value={direction}
+              onChange={(event) => {
+                setDirection(event.target.value);
+                onChanged();
+              }}
+            >
+              <option value="greek_to_italian">
+                {text.greek} → {text.italian}
+              </option>
+              <option value="italian_to_greek">
+                {text.italian} → {text.greek}
+              </option>
+            </select>
+          </label>
+          <label htmlFor="profile-size">
+            {text.settingsSessionSize}
+            <select
+              id="profile-size"
+              value={size}
+              onChange={(event) => {
+                setSize(event.target.value);
+                onChanged();
+              }}
+            >
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="all">{text.allEntries}</option>
+            </select>
+          </label>
+        </div>
+        <p className="settings-helper">{text.settingsSyncedHint}</p>
         {invalid && (
           <p id="profile-validation" className="error" role="alert">
             {text.nameRequired}
@@ -220,7 +228,7 @@ function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
           {save.isPending
             ? text.saving
             : profile
-              ? text.savePreferences
+              ? text.settingsSave
               : text.createProfile}
         </button>
       </fieldset>

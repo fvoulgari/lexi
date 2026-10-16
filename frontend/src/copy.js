@@ -56,16 +56,14 @@ export const copy = {
       "This unreviewed card was deleted. It was skipped and the session count was adjusted.",
     motionReducedActive: "Reduced motion is active.",
     motionFullActive: "Full motion is active.",
-    deviceSettings: "Device settings",
-    deviceSettingsHint:
-      "These settings are saved automatically on this device. They do not change your learning direction.",
-    deviceLanguage: "Interface language on this device",
-    motion: "Motion",
+    deviceSettings: "On this device",
+    deviceSettingsHint: "Changes are saved automatically on this device.",
+    deviceLanguage: "App language",
+    motion: "Motion effects",
     motionSystem: "Follow device setting",
     motionReduce: "Reduce motion",
     motionFull: "Full motion",
-    motionHint:
-      "Your operating system’s reduced motion setting always takes priority.",
+    motionHint: "Your system’s reduced-motion preference takes priority.",
 
     practice: "Practice",
     practiceSelection: "Practice selection",
@@ -238,6 +236,16 @@ export const copy = {
     csvImportHeading: "Add new words.",
     csvIntro: "Choose a CSV file to preview the cards before importing them.",
     csvFormat: "CSV format and requirements",
+    settingsPageTitle: "Profiles and settings",
+    settingsProfileTitle: "Your profile",
+    settingsNewProfile: "New profile",
+    settingsName: "Name",
+    settingsDirection: "Practice direction",
+    settingsSessionSize: "Cards per session",
+    settingsSyncedHint: "Your preferences apply across all your devices.",
+    settingsSave: "Save changes",
+    settingsPrivacy:
+      "Profiles are shared: anyone with access to the notebook can select them.",
   },
   el: {
     exportLibrary: "Εξαγωγή όλης της βιβλιοθήκης (CSV)",
@@ -294,16 +302,14 @@ export const copy = {
       "Αυτή η κάρτα χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
     motionReducedActive: "Η μειωμένη κίνηση είναι ενεργή.",
     motionFullActive: "Η πλήρης κίνηση είναι ενεργή.",
-    deviceSettings: "Ρυθμίσεις συσκευής",
-    deviceSettingsHint:
-      "Αυτές οι ρυθμίσεις αποθηκεύονται αυτόματα σε αυτή τη συσκευή. Δεν αλλάζουν την κατεύθυνση εκμάθησης.",
-    deviceLanguage: "Γλώσσα διεπαφής σε αυτή τη συσκευή",
-    motion: "Κίνηση",
+    deviceSettings: "Σε αυτή τη συσκευή",
+    deviceSettingsHint: "Οι αλλαγές αποθηκεύονται αυτόματα σε αυτή τη συσκευή.",
+    deviceLanguage: "Γλώσσα εφαρμογής",
+    motion: "Εφέ κίνησης",
     motionSystem: "Χρήση ρύθμισης συσκευής",
     motionReduce: "Μειωμένη κίνηση",
     motionFull: "Πλήρης κίνηση",
-    motionHint:
-      "Η ρύθμιση μειωμένης κίνησης του λειτουργικού συστήματος έχει πάντα προτεραιότητα.",
+    motionHint: "Η μειωμένη κίνηση του συστήματος έχει προτεραιότητα.",
 
     practice: "Εξάσκηση",
     practiceSelection: "Επιλογή εξάσκησης",
@@ -479,6 +485,16 @@ export const copy = {
     csvIntro:
       "Επίλεξε ένα αρχείο CSV για να δεις τις κάρτες πριν τις εισαγάγεις.",
     csvFormat: "Μορφή και προδιαγραφές CSV",
+    settingsPageTitle: "Προφίλ και ρυθμίσεις",
+    settingsProfileTitle: "Το προφίλ σου",
+    settingsNewProfile: "Νέο προφίλ",
+    settingsName: "Όνομα",
+    settingsDirection: "Κατεύθυνση εξάσκησης",
+    settingsSessionSize: "Κάρτες ανά συνεδρία",
+    settingsSyncedHint: "Οι προτιμήσεις σου ισχύουν σε όλες τις συσκευές.",
+    settingsSave: "Αποθήκευση αλλαγών",
+    settingsPrivacy:
+      "Τα προφίλ είναι κοινόχρηστα: όποιος έχει πρόσβαση στο τετράδιο μπορεί να τα επιλέξει.",
   },
   it: {
     exportLibrary: "Esporta tutta la biblioteca (CSV)",
@@ -535,16 +551,16 @@ export const copy = {
       "Questa scheda senza revisioni è stata eliminata. È stata saltata e il numero di schede è stato aggiornato.",
     motionReducedActive: "Il movimento ridotto è attivo.",
     motionFullActive: "Il movimento completo è attivo.",
-    deviceSettings: "Impostazioni del dispositivo",
+    deviceSettings: "Su questo dispositivo",
     deviceSettingsHint:
-      "Queste impostazioni vengono salvate automaticamente su questo dispositivo. Non cambiano la direzione di apprendimento.",
-    deviceLanguage: "Lingua dell’interfaccia su questo dispositivo",
-    motion: "Movimento",
+      "Le modifiche vengono salvate automaticamente su questo dispositivo.",
+    deviceLanguage: "Lingua dell’app",
+    motion: "Effetti di movimento",
     motionSystem: "Segui le impostazioni del dispositivo",
     motionReduce: "Riduci il movimento",
     motionFull: "Movimento completo",
     motionHint:
-      "La preferenza del sistema operativo per il movimento ridotto ha sempre la priorità.",
+      "La preferenza di movimento ridotto del sistema ha la precedenza.",
 
     practice: "Esercitazione",
     practiceSelection: "Selezione esercitazione",
@@ -718,6 +734,16 @@ export const copy = {
     csvIntro:
       "Scegli un file CSV per visualizzare le schede prima di importarle.",
     csvFormat: "Formato e requisiti CSV",
+    settingsPageTitle: "Profili e impostazioni",
+    settingsProfileTitle: "Il tuo profilo",
+    settingsNewProfile: "Nuovo profilo",
+    settingsName: "Nome",
+    settingsDirection: "Direzione di esercitazione",
+    settingsSessionSize: "Schede per sessione",
+    settingsSyncedHint: "Le tue preferenze valgono su tutti i dispositivi.",
+    settingsSave: "Salva modifiche",
+    settingsPrivacy:
+      "I profili sono condivisi: chiunque abbia accesso al quaderno può selezionarli.",
   },
 };
 

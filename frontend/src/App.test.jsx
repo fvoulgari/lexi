@@ -246,15 +246,14 @@ test("device settings persist without changing learning direction", async () => 
   await user.click(
     await screen.findByRole("link", { name: "Learners & settings" }),
   );
-  expect(await screen.findByLabelText("Learning direction")).toHaveValue(
+  expect(await screen.findByLabelText("Practice direction")).toHaveValue(
     "italian_to_greek",
   );
-  await user.selectOptions(screen.getByLabelText("Motion"), "reduce");
   await user.selectOptions(
-    screen.getByLabelText("Interface language on this device"),
+    screen.getByLabelText("App language"),
     "it",
   );
-  expect(screen.getByLabelText("Direzione di apprendimento")).toHaveValue(
+  expect(screen.getByLabelText("Direzione di esercitazione")).toHaveValue(
     "italian_to_greek",
   );
   first.unmount();
@@ -263,11 +262,10 @@ test("device settings persist without changing learning direction", async () => 
     await screen.findByRole("link", { name: "Profili e impostazioni" }),
   );
   expect(
-    screen.getByLabelText("Lingua dell’interfaccia su questo dispositivo"),
+    screen.getByLabelText("Lingua dell’app"),
   ).toHaveValue("it");
-  expect(screen.getByLabelText("Movimento")).toHaveValue("reduce");
   expect(
-    await screen.findByLabelText("Direzione di apprendimento"),
+    await screen.findByLabelText("Direzione di esercitazione"),
   ).toHaveValue("italian_to_greek");
 });
 
@@ -283,17 +281,14 @@ test("operating-system reduced motion overrides full motion and updates live", a
     await user.click(
       await screen.findByRole("link", { name: "Learners & settings" }),
     );
-    await user.selectOptions(screen.getByLabelText("Motion"), "full");
-    expect(screen.getByText("Reduced motion is active.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Motion effects")).not.toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute("data-motion", "reduce");
     act(() => {
       media.matches = false;
       media.dispatchEvent(new Event("change"));
     });
-    expect(screen.getByText("Full motion is active.")).toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute("data-motion", "full");
-    await user.selectOptions(screen.getByLabelText("Motion"), "reduce");
-    expect(screen.getByText("Reduced motion is active.")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Motion effects")).not.toBeInTheDocument();
   } finally {
     vi.unstubAllGlobals();
   }
@@ -305,7 +300,6 @@ test("Greek is the default and invalid device preferences recover safely", async
   renderApp();
   expect(await screen.findByLabelText("Κοινός κωδικός")).toBeInTheDocument();
   expect(document.documentElement.lang).toBe("el");
-  expect(localStorage.getItem("notebook-motion")).toBe("system");
 });
 
 test("device settings work when browser storage is unavailable", async () => {
@@ -324,8 +318,7 @@ test("device settings work when browser storage is unavailable", async () => {
     await user.click(
       await screen.findByRole("link", { name: "Learners & settings" }),
     );
-    await user.selectOptions(screen.getByLabelText("Motion"), "reduce");
-    expect(screen.getByText("Reduced motion is active.")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Motion effects")).not.toBeInTheDocument();
   } finally {
     get.mockRestore();
     set.mockRestore();
