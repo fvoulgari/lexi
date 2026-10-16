@@ -95,7 +95,7 @@ test.each(["el", "en", "it"])(
       nav.getByRole("link", { name: text.progress, exact: true }),
     );
     expect(
-      await screen.findByRole("heading", { name: text.progress }),
+      await screen.findByRole("heading", { name: text.detailTitle }),
     ).toBeVisible();
     expect(
       await screen.findByRole("link", { name: text.createProfile }),

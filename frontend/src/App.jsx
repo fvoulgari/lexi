@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -31,8 +31,9 @@ import { useDeviceSetting, useReducedMotion } from "./device-settings.js";
 export default function App() {
   const location = useLocation();
   const main = useRef(null);
-  useEffect(() => {
-    main.current?.focus();
+  useLayoutEffect(() => {
+    main.current?.focus({ preventScroll: true });
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname]);
   const [language, setLanguage] = useDeviceSetting(
     "notebook-language",

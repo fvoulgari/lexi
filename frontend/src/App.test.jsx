@@ -384,3 +384,21 @@ test.each(["el", "en", "it"])(
     expect(screen.getByRole("main")).toHaveFocus();
   },
 );
+
+test("navbar navigation resets scroll without letting focus scroll the page", async () => {
+  authenticated = true;
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+  const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  renderApp();
+  const link = await screen.findByRole("link", {name: "Practice", exact:true});
+  const main = screen.getByRole("main");
+  const focus = vi.spyOn(main, "focus");
+  scroll.mockClear();
+  await userEvent.click(link);
+  await screen.findByRole("heading", {name:"Practice", exact:true});
+  expect(focus).toHaveBeenCalledWith({preventScroll:true});
+  expect(scroll).toHaveBeenCalledWith({top:0,left:0,behavior:"instant"});
+  expect(main).toHaveFocus();
+  focus.mockRestore();
+  scroll.mockRestore();
+});

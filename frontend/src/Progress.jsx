@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { request } from "./api.js";
 
 export default function Progress({ text, onLocked, detailed = false }) {
@@ -41,7 +42,9 @@ export default function Progress({ text, onLocked, detailed = false }) {
     : "/practice?mode=difficult";
 
   useEffect(() => {
-    if ([profiles.error, history.error].some((error) => error?.status === 401)) {
+    if (
+      [profiles.error, history.error].some((error) => error?.status === 401)
+    ) {
       onLocked();
     }
   }, [profiles.error, history.error, onLocked]);
@@ -60,10 +63,21 @@ export default function Progress({ text, onLocked, detailed = false }) {
     }
   }
 
+  if (detailed)
+    return (
+      <DetailedProgress
+        text={text}
+        profile={profile}
+        profiles={profiles}
+        history={history}
+        selected={selected}
+        selectProfile={selectProfile}
+        onLocked={onLocked}
+      />
+    );
+
   return (
-    <section
-      className={`progress-page${detailed ? "" : " lexi-home"}`}
-    >
+    <section className={`progress-page${detailed ? "" : " lexi-home"}`}>
       <div className="progress-heading">
         <div>
           <h1>
@@ -158,9 +172,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
             </div>
           )}
 
-          <dl
-            className={`progress-stats${detailed ? "" : " home-stats"}`}
-          >
+          <dl className={`progress-stats${detailed ? "" : " home-stats"}`}>
             <div>
               <dt>{text.vocabularyCount}</dt>
               <dd>{data.vocabulary_count}</dd>
@@ -210,9 +222,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
 
                 <div>
                   <dt>{text.remembered}</dt>
-                  <dd>
-                    {Math.round(data.recent_session.remembered)}%
-                  </dd>
+                  <dd>{Math.round(data.recent_session.remembered)}%</dd>
                 </div>
               </dl>
 
@@ -227,76 +237,12 @@ export default function Progress({ text, onLocked, detailed = false }) {
                 <strong>{data.difficult_entries}</strong>
               </span>
 
-              <Link
-                className="home-difficult-button"
-                to={difficultPracticeUrl}
-              >
+              <Link className="home-difficult-button" to={difficultPracticeUrl}>
                 {text.practiseDifficult}
                 <span aria-hidden="true">→</span>
               </Link>
             </div>
           )}
-        </>
-      )}
-
-      {profile && data && detailed && (
-        <>
-          <section
-            className="progress-card"
-            aria-label={text.ratingDistribution}
-          >
-            <h2>{text.ratingDistribution}</h2>
-            <RatingCounts text={text} counts={data.counts} />
-          </section>
-
-          <p>{text.historyHint}</p>
-
-          <Breakdown
-            title={text.directionBreakdown}
-            rows={data.directions}
-            text={text}
-            label={(key) => directionLabel(text, key)}
-          />
-
-          <Breakdown
-            title={text.unitBreakdown}
-            rows={data.units}
-            text={text}
-            label={(key, row) =>
-              key ? `${key} · ${row.title}` : text.noUnit
-            }
-          />
-
-          <Breakdown
-            title={text.typeBreakdown}
-            rows={data.word_types}
-            text={text}
-            label={(key) => text[key] || text.unspecified}
-          />
-
-          <section
-            className="progress-card"
-            aria-label={text.difficultCount}
-          >
-            <h2>{text.difficultCount}</h2>
-
-            {data.directions
-              .filter((row) => row.difficult_entries > 0)
-              .map((row) => (
-                <DifficultEntries
-                  key={`${profile.id}-${row.key}`}
-                  text={text}
-                  profileId={profile.id}
-                  direction={row.key}
-                  count={row.difficult_entries}
-                  onLocked={onLocked}
-                />
-              ))}
-
-            {!data.difficult_entries && (
-              <p>{text.noDifficultEntries}</p>
-            )}
-          </section>
         </>
       )}
 
@@ -326,63 +272,260 @@ export default function Progress({ text, onLocked, detailed = false }) {
   );
 }
 
-function RatingCounts({ text, counts }) {
+function DetailedProgress({
+  text,
+  profile,
+  profiles,
+  history,
+  selected,
+  selectProfile,
+  onLocked,
+}) {
+  const data = history.data;
+  const error = profiles.error || history.error;
+  const metrics = data
+    ? [
+        [text.vocabularyCount, data.vocabulary_count],
+        [text.entriesPractised, data.entries_practised],
+        [text.totalReviews, data.total_reviews],
+        [text.difficultCount, data.difficult_entries],
+      ]
+    : [];
   return (
-    <dl className="rating-counts">
-      {["again", "hard", "easy"].map((rating) => (
-        <div key={rating}>
-          <dt>{text[rating]}</dt>
-          <dd>{counts[rating]}</dd>
+    <section className="progress-page progress-detail">
+      <header className="detail-heading">
+        <div>
+          <h1>{text.detailTitle}</h1>
         </div>
-      ))}
-    </dl>
-  );
-}
-
-function Breakdown({ title, rows, text, label }) {
-  return (
-    <section className="progress-card" aria-label={title}>
-      <h2>{title}</h2>
-
-      <div className="breakdown-grid">
-        {rows.map((row, index) => (
-          <article key={`${row.key}-${index}`}>
-            <h3>{label(row.key, row)}</h3>
-
-            <dl className="progress-stats">
-              <div>
-                <dt>{text.totalReviews}</dt>
-                <dd>{row.total_reviews}</dd>
+        <div className="detail-profile">
+          {profile && (
+            <span className="detail-avatar" aria-hidden="true">
+              {profile.display_name.trim().slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          <div>
+            <label htmlFor="progress-profile">{text.profile}</label>
+            <select
+              id="progress-profile"
+              value={profile?.id || ""}
+              onChange={(event) => selectProfile(event.target.value)}
+            >
+              <option value="">{text.chooseProfile}</option>
+              {profiles.data?.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </header>
+      {selected && profiles.isSuccess && !profile && (
+        <p>{text.missingProfile}</p>
+      )}
+      {profiles.isSuccess && !profiles.data.length && (
+        <Link to="/settings">{text.createProfile}</Link>
+      )}
+      {(profiles.isPending || (profile && history.isPending)) && (
+        <p role="status">{text.loading}</p>
+      )}
+      {error && (
+        <div>
+          <p className="error" role="alert">
+            {text.errors[error.code] || text.errors.request_failed}
+          </p>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() =>
+              profiles.isError ? profiles.refetch() : history.refetch()
+            }
+          >
+            {text.retry}
+          </button>
+        </div>
+      )}
+      {profile && data && (
+        <>
+          <dl className="detail-metrics">
+            {metrics.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
               </div>
-
-              <div>
-                <dt>{text.entriesPractised}</dt>
-                <dd>{row.entries_practised}</dd>
-              </div>
-
-              {row.difficult_entries !== undefined && (
-                <div>
-                  <dt>{text.difficultCount}</dt>
-                  <dd>{row.difficult_entries}</dd>
-                </div>
-              )}
-            </dl>
-
-            <RatingCounts text={text} counts={row.counts} />
-          </article>
-        ))}
-      </div>
+            ))}
+          </dl>
+          {!data.total_reviews && (
+            <p className="detail-empty">{text.progressEmpty}</p>
+          )}
+          <div className="detail-overview">
+            <ResponseDistribution text={text} counts={data.counts} />
+            {data.recent_session && (
+              <section
+                className="detail-surface"
+                aria-label={text.detailRecent}
+              >
+                <h2>{text.detailRecent}</h2>
+                <dl className="detail-session-metrics">
+                  <div>
+                    <dt>{text.reviewed}</dt>
+                    <dd>{data.recent_session.total_reviews}</dd>
+                  </div>
+                  <div>
+                    <dt>{text.remembered}</dt>
+                    <dd>
+                      {data.recent_session.total_reviews > 0
+                        ? `${Math.round(data.recent_session.remembered)}%`
+                        : "—"}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="detail-muted">{text.detailRecallHint}</p>
+              </section>
+            )}
+          </div>
+          <div className="detail-breakdowns">
+            <Breakdown
+              title={text.detailDirectionBreakdown}
+              columnLabel={text.detailDirectionColumn}
+              rows={data.directions}
+              text={text}
+              label={(key) => directionLabel(text, key)}
+            />
+            <Breakdown
+              title={text.detailUnitBreakdown}
+              columnLabel={text.unit}
+              rows={data.units}
+              text={text}
+              label={(key, row) =>
+                key ? `${key} · ${row.title}` : text.noUnit
+              }
+            />
+            <Breakdown
+              title={text.detailTypeBreakdown}
+              columnLabel={text.setupWordTypes}
+              rows={data.word_types}
+              text={text}
+              label={(key) => text[key] || text.unspecified}
+            />
+          </div>
+          <details className="detail-calculation">
+            <summary>{text.detailHowCalculated}</summary>
+            <p>{text.historyHint}</p>
+          </details>
+          <section
+            className="detail-surface detail-practice-cards"
+            aria-label={text.detailCardsToReview}
+          >
+            <h2>{text.detailCardsToReview}</h2>
+            {data.directions
+              .filter((row) => row.difficult_entries > 0)
+              .map((row) => (
+                <DifficultEntries
+                  key={`${profile.id}-${row.key}`}
+                  text={text}
+                  profileId={profile.id}
+                  direction={row.key}
+                  count={row.difficult_entries}
+                  onLocked={onLocked}
+                />
+              ))}
+            {!data.difficult_entries && (
+              <p className="detail-muted">{text.noDifficultEntries}</p>
+            )}
+          </section>
+        </>
+      )}
     </section>
   );
 }
 
-function DifficultEntries({
-  text,
-  profileId,
-  direction,
-  count,
-  onLocked,
-}) {
+function ResponseDistribution({ text, counts }) {
+  const ratings = ["again", "hard", "easy"];
+  const total = ratings.reduce((sum, rating) => sum + counts[rating], 0);
+  const description = `${text.detailOverallResponses} ${ratings.map((rating) => `${text[rating]}: ${counts[rating]}`).join(", ")}`;
+  return (
+    <section className="detail-surface" aria-label={text.detailResponses}>
+      <h2>{text.detailResponses}</h2>
+      <p className="detail-muted">{text.detailOverallResponses}</p>
+      <div className="detail-response-bar" role="img" aria-label={description}>
+        {ratings.map((rating) => (
+          <span
+            key={rating}
+            className={`response-${rating}`}
+            style={{
+              width: `${total > 0 ? (counts[rating] / total) * 100 : 0}%`,
+            }}
+          />
+        ))}
+      </div>
+      <dl className="detail-response-legend">
+        {ratings.map((rating) => (
+          <div key={rating}>
+            <dt>
+              <span
+                className={`response-dot response-${rating}`}
+                aria-hidden="true"
+              />
+              {text[rating]}
+            </dt>
+            <dd>{counts[rating]}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function Breakdown({ title, columnLabel, rows, text, label }) {
+  const showDifficult = rows.some((row) => row.difficult_entries !== undefined);
+  return (
+    <section className="detail-surface detail-table-section" aria-label={title}>
+      <h2>{title}</h2>
+      <div
+        className="detail-table-scroll"
+        tabIndex={0}
+        role="group"
+        aria-label={title}
+      >
+        <table>
+          <caption className="sr-only">{title}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{columnLabel}</th>
+              <th scope="col">{text.detailReviewsColumn}</th>
+              <th scope="col">{text.detailPractisedColumn}</th>
+              {showDifficult && (
+                <th scope="col">{text.detailDifficultColumn}</th>
+              )}
+              {["again", "hard", "easy"].map((rating) => (
+                <th scope="col" key={rating}>
+                  {text[rating]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr key={`${row.key}-${index}`}>
+                <th scope="row">{label(row.key, row)}</th>
+                <td>{row.total_reviews}</td>
+                <td>{row.entries_practised}</td>
+                {showDifficult && <td>{row.difficult_entries ?? "—"}</td>}
+                {["again", "hard", "easy"].map((rating) => (
+                  <td key={rating}>{row.counts[rating]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!rows.length && <p className="detail-muted">{text.detailNoActivity}</p>}
+    </section>
+  );
+}
+
+function DifficultEntries({ text, profileId, direction, count, onLocked }) {
   const entries = useQuery({
     queryKey: ["progress-difficult", profileId, direction],
     queryFn: () =>
@@ -401,24 +544,29 @@ function DifficultEntries({
   }, [entries.error, onLocked]);
 
   return (
-    <div>
-      <h3>{directionLabel(text, direction)}</h3>
+    <div className="detail-difficult-group">
+      <div className="detail-difficult-heading">
+        <h3>
+          {directionLabel(text, direction)}{" "}
+          <span className="detail-count-badge">{count}</span>
+        </h3>
 
-      <Link
-        to={`/practice?mode=difficult&direction=${encodeURIComponent(
-          direction,
-        )}`}
-      >
-        {text.practiseDifficult} ({count})
-      </Link>
+        <Link
+          to={`/practice?mode=difficult&direction=${encodeURIComponent(
+            direction,
+          )}`}
+        >
+          {text.practiseDifficult}
+          <ArrowRight size={16} aria-hidden="true" />
+        </Link>
+      </div>
 
       {entries.isPending && <p role="status">{text.loading}</p>}
 
       {entries.isError && (
         <div>
           <p role="alert">
-            {text.errors[entries.error.code] ||
-              text.errors.request_failed}
+            {text.errors[entries.error.code] || text.errors.request_failed}
           </p>
 
           <button type="button" onClick={() => entries.refetch()}>
@@ -432,7 +580,6 @@ function DifficultEntries({
           {entries.data.map((item) => (
             <li key={item.entry.id}>
               <span lang="it">{item.entry.italian}</span>
-              {" · "}
               <span lang="el">{item.entry.greek}</span>
             </li>
           ))}

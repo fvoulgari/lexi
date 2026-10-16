@@ -93,7 +93,6 @@ export default function Practice({ text, csrf, onLocked }) {
       <header className="setup-heading">
         <div>
           <h1>{text.practice}</h1>
-          <p>{text.practiceSubtitle}</p>
         </div>
         <div className="setup-profile">
           {profile && (
