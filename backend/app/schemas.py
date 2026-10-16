@@ -17,6 +17,7 @@ class UnitOutput(BaseModel):
     code: str
     title: str
     sort_order: int
+    card_count: int = 0
 
 
 class UnitCreate(BaseModel):
@@ -155,6 +156,7 @@ class VocabularyFields(BaseModel):
 
 
 class VocabularyCreate(VocabularyFields):
+    unit_id: UUID
     italian: EntryText
     greek: EntryText
     word_type: WordType
@@ -165,7 +167,7 @@ class VocabularyUpdate(VocabularyFields):
     greek: EntryText | None = None
     word_type: WordType | None = None
 
-    @field_validator("italian", "greek", "word_type", mode="before")
+    @field_validator("italian", "greek", "word_type", "unit_id", mode="before")
     @classmethod
     def required_fields_cannot_be_null(cls, value):
         if value is None:

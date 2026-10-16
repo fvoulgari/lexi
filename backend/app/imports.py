@@ -4,6 +4,7 @@ import csv
 import io
 import json
 from pathlib import Path
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
@@ -81,14 +82,13 @@ async def read_csv(request):
         invalid("Upload a valid UTF-8 CSV file.")
 
 
-def evaluate(db, rows, confirm):
-    units = {u.code: u for u in db.scalars(select(Unit))}
+def evaluate(db, rows, confirm, destination):
     tags = {t.name: t for t in db.scalars(select(Tag))}
     pairs = {
         normalized_pair(it, el)
         for it, el in db.execute(select(VocabularyEntry.italian, VocabularyEntry.greek))
     }
-    proposed_units, proposed_tags, results = {}, set(), []
+    proposed_tags, results = set(), []
     counts = dict(imported=0, valid=0, skipped=0, duplicate=0, error=0)
     for number, original in enumerate(rows, 2):
         row = {
@@ -97,6 +97,7 @@ def evaluate(db, rows, confirm):
         }
         errors = []
         entry = unit_spec = None
+        conflict = False
         names = []
         try:
             if None in row or any(value is None for value in row.values()):
@@ -130,23 +131,27 @@ def evaluate(db, rows, confirm):
                     TagCreate(name=name).name for name in names if name.strip()
                 )
             )
-            if code:
-                unit_spec = UnitCreate(
-                    code=code,
-                    title=title or (units[code].title if code in units else ""),
-                    sort_order=int(order)
-                    if order
-                    else (units[code].sort_order if code in units else 0),
-                )
-                existing = units.get(code) or proposed_units.get(code)
-                if existing and (
-                    existing.title != unit_spec.title
-                    or existing.sort_order != unit_spec.sort_order
-                ):
-                    raise ValueError("Unit metadata conflicts with this unit code.")
-            elif title or order:
+            if not code and (title or order):
                 raise ValueError("unit_title/unit_sort_order require unit_code.")
-            entry = VocabularyCreate(**{k: v or None for k, v in row.items()})
+            if code:
+                UnitCreate(
+                    code=code,
+                    title=title or destination.title,
+                    sort_order=int(order) if order else 0,
+                )
+            conflict = bool(
+                (code and code != destination.code)
+                or (title and title != destination.title)
+                or (order and int(order) != destination.sort_order)
+            )
+            unit_spec = UnitCreate(
+                code=destination.code,
+                title=destination.title,
+                sort_order=destination.sort_order,
+            )
+            entry = VocabularyCreate(
+                unit_id=destination.id, **{k: v or None for k, v in row.items()}
+            )
         except ValidationError as exc:
             errors = [
                 ".".join(map(str, e["loc"])) + ": " + e["msg"] for e in exc.errors()
@@ -160,18 +165,9 @@ def evaluate(db, rows, confirm):
                 status = "duplicate"
             else:
                 pairs.add(pair)
-                if unit_spec and unit_spec.code not in units:
-                    proposed_units[unit_spec.code] = unit_spec
                 proposed_tags.update(name for name in names if name not in tags)
                 if confirm:
-                    unit = None
-                    if unit_spec:
-                        unit = units.get(unit_spec.code)
-                        if unit is None:
-                            unit = Unit(**unit_spec.model_dump())
-                            db.add(unit)
-                            db.flush()
-                            units[unit.code] = unit
+                    unit = destination
                     assigned_tags = []
                     for name in names:
                         if name not in tags:
@@ -186,6 +182,7 @@ def evaluate(db, rows, confirm):
             counts["skipped"] += 1
         results.append(
             {
+                "unit_conflict": conflict,
                 "row": number,
                 "italian": original.get("italian", ""),
                 "greek": original.get("greek", ""),
@@ -199,9 +196,15 @@ def evaluate(db, rows, confirm):
             }
         )
     return {
+        "destination_unit": {
+            "id": str(destination.id),
+            "code": destination.code,
+            "title": destination.title,
+        },
+        "unit_conflicts": sum(row["unit_conflict"] for row in results),
         "counts": counts,
         "rows": results,
-        "proposed_units": [u.model_dump() for u in proposed_units.values()],
+        "proposed_units": [],
         "proposed_tags": sorted(proposed_tags),
     }
 
@@ -230,13 +233,22 @@ def import_router(sessions, gate):
         )
 
     @router.post("/preview", dependencies=[Depends(gate.check_csrf)])
-    async def preview(request: Request):
+    async def preview(request: Request, unit_id: UUID):
         rows = await read_csv(request)
         with sessions() as db:
-            return evaluate(db, rows, False)
+            destination = db.get(Unit, unit_id)
+            if destination is None:
+                raise HTTPException(
+                    422,
+                    detail={
+                        "code": "invalid_unit",
+                        "message": "Choose an existing destination unit.",
+                    },
+                )
+            return evaluate(db, rows, False, destination)
 
     @router.post("/confirm", dependencies=[Depends(gate.check_csrf)])
-    async def confirm(request: Request):
+    async def confirm(request: Request, unit_id: UUID):
         rows = await read_csv(request)
         with sessions.begin() as db:
             # Also blocks normal vocabulary/unit/tag writes until commit.
@@ -246,6 +258,15 @@ def import_router(sessions, gate):
                     "IN SHARE ROW EXCLUSIVE MODE"
                 )
             )
-            return evaluate(db, rows, True)
+            destination = db.get(Unit, unit_id)
+            if destination is None:
+                raise HTTPException(
+                    422,
+                    detail={
+                        "code": "invalid_unit",
+                        "message": "Choose an existing destination unit.",
+                    },
+                )
+            return evaluate(db, rows, True, destination)
 
     return router

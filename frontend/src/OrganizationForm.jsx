@@ -9,6 +9,7 @@ export default function OrganizationForm({
   csrf,
   onLocked,
   onClose,
+  onCreated,
 }) {
   const [values, setValues] = useState(
     kind === "units" ? { code: "", title: "" } : { name: "" },
@@ -24,13 +25,12 @@ export default function OrganizationForm({
         method: "POST",
         headers: { "X-CSRF-Token": csrf },
         body: JSON.stringify(
-          kind === "units"
-            ? { ...values, sort_order: 0 }
-            : values,
+          kind === "units" ? { ...values, sort_order: 0 } : values,
         ),
       }),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
       await client.invalidateQueries({ queryKey: [kind] });
+      onCreated?.(result);
       onClose();
     },
     onError: (error) => {
@@ -51,8 +51,16 @@ export default function OrganizationForm({
       }}
     >
       <h2>{kind === "units" ? text.createUnit : text.createTag}</h2>
-      {kind === "units" && <p id="unit-creation-hint" className="unit-creation-hint"><Info size={16} aria-hidden="true" /><span>{text.unitCreationHint}</span></p>}
-      <fieldset disabled={save.isPending} aria-describedby={kind === "units" ? "unit-creation-hint" : undefined}>
+      {kind === "units" && (
+        <p id="unit-creation-hint" className="unit-creation-hint">
+          <Info size={16} aria-hidden="true" />
+          <span>{text.unitCreationHint}</span>
+        </p>
+      )}
+      <fieldset
+        disabled={save.isPending}
+        aria-describedby={kind === "units" ? "unit-creation-hint" : undefined}
+      >
         <div className="entry-fields">
           {Object.entries(values).map(([key, value], index) => (
             <label key={key}>
@@ -98,4 +106,5 @@ OrganizationForm.propTypes = {
   csrf: PropTypes.string.isRequired,
   onLocked: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
+  onCreated: PropTypes.func,
 };

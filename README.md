@@ -163,7 +163,7 @@ The practice migration adds four tables without changing existing vocabulary. Ap
 
 ## Preview and confirm CSV imports
 
-In Vocabulary, choose a **CSV file**, then **Preview import**. Inspect valid, duplicate and invalid rows, expandable entry details, and proposed new units/tags. **Confirm import** explicitly imports valid nonduplicate rows, rechecking current library data in one transaction. Failed confirmations retain the file and preview for retry. Changing the file clears its preview. No vocabulary, units or tags are written during preview.
+In Vocabulary, choose or create a required destination unit, choose a **CSV file**, then **Preview import**. Inspect the destination, valid, duplicate and invalid rows, expandable entry details, and proposed tags. All imported cards use that destination. **Confirm import** explicitly imports valid nonduplicate rows, rechecking current library data in one transaction. Failed confirmations retain the file and preview for retry. Changing the file clears its preview. No vocabulary, units or tags are written during preview.
 
 Download the gated example from the import panel or `GET /api/imports/example`. Use UTF-8 CSV (an optional UTF-8 BOM is accepted), at most **1 MiB and 2000 data rows**. Standard CSV quoting allows commas/newlines inside quoted text. Column headers are case-sensitive and unique; unsupported headers and malformed CSV are file errors. Missing/extra row cells are row errors. Row numbers count logical CSV records (header is row 1), including multiline records.
 
@@ -171,11 +171,11 @@ Required columns: `italian`, `greek`, `word_type` (`noun`, `verb`, `adjective`, 
 
 `tags` uses pipe-separated names, for example `daily|questions`; names are trimmed, empty names ignored, and repeated names collapsed. A literal pipe cannot be part of a tag name in this legacy encoding. Exported rows carry `csv_format=italian-notebook-v1`, use JSON arrays for tags (including literal pipes), and reversibly decode spreadsheet safety prefixes before validation. See [the CSV format](docs/csv-format.md). Names match existing tags exactly, preserving case and accents. New names are created only for imported rows.
 
-`unit_code` remains text, preserving leading zeros. Existing codes reuse their unit; omitted title/order use current metadata. A new code requires `unit_title`; optional integer `unit_sort_order` defaults to 0. Conflicting titles/orders for an existing or proposed code invalidate that row; imports never edit existing unit metadata. Title/order without a code are row errors.
+`unit_code` remains text, preserving leading zeros. Optional CSV unit metadata is compared with the explicitly selected destination. Preview flags conflicting metadata and explains that the selected destination takes precedence. Imports do not create units from CSV metadata or change existing cards through duplicate handling. Create a unit through the unit form first. Title/order without a code remain row errors.
 
 Duplicate policy: matching Italian–Greek pairs use Unicode NFC, case folding and surrounding whitespace trimming. Accents and articles remain significant; word type and optional metadata do not distinguish duplicates for import. Existing library pairs and subsequent valid upload pairs are skipped. Invalid rows do not reserve a pair. Existing entries are never overwritten. Repeat confirmations safely skip pairs already imported; if entries have subsequently been deleted or changed, confirmation uses that current state.
 
-`POST /api/imports/preview` and `POST /api/imports/confirm` accept the raw CSV body (`Content-Type: text/csv`) and require the gate and CSRF header. Both return `counts` (`imported`, `valid`, `skipped`, `duplicate`, `error`), `rows` with logical row number/status/errors/entry details, and `proposed_units`/`proposed_tags`. `valid` counts eligible rows, including those imported; `skipped` is duplicate + error. Confirmation serializes against vocabulary/unit/tag writes while checking and inserting. No migration is needed. Import diagnostics preserve detailed backend validation messages; navigation and workflow labels support all three interface languages.
+`POST /api/imports/preview` and `POST /api/imports/confirm` accept the raw CSV body (`Content-Type: text/csv`), require a valid `unit_id` query parameter, and require the gate and CSRF header. Both return `counts` (`imported`, `valid`, `skipped`, `duplicate`, `error`), `rows` with logical row number/status/errors/entry details, and `proposed_tags`, plus `destination_unit`, per-row `unit_conflict`, and a `unit_conflicts` count. `proposed_units` remains an empty list for compatibility. `valid` counts eligible rows, including those imported; `skipped` is duplicate + error. Confirmation serializes against vocabulary/unit/tag writes while checking and inserting. Import diagnostics preserve detailed backend validation messages; navigation and workflow labels support all three interface languages.
 
 
 ## Delete accidental vocabulary
@@ -244,3 +244,9 @@ seeded disposable test database, then run
 `PROGRESS_BASE_URL=http://127.0.0.1:8813 SHARED_PASSWORD=your-test-password node scripts/progress-rendered.cjs`.
 The check covers Home and Progress at 320/390/1280px in all three interface languages,
 keyboard focus, touch targets, horizontal overflow, and browser errors.
+
+## Practice unit selection
+
+Every card requires a valid unit, whether created manually or imported. The library remains shared and fully browsable. Learners choose units and card types directly in practice setup using **With filters**. No units are assigned through profile settings, and leaving session unit filters empty uses the shared library. New units are immediately available for session selection. Session filters apply to random, difficult and mixed selection, including mixed fallback; learning records remain specific to each profile and direction.
+
+Migration `e13f44d6a005` assigns previously unassigned cards to a new «Χωρίς ταξινόμηση» unit without changing their IDs or review history. Follow-up migration `f24a55e7b006` removes the superseded profile-unit preferences while preserving cards, required unit references and historical reviews. The vocabulary fields remain Italian and Greek; this feature adds no new language pairs.

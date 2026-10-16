@@ -217,7 +217,11 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
         className="setup-mode-grid"
         options={[
           { value: "random", label: text.setupRandomPractice, icon: Shuffle },
-          { value: "category", label: text.setupCategoryPractice, icon: ListFilter },
+          {
+            value: "category",
+            label: text.setupCategoryPractice,
+            icon: ListFilter,
+          },
           {
             value: "difficult",
             label: text.setupDifficultPractice,
@@ -226,7 +230,9 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
           { value: "mixed", label: text.mixedPractice, icon: Layers },
         ]}
       />
-      {type === "mixed" && <p className="setup-mixed-hint">{text.mixedExplanation}</p>}
+      {type === "mixed" && (
+        <p className="setup-mixed-hint">{text.mixedExplanation}</p>
+      )}
       {type === "category" && (
         <section className="setup-filters" aria-label={text.filters}>
           <p>{text.setupFilterHint}</p>
@@ -247,13 +253,10 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
           <Choices
             legend={text.units}
             disabled={pending || filterLoading || filterError}
-            options={[
-              { id: "none", label: text.noUnit },
-              ...(units.data || []).map((u) => ({
-                id: u.id,
-                label: `${u.code} — ${u.title}`,
-              })),
-            ]}
+            options={(units.data || []).map((u) => ({
+              id: u.id,
+              label: `${u.code} — ${u.title}`,
+            }))}
             selected={[
               ...filters.unit_ids,
               ...(filters.no_unit ? ["none"] : []),
@@ -309,7 +312,10 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
         ]}
       />
       {type === "difficult" && profile && (
-        <section className="setup-difficult-info" aria-label={text.setupDifficultPractice}>
+        <section
+          className="setup-difficult-info"
+          aria-label={text.setupDifficultPractice}
+        >
           <p>{text.difficultyExplanation}</p>
           {difficult.isPending ? (
             <p role="status">{text.loading}</p>
@@ -325,7 +331,10 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
             </>
           ) : difficult.isSuccess && difficult.data.length > 0 ? (
             <span className="setup-available-badge">
-              {(difficult.data.length === 1 ? text.difficultAvailableOne : text.difficultAvailable).replace("{count}", difficult.data.length)}
+              {(difficult.data.length === 1
+                ? text.difficultAvailableOne
+                : text.difficultAvailable
+              ).replace("{count}", difficult.data.length)}
             </span>
           ) : (
             <p role="status">{text.noDifficultEntries}</p>
@@ -352,7 +361,7 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
               : error.code === "no_matches"
                 ? type === "category"
                   ? text.noCategoryMatches
-                  : text.noMatches
+                  : text.practiceScopeEmpty
                 : text.errors[error.code] || text.errors.request_failed}
           </p>
           {error.code === "no_matches" && (

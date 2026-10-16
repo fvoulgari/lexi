@@ -65,15 +65,16 @@ def test_tags_and_unit_assignments_persist_and_can_be_cleared(logged_in):
     entry = response.json()["entry"]
     assert {tag["name"] for tag in entry["tags"]} == {"Travel", "Food"}
     assert client.get(f"/api/vocabulary/{entry['id']}").json() == entry
-    cleared = client.patch(
+    rejected = client.patch(
         f"/api/vocabulary/{entry['id']}",
-        json={
-            "unit_id": None,
-            "tag_ids": [],
-        },
+        json={"unit_id": None},
         headers=headers(client),
+    )
+    assert rejected.status_code == 422
+    cleared = client.patch(
+        f"/api/vocabulary/{entry['id']}", json={"tag_ids": []}, headers=headers(client)
     ).json()["entry"]
-    assert cleared["unit"] is None
+    assert cleared["unit"]["id"] == unit["id"]
     assert cleared["tags"] == []
 
 
@@ -87,7 +88,7 @@ def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
     ids = []
     for italian, greek, kind, assigned_unit, assigned_tags in [
         ("casa uno", "Σπίτι ένα", "noun", unit["id"], tags),
-        ("casa due", "Σπίτι δύο", "expression", None, tags[:1]),
+        ("casa due", "Σπίτι δύο", "expression", unit["id"], tags[:1]),
         ("casa tre", "Σπίτι τρία", "verb", unit["id"], tags[1:]),
         ("casa quattro", "Σπίτι τέσσερα", "noun", unit["id"], []),
     ]:

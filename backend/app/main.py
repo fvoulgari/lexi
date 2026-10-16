@@ -427,7 +427,16 @@ def create_app():
     )
     def units():
         with sessions() as db:
-            return db.scalars(select(Unit).order_by(Unit.sort_order, Unit.code)).all()
+            rows = db.execute(
+                select(Unit, func.count(VocabularyEntry.id))
+                .outerjoin(VocabularyEntry, Unit.id == VocabularyEntry.unit_id)
+                .group_by(Unit.id)
+                .order_by(Unit.sort_order, Unit.code)
+            ).all()
+            return [
+                UnitOutput.model_validate(unit).model_copy(update={"card_count": count})
+                for unit, count in rows
+            ]
 
     @app.get(
         "/api/tags",

@@ -83,10 +83,10 @@ class VocabularyEntry(Base):
     italian: Mapped[str] = mapped_column(String(500))
     greek: Mapped[str] = mapped_column(String(500))
     word_type: Mapped[str] = mapped_column(String(20), index=True)
-    unit_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("units.id", ondelete="SET NULL"), index=True
+    unit_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("units.id", ondelete="RESTRICT"), index=True
     )
-    unit: Mapped[Unit | None] = relationship(lazy="joined")
+    unit: Mapped[Unit] = relationship(lazy="joined")
     tags: Mapped[list[Tag]] = relationship(
         secondary=entry_tags, lazy="selectin", order_by=Tag.name
     )

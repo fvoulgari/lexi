@@ -107,12 +107,13 @@ def practice_router(sessions, gate):
     @router.post("", status_code=201, dependencies=writes)
     def create(body: SessionCreate):
         with sessions.begin() as db:
-            if db.get(Profile, body.profile_id) is None:
+            profile = db.get(Profile, body.profile_id)
+            if profile is None:
                 raise HTTPException(404, "Learner profile not found.")
             selection = select(VocabularyEntry).where(
                 *category_conditions(
                     body.unit_ids, body.no_unit, body.word_types, body.tag_ids
-                )
+                ),
             )
             if body.mode == "difficult":
                 eligible = difficult_progress(body.profile_id, body.direction)

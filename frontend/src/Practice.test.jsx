@@ -17,6 +17,7 @@ import { copy } from "./copy.js";
 let saves;
 let fail;
 const server = setupServer(
+  http.get("*/api/units", () => HttpResponse.json([{id: "u", code: "00", title: "Benvenuti", card_count: 10}])),
   http.get("*/api/auth/session", () =>
     HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
   ),
@@ -25,6 +26,7 @@ const server = setupServer(
       {
         id: "f",
         display_name: "Foteini",
+
         preferred_direction: "greek_to_italian",
         default_session_size: 25,
       },
@@ -200,7 +202,7 @@ test("zero matches remain in setup with an explanation", async () => {
   await user.click(screen.getByRole("radio", { name: "All", exact: true }));
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "No vocabulary cards are available",
+    "The selected units have no eligible cards",
   );
   expect(screen.getByRole("button", { name: "Start practice" })).toBeEnabled();
 });
@@ -367,7 +369,7 @@ test("category practice combines selections, explains shortages and reaches summ
         direction: "italian_to_greek",
         size: 10,
         unit_ids: ["u"],
-        no_unit: true,
+        no_unit: false,
         word_types: ["noun", "verb"],
       });
       return HttpResponse.json({
@@ -390,7 +392,6 @@ test("category practice combines selections, explains shortages and reaches summ
     screen.getByRole("radio", { name: "With filters", exact: true }),
   );
   await user.click(await screen.findByLabelText("00 — Benvenuti"));
-  await user.click(screen.getByLabelText("No unit"));
   await user.click(screen.getByLabelText("Noun"));
   await user.click(screen.getByLabelText("Verb"));
   expect(screen.queryByRole("group", { name: "Tags" })).not.toBeInTheDocument();
@@ -431,7 +432,6 @@ test("empty category selections offer clear filters and library actions", async 
   await user.click(
     screen.getByRole("radio", { name: "With filters", exact: true }),
   );
-  await user.click(await screen.findByLabelText("No unit"));
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Clear filters");
   expect(screen.getByRole("link", { name: "Vocabulary" })).toHaveAttribute(
@@ -439,7 +439,7 @@ test("empty category selections offer clear filters and library actions", async 
     "/vocabulary",
   );
   await user.click(screen.getByRole("button", { name: "Clear selections" }));
-  expect(screen.getByLabelText("No unit")).not.toBeChecked();
+  expect(screen.queryByLabelText("No unit")).not.toBeInTheDocument();
 });
 
 test("difficult selection follows direction and uses the review flow", async () => {
@@ -680,13 +680,15 @@ test("setup uses numeric profile defaults, resets with the learner and never sub
         {
           id: "f",
           display_name: "Foteini",
-          preferred_direction: "greek_to_italian",
+
+        preferred_direction: "greek_to_italian",
           default_session_size: 50,
         },
         {
           id: "s",
           display_name: "Spyros",
-          preferred_direction: "italian_to_greek",
+
+        preferred_direction: "italian_to_greek",
           default_session_size: null,
         },
       ]),
@@ -773,8 +775,10 @@ test("direction loading, failure, retry and a different learner never retain ano
   let fail = true;
   server.use(
     http.get("*/api/profiles", () => HttpResponse.json([
-      {id:"f", display_name:"Foteini", preferred_direction:"greek_to_italian", default_session_size:25},
-      {id:"s", display_name:"Spyros", preferred_direction:"greek_to_italian", default_session_size:25},
+      {id:"f", display_name:"Foteini", practice_unit_ids: ["u"],
+        preferred_direction:"greek_to_italian", default_session_size:25},
+      {id:"s", display_name:"Spyros", practice_unit_ids: ["u"],
+        preferred_direction:"greek_to_italian", default_session_size:25},
     ])),
     http.get("*/api/profiles/:id/difficult-entries", async ({request, params}) => {
       if (params.id === "s") return HttpResponse.json([]);
@@ -807,4 +811,27 @@ test("direction loading, failure, retry and a different learner never retain ano
   await user.click(screen.getByRole("radio", {name:"Difficult cards",exact:true}));
   await screen.findByText(copy.en.noDifficultEntries);
   expect(screen.queryByText(/available card/)).not.toBeInTheDocument();
+});
+
+test("all shared units can be selected directly without profile assignment", async () => {
+  server.use(
+    http.get("*/api/profiles", () => HttpResponse.json([{id:"f", display_name:"Foteini", preferred_direction:"greek_to_italian", default_session_size:25}])),
+    http.get("*/api/units", () => HttpResponse.json([{id:"u",code:"00",title:"Benvenuti"},{id:"v",code:"01",title:"Un nuovo inizio"}])),
+    http.post("*/api/sessions", async ({request}) => {
+      const body = await request.json();
+      expect(body.unit_ids).toEqual(["v"]);
+      expect(body.word_types).toEqual(["noun"]);
+      return HttpResponse.json({id:"s", requested_size:25, available:1, cards:[{position:0,snapshot:{italian:"casa",greek:"σπίτι"}}]});
+    })
+  );
+  localStorage.setItem("notebook-profile", "f");
+  openPractice();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("radio", {name:"With filters",exact:true}));
+  expect(await screen.findByLabelText("00 — Benvenuti")).toBeInTheDocument();
+  await user.click(screen.getByLabelText("01 — Un nuovo inizio"));
+  await user.click(screen.getByLabelText("Noun"));
+  expect(screen.queryByRole("link", {name:"Practice units"})).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name:"Start practice"}));
+  expect(await screen.findByRole("button", {name:"Reveal answer"})).toBeInTheDocument();
 });

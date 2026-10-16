@@ -93,6 +93,16 @@ def main():
     if args.write_disposable:
         # Unique identities allow repeated drills without touching existing learner history.
         marker = uuid4().hex[:12]
+        unit = request(
+            "/api/units",
+            "POST",
+            {
+                "code": f"release-{marker}",
+                "title": f"Release drill {marker}",
+                "sort_order": 0,
+            },
+            expected=201,
+        )
         profile = request(
             "/api/profiles",
             "POST",
@@ -111,13 +121,19 @@ def main():
             f"Release drill {marker},release-{marker}\n"
         )
         before = first["total"]
-        preview = request("/api/imports/preview", "POST", csv, csv=True)
+        preview = request(
+            f"/api/imports/preview?unit_id={unit['id']}", "POST", csv, csv=True
+        )
         check(preview["counts"]["valid"] == 2, "Preview did not validate both meanings")
         check(request("/api/vocabulary")["total"] == before, "Preview wrote vocabulary")
-        imported = request("/api/imports/confirm", "POST", csv, csv=True)
+        imported = request(
+            f"/api/imports/confirm?unit_id={unit['id']}", "POST", csv, csv=True
+        )
         check(imported["counts"]["imported"] == 2, "Import did not save both meanings")
         check(
-            request("/api/imports/confirm", "POST", csv, csv=True)["counts"]["imported"]
+            request(
+                f"/api/imports/confirm?unit_id={unit['id']}", "POST", csv, csv=True
+            )["counts"]["imported"]
             == 0,
             "Repeat import duplicated meanings",
         )

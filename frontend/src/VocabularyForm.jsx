@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PropTypes from "prop-types";
+import UnitPicker from "./UnitPicker.jsx";
+import OrganizationForm from "./OrganizationForm.jsx";
 import { request } from "./api.js";
 
 const wordTypes = [
@@ -42,6 +44,7 @@ export default function VocabularyForm({
     queryKey: ["units"],
     queryFn: () => request("/api/units"),
   });
+  const [creatingUnit, setCreatingUnit] = useState(false);
   const [unitId, setUnitId] = useState(entry?.unit?.id || "");
   useEffect(() => {
     if (units.error?.status === 401) onLocked();
@@ -87,145 +90,163 @@ export default function VocabularyForm({
     save.reset();
   }
   return (
-    <form
-      className="vocabulary-form"
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        const missing = ["italian", "greek", "word_type"].filter(
-          (field) => !values[field].trim(),
-        );
-        setInvalid(missing);
-        if (missing.length) {
-          setFocusRequest({ field: missing[0] });
-          return;
-        }
-        save.mutate();
-      }}
-    >
-      <h2>{entry ? text.editEntry : text.addEntry}</h2>
-      <p id="meaning-hint">{text.meaningHint}</p>
-      <fieldset disabled={save.isPending} aria-describedby="meaning-hint">
-        <div className="entry-fields">
-          {textFields.map((field) => {
-            const required = field === "italian" || field === "greek";
-            const multiline = [
-              "italian_example",
-              "greek_example",
-              "notes",
-              "pronunciation",
-            ].includes(field);
-            const Input = multiline ? "textarea" : "input";
-            return (
-              <label
-                key={field}
-                className={multiline ? "wide-field" : undefined}
-                htmlFor={`entry-${field}`}
-              >
+    <>
+      <form
+        className="vocabulary-form"
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          const missing = ["italian", "greek", "word_type"].filter(
+            (field) => !values[field].trim(),
+          );
+          if (!unitId) missing.push("unit_id");
+          setInvalid(missing);
+          if (missing.length) {
+            setFocusRequest({ field: missing[0] });
+            return;
+          }
+          save.mutate();
+        }}
+      >
+        <h2>{entry ? text.editEntry : text.addEntry}</h2>
+        <p id="meaning-hint">{text.meaningHint}</p>
+        <fieldset disabled={save.isPending || creatingUnit} aria-describedby="meaning-hint">
+          <div className="entry-fields">
+            {textFields.map((field) => {
+              const required = field === "italian" || field === "greek";
+              const multiline = [
+                "italian_example",
+                "greek_example",
+                "notes",
+                "pronunciation",
+              ].includes(field);
+              const Input = multiline ? "textarea" : "input";
+              return (
+                <label
+                  key={field}
+                  className={multiline ? "wide-field" : undefined}
+                  htmlFor={`entry-${field}`}
+                >
+                  {text.fields[field]}
+                  {required ? " *" : ""}
+                  <Input
+                    id={`entry-${field}`}
+                    ref={field === "italian" ? firstInput : undefined}
+                    value={values[field]}
+                    required={required}
+                    maxLength={multiline ? 10000 : 500}
+                    lang={
+                      field.startsWith("italian")
+                        ? "it"
+                        : field.startsWith("greek")
+                          ? "el"
+                          : undefined
+                    }
+                    onChange={(event) => change(field, event.target.value)}
+                    aria-invalid={invalid.includes(field)}
+                    aria-describedby={
+                      invalid.includes(field) ? "entry-errors" : undefined
+                    }
+                  />
+                </label>
+              );
+            })}
+            {["word_type", "italian_gender", "greek_gender"].map((field) => (
+              <label key={field} htmlFor={`entry-${field}`}>
                 {text.fields[field]}
-                {required ? " *" : ""}
-                <Input
+                {field === "word_type" ? " *" : ""}
+                <select
                   id={`entry-${field}`}
-                  ref={field === "italian" ? firstInput : undefined}
                   value={values[field]}
-                  required={required}
-                  maxLength={multiline ? 10000 : 500}
-                  lang={
-                    field.startsWith("italian")
-                      ? "it"
-                      : field.startsWith("greek")
-                        ? "el"
-                        : undefined
-                  }
+                  required={field === "word_type"}
                   onChange={(event) => change(field, event.target.value)}
                   aria-invalid={invalid.includes(field)}
                   aria-describedby={
                     invalid.includes(field) ? "entry-errors" : undefined
                   }
-                />
-              </label>
-            );
-          })}
-          {["word_type", "italian_gender", "greek_gender"].map((field) => (
-            <label key={field} htmlFor={`entry-${field}`}>
-              {text.fields[field]}
-              {field === "word_type" ? " *" : ""}
-              <select
-                id={`entry-${field}`}
-                value={values[field]}
-                required={field === "word_type"}
-                onChange={(event) => change(field, event.target.value)}
-                aria-invalid={invalid.includes(field)}
-                aria-describedby={
-                  invalid.includes(field) ? "entry-errors" : undefined
-                }
-              >
-                <option value="">
-                  {field === "word_type" ? text.chooseType : text.unspecified}
-                </option>
-                {(field === "word_type"
-                  ? wordTypes
-                  : ["masculine", "feminine", "neuter"]
-                ).map((value) => (
-                  <option key={value} value={value}>
-                    {text[value]}
+                >
+                  <option value="">
+                    {field === "word_type" ? text.chooseType : text.unspecified}
                   </option>
-                ))}
-              </select>
-            </label>
-          ))}
-        </div>
-        <label className="search-field">
-          {text.unit}
-          <select
-            value={unitId}
-            onChange={(event) => setUnitId(event.target.value)}
-          >
-            <option value="">{text.noUnit}</option>
-            {(units.data || []).map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unit.code} — {unit.title}
-              </option>
+                  {(field === "word_type"
+                    ? wordTypes
+                    : ["masculine", "feminine", "neuter"]
+                  ).map((value) => (
+                    <option key={value} value={value}>
+                      {text[value]}
+                    </option>
+                  ))}
+                </select>
+              </label>
             ))}
-          </select>
-        </label>
-        {units.isError && (
-          <div>
-            <p role="alert" className="error">
-              {text.errors.request_failed}
+          </div>
+          <UnitPicker
+            id="entry-unit_id"
+            text={text}
+            units={units.data || []}
+            value={unitId}
+            disabled={save.isPending || units.isPending || creatingUnit}
+            invalid={invalid.includes("unit_id")}
+            onChange={(value) => {
+              setUnitId(value);
+              setInvalid((current) =>
+                current.filter((field) => field !== "unit_id"),
+              );
+              save.reset();
+            }}
+            onCreate={() => setCreatingUnit(true)}
+          />
+          {units.isError && (
+            <div>
+              <p role="alert" className="error">
+                {text.errors.request_failed}
+              </p>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  units.refetch();
+                }}
+              >
+                {text.retry}
+              </button>
+            </div>
+          )}
+          {(invalid.length > 0 || save.isError) && (
+            <p className="error" role="alert" id="entry-errors">
+              {invalid.length
+                ? `${text.checkFields} ${invalid.map((field) => text.fields[field] || field).join(", ")}. ${text.fieldHint}`
+                : text.errors[save.error?.code] || text.errors.request_failed}
             </p>
+          )}
+          <div className="form-actions">
             <button
-              type="button"
-              className="secondary"
-              onClick={() => {
-                units.refetch();
-              }}
+              type="submit"
+              className="primary"
+              disabled={units.isPending || units.isError}
             >
-              {text.retry}
+              {save.isPending ? text.saving : text.saveEntry}
+            </button>
+            <button type="button" className="secondary" onClick={onCancel}>
+              {text.cancel}
             </button>
           </div>
-        )}
-        {(invalid.length > 0 || save.isError) && (
-          <p className="error" role="alert" id="entry-errors">
-            {invalid.length
-              ? `${text.checkFields} ${invalid.map((field) => text.fields[field] || field).join(", ")}. ${text.fieldHint}`
-              : text.errors[save.error?.code] || text.errors.request_failed}
-          </p>
-        )}
-        <div className="form-actions">
-          <button
-            type="submit"
-            className="primary"
-            disabled={units.isPending || units.isError}
-          >
-            {save.isPending ? text.saving : text.saveEntry}
-          </button>
-          <button type="button" className="secondary" onClick={onCancel}>
-            {text.cancel}
-          </button>
-        </div>
-      </fieldset>
-    </form>
+        </fieldset>
+      </form>
+      {creatingUnit && (
+        <OrganizationForm
+          kind="units"
+          text={text}
+          csrf={csrf}
+          onLocked={onLocked}
+          onClose={() => {
+            setCreatingUnit(false);
+            requestAnimationFrame(() => document.getElementById("entry-unit_id")?.focus());
+          }}
+          onCreated={(unit) => setUnitId(unit.id)}
+        />
+      )}
+    </>
   );
 }
 VocabularyForm.propTypes = {

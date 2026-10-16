@@ -77,7 +77,7 @@ test.each(["el", "en", "it"])(
     for (const [trigger, label] of [
       [text.toolsNewUnit, text.unitCode],
     ]) {
-      await user.click(screen.getByRole("button", { name: trigger }));
+      await user.click(screen.getAllByRole("button", { name: trigger })[0]);
       expect(screen.getByLabelText(label)).toHaveFocus();
       await user.click(screen.getByRole("button", { name: text.cancel }));
     }

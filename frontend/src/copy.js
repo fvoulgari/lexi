@@ -7,6 +7,12 @@ export const copy = {
     exporting: "Exporting…",
     exportStarted: "CSV download started.",
     ...progressCopy.en,
+    chooseUnit: "Choose a unit",
+    practiceScopeEmpty:
+      "The selected units have no eligible cards for this practice.",
+    csvDestination: "Import destination",
+    csvUnitConflict:
+      "The CSV unit columns differ from the selected destination. All new cards will be imported into your selected unit. Existing cards are unchanged.",
     setupPracticeType: "Practice mode",
     setupRandomPractice: "Random cards",
     setupCategoryPractice: "With filters",
@@ -138,6 +144,7 @@ export const copy = {
     fieldHint:
       "Enter the required text and choose a listed value. Text is limited to 500 characters, or 10,000 for examples, notes and pronunciation.",
     fields: {
+      unit_id: "Unit",
       italian: "Italian",
       greek: "Greek",
       word_type: "Word type",
@@ -214,6 +221,7 @@ export const copy = {
     skip: "Skip to content",
     libraryNote: "One word at a time.",
     errors: {
+      invalid_unit: "Choose a unit",
       entry_reviewed: "This card has reviews and cannot be deleted.",
       entry_deleted:
         "This unreviewed card was deleted. It was skipped and the session count was adjusted.",
@@ -252,6 +260,12 @@ export const copy = {
     exporting: "Εξαγωγή…",
     exportStarted: "Η λήψη CSV ξεκίνησε.",
     ...progressCopy.el,
+    chooseUnit: "Επίλεξε ενότητα",
+    practiceScopeEmpty:
+      "Οι επιλεγμένες ενότητες δεν έχουν διαθέσιμες κάρτες για αυτή την εξάσκηση.",
+    csvDestination: "Ενότητα εισαγωγής",
+    csvUnitConflict:
+      "Οι ενότητες που αναφέρονται στο CSV διαφέρουν από την επιλεγμένη. Όλες οι νέες κάρτες θα εισαχθούν στην ενότητα που επέλεξες. Οι υπάρχουσες κάρτες δεν αλλάζουν.",
     setupPracticeType: "Τρόπος εξάσκησης",
     setupRandomPractice: "Τυχαίες κάρτες",
     setupCategoryPractice: "Με φίλτρα",
@@ -384,6 +398,7 @@ export const copy = {
     fieldHint:
       "Συμπλήρωσε το υποχρεωτικό κείμενο και επίλεξε τιμή από τη λίστα. Όριο 500 χαρακτήρων ή 10.000 για παραδείγματα, σημειώσεις και προφορά.",
     fields: {
+      unit_id: "Ενότητα",
       italian: "Ιταλικά",
       greek: "Ελληνικά",
       word_type: "Μέρος του λόγου",
@@ -460,6 +475,7 @@ export const copy = {
     skip: "Μετάβαση στο περιεχόμενο",
     libraryNote: "Μια λέξη τη φορά.",
     errors: {
+      invalid_unit: "Επίλεξε ενότητα",
       entry_reviewed:
         "Αυτή η κάρτα έχει αξιολογήσεις και δεν μπορεί να διαγραφεί.",
       entry_deleted:
@@ -501,6 +517,12 @@ export const copy = {
     exporting: "Esportazione…",
     exportStarted: "Download CSV avviato.",
     ...progressCopy.it,
+    chooseUnit: "Scegli un’unità",
+    practiceScopeEmpty:
+      "Le unità selezionate non hanno schede disponibili per questa esercitazione.",
+    csvDestination: "Unità di importazione",
+    csvUnitConflict:
+      "Le colonne delle unità nel CSV differiscono dalla destinazione selezionata. Tutte le nuove schede saranno importate nell’unità scelta. Le schede esistenti non vengono modificate.",
     setupPracticeType: "Modalità di esercitazione",
     setupRandomPractice: "Schede casuali",
     setupCategoryPractice: "Con filtri",
@@ -635,6 +657,7 @@ export const copy = {
     fieldHint:
       "Inserisci il testo obbligatorio e scegli un valore dalla lista. Limite di 500 caratteri, o 10.000 per esempi, note e pronuncia.",
     fields: {
+      unit_id: "Unità",
       italian: "Italiano",
       greek: "Greco",
       word_type: "Tipo di parola",
@@ -711,6 +734,7 @@ export const copy = {
     skip: "Vai al contenuto",
     libraryNote: "Una parola alla volta.",
     errors: {
+      invalid_unit: "Scegli un’unità",
       entry_reviewed:
         "Questa scheda ha delle revisioni e non può essere eliminata.",
       entry_deleted:

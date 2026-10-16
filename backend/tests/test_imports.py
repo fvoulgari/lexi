@@ -2,8 +2,12 @@ from test_vocabulary_editing import headers
 
 
 def upload(client, csv, action="preview"):
+    from uuid import uuid4
+
+    response = client.get("/api/units")
+    unit_id = response.json()[0]["id"] if response.status_code == 200 else str(uuid4())
     return client.post(
-        f"/api/imports/{action}",
+        f"/api/imports/{action}?unit_id={unit_id}",
         content=csv.encode("utf-8"),
         headers={**headers(client), "Content-Type": "text/csv"},
     )
@@ -25,7 +29,8 @@ def test_preview_is_pure_and_confirmation_imports_valid_rows(logged_in):
         "duplicate": 0,
         "error": 0,
     }
-    assert preview.json()["proposed_units"][0]["code"] == "07"
+    assert preview.json()["proposed_units"] == []
+    assert preview.json()["unit_conflicts"] == 1
     assert preview.json()["proposed_tags"] == ["daily", "questions"]
     assert logged_in.get("/api/vocabulary").json()["total"] == before
     assert logged_in.get("/api/units").json() == units
@@ -36,7 +41,7 @@ def test_preview_is_pure_and_confirmation_imports_valid_rows(logged_in):
     entry = logged_in.get("/api/vocabulary?q=perché").json()["items"][0]
     assert entry["greek"] == "το γιατί"
     assert entry["pronunciation"] == "perˈke"
-    assert entry["unit"]["code"] == "07"
+    assert entry["unit"]["id"] == logged_in.get("/api/units").json()[0]["id"]
     assert {tag["name"] for tag in entry["tags"]} == {"questions", "daily"}
 
 
@@ -50,6 +55,7 @@ def test_stale_preview_and_repeat_confirmation_skip_normalized_duplicates(logged
     logged_in.post(
         "/api/vocabulary",
         json={
+            "unit_id": logged_in.get("/api/units").json()[0]["id"],
             "italian": "il perché",
             "greek": "το γιατί",
             "word_type": "noun",
@@ -158,9 +164,10 @@ def test_unit_conflicts_and_malformed_rows_are_reported_without_partial_metadata
         "sesto,έκτο,noun,,,,,extra\n"
     )
     result = upload(logged_in, csv, "confirm").json()
-    assert result["counts"]["imported"] == 1
-    assert result["counts"]["error"] == 5
-    assert [t["name"] for t in logged_in.get("/api/tags").json()] == ["daily"]
+    assert result["counts"]["imported"] == 2
+    assert result["counts"]["error"] == 4
+    assert result["unit_conflicts"] == 2
+    assert {t["name"] for t in logged_in.get("/api/tags").json()} == {"daily", "orphan"}
     assert not any(u["code"] == "08" for u in logged_in.get("/api/units").json())
 
 
@@ -194,7 +201,7 @@ def test_legacy_columns_and_conflicting_aliases(logged_in):
     entry = logged_in.get("/api/vocabulary?q=perché").json()["items"][0]
     assert entry["italian_plural"] == "i perché"
     assert entry["italian_example"] == "Non so il perché."
-    assert entry["unit"]["code"] == "07"
+    assert entry["unit"]["id"] == logged_in.get("/api/units").json()[0]["id"]
     conflict = upload(
         logged_in, "italian,greek,type,word_type\nnuovo,νέο,noun,verb\n"
     ).json()

@@ -15,6 +15,7 @@ import {
 import App from "./App.jsx";
 let entries;
 const server = setupServer(
+ http.get("*/api/profiles", () => HttpResponse.json([])),
   http.get("*/api/auth/session", () =>
     HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
   ),
@@ -32,7 +33,7 @@ const server = setupServer(
   ),
   http.post("*/api/vocabulary", async ({ request }) => {
     expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
-    const entry = { id: "new", ...(await request.json()) };
+    const entry = { unit: {id:"u",code:"00",title:"Benvenuti"}, id: "new", ...(await request.json()) };
     entries.push(entry);
     return HttpResponse.json({ entry, duplicate_ids: [] }, { status: 201 });
   }),
@@ -63,6 +64,7 @@ beforeEach(() => {
       italian_gender: "feminine",
       greek_gender: "neuter",
       notes: "Home",
+      unit: {id:"u", code:"00", title:"Benvenuti"},
     },
   ];
 });
@@ -90,6 +92,7 @@ test("add a complete bilingual meaning and edit it from the library", async () =
   await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "il perché");
   await user.type(screen.getByLabelText("Greek *"), "το γιατί");
+  await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "u");
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
   await user.selectOptions(
     screen.getByLabelText("Italian gender"),
@@ -134,7 +137,7 @@ test("required fields are identified and failed saves keep the draft for retry",
           { error: { code: "invalid_input", fields: ["italian"] } },
           { status: 422 },
         );
-      const entry = { id: "retry", ...(await request.json()) };
+      const entry = { unit: {id:"u",code:"00",title:"Benvenuti"}, id: "retry", ...(await request.json()) };
       entries.push(entry);
       return HttpResponse.json({ entry, duplicate_ids: [] }, { status: 201 });
     }),
@@ -149,6 +152,7 @@ test("required fields are identified and failed saves keep the draft for retry",
   expect(screen.getByLabelText("Italian *")).toHaveFocus();
   await user.type(screen.getByLabelText("Italian *"), "è");
   await user.type(screen.getByLabelText("Greek *"), "είναι");
+  await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "u");
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -168,7 +172,7 @@ test("required fields are identified and failed saves keep the draft for retry",
 test("matching-pair warnings appear after save and all interface languages retain the draft", async () => {
   server.use(
     http.post("*/api/vocabulary", async ({ request }) => {
-      const entry = { id: "duplicate", ...(await request.json()) };
+      const entry = { unit: {id:"u",code:"00",title:"Benvenuti"}, id: "duplicate", ...(await request.json()) };
       entries.push(entry);
       return HttpResponse.json(
         { entry, duplicate_ids: ["house"] },
@@ -181,6 +185,7 @@ test("matching-pair warnings appear after save and all interface languages retai
   await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "la casa");
   await user.type(screen.getByLabelText("Greek *"), "το σπίτι");
+  await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "u");
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
   await user.selectOptions(screen.getByLabelText("Interface language"), "el");
   expect(screen.getByLabelText("Ιταλικά *")).toHaveValue("la casa");
@@ -367,4 +372,29 @@ test("floating card actions support one open menu, keyboard navigation and dismi
   expect(screen.getByRole("button", {name: "Cancel"})).toHaveFocus();
   await user.click(screen.getByRole("button", {name: "Cancel"}));
   expect(house).toHaveFocus();
+});
+
+test("inline unit creation preserves the card draft and selects the new unit", async () => {
+  let units = [{id:"u", code:"00", title:"Benvenuti"}];
+  server.use(
+    http.get("*/api/units", () => HttpResponse.json(units)),
+    http.post("*/api/units", async ({request}) => {
+      const unit = {id:"fresh", ...await request.json()};
+      units = [...units, unit];
+      return HttpResponse.json(unit, {status:201});
+    })
+  );
+  openLibrary();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", {name:"New card"}));
+  await user.type(screen.getByLabelText("Italian *"), "nuovo");
+  await user.type(screen.getByLabelText("Greek *"), "νέο");
+  const picker = document.getElementById("entry-unit_id").closest(".unit-assignment");
+  await user.click(picker.querySelector("button"));
+  await user.type(screen.getByLabelText("Unit code"), "NEW");
+  await user.type(screen.getByLabelText("Title"), "New unit");
+  await user.click(screen.getByRole("button", {name:"Create", exact:true}));
+  expect(await screen.findByRole("combobox", {name:"Unit *"})).toHaveValue("fresh");
+  expect(screen.getByLabelText("Italian *")).toHaveValue("nuovo");
+  expect(screen.getByLabelText("Greek *")).toHaveValue("νέο");
 });

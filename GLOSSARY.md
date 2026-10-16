@@ -30,7 +30,7 @@ The optional grammatical gender of the Italian expression in a vocabulary entry,
 The optional grammatical gender of the Greek expression in a vocabulary entry, independent of the Italian expression's gender.
 
 **Unit**:
-An optional teaching chapter identified by a stable code, display title, and ordering. Each entry belongs to at most one unit.
+A teaching chapter identified by a stable code, display title, and ordering. Every vocabulary card belongs to exactly one unit. Units and their cards are shared by all learners.
 _Avoid_: Category, tag
 
 **Tag**:
@@ -38,7 +38,7 @@ A thematic label shared by vocabulary entries. An entry may have multiple tags i
 _Avoid_: Unit, word type
 
 **Practice session**:
-A selected queue of vocabulary entries practised by one learner. Changing learning direction retains the queue and changes the direction tested for unanswered cards.
+A selected queue of vocabulary entries practised by one learner. Learners choose unit and card-type filters when starting a session, without assigning units to profiles. Changing learning direction retains the queue and changes the direction tested for unanswered cards.
 
 **Card review**:
 A learner's submitted Again, Hard, or Easy rating for a vocabulary entry in the direction actually tested. A card can receive multiple reviews across practice sessions; revealing an answer alone is not a review.

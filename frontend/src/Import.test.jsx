@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -33,7 +34,8 @@ const report = {
   ],
 };
 const server = setupServer(
-  http.get("*/api/units", () => HttpResponse.json([])),
+ http.get("*/api/profiles", () => HttpResponse.json([])),
+  http.get("*/api/units", () => HttpResponse.json([{id:"u", code:"07", title:"Domande"}])),
   http.get("*/api/tags", () => HttpResponse.json([])),
   http.get("*/api/vocabulary", () =>
     HttpResponse.json({ items: [], total: 0 }),
@@ -60,7 +62,7 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+      <MemoryRouter><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
@@ -76,9 +78,10 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
   expect(
     screen.queryByRole("button", { name: "Confirm import" }),
   ).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("Unit *"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(await screen.findByText("greek: required")).toBeInTheDocument();
-  expect(screen.getByText("07 — Domande")).toBeInTheDocument();
+  expect(screen.getByRole("combobox", {name: "Unit *"})).toHaveValue("u");
   expect(screen.getByText("questions")).toBeInTheDocument();
   await user.click(screen.getByText("Card details"));
   expect(screen.getByText("Italian gender")).toBeInTheDocument();
@@ -102,7 +105,7 @@ test("failed confirmation retains preview for retry and changing file clears it"
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+      <MemoryRouter><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
@@ -113,6 +116,7 @@ test("failed confirmation retains preview for retry and changing file clears it"
     { type: "text/csv" },
   );
   await user.upload(screen.getByLabelText("CSV file"), file);
+  await user.selectOptions(screen.getByLabelText("Unit *"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   await user.click(
     await screen.findByRole("button", { name: "Confirm import" }),
@@ -136,7 +140,7 @@ test("interface language changes retain the file and preview", async () => {
   });
   const view = (text) => (
     <QueryClientProvider client={client}>
-      <Library text={text} csrf="csrf" onLocked={() => {}} />
+      <MemoryRouter><Library text={text} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
     </QueryClientProvider>
   );
   const rendered = render(view(copy.en));
@@ -150,6 +154,7 @@ test("interface language changes retain the file and preview", async () => {
       { type: "text/csv" },
     ),
   );
+  await user.selectOptions(screen.getByLabelText("Unit *"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   await screen.findByRole("button", { name: "Confirm import" });
   rendered.rerender(view(copy.el));
@@ -187,7 +192,7 @@ test.each(["success", "error"])(
           new QueryClient({ defaultOptions: { queries: { retry: false } } })
         }
       >
-        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+        <MemoryRouter><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
@@ -206,7 +211,8 @@ test.each(["success", "error"])(
       { type: "text/csv" },
     );
     await user.upload(screen.getByLabelText("CSV file"), file);
-    await user.click(screen.getByRole("button", { name: "Preview" }));
+    await user.selectOptions(screen.getByLabelText("Unit *"), "u");
+  await user.click(screen.getByRole("button", { name: "Preview" }));
     await user.click(toggle);
     expect(panel).not.toBeVisible();
     finish();
@@ -234,7 +240,7 @@ test.each(["el", "en", "it"])(
           new QueryClient({ defaultOptions: { queries: { retry: false } } })
         }
       >
-        <Library text={text} csrf="csrf" onLocked={() => {}} />
+        <MemoryRouter><Library text={text} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
@@ -288,3 +294,26 @@ test.each(["el", "en", "it"])(
     expect(screen.getByLabelText(text.csvFile).files[0]).toBe(file);
   },
 );
+
+test("CSV destination conflicts are visible without any profile assignment", async () => {
+  localStorage.setItem("notebook-profile", "f");
+  server.use(
+    http.get("*/api/profiles", () => HttpResponse.json([{id:"f", display_name:"Foteini", practice_unit_ids: []}])),
+    http.post("*/api/imports/preview", ({request}) => {
+      expect(new URL(request.url).searchParams.get("unit_id")).toBe("u");
+      return HttpResponse.json({...report, destination_unit:{id:"u",code:"07",title:"Domande"},unit_conflicts:1});
+    }),
+  );
+  render(<MemoryRouter><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></QueryClientProvider></MemoryRouter>);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", {name:"Import CSV"}));
+  await user.selectOptions(screen.getByRole("combobox", {name:"Unit *"}), "u");
+  await user.upload(screen.getByLabelText("CSV file"), new File(["italian,greek,word_type\ncasa,σπίτι,noun\n"], "cards.csv", {type:"text/csv"}));
+  await user.click(screen.getByRole("button", {name:"Preview"}));
+  expect(await screen.findByText(copy.en.csvUnitConflict)).toBeInTheDocument();
+  expect(screen.getByText("07 · Domande", {selector:"strong"})).toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name:"Confirm import"}));
+  expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
+  expect(screen.queryByRole("button", {name:/Enable this unit/})).not.toBeInTheDocument();
+  localStorage.removeItem("notebook-profile");
+});

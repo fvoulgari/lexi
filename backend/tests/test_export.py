@@ -92,6 +92,7 @@ def test_export_neutralizes_formulas_and_preserves_literal_apostrophes(logged_in
             "/api/vocabulary",
             headers=headers(logged_in),
             json={
+                "unit_id": logged_in.get("/api/units").json()[0]["id"],
                 "italian": value.strip() or "literal",
                 "greek": "δοκιμή",
                 "word_type": "expression",
@@ -228,7 +229,7 @@ def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in
 
     def upload(action):
         return logged_in.post(
-            f"/api/imports/{action}",
+            f"/api/imports/{action}?unit_id={unit['id']}",
             content=content,
             headers={**headers(logged_in), "Content-Type": "text/csv"},
         )
@@ -279,7 +280,8 @@ def test_versioned_import_validates_tags_and_leaves_legacy_text_unchanged(logged
         writer.writerow(["italian", "greek", "word_type", "csv_format", "tags"])
         writer.writerow(row)
         return logged_in.post(
-            "/api/imports/preview",
+            "/api/imports/preview?unit_id="
+            + logged_in.get("/api/units").json()[0]["id"],
             content=content.getvalue(),
             headers={**headers(logged_in), "Content-Type": "text/csv"},
         ).json()
