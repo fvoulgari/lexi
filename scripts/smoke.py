@@ -108,7 +108,6 @@ def main():
             "POST",
             {
                 "display_name": f"Release drill {marker}",
-                "practice_unit_ids": [unit["id"]],
                 "preferred_direction": "greek_to_italian",
                 "default_session_size": 10,
             },

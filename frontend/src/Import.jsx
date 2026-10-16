@@ -4,7 +4,6 @@ import PropTypes from "prop-types";
 import { FileDown, ArrowRight } from "lucide-react";
 import UnitPicker from "./UnitPicker.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
-import EnablePracticeUnit from "./EnablePracticeUnit.jsx";
 import csvExample from "../../backend/app/csv_example.json";
 import { request } from "./api.js";
 
@@ -215,14 +214,6 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
           )}
           {report.unit_conflicts > 0 && (
             <p role="note">{text.csvUnitConflict}</p>
-          )}
-          {result && unitId && (
-            <EnablePracticeUnit
-              unitId={unitId}
-              text={text}
-              csrf={csrf}
-              onLocked={onLocked}
-            />
           )}
           {preview && (
             <>

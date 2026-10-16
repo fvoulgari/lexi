@@ -26,7 +26,7 @@ const server = setupServer(
       {
         id: "f",
         display_name: "Foteini",
-        practice_unit_ids: ["u"],
+
         preferred_direction: "greek_to_italian",
         default_session_size: 25,
       },
@@ -680,14 +680,14 @@ test("setup uses numeric profile defaults, resets with the learner and never sub
         {
           id: "f",
           display_name: "Foteini",
-          practice_unit_ids: ["u"],
+
         preferred_direction: "greek_to_italian",
           default_session_size: 50,
         },
         {
           id: "s",
           display_name: "Spyros",
-          practice_unit_ids: ["u"],
+
         preferred_direction: "italian_to_greek",
           default_session_size: null,
         },
@@ -813,16 +813,25 @@ test("direction loading, failure, retry and a different learner never retain ano
   expect(screen.queryByText(/available card/)).not.toBeInTheDocument();
 });
 
-test("an intentionally empty practice selection links to settings and blocks sessions", async () => {
-  server.use(http.get("*/api/profiles", () => HttpResponse.json([{
-    id: "f", display_name: "Foteini", preferred_direction: "greek_to_italian",
-    default_session_size: 25, practice_unit_ids: []
-  }])));
+test("all shared units can be selected directly without profile assignment", async () => {
+  server.use(
+    http.get("*/api/profiles", () => HttpResponse.json([{id:"f", display_name:"Foteini", preferred_direction:"greek_to_italian", default_session_size:25}])),
+    http.get("*/api/units", () => HttpResponse.json([{id:"u",code:"00",title:"Benvenuti"},{id:"v",code:"01",title:"Un nuovo inizio"}])),
+    http.post("*/api/sessions", async ({request}) => {
+      const body = await request.json();
+      expect(body.unit_ids).toEqual(["v"]);
+      expect(body.word_types).toEqual(["noun"]);
+      return HttpResponse.json({id:"s", requested_size:25, available:1, cards:[{position:0,snapshot:{italian:"casa",greek:"σπίτι"}}]});
+    })
+  );
   localStorage.setItem("notebook-profile", "f");
   openPractice();
-  expect(await screen.findByText(copy.en.noPracticeUnits)).toBeInTheDocument();
-  expect(screen.getByRole("button", {name: "Start practice"})).toBeDisabled();
-  expect(screen.getByRole("link", {name: copy.en.practiceUnitsTitle})).toHaveAttribute("href", "/settings#practice-units");
-  await userEvent.click(screen.getByRole("radio", {name: "Difficult cards", exact:true}));
-  expect(screen.queryByText(/available card/)).not.toBeInTheDocument();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("radio", {name:"With filters",exact:true}));
+  expect(await screen.findByLabelText("00 — Benvenuti")).toBeInTheDocument();
+  await user.click(screen.getByLabelText("01 — Un nuovo inizio"));
+  await user.click(screen.getByLabelText("Noun"));
+  expect(screen.queryByRole("link", {name:"Practice units"})).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", {name:"Start practice"}));
+  expect(await screen.findByRole("button", {name:"Reveal answer"})).toBeInTheDocument();
 });

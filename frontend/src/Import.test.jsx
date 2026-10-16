@@ -295,8 +295,7 @@ test.each(["el", "en", "it"])(
   },
 );
 
-test("CSV destination conflicts are visible and practice opt-in is explicit", async () => {
-  let enabled = false;
+test("CSV destination conflicts are visible without any profile assignment", async () => {
   localStorage.setItem("notebook-profile", "f");
   server.use(
     http.get("*/api/profiles", () => HttpResponse.json([{id:"f", display_name:"Foteini", practice_unit_ids: []}])),
@@ -304,10 +303,6 @@ test("CSV destination conflicts are visible and practice opt-in is explicit", as
       expect(new URL(request.url).searchParams.get("unit_id")).toBe("u");
       return HttpResponse.json({...report, destination_unit:{id:"u",code:"07",title:"Domande"},unit_conflicts:1});
     }),
-    http.put("*/api/profiles/f/practice-units/u", () => {
-      enabled = true;
-      return HttpResponse.json({id:"f",display_name:"Foteini",practice_unit_ids:["u"]});
-    })
   );
   render(<MemoryRouter><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></QueryClientProvider></MemoryRouter>);
   const user = userEvent.setup();
@@ -318,10 +313,7 @@ test("CSV destination conflicts are visible and practice opt-in is explicit", as
   expect(await screen.findByText(copy.en.csvUnitConflict)).toBeInTheDocument();
   expect(screen.getByText("07 · Domande", {selector:"strong"})).toBeInTheDocument();
   await user.click(screen.getByRole("button", {name:"Confirm import"}));
-  const enable = await screen.findByRole("button", {name:"Enable this unit for Foteini"});
-  expect(enabled).toBe(false);
-  await user.click(enable);
-  expect(await screen.findByText("This unit is enabled for Foteini.")).toBeInTheDocument();
-  expect(enabled).toBe(true);
+  expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
+  expect(screen.queryByRole("button", {name:/Enable this unit/})).not.toBeInTheDocument();
   localStorage.removeItem("notebook-profile");
 });

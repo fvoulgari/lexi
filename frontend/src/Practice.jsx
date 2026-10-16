@@ -157,7 +157,6 @@ function Direction({ text, value, onChange, disabled = false }) {
 }
 function Setup({ text, profile, pending, onStart, onLocked, error }) {
   const [searchParams] = useSearchParams();
-  const noPracticeUnits = !!profile && !profile.practice_unit_ids?.length;
   const [type, setType] = useState(
     searchParams.get("mode") === "difficult" ? "difficult" : "random",
   );
@@ -192,7 +191,7 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
       request(
         `/api/profiles/${profile.id}/difficult-entries?direction=${direction}`,
       ),
-    enabled: !!profile && !noPracticeUnits && type === "difficult",
+    enabled: !!profile && type === "difficult",
     staleTime: 0,
     retry: false,
   });
@@ -209,12 +208,6 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
         onStart(direction, size === "all" ? null : Number(size), type, filters);
       }}
     >
-      {noPracticeUnits && (
-        <p role="status">
-          {text.noPracticeUnits}{" "}
-          <Link to="/settings#practice-units">{text.practiceUnitsTitle}</Link>
-        </p>
-      )}
       <SetupOptions
         legend={text.setupPracticeType}
         name="practice-type"
@@ -260,14 +253,10 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
           <Choices
             legend={text.units}
             disabled={pending || filterLoading || filterError}
-            options={[
-              ...(units.data || [])
-                .filter((u) => profile?.practice_unit_ids?.includes(u.id))
-                .map((u) => ({
-                  id: u.id,
-                  label: `${u.code} — ${u.title}`,
-                })),
-            ]}
+            options={(units.data || []).map((u) => ({
+              id: u.id,
+              label: `${u.code} — ${u.title}`,
+            }))}
             selected={[
               ...filters.unit_ids,
               ...(filters.no_unit ? ["none"] : []),
@@ -322,7 +311,7 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
           },
         ]}
       />
-      {type === "difficult" && profile && !noPracticeUnits && (
+      {type === "difficult" && profile && (
         <section
           className="setup-difficult-info"
           aria-label={text.setupDifficultPractice}
@@ -367,19 +356,14 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
       {error && (
         <div>
           <p role="alert" className="error">
-            {error.code === "no_practice_units"
-              ? text.noPracticeUnits
-              : error.code === "no_difficult_entries"
-                ? text.noDifficultEntries
-                : error.code === "no_matches"
-                  ? type === "category"
-                    ? text.noCategoryMatches
-                    : text.practiceScopeEmpty
-                  : text.errors[error.code] || text.errors.request_failed}
+            {error.code === "no_difficult_entries"
+              ? text.noDifficultEntries
+              : error.code === "no_matches"
+                ? type === "category"
+                  ? text.noCategoryMatches
+                  : text.practiceScopeEmpty
+                : text.errors[error.code] || text.errors.request_failed}
           </p>
-          {error.code === "no_practice_units" && (
-            <Link to="/settings#practice-units">{text.practiceUnitsTitle}</Link>
-          )}
           {error.code === "no_matches" && (
             <Link to="/vocabulary">{text.vocabulary}</Link>
           )}
@@ -387,9 +371,7 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
       )}
       <button
         className="primary setup-start"
-        disabled={
-          !profile || noPracticeUnits || pending || filterLoading || filterError
-        }
+        disabled={!profile || pending || filterLoading || filterError}
       >
         {pending ? text.loading : text.startPractice}
         <ArrowRight size={18} aria-hidden="true" />

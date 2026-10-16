@@ -137,6 +137,23 @@ def test_legacy_cards_reviews_and_one_time_practice_access(test_database):
                     connection.execute(
                         text("UPDATE vocabulary_entries SET unit_id = NULL")
                     )
+                scripts.get_revision("f24a55e7b006").module.upgrade()
+                assert (
+                    connection.scalar(
+                        text("SELECT to_regclass('profile_practice_units')")
+                    )
+                    is None
+                )
+                assert (
+                    connection.execute(text("SELECT * FROM review_events"))
+                    .mappings()
+                    .one()
+                    == before
+                )
+                assert (
+                    connection.scalar(text("SELECT unit_id FROM vocabulary_entries"))
+                    == fallback
+                )
             connection.rollback()
         finally:
             connection.rollback()

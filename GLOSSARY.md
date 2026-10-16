@@ -33,15 +33,12 @@ The optional grammatical gender of the Greek expression in a vocabulary entry, i
 A teaching chapter identified by a stable code, display title, and ordering. Every vocabulary card belongs to exactly one unit. Units and their cards are shared by all learners.
 _Avoid_: Category, tag
 
-**Practice units**:
-The units a learner has chosen as their practice pool, narrowed further by session filters. An empty selection provides no practice cards, new units require a separate choice, and changing the selection preserves learning history.
-
 **Tag**:
 A thematic label shared by vocabulary entries. An entry may have multiple tags independently of its unit and word type.
 _Avoid_: Unit, word type
 
 **Practice session**:
-A selected queue of vocabulary entries practised by one learner. Changing learning direction retains the queue and changes the direction tested for unanswered cards.
+A selected queue of vocabulary entries practised by one learner. Learners choose unit and card-type filters when starting a session, without assigning units to profiles. Changing learning direction retains the queue and changes the direction tested for unanswered cards.
 
 **Card review**:
 A learner's submitted Again, Hard, or Easy rating for a vocabulary entry in the direction actually tested. A card can receive multiple reviews across practice sessions; revealing an answer alone is not a review.

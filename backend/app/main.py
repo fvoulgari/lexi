@@ -24,7 +24,7 @@ from app.models import (
     Unit,
     VocabularyEntry,
 )
-from app.practice import eligible_difficult_progress, practice_router
+from app.practice import difficult_progress, practice_router
 from app.progress import progress_router
 from app.schemas import (
     Direction,
@@ -319,19 +319,6 @@ def create_app():
     def update_entry(entry_id: UUID, body: VocabularyUpdate):
         return save_entry(body, entry_id)
 
-    def selected_units(db, ids):
-        found = db.scalars(select(Unit).where(Unit.id.in_(set(ids)))).all()
-        if len(found) != len(set(ids)):
-            raise HTTPException(
-                422,
-                detail={
-                    "code": "invalid_input",
-                    "fields": ["practice_unit_ids"],
-                    "message": "Choose existing units.",
-                },
-            )
-        return found
-
     @app.get(
         "/api/profiles",
         response_model=list[ProfileOutput],
@@ -351,9 +338,7 @@ def create_app():
     )
     def create_profile(body: ProfileCreate):
         with sessions.begin() as db:
-            values = body.model_dump()
-            chosen = selected_units(db, values.pop("practice_unit_ids"))
-            profile = Profile(**values, practice_units=chosen)
+            profile = Profile(**body.model_dump())
             db.add(profile)
             db.flush()
             return ProfileOutput.model_validate(profile)
@@ -367,7 +352,7 @@ def create_app():
             if db.get(Profile, profile_id) is None:
                 raise HTTPException(404, "Learner profile not found.")
             records = db.scalars(
-                eligible_difficult_progress(profile_id, direction).order_by(
+                difficult_progress(profile_id, direction).order_by(
                     LearningProgress.entry_id
                 )
             ).all()
@@ -430,31 +415,8 @@ def create_app():
             profile = db.get(Profile, profile_id)
             if profile is None:
                 raise HTTPException(404, detail="Learner profile not found.")
-            values = body.model_dump(exclude_unset=True)
-            if "practice_unit_ids" in values:
-                profile.practice_units = selected_units(
-                    db, values.pop("practice_unit_ids")
-                )
-            for field, value in values.items():
+            for field, value in body.model_dump(exclude_unset=True).items():
                 setattr(profile, field, value)
-            db.flush()
-            return ProfileOutput.model_validate(profile)
-
-    @app.put(
-        "/api/profiles/{profile_id}/practice-units/{unit_id}",
-        response_model=ProfileOutput,
-        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
-    )
-    def enable_practice_unit(profile_id: UUID, unit_id: UUID):
-        with sessions.begin() as db:
-            profile = db.scalar(
-                select(Profile).where(Profile.id == profile_id).with_for_update()
-            )
-            if profile is None:
-                raise HTTPException(404, "Learner profile not found.")
-            unit = selected_units(db, [unit_id])[0]
-            if unit_id not in profile.practice_unit_ids:
-                profile.practice_units.append(unit)
             db.flush()
             return ProfileOutput.model_validate(profile)
 

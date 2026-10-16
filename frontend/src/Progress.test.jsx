@@ -19,7 +19,7 @@ const history = {
   total_reviews: 3,
   entries_practised: 1,
   difficult_entries: 1,
-  practice_difficult_entries: 1,
+
   counts: { again: 1, hard: 1, easy: 1 },
   directions: [
     {
@@ -27,7 +27,7 @@ const history = {
       total_reviews: 2,
       entries_practised: 1,
       difficult_entries: 0,
-  practice_difficult_entries: 0,
+
       counts: { again: 1, hard: 0, easy: 1 },
     },
     {
@@ -35,7 +35,7 @@ const history = {
       total_reviews: 1,
       entries_practised: 1,
       difficult_entries: 1,
-  practice_difficult_entries: 1,
+
       counts: { again: 0, hard: 1, easy: 0 },
     },
   ],
@@ -72,14 +72,14 @@ const server = setupServer(
       {
         id: "f",
         display_name: "Foteini",
-        practice_unit_ids: ["u"],
+
         preferred_direction: "greek_to_italian",
         default_session_size: 25,
       },
       {
         id: "a",
         display_name: "Alex",
-        practice_unit_ids: ["u"],
+
         preferred_direction: "italian_to_greek",
         default_session_size: 10,
       },
@@ -94,7 +94,7 @@ const server = setupServer(
             total_reviews: 0,
             entries_practised: 0,
             difficult_entries: 0,
-  practice_difficult_entries: 0,
+
             counts: { again: 0, hard: 0, easy: 0 },
             directions: [],
             units: [],

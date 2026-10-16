@@ -5,9 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import distinct, func, select
 
-from app.filters import practice_scope
 from app.models import LearningProgress, Profile, ReviewEvent, VocabularyEntry
-from app.practice import difficult_progress, eligible_difficult_progress
+from app.practice import difficult_progress
 
 RATINGS = ("again", "hard", "easy")
 DIRECTIONS = ("greek_to_italian", "italian_to_greek")
@@ -67,13 +66,6 @@ def progress_router(sessions, gate):
                 {
                     "key": direction,
                     **aggregate(ReviewEvent.direction == direction),
-                    "practice_difficult_entries": db.scalar(
-                        select(func.count()).select_from(
-                            eligible_difficult_progress(
-                                profile_id, direction
-                            ).subquery()
-                        )
-                    ),
                     "difficult_entries": db.scalar(
                         select(func.count())
                         .select_from(difficult)
@@ -117,22 +109,6 @@ def progress_router(sessions, gate):
                 .order_by(unit, unit_title)
             ).all()
             return {
-                "practice_available": db.scalar(
-                    select(func.count())
-                    .select_from(VocabularyEntry)
-                    .where(practice_scope(profile_id))
-                ),
-                "practice_difficult_entries": db.scalar(
-                    select(func.count(distinct(LearningProgress.entry_id))).where(
-                        LearningProgress.entry_id.in_(
-                            select(VocabularyEntry.id).where(practice_scope(profile_id))
-                        ),
-                        LearningProgress.profile_id == profile_id,
-                        LearningProgress.reviews > 0,
-                        LearningProgress.weight > 0,
-                        LearningProgress.weighted_sum >= 0.5 * LearningProgress.weight,
-                    )
-                ),
                 "vocabulary_count": db.scalar(
                     select(func.count()).select_from(VocabularyEntry)
                 ),

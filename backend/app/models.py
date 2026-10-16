@@ -24,33 +24,10 @@ class Base(DeclarativeBase):
     pass
 
 
-profile_practice_units = Table(
-    "profile_practice_units",
-    Base.metadata,
-    Column(
-        "profile_id", ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True
-    ),
-    Column(
-        "unit_id",
-        ForeignKey("units.id", ondelete="RESTRICT"),
-        primary_key=True,
-        index=True,
-    ),
-)
-
-
 class Profile(Base):
     __tablename__ = "profiles"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     display_name: Mapped[str] = mapped_column(String(80))
-    practice_units: Mapped[list["Unit"]] = relationship(
-        secondary=profile_practice_units, lazy="selectin", order_by="Unit.code"
-    )
-
-    @property
-    def practice_unit_ids(self):
-        return [unit.id for unit in self.practice_units]
-
     preferred_direction: Mapped[str] = mapped_column(
         String(24), default="greek_to_italian"
     )

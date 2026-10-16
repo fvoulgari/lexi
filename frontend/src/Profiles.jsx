@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Choices from "./Choices.jsx";
 import { request } from "./api.js";
 
 function rememberedProfile() {
@@ -43,8 +42,6 @@ export default function Profiles({ text, csrf, onLocked }) {
         ? list.map((item) => (item.id === result.id ? result : item))
         : [...list, result];
     });
-    for (const key of ["progress", "difficult-entries", "progress-difficult"])
-      client.invalidateQueries({ queryKey: [key] });
     setSavedId(result.id);
     setSelected(result.id);
     setCreating(false);
@@ -123,18 +120,6 @@ export default function Profiles({ text, csrf, onLocked }) {
 }
 
 function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
-  const units = useQuery({
-    queryKey: ["units"],
-    queryFn: () => request("/api/units"),
-    retry: false,
-  });
-  const [practiceUnits, setPracticeUnits] = useState(
-    profile?.practice_unit_ids || [],
-  );
-  useEffect(() => {
-    if (units.error?.status === 401) onLocked();
-  }, [units.error, onLocked]);
-
   const [name, setName] = useState(profile?.display_name || "");
   const [direction, setDirection] = useState(
     profile?.preferred_direction || "greek_to_italian",
@@ -149,7 +134,6 @@ function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
         method: profile ? "PATCH" : "POST",
         headers: { "X-CSRF-Token": csrf },
         body: JSON.stringify({
-          practice_unit_ids: practiceUnits,
           display_name: name.trim(),
           preferred_direction: direction,
           default_session_size: size === "all" ? null : Number(size),
@@ -230,67 +214,6 @@ function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
           </label>
         </div>
         <p className="settings-helper">{text.settingsSyncedHint}</p>
-        <section
-          className="practice-unit-preferences"
-          id="practice-units"
-          aria-labelledby="practice-unit-title"
-        >
-          <h3 id="practice-unit-title">{text.practiceUnitsTitle}</h3>
-          <p className="settings-helper">{text.practiceUnitsHint}</p>
-          {units.isPending && <p role="status">{text.loading}</p>}
-          {units.isError && (
-            <div>
-              <p role="alert" className="error">
-                {text.errors.request_failed}
-              </p>
-              <button type="button" onClick={() => units.refetch()}>
-                {text.retry}
-              </button>
-            </div>
-          )}
-          {units.isSuccess && (
-            <>
-              <Choices
-                legend={text.units}
-                options={units.data.map((unit) => ({
-                  id: unit.id,
-                  label: `${unit.code} · ${unit.title} — ${(unit.card_count === 1 ? text.unitCardCountOne : text.unitCardCount).replace("{count}", unit.card_count)}`,
-                }))}
-                selected={practiceUnits}
-                onChange={(ids) => {
-                  setPracticeUnits(ids);
-                  onChanged();
-                }}
-                disabled={save.isPending}
-              />
-              <div className="form-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    setPracticeUnits(units.data.map((unit) => unit.id));
-                    onChanged();
-                  }}
-                >
-                  {text.selectAllUnits}
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => {
-                    setPracticeUnits([]);
-                    onChanged();
-                  }}
-                >
-                  {text.setupClearFilters}
-                </button>
-              </div>
-              {!practiceUnits.length && (
-                <p className="settings-helper">{text.noPracticeUnits}</p>
-              )}
-            </>
-          )}
-        </section>
         {invalid && (
           <p id="profile-validation" className="error" role="alert">
             {text.nameRequired}
@@ -301,11 +224,7 @@ function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
             {text.errors[save.error.code] || text.errors.request_failed}
           </p>
         )}
-        <button
-          className="primary"
-          type="submit"
-          disabled={units.isPending || units.isError}
-        >
+        <button className="primary" type="submit">
           {save.isPending
             ? text.saving
             : profile
