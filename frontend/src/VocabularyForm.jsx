@@ -24,6 +24,12 @@ const textFields = [
   "pronunciation",
 ];
 
+const optionalFields = [
+  ...textFields.filter((field) => !["italian", "greek"].includes(field)),
+  "italian_gender",
+  "greek_gender",
+];
+
 export default function VocabularyForm({
   entry,
   text,
@@ -49,6 +55,9 @@ export default function VocabularyForm({
   useEffect(() => {
     if (units.error?.status === 401) onLocked();
   }, [units.error, onLocked]);
+  const [optionalOpen, setOptionalOpen] = useState(() =>
+    Boolean(entry && optionalFields.some((field) => entry[field])),
+  );
   const [invalid, setInvalid] = useState([]);
   const [focusRequest, setFocusRequest] = useState(null);
   const firstInput = useRef(null);
@@ -80,6 +89,8 @@ export default function VocabularyForm({
     onSettled: () => onSavingChange(false),
     onError: (error) => {
       setInvalid(error.fields || []);
+      if (error.fields?.some((field) => optionalFields.includes(field)))
+        setOptionalOpen(true);
       if (error.fields?.length) setFocusRequest({ field: error.fields[0] });
       if (error.status === 401) onLocked();
     },
@@ -89,10 +100,81 @@ export default function VocabularyForm({
     setInvalid((current) => current.filter((item) => item !== field));
     save.reset();
   }
+  function textField(field) {
+    const required = field === "italian" || field === "greek";
+    const multiline = [
+      "italian_example",
+      "greek_example",
+      "notes",
+      "pronunciation",
+    ].includes(field);
+    const Input = multiline ? "textarea" : "input";
+    return (
+      <label
+        key={field}
+        className={multiline ? "wide-field" : undefined}
+        htmlFor={`entry-${field}`}
+      >
+        {field === "pronunciation"
+          ? text.cardPronunciation
+          : text.fields[field]}
+        {required ? " *" : ""}
+        <Input
+          id={`entry-${field}`}
+          ref={field === "italian" ? firstInput : undefined}
+          value={values[field]}
+          required={required}
+          maxLength={multiline ? 10000 : 500}
+          lang={
+            field.startsWith("italian")
+              ? "it"
+              : field.startsWith("greek")
+                ? "el"
+                : undefined
+          }
+          onChange={(event) => change(field, event.target.value)}
+          aria-invalid={invalid.includes(field)}
+          aria-describedby={
+            invalid.includes(field) ? "entry-errors" : undefined
+          }
+        />
+      </label>
+    );
+  }
+  function selectField(field) {
+    const required = field === "word_type";
+    return (
+      <label key={field} htmlFor={`entry-${field}`}>
+        {text.fields[field]}
+        {required ? " *" : ""}
+        <select
+          id={`entry-${field}`}
+          value={values[field]}
+          required={required}
+          onChange={(event) => change(field, event.target.value)}
+          aria-invalid={invalid.includes(field)}
+          aria-describedby={
+            invalid.includes(field) ? "entry-errors" : undefined
+          }
+        >
+          <option value="">
+            {required ? text.chooseType : text.unspecified}
+          </option>
+          {(required ? wordTypes : ["masculine", "feminine", "neuter"]).map(
+            (value) => (
+              <option key={value} value={value}>
+                {text[value]}
+              </option>
+            ),
+          )}
+        </select>
+      </label>
+    );
+  }
   return (
     <>
       <form
-        className="vocabulary-form"
+        className="vocabulary-form vocabulary-card-form"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -109,93 +191,35 @@ export default function VocabularyForm({
         }}
       >
         <h2>{entry ? text.editEntry : text.addEntry}</h2>
-        <p id="meaning-hint">{text.meaningHint}</p>
-        <fieldset disabled={save.isPending || creatingUnit} aria-describedby="meaning-hint">
-          <div className="entry-fields">
-            {textFields.map((field) => {
-              const required = field === "italian" || field === "greek";
-              const multiline = [
-                "italian_example",
-                "greek_example",
-                "notes",
-                "pronunciation",
-              ].includes(field);
-              const Input = multiline ? "textarea" : "input";
-              return (
-                <label
-                  key={field}
-                  className={multiline ? "wide-field" : undefined}
-                  htmlFor={`entry-${field}`}
-                >
-                  {text.fields[field]}
-                  {required ? " *" : ""}
-                  <Input
-                    id={`entry-${field}`}
-                    ref={field === "italian" ? firstInput : undefined}
-                    value={values[field]}
-                    required={required}
-                    maxLength={multiline ? 10000 : 500}
-                    lang={
-                      field.startsWith("italian")
-                        ? "it"
-                        : field.startsWith("greek")
-                          ? "el"
-                          : undefined
-                    }
-                    onChange={(event) => change(field, event.target.value)}
-                    aria-invalid={invalid.includes(field)}
-                    aria-describedby={
-                      invalid.includes(field) ? "entry-errors" : undefined
-                    }
-                  />
-                </label>
-              );
-            })}
-            {["word_type", "italian_gender", "greek_gender"].map((field) => (
-              <label key={field} htmlFor={`entry-${field}`}>
-                {text.fields[field]}
-                {field === "word_type" ? " *" : ""}
-                <select
-                  id={`entry-${field}`}
-                  value={values[field]}
-                  required={field === "word_type"}
-                  onChange={(event) => change(field, event.target.value)}
-                  aria-invalid={invalid.includes(field)}
-                  aria-describedby={
-                    invalid.includes(field) ? "entry-errors" : undefined
-                  }
-                >
-                  <option value="">
-                    {field === "word_type" ? text.chooseType : text.unspecified}
-                  </option>
-                  {(field === "word_type"
-                    ? wordTypes
-                    : ["masculine", "feminine", "neuter"]
-                  ).map((value) => (
-                    <option key={value} value={value}>
-                      {text[value]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
+        <p id="meaning-hint">{entry ? text.cardEditHint : text.meaningHint}</p>
+        <p id="card-required-hint" className="card-required-hint">
+          {text.cardRequiredHint}
+        </p>
+        <fieldset
+          disabled={save.isPending || creatingUnit}
+          aria-describedby="meaning-hint card-required-hint"
+        >
+          <div className="entry-fields entry-required-fields">
+            {textField("italian")}
+            {textField("greek")}
+            {selectField("word_type")}
+            <UnitPicker
+              id="entry-unit_id"
+              text={text}
+              units={units.data || []}
+              value={unitId}
+              disabled={save.isPending || units.isPending || creatingUnit}
+              invalid={invalid.includes("unit_id")}
+              onChange={(value) => {
+                setUnitId(value);
+                setInvalid((current) =>
+                  current.filter((field) => field !== "unit_id"),
+                );
+                save.reset();
+              }}
+              onCreate={() => setCreatingUnit(true)}
+            />
           </div>
-          <UnitPicker
-            id="entry-unit_id"
-            text={text}
-            units={units.data || []}
-            value={unitId}
-            disabled={save.isPending || units.isPending || creatingUnit}
-            invalid={invalid.includes("unit_id")}
-            onChange={(value) => {
-              setUnitId(value);
-              setInvalid((current) =>
-                current.filter((field) => field !== "unit_id"),
-              );
-              save.reset();
-            }}
-            onCreate={() => setCreatingUnit(true)}
-          />
           {units.isError && (
             <div>
               <p role="alert" className="error">
@@ -212,10 +236,33 @@ export default function VocabularyForm({
               </button>
             </div>
           )}
+          <details
+            className="entry-optional-details"
+            open={optionalOpen}
+            onToggle={(event) => setOptionalOpen(event.currentTarget.open)}
+          >
+            <summary>{text.cardOptionalDetails}</summary>
+            <div className="entry-language-details">
+              {["italian", "greek"].map((language) => (
+                <fieldset key={language} className="entry-language-group">
+                  <legend>{text[language]}</legend>
+                  <div className="entry-fields">
+                    {selectField(`${language}_gender`)}
+                    {textField(`${language}_plural`)}
+                    {textField(`${language}_example`)}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+            <div className="entry-fields entry-extra-details">
+              {textField("pronunciation")}
+              {textField("notes")}
+            </div>
+          </details>
           {(invalid.length > 0 || save.isError) && (
             <p className="error" role="alert" id="entry-errors">
               {invalid.length
-                ? `${text.checkFields} ${invalid.map((field) => text.fields[field] || field).join(", ")}. ${text.fieldHint}`
+                ? `${text.checkFields} ${invalid.map((field) => (field === "pronunciation" ? text.cardPronunciation : text.fields[field] || field)).join(", ")}. ${text.fieldHint}`
                 : text.errors[save.error?.code] || text.errors.request_failed}
             </p>
           )}
@@ -241,7 +288,9 @@ export default function VocabularyForm({
           onLocked={onLocked}
           onClose={() => {
             setCreatingUnit(false);
-            requestAnimationFrame(() => document.getElementById("entry-unit_id")?.focus());
+            requestAnimationFrame(() =>
+              document.getElementById("entry-unit_id")?.focus(),
+            );
           }}
           onCreated={(unit) => setUnitId(unit.id)}
         />

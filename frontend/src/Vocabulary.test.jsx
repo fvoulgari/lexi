@@ -94,6 +94,7 @@ test("add a complete bilingual meaning and edit it from the library", async () =
   await user.type(screen.getByLabelText("Greek *"), "το γιατί");
   await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "u");
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
+  await user.click(screen.getByText("Optional details", {exact:true}));
   await user.selectOptions(
     screen.getByLabelText("Italian gender"),
     "masculine",
@@ -106,7 +107,7 @@ test("add a complete bilingual meaning and edit it from the library", async () =
     "Non so il perché.",
   );
   await user.type(screen.getByLabelText("Greek example"), "Δεν ξέρω το γιατί.");
-  await user.type(screen.getByLabelText("Pronunciation text"), "perˈke");
+  await user.type(screen.getByLabelText("Pronunciation"), "perˈke");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Card saved.");
   expect(

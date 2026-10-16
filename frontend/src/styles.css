@@ -727,6 +727,49 @@ main {
 .entry-fields [aria-invalid="true"] {
   border-color: #8f352c;
 }
+.vocabulary-card-form .card-required-hint {
+  margin: 4px 0 20px;
+  color: #727d68;
+  font-size: 12px;
+}
+.vocabulary-card-form .entry-required-fields { align-items: start; }
+.vocabulary-card-form .entry-required-fields .unit-assignment { margin: 0; }
+.vocabulary-card-form .unit-assignment-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.vocabulary-card-form .unit-assignment-controls select { max-width: 100%; }
+.vocabulary-card-form .entry-optional-details {
+  margin-top: 22px;
+  border-top: 1px solid #dde3d4;
+  color: #354c39;
+}
+.vocabulary-card-form .entry-optional-details > summary {
+  min-height: 44px;
+  padding: 14px 0;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+.vocabulary-card-form .entry-optional-details > summary:focus-visible {
+  outline: 2px solid #526e52;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.vocabulary-card-form .entry-language-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 6px;
+}
+.vocabulary-card-form .entry-language-group legend {
+  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #526e52;
+}
+.vocabulary-card-form .entry-extra-details { margin-top: 18px; }
+.vocabulary-card-form .entry-extra-details .wide-field { grid-column: auto; }
 .form-actions {
   display: flex;
   flex-wrap: wrap;
@@ -759,7 +802,8 @@ main {
   .vocabulary-form {
     padding: 20px;
   }
-  .entry-fields {
+  .entry-fields,
+  .vocabulary-card-form .entry-language-details {
     grid-template-columns: 1fr;
   }
 }

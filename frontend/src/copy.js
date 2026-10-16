@@ -137,7 +137,11 @@ export const copy = {
     feminine: "Feminine",
     neuter: "Neuter",
     meaningHint:
-      "One meaning per card. For a different meaning, add a new card. Required fields are marked *.",
+      "Add the word or phrase and its translation.",
+    cardEditHint: "Update the word or phrase and its translation.",
+    cardRequiredHint: "* Required fields",
+    cardOptionalDetails: "Optional details",
+    cardPronunciation: "Pronunciation",
     duplicateWarning:
       "A matching Italian–Greek pair already exists. Your card was saved; keep it if it represents a different meaning.",
     checkFields: "Check these fields:",
@@ -391,7 +395,11 @@ export const copy = {
     feminine: "Θηλυκό",
     neuter: "Ουδέτερο",
     meaningHint:
-      "Μία σημασία ανά κάρτα. Για διαφορετική σημασία, πρόσθεσε νέα κάρτα. Τα υποχρεωτικά πεδία έχουν *.",
+      "Πρόσθεσε τη λέξη ή τη φράση και τη μετάφρασή της.",
+    cardEditHint: "Επεξεργάσου τη λέξη ή τη φράση και τη μετάφρασή της.",
+    cardRequiredHint: "* Υποχρεωτικά πεδία",
+    cardOptionalDetails: "Προαιρετικές λεπτομέρειες",
+    cardPronunciation: "Προφορά",
     duplicateWarning:
       "Υπάρχει ήδη ίδιο ζεύγος ιταλικών–ελληνικών. Η κάρτα αποθηκεύτηκε· κράτησέ την αν εκφράζει διαφορετική σημασία.",
     checkFields: "Έλεγξε τα πεδία:",
@@ -650,7 +658,11 @@ export const copy = {
     feminine: "Femminile",
     neuter: "Neutro",
     meaningHint:
-      "Un significato per scheda. Per un significato diverso, aggiungi una nuova scheda. I campi obbligatori hanno *.",
+      "Aggiungi la parola o la frase e la sua traduzione.",
+    cardEditHint: "Modifica la parola o la frase e la sua traduzione.",
+    cardRequiredHint: "* Campi obbligatori",
+    cardOptionalDetails: "Dettagli facoltativi",
+    cardPronunciation: "Pronuncia",
     duplicateWarning:
       "Esiste già una coppia italiano–greco corrispondente. La scheda è stata salvata; mantienila se esprime un significato diverso.",
     checkFields: "Controlla questi campi:",
