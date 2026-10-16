@@ -206,11 +206,16 @@ test("failed unit creation retains the draft for retry with Greek labels", async
 
 test("saving the final filtered-page result returns to a valid page and keeps filters", async () => {
   let changed = false;
+  let refreshedPageParams;
   server.use(
-    http.get("*/api/vocabulary", ({ request }) => {
+    http.get("*/api/vocabulary", async ({ request }) => {
       const params = new URL(request.url).searchParams;
-      lastParams = params;
       const second = params.get("page") === "2";
+      if (changed && !second) {
+        // Cached page 1 must not satisfy the assertion before its refresh arrives.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        refreshedPageParams = params;
+      }
       return HttpResponse.json({
         total: changed ? 12 : 13,
         items:
@@ -219,7 +224,7 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
             : [
                 {
                   id: "e",
-                  italian: second ? "last" : "first",
+                  italian: second ? "last" : changed ? "first after save" : "first",
                   greek: "ένα",
                   word_type: "noun",
                   unit: {id:"u", code:"003", title:"Travel"},
@@ -244,12 +249,14 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
   await user.click(await cardAction("Edit card: last"));
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(
-    await screen.findByRole("heading", { name: "first" }),
+    await screen.findByRole("heading", { name: "first after save" }),
   ).toBeInTheDocument();
-  expect(lastParams.get("page")).toBe("1");
-  expect(lastParams.get("page_size")).toBe("12");
-  expect(lastParams.has("tag_ids")).toBe(false);
-  expect(lastParams.getAll("word_types")).toEqual(["noun"]);
+  expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
+  expect(refreshedPageParams.get("page")).toBe("1");
+  expect(refreshedPageParams.get("page_size")).toBe("12");
+  expect(refreshedPageParams.has("tag_ids")).toBe(false);
+  expect(refreshedPageParams.getAll("word_types")).toEqual(["noun"]);
 });
 
 async function cardAction(name) {
