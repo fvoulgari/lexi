@@ -113,8 +113,8 @@ test("a learner browses cards loaded from the API and moves to the next page", a
       const page = Number(new URL(request.url).searchParams.get("page") || 1);
       return HttpResponse.json({
         page,
-        page_size: 6,
-        total: 7,
+        page_size: 12,
+        total: 13,
         items:
           page === 1
             ? [

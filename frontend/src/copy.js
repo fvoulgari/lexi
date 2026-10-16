@@ -7,6 +7,18 @@ export const copy = {
     exporting: "Exporting…",
     exportStarted: "CSV download started.",
     ...progressCopy.en,
+    setupPracticeType: "Practice mode",
+    setupRandomPractice: "Random cards",
+    setupCategoryPractice: "With filters",
+    setupDifficultPractice: "Difficult cards",
+    setupWordTypes: "Card type",
+    setupClearFilters: "Clear selections",
+    setupDirection: "Practice direction",
+    setupFilterHint: "Choose units and card types.",
+    practiceSubtitle: "A few words, one step forward.",
+    cardsPerSession: "Cards per session",
+    difficultAvailable: "{count} available cards",
+    difficultAvailableOne: "{count} available card",
     homePracticeTitle: "Your next word is waiting.",
     homePracticeHint:
       "Practise with your flashcards and build your learning history.",
@@ -61,11 +73,11 @@ export const copy = {
     difficultPractice: "Difficult practice",
     mixedPractice: "Mixed practice",
     mixedExplanation:
-      "40% difficult, 30% reviewed in the last seven days, 30% random. Shortages are filled from the library without repeats.",
+      "40% difficult, 30% reviewed in the last seven days, 30% random.",
     noDifficultEntries:
       "No difficult cards for this learner and direction. Review vocabulary first or choose another direction.",
     difficultyExplanation:
-      "Difficult cards have at least one review and a weighted difficulty score of 0.5 or more. Inactivity does not change difficulty.",
+      "Cards you found harder in previous practice, with more weight given to your latest responses.",
 
     randomPractice: "Random practice",
     practiceType: "Practice type",
@@ -233,6 +245,18 @@ export const copy = {
     exporting: "Εξαγωγή…",
     exportStarted: "Η λήψη CSV ξεκίνησε.",
     ...progressCopy.el,
+    setupPracticeType: "Τρόπος εξάσκησης",
+    setupRandomPractice: "Τυχαίες κάρτες",
+    setupCategoryPractice: "Με φίλτρα",
+    setupDifficultPractice: "Δύσκολες κάρτες",
+    setupWordTypes: "Τύπος κάρτας",
+    setupClearFilters: "Καθαρισμός επιλογών",
+    setupDirection: "Κατεύθυνση εξάσκησης",
+    setupFilterHint: "Διάλεξε ενότητες και τύπους καρτών.",
+    practiceSubtitle: "Λίγες λέξεις, ένα βήμα μπροστά.",
+    cardsPerSession: "Κάρτες ανά συνεδρία",
+    difficultAvailable: "{count} διαθέσιμες κάρτες",
+    difficultAvailableOne: "{count} διαθέσιμη κάρτα",
     homePracticeTitle: "Η επόμενη λέξη σε περιμένει.",
     homePracticeHint:
       "Ξεκίνα με τις κάρτες σου και χτίσε το δικό σου ιστορικό μάθησης.",
@@ -288,11 +312,11 @@ export const copy = {
     difficultPractice: "Εξάσκηση δύσκολων καρτών",
     mixedPractice: "Μικτή εξάσκηση",
     mixedExplanation:
-      "40% δύσκολες, 30% με επανάληψη τις τελευταίες επτά ημέρες, 30% τυχαίες. Τα κενά συμπληρώνονται από τη βιβλιοθήκη χωρίς επαναλήψεις.",
+      "40% δύσκολες, 30% με επανάληψη τις τελευταίες επτά ημέρες, 30% τυχαίες.",
     noDifficultEntries:
       "Δεν υπάρχουν δύσκολες κάρτες για αυτό το προφίλ και την κατεύθυνση. Κάνε πρώτα εξάσκηση ή επίλεξε άλλη κατεύθυνση.",
     difficultyExplanation:
-      "Οι δύσκολες κάρτες έχουν τουλάχιστον μία αξιολόγηση και σταθμισμένη βαθμολογία δυσκολίας τουλάχιστον 0,5. Η αδράνεια δεν αλλάζει τη δυσκολία.",
+      "Κάρτες που σε δυσκόλεψαν σε προηγούμενη εξάσκηση, με μεγαλύτερη έμφαση στις πιο πρόσφατες απαντήσεις σου.",
 
     randomPractice: "Τυχαία εξάσκηση",
     practiceType: "Τύπος εξάσκησης",
@@ -463,6 +487,18 @@ export const copy = {
     exporting: "Esportazione…",
     exportStarted: "Download CSV avviato.",
     ...progressCopy.it,
+    setupPracticeType: "Modalità di esercitazione",
+    setupRandomPractice: "Schede casuali",
+    setupCategoryPractice: "Con filtri",
+    setupDifficultPractice: "Schede difficili",
+    setupWordTypes: "Tipo di scheda",
+    setupClearFilters: "Cancella selezioni",
+    setupDirection: "Direzione di esercitazione",
+    setupFilterHint: "Scegli le unità e i tipi di scheda.",
+    practiceSubtitle: "Qualche parola, un passo avanti.",
+    cardsPerSession: "Schede per sessione",
+    difficultAvailable: "{count} schede disponibili",
+    difficultAvailableOne: "{count} scheda disponibile",
     homePracticeTitle: "La prossima parola ti aspetta.",
     homePracticeHint:
       "Esercitati con le tue schede e costruisci la tua cronologia di apprendimento.",
@@ -518,11 +554,11 @@ export const copy = {
     difficultPractice: "Esercitazione delle schede difficili",
     mixedPractice: "Esercitazione mista",
     mixedExplanation:
-      "40% difficili, 30% ripassate negli ultimi sette giorni, 30% casuali. Le carenze sono colmate dalla biblioteca senza ripetizioni.",
+      "40% difficili, 30% ripassate negli ultimi sette giorni, 30% casuali.",
     noDifficultEntries:
       "Nessuna scheda difficile per questo profilo e questa direzione. Esercitati prima o scegli un’altra direzione.",
     difficultyExplanation:
-      "Le schede difficili hanno almeno una valutazione e un punteggio ponderato di difficoltà di almeno 0,5. L’inattività non cambia la difficoltà.",
+      "Schede che hai trovato più difficili nelle esercitazioni precedenti, dando più peso alle risposte più recenti.",
 
     randomPractice: "Esercitazione casuale",
     practiceType: "Tipo di esercitazione",

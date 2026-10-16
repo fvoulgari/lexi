@@ -1715,3 +1715,46 @@ button:disabled {
   .library-page .page-heading > div { flex-basis: 100%; }
   .library-page .entry-card { padding: 20px; }
 }
+
+/* Setup-only practice controls; active cards and summaries retain their styles. */
+.practice-page.practice-setup-page { max-width: 680px; margin: 8px auto 32px; padding: 0; }
+.practice-setup-page .setup-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 22px; }
+.practice-setup-page .setup-heading h1 { margin: 0 0 8px; font-size: clamp(30px, 4vw, 38px); line-height: 1.2; }
+.practice-setup-page .setup-heading p { color: #697761; font-size: 14px; line-height: 1.6; margin: 0; }
+.practice-setup-page .setup-profile { display: flex; align-items: center; gap: 10px; padding: 9px 12px; max-width: 100%; min-width: 0; border: 1px solid #dde3d4; border-radius: 14px; background: #fffef9; }
+.practice-setup-page .setup-profile > div { min-width: 0; }
+.practice-setup-page .setup-profile label { margin: 0 0 3px; color: #697761; font-size: 11px; }
+.practice-setup-page .setup-profile select { width: 100%; max-width: 210px; min-height: 34px; padding: 4px; border: 0; background: transparent; font-size: 14px; }
+.practice-setup-page .setup-avatar { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 12px; background: #e8eddf; color: #526e52; font-weight: 600; }
+.practice-setup-page .practice-setup { padding: 26px; background: #fffef9; border-color: #dde3d4; border-radius: 20px; }
+.practice-setup-page .setup-options { border: 0; padding: 0; margin: 0 0 24px; min-width: 0; }
+.practice-setup-page .setup-options legend { padding: 0; margin-bottom: 10px; color: #354c39; font-size: 14px; font-weight: 600; }
+.practice-setup-page .setup-mode-grid, .practice-setup-page .setup-direction-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.practice-setup-page .setup-size-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.practice-setup-page label.setup-option { display: block; position: relative; margin: 0; min-width: 0; cursor: pointer; }
+.practice-setup-page .setup-option > span { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; height: 100%; padding: 12px; border: 1px solid #dce3d4; border-radius: 12px; background: #f8f7ef; color: #486044; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.practice-setup-page .setup-mode-grid .setup-option > span { justify-content: flex-start; min-height: 66px; }
+.practice-setup-page .setup-option svg { flex-shrink: 0; }
+.practice-setup-page .setup-option input:checked + span { background: #e8eddf; border-color: #526e52; box-shadow: inset 0 0 0 1px #526e52; color: #354c39; font-weight: 600; }
+.practice-setup-page .setup-option input:focus-visible + span { outline: 3px solid #53745b; outline-offset: 3px; }
+.practice-setup-page .setup-option input:disabled + span { opacity: .6; cursor: default; }
+.practice-setup-page form > p, .practice-setup-page form > section > p { font-size: 13px; line-height: 1.65; color: #697761; }
+.practice-setup-page .setup-difficult-info { margin-bottom: 24px; }
+.practice-setup-page .setup-difficult-info > p { margin-bottom: 12px; }
+.practice-setup-page .setup-available-badge {
+  display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px;
+  background: #e8eddf; color: #526e52; font-size: 12px; font-weight: 500; line-height: 1.5;
+}
+.practice-setup-page .setup-mixed-hint { padding-bottom: 16px; }
+.practice-setup-page .setup-filters { padding: 16px; margin-bottom: 24px; border: 1px solid #dde3d4; border-radius: 14px; background: #f8f7ef; }
+.practice-setup-page .setup-filters .choice-group { background: #fffef9; margin-block: 10px; }
+.practice-setup-page .setup-filters .choice-list { gap: 5px; }
+.practice-setup-page .setup-filters .choice-list label { display: flex; margin: 0; padding: 8px; font-size: 13px; }
+.practice-setup-page .setup-filters button { margin: 4px 0 0; }
+.practice-setup-page button.setup-start { display: flex; align-items: center; justify-content: center; margin: 6px 0 0; min-height: 48px; background: #526e52; }
+@media (max-width: 520px) {
+  .practice-setup-page .practice-setup { padding: 19px; }
+  .practice-setup-page .setup-direction-options { grid-template-columns: 1fr; }
+  .practice-setup-page button.setup-start { width: 100%; }
+  .practice-setup-page .setup-option > span { padding: 10px 8px; font-size: 13px; }
+}

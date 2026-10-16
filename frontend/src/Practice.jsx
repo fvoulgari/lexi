@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
+import {
+  Shuffle,
+  ListFilter,
+  RotateCcw,
+  Layers,
+  ArrowRight,
+} from "lucide-react";
 import PropTypes from "prop-types";
 import { request } from "./api.js";
 import Choices from "./Choices.jsx";
@@ -82,24 +89,37 @@ export default function Practice({ text, csrf, onLocked }) {
       />
     );
   return (
-    <section className="practice-page">
-      <span className="eyebrow">ITALIAN NOTEBOOK</span>
-      <h1>{text.practice}</h1>
+    <section className="practice-page practice-setup-page">
+      <header className="setup-heading">
+        <div>
+          <h1>{text.practice}</h1>
+          <p>{text.practiceSubtitle}</p>
+        </div>
+        <div className="setup-profile">
+          {profile && (
+            <span className="setup-avatar" aria-hidden="true">
+              {profile.display_name.trim().slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          <div>
+            <label htmlFor="practice-profile">{text.profile}</label>
+            <select
+              id="practice-profile"
+              value={profile?.id || ""}
+              disabled={pending}
+              onChange={(e) => setProfileId(e.target.value)}
+            >
+              <option value="">{text.chooseProfile}</option>
+              {profiles.data.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.display_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </header>
       <div className="practice-setup">
-        <label htmlFor="practice-profile">{text.profile}</label>
-        <select
-          id="practice-profile"
-          value={profile?.id || ""}
-          disabled={pending}
-          onChange={(e) => setProfileId(e.target.value)}
-        >
-          <option value="">{text.chooseProfile}</option>
-          {profiles.data.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.display_name}
-            </option>
-          ))}
-        </select>
         {!profiles.data.length && (
           <Link to="/settings">{text.createProfile}</Link>
         )}
@@ -112,7 +132,6 @@ export default function Practice({ text, csrf, onLocked }) {
           onLocked={onLocked}
           error={error}
         />
-        <Link to="/">{text.returnHome}</Link>
       </div>
     </section>
   );
@@ -146,7 +165,6 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
     unit_ids: [],
     no_unit: false,
     word_types: [],
-    tag_ids: [],
   };
   const [filters, setFilters] = useState(emptyFilters);
   const units = useQuery({
@@ -154,17 +172,11 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
     queryFn: () => request("/api/units"),
     enabled: type === "category",
   });
-  const tags = useQuery({
-    queryKey: ["tags"],
-    queryFn: () => request("/api/tags"),
-    enabled: type === "category",
-  });
   useEffect(() => {
-    if ([units.error, tags.error].some((e) => e?.status === 401)) onLocked();
-  }, [units.error, tags.error, onLocked]);
-  const filterError = type === "category" && (units.isError || tags.isError);
-  const filterLoading =
-    type === "category" && (units.isPending || tags.isPending);
+    if (units.error?.status === 401) onLocked();
+  }, [units.error, onLocked]);
+  const filterError = type === "category" && units.isError;
+  const filterLoading = type === "category" && units.isPending;
   const changeFilter = (key, value) =>
     setFilters((current) => ({ ...current, [key]: value }));
   const [direction, setDirection] = useState(
@@ -188,7 +200,7 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
     if (difficult.error?.status === 401) onLocked();
   }, [difficult.error, onLocked]);
   const [size, setSize] = useState(
-    profile ? (profile.default_session_size ?? "all") : 25,
+    String(profile ? (profile.default_session_size ?? "all") : 25),
   );
   return (
     <form
@@ -197,22 +209,28 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
         onStart(direction, size === "all" ? null : Number(size), type, filters);
       }}
     >
-      <label htmlFor="practice-type">{text.practiceType}</label>
-      <select
-        id="practice-type"
+      <SetupOptions
+        legend={text.setupPracticeType}
+        name="practice-type"
         value={type}
+        onChange={setType}
         disabled={pending}
-        onChange={(e) => setType(e.target.value)}
-      >
-        <option value="random">{text.randomPractice}</option>
-        <option value="category">{text.categoryPractice}</option>
-        <option value="difficult">{text.difficultPractice}</option>
-        <option value="mixed">{text.mixedPractice}</option>
-      </select>
-      {type === "mixed" && <p>{text.mixedExplanation}</p>}
+        className="setup-mode-grid"
+        options={[
+          { value: "random", label: text.setupRandomPractice, icon: Shuffle },
+          { value: "category", label: text.setupCategoryPractice, icon: ListFilter },
+          {
+            value: "difficult",
+            label: text.setupDifficultPractice,
+            icon: RotateCcw,
+          },
+          { value: "mixed", label: text.mixedPractice, icon: Layers },
+        ]}
+      />
+      {type === "mixed" && <p className="setup-mixed-hint">{text.mixedExplanation}</p>}
       {type === "category" && (
-        <section className="library-filters" aria-label={text.filters}>
-          <p>{text.filterHint}</p>
+        <section className="setup-filters" aria-label={text.filters}>
+          <p>{text.setupFilterHint}</p>
           {filterLoading && <p role="status">{text.loading}</p>}
           {filterError && (
             <div>
@@ -221,7 +239,6 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
                 type="button"
                 onClick={() => {
                   units.refetch();
-                  tags.refetch();
                 }}
               >
                 {text.retry}
@@ -251,7 +268,7 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
             }
           />
           <Choices
-            legend={text.wordTypes}
+            legend={text.setupWordTypes}
             disabled={pending}
             options={[
               "noun",
@@ -264,34 +281,36 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
             selected={filters.word_types}
             onChange={(values) => changeFilter("word_types", values)}
           />
-          <Choices
-            legend={text.tags}
-            disabled={pending || filterLoading || filterError}
-            options={(tags.data || []).map((t) => ({
-              id: t.id,
-              label: t.name,
-            }))}
-            selected={filters.tag_ids}
-            onChange={(values) => changeFilter("tag_ids", values)}
-          />
           <button
             type="button"
             className="secondary"
             disabled={pending}
             onClick={() => setFilters(emptyFilters)}
           >
-            {text.clearFilters}
+            {text.setupClearFilters}
           </button>
         </section>
       )}
-      <Direction
-        text={text}
+      <SetupOptions
+        legend={text.setupDirection}
+        name="setup-direction"
         value={direction}
         onChange={setDirection}
         disabled={pending}
+        className="setup-direction-options"
+        options={[
+          {
+            value: "greek_to_italian",
+            label: `${text.greek} → ${text.italian}`,
+          },
+          {
+            value: "italian_to_greek",
+            label: `${text.italian} → ${text.greek}`,
+          },
+        ]}
       />
       {type === "difficult" && profile && (
-        <section aria-label={text.difficultPractice}>
+        <section className="setup-difficult-info" aria-label={text.setupDifficultPractice}>
           <p>{text.difficultyExplanation}</p>
           {difficult.isPending ? (
             <p role="status">{text.loading}</p>
@@ -305,34 +324,27 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
                 {text.retry}
               </button>
             </>
-          ) : difficult.data.length ? (
-            <ul>
-              {difficult.data.map(({ entry }) => (
-                <li key={entry.id}>
-                  <span lang="it">{entry.italian}</span> ·{" "}
-                  <span lang="el">{entry.greek}</span>
-                </li>
-              ))}
-            </ul>
+          ) : difficult.isSuccess && difficult.data.length > 0 ? (
+            <span className="setup-available-badge">
+              {(difficult.data.length === 1 ? text.difficultAvailableOne : text.difficultAvailable).replace("{count}", difficult.data.length)}
+            </span>
           ) : (
             <p role="status">{text.noDifficultEntries}</p>
           )}
         </section>
       )}
-      <label htmlFor="practice-size">{text.practiceSize}</label>
-      <select
-        id="practice-size"
+      <SetupOptions
+        legend={text.cardsPerSession}
+        name="practice-size"
         value={size}
+        onChange={setSize}
         disabled={pending}
-        onChange={(e) => setSize(e.target.value)}
-      >
-        {[10, 25, 50].map((n) => (
-          <option key={n} value={n}>
-            {n}
-          </option>
-        ))}
-        <option value="all">{text.allEntries}</option>
-      </select>
+        className="setup-size-options"
+        options={["10", "25", "50", "all"].map((value) => ({
+          value,
+          label: value === "all" ? text.allEntries : value,
+        }))}
+      />
       {error && (
         <div>
           <p role="alert" className="error">
@@ -350,12 +362,46 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
         </div>
       )}
       <button
-        className="primary"
+        className="primary setup-start"
         disabled={!profile || pending || filterLoading || filterError}
       >
         {pending ? text.loading : text.startPractice}
+        <ArrowRight size={18} aria-hidden="true" />
       </button>
     </form>
+  );
+}
+function SetupOptions({
+  legend,
+  name,
+  value,
+  onChange,
+  disabled,
+  className,
+  options,
+}) {
+  return (
+    <fieldset className="setup-options" disabled={disabled}>
+      <legend>{legend}</legend>
+      <div className={className}>
+        {options.map(({ value: optionValue, label, icon: Icon }) => (
+          <label key={optionValue} className="setup-option">
+            <input
+              className="sr-only"
+              type="radio"
+              name={name}
+              value={optionValue}
+              checked={String(value) === String(optionValue)}
+              onChange={(event) => onChange(event.target.value)}
+            />
+            <span>
+              {Icon && <Icon size={18} aria-hidden="true" />}
+              {label}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }
 function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {

@@ -7,6 +7,9 @@ import {
   Leaf,
   House,
   LibraryBig,
+  Layers,
+  ChartNoAxesCombined,
+  Settings,
   LogOut,
 } from "lucide-react";
 import {
@@ -147,9 +150,18 @@ export default function App() {
             <LibraryBig size={18} aria-hidden="true" />
             {text.library}
           </NavLink>
-          <NavLink to="/practice">{text.practice}</NavLink>
-          <NavLink to="/progress">{text.progress}</NavLink>
-          <NavLink to="/settings">{text.settings}</NavLink>
+          <NavLink to="/practice">
+            <Layers size={18} aria-hidden="true" />
+            {text.practice}
+          </NavLink>
+          <NavLink to="/progress">
+            <ChartNoAxesCombined size={18} aria-hidden="true" />
+            {text.progress}
+          </NavLink>
+          <NavLink to="/settings">
+            <Settings size={18} aria-hidden="true" />
+            {text.settings}
+          </NavLink>
           <button disabled={logout.isPending} onClick={() => logout.mutate()}>
             <LogOut size={18} aria-hidden="true" />
             <span>{text.logout}</span>

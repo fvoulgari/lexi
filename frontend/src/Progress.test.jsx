@@ -139,9 +139,7 @@ test("Home greets the selected learner, shows recent recall and opens difficult 
   await userEvent.click(
     screen.getByRole("link", { name: "Practise difficult cards" }),
   );
-  expect(await screen.findByLabelText("Practice type")).toHaveValue(
-    "difficult",
-  );
+  expect(await screen.findByRole("radio", {name: "Difficult cards", exact: true})).toBeChecked();
   expect(screen.getByLabelText("Learner profile")).toHaveValue("f");
 });
 test("Progress shows separate direction counts and switches to an empty learner without stale history", async () => {

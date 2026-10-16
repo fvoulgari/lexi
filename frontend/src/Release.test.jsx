@@ -87,7 +87,7 @@ test.each(["el", "en", "it"])(
     expect(
       await screen.findByRole("heading", { name: text.practice }),
     ).toBeVisible();
-    expect(screen.getByLabelText(text.direction)).toBeVisible();
+    expect(screen.getByRole("group", {name: text.setupDirection})).toBeVisible();
     expect(
       screen.getByRole("button", { name: text.startPractice }),
     ).toBeDisabled();
