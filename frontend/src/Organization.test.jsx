@@ -108,8 +108,7 @@ test("create a unit and assign it while tag controls remain hidden", async () =>
   await user.click(screen.getByRole("button", { name: "New unit" }));
   await user.type(screen.getByLabelText("Unit code"), "007");
   await user.type(screen.getByLabelText("Title"), "A new chapter");
-  await user.clear(screen.getByLabelText("Order"));
-  await user.type(screen.getByLabelText("Order"), "7");
+  expect(screen.queryByLabelText("Order")).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Create" }));
   await waitFor(() =>
     expect(screen.getByRole("button", { name: "New unit" })).toHaveFocus(),
@@ -188,6 +187,7 @@ test("failed unit creation retains the draft for retry with Greek labels", async
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: copy.el.toolsNewUnit }));
   await user.type(screen.getByLabelText(copy.el.unitCode), "007");
+
   await user.type(screen.getByLabelText(copy.el.unitTitle), "Ταξίδι");
   await user.click(screen.getByRole("button", { name: "Δημιουργία" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(

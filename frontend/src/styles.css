@@ -998,6 +998,13 @@ button:disabled {
 .library-tools .csv-example-table th { font-weight: 500; background: #edf1e5; }
 .library-tools .csv-example-table tr:last-child td { border-bottom: 0; }
 .library-tools .csv-requirements { margin-top: 18px; color: #697761; font-size: 13px; line-height: 1.65; }
+.library-tools .unit-creation-hint {
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 12px 14px; margin: 0 0 18px; border-radius: 10px;
+  background: #f0f3e8; color: #697761; font-size: 13px; line-height: 1.65;
+}
+.library-tools .unit-creation-hint svg { margin-top: 3px; flex-shrink: 0; }
+
 .library-tools .csv-requirements summary { cursor: pointer; min-height: 44px; padding-block: 10px; }
 .library-tools .csv-requirements p { margin: 8px 0 0; overflow-wrap: anywhere; }
 .library-tools .csv-import > div { overflow-wrap: anywhere; }

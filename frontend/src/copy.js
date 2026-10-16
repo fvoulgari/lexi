@@ -24,7 +24,7 @@ export const copy = {
     csvUnits: "Proposed new units",
     csvTags: "Proposed new tags",
     csvHint:
-      "Upload UTF-8 CSV, up to 1 MiB and 2000 rows. Required columns: italian, greek, word_type. Separate tags with |. New units need unit_code and unit_title.",
+      "Upload UTF-8 CSV, up to 1 MiB and 2000 rows. Required columns: italian, greek, word_type. Separate tags with |.",
     csvConfirmHint:
       "Confirm to import valid rows. Duplicates and invalid rows are skipped. Current library data is checked again; existing cards are never overwritten.",
     csvLimit: "CSV exceeds the 1 MiB limit.",
@@ -104,6 +104,7 @@ export const copy = {
     createUnit: "Create unit",
     createTag: "Create tag",
     unitCode: "Unit code",
+    unitCreationHint: "New units need unit_code and unit_title.",
     unitTitle: "Title",
     sortOrder: "Order",
     tagName: "Tag name",
@@ -249,7 +250,7 @@ export const copy = {
     csvUnits: "Προτεινόμενες νέες ενότητες",
     csvTags: "Προτεινόμενες νέες ετικέτες",
     csvHint:
-      "Ανεβάστε CSV UTF-8, έως 1 MiB και 2000 γραμμές. Απαιτούνται: italian, greek, word_type. Διαχωρίστε ετικέτες με |. Οι νέες ενότητες χρειάζονται unit_code και unit_title.",
+      "Ανεβάστε CSV UTF-8, έως 1 MiB και 2000 γραμμές. Απαιτούνται: italian, greek, word_type. Διαχωρίστε ετικέτες με |.",
     csvConfirmHint:
       "Επιβεβαιώστε για εισαγωγή έγκυρων γραμμών. Διπλότυπες και μη έγκυρες γραμμές παραλείπονται. Η βιβλιοθήκη ελέγχεται ξανά· υπάρχουσες κάρτες δεν αντικαθίστανται.",
     csvLimit: "Το CSV υπερβαίνει το όριο 1 MiB.",
@@ -330,6 +331,7 @@ export const copy = {
     createUnit: "Δημιουργία ενότητας",
     createTag: "Δημιουργία ετικέτας",
     unitCode: "Κωδικός ενότητας",
+    unitCreationHint: "Οι νέες ενότητες χρειάζονται unit_code και unit_title.",
     unitTitle: "Τίτλος",
     sortOrder: "Σειρά",
     tagName: "Όνομα ετικέτας",
@@ -478,7 +480,7 @@ export const copy = {
     csvUnits: "Nuove unità proposte",
     csvTags: "Nuove etichette proposte",
     csvHint:
-      "Carica CSV UTF-8, fino a 1 MiB e 2000 righe. Colonne obbligatorie: italian, greek, word_type. Separa le etichette con |. Le nuove unità richiedono unit_code e unit_title.",
+      "Carica CSV UTF-8, fino a 1 MiB e 2000 righe. Colonne obbligatorie: italian, greek, word_type. Separa le etichette con |.",
     csvConfirmHint:
       "Conferma per importare le righe valide. Duplicati e righe non valide vengono saltati. La biblioteca viene verificata di nuovo; le schede esistenti non vengono sovrascritte.",
     csvLimit: "Il CSV supera il limite di 1 MiB.",
@@ -559,6 +561,7 @@ export const copy = {
     createUnit: "Crea unità",
     createTag: "Crea etichetta",
     unitCode: "Codice unità",
+    unitCreationHint: "Le nuove unità richiedono unit_code e unit_title.",
     unitTitle: "Titolo",
     sortOrder: "Ordine",
     tagName: "Nome etichetta",

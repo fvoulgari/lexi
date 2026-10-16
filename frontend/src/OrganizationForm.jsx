@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import PropTypes from "prop-types";
+import { Info } from "lucide-react";
 import { request } from "./api.js";
 export default function OrganizationForm({
   kind,
@@ -10,7 +11,7 @@ export default function OrganizationForm({
   onClose,
 }) {
   const [values, setValues] = useState(
-    kind === "units" ? { code: "", title: "", sort_order: "0" } : { name: "" },
+    kind === "units" ? { code: "", title: "" } : { name: "" },
   );
   const first = useRef(null);
   useEffect(() => {
@@ -24,7 +25,7 @@ export default function OrganizationForm({
         headers: { "X-CSRF-Token": csrf },
         body: JSON.stringify(
           kind === "units"
-            ? { ...values, sort_order: Number(values.sort_order) }
+            ? { ...values, sort_order: 0 }
             : values,
         ),
       }),
@@ -39,7 +40,6 @@ export default function OrganizationForm({
   const labels = {
     code: text.unitCode,
     title: text.unitTitle,
-    sort_order: text.sortOrder,
     name: text.tagName,
   };
   return (
@@ -51,7 +51,8 @@ export default function OrganizationForm({
       }}
     >
       <h2>{kind === "units" ? text.createUnit : text.createTag}</h2>
-      <fieldset disabled={save.isPending}>
+      {kind === "units" && <p id="unit-creation-hint" className="unit-creation-hint"><Info size={16} aria-hidden="true" /><span>{text.unitCreationHint}</span></p>}
+      <fieldset disabled={save.isPending} aria-describedby={kind === "units" ? "unit-creation-hint" : undefined}>
         <div className="entry-fields">
           {Object.entries(values).map(([key, value], index) => (
             <label key={key}>
@@ -59,8 +60,7 @@ export default function OrganizationForm({
               <input
                 ref={index === 0 ? first : undefined}
                 required
-                type={key === "sort_order" ? "number" : "text"}
-                step={key === "sort_order" ? "1" : undefined}
+                type="text"
                 maxLength={key === "code" ? 20 : key === "title" ? 160 : 80}
                 value={value}
                 onChange={(event) => {
