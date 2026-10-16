@@ -43,7 +43,6 @@ export default function Progress({ text, onLocked, detailed = false }) {
   const data = history.data;
   return (
     <section className="progress-page">
-      <span className="eyebrow">ITALIAN NOTEBOOK</span>
       <h1>
         {detailed
           ? text.progress
@@ -51,7 +50,6 @@ export default function Progress({ text, onLocked, detailed = false }) {
             ? text.greeting.replace("{name}", profile.display_name)
             : text.welcome}
       </h1>
-      <p>{detailed ? text.progressIntro : text.homeIntro}</p>
       <label htmlFor="progress-profile">{text.profile}</label>
       <select
         id="progress-profile"

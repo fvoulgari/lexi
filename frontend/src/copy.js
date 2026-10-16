@@ -159,18 +159,13 @@ export const copy = {
     createProfile: "Create profile",
     preferencesSaved: "Preferences saved.",
 
-    tagline: "A little Italian, every day.",
     gateTitle: "Welcome to your notebook.",
     gateIntro:
       "A quiet place for new words, familiar expressions, and little discoveries.",
-    gateLabel: "OUR SHARED NOTEBOOK",
     password: "Shared password",
     enter: "Open my notebook",
     entering: "Opening…",
-    gateNote:
-      "For our small circle of learners. One password, a notebook we share.",
-    privacyNote:
-      "Learner profiles keep practice records separate. They are not private accounts.",
+    gateNote: "Unlock to learn lexi-lexi",
     language: "Interface language",
     home: "Home",
     library: "Vocabulary",
@@ -198,7 +193,6 @@ export const copy = {
     expression: "Expression",
     other: "Other",
     welcome: "Benvenuti.",
-    homeIntro: "Every new word is the beginning of a little story.",
     openLibrary: "Explore your vocabulary",
     shared: "A notebook for Foteini & Spyros",
     italian: "Italian",
@@ -378,18 +372,13 @@ export const copy = {
     createProfile: "Δημιουργία προφίλ",
     preferencesSaved: "Οι προτιμήσεις αποθηκεύτηκαν.",
 
-    tagline: "Λίγα ιταλικά, κάθε μέρα.",
     gateTitle: "Καλώς ήρθες στο τετράδιό σου.",
     gateIntro:
       "Ένας ήρεμος χώρος για νέες λέξεις, γνώριμες εκφράσεις και μικρές ανακαλύψεις.",
-    gateLabel: "ΤΟ ΚΟΙΝΟ ΜΑΣ ΤΕΤΡΑΔΙΟ",
     password: "Κοινός κωδικός",
     enter: "Άνοιξε το τετράδιό μου",
     entering: "Ανοίγει…",
-    gateNote:
-      "Για τη μικρή μας παρέα. Ένας κωδικός, ένα τετράδιο που μοιραζόμαστε.",
-    privacyNote:
-      "Τα προφίλ διατηρούν χωριστή πρόοδο. Δεν είναι ιδιωτικοί λογαριασμοί.",
+    gateNote: "Ξεκλείδωσε για να μάθεις lexi-lexi",
     language: "Γλώσσα εφαρμογής",
     home: "Αρχική",
     library: "Λεξιλόγιο",
@@ -417,7 +406,6 @@ export const copy = {
     expression: "Έκφραση",
     other: "Άλλο",
     welcome: "Benvenuti.",
-    homeIntro: "Κάθε νέα λέξη είναι η αρχή μιας μικρής ιστορίας.",
     openLibrary: "Εξερεύνησε το λεξιλόγιο",
     shared: "Ένα τετράδιο για τη Foteini και τον Spyros",
     italian: "Ιταλικά",
@@ -598,18 +586,13 @@ export const copy = {
     createProfile: "Crea profilo",
     preferencesSaved: "Preferenze salvate.",
 
-    tagline: "Un po’ di italiano, ogni giorno.",
     gateTitle: "Benvenuto nel tuo quaderno.",
     gateIntro:
       "Un luogo tranquillo per nuove parole, espressioni familiari e piccole scoperte.",
-    gateLabel: "IL NOSTRO QUADERNO CONDIVISO",
     password: "Password condivisa",
     enter: "Apri il mio quaderno",
     entering: "Apertura…",
-    gateNote:
-      "Per il nostro piccolo gruppo. Una password, un quaderno da condividere.",
-    privacyNote:
-      "I profili tengono separati i progressi. Non sono account privati.",
+    gateNote: "Sblocca per imparare lexi-lexi",
     language: "Lingua dell’interfaccia",
     home: "Home",
     library: "Vocabolario",
@@ -637,7 +620,6 @@ export const copy = {
     expression: "Espressione",
     other: "Altro",
     welcome: "Benvenuti.",
-    homeIntro: "Ogni nuova parola è l’inizio di una piccola storia.",
     openLibrary: "Esplora il vocabolario",
     shared: "Un quaderno per Foteini e Spyros",
     italian: "Italiano",

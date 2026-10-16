@@ -171,6 +171,12 @@ main {
   padding: 36px;
   box-shadow: 0 12px 40px #304f3a08;
 }
+.gate-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
 .lock-icon {
   display: grid;
   place-items: center;
@@ -178,11 +184,11 @@ main {
   height: 52px;
   background: #e9f0e6;
   border-radius: 50%;
-  margin-bottom: 24px;
+  flex-shrink: 0;
 }
 .gate-card h2 {
   font-size: 27px;
-  margin-bottom: 12px;
+  margin: 0;
 }
 .gate-card > p {
   font-size: 14px;
@@ -254,7 +260,6 @@ main {
   margin: 0 auto 24px;
   display: flex;
   gap: 8px;
-  border-bottom: 1px solid #cad9c6;
   padding: 0 0 18px;
 }
 .main-navigation a,
@@ -556,7 +561,6 @@ main {
   .lock-icon {
     width: 44px;
     height: 44px;
-    margin-bottom: 18px;
   }
   .main-navigation {
     position: fixed;

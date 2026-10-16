@@ -63,16 +63,19 @@ export default function App() {
     networkMode: "always",
   });
   const login = useMutation({
-    mutationFn: () =>
-      request("/api/auth/login", {
+    mutationFn: async () => {
+      const freshSession = await request("/api/auth/session");
+      await request("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ password }),
-        headers: { "X-CSRF-Token": session.data.csrf_token },
-      }),
-    onSuccess: () => {
+        headers: { "X-CSRF-Token": freshSession.csrf_token },
+      });
+      return freshSession;
+    },
+    onSuccess: (freshSession) => {
       setPassword("");
       queryClient.setQueryData(["session"], {
-        ...session.data,
+        ...freshSession,
         authenticated: true,
       });
     },
@@ -117,7 +120,7 @@ export default function App() {
             <BookOpen size={24} aria-hidden="true" />
           </span>
           <div>
-            Italian Notebook<small>{text.tagline}</small>
+            Lexi
           </div>
         </div>
         <label className="language-picker">
@@ -195,7 +198,7 @@ export default function App() {
             <section className="gate-intro">
               <span className="eyebrow">
                 <Leaf size={15} aria-hidden="true" />
-                {text.gateLabel}
+                ITALIAN NOTEBOOK
               </span>
               <h1>{text.gateTitle}</h1>
               <p>{text.gateIntro}</p>
@@ -210,11 +213,12 @@ export default function App() {
               </div>
             </section>
             <section className="gate-card">
-              <span className="lock-icon">
-                <LockKeyhole size={24} aria-hidden="true" />
-              </span>
-              <h2>Italian Notebook</h2>
-              <p>{text.gateNote}</p>
+              <div className="gate-card-heading">
+                <span className="lock-icon">
+                  <LockKeyhole size={24} aria-hidden="true" />
+                </span>
+                <h2>{text.gateNote}</h2>
+              </div>
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -248,7 +252,6 @@ export default function App() {
                   <ArrowRight size={18} aria-hidden="true" />
                 </button>
               </form>
-              <p className="privacy-note">{text.privacyNote}</p>
             </section>
           </div>
         ) : (

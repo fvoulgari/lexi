@@ -78,6 +78,34 @@ test("a learner enters the shared password before seeing the library", async () 
   ).toBeInTheDocument();
 });
 
+test("login refreshes a CSRF token rotated after the gate loaded", async () => {
+  let token = "old-token";
+  server.use(
+    http.get("*/api/auth/session", () =>
+      HttpResponse.json({ authenticated: false, csrf_token: token }),
+    ),
+    http.post("*/api/auth/login", ({ request }) => {
+      if (request.headers.get("X-CSRF-Token") !== token) {
+        return HttpResponse.json(
+          { error: { code: "csrf_rejected" } },
+          { status: 403 },
+        );
+      }
+      authenticated = true;
+      return HttpResponse.json({ authenticated: true });
+    }),
+  );
+  renderApp();
+  const user = userEvent.setup();
+  const input = await screen.findByLabelText("Shared password");
+  token = "rotated-token";
+  await user.type(input, "our-notebook-password");
+  await user.click(screen.getByRole("button", { name: "Open my notebook" }));
+  expect(
+    await screen.findByRole("heading", { name: "Your vocabulary notebook" }),
+  ).toBeInTheDocument();
+});
+
 test("a learner browses entries loaded from the API and moves to the next page", async () => {
   authenticated = true;
   server.use(
