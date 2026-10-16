@@ -35,6 +35,7 @@ const server = createServer(async (req, res) => {
               {
                 id: "1",
                 display_name: "Learner",
+                practice_unit_ids: ["u"],
                 preferred_direction: "greek_to_italian",
                 default_session_size: 10,
               },

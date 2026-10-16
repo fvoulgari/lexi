@@ -88,6 +88,7 @@ def test_concurrent_review_and_deletion_never_erase_or_orphan_history(logged_in)
         entry = logged_in.post(
             "/api/vocabulary",
             json={
+                "unit_id": logged_in.get("/api/units").json()[0]["id"],
                 "italian": f"accidentale {number}",
                 "greek": f"λάθος {number}",
                 "word_type": "other",

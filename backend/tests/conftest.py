@@ -14,11 +14,13 @@ from app.models import (
     LearningProgress,
     LoginThrottle,
     PracticeSession,
+    Profile,
     ReviewEvent,
     SessionCard,
     Tag,
     Unit,
     VocabularyEntry,
+    profile_practice_units,
 )
 from app.seed import seed
 
@@ -54,11 +56,25 @@ def client(test_database):
             connection.execute(delete(model))
         connection.execute(delete(VocabularyEntry))
         connection.execute(delete(Tag))
+        connection.execute(delete(profile_practice_units))
         connection.execute(delete(Unit))
         connection.execute(delete(GateSession))
         connection.execute(delete(LoginThrottle))
     engine.dispose()
     seed()
+    # Original seeded learners stand in for migrated users in existing tests.
+    # New-profile tests exercise the explicit empty-selection contract.
+    from sqlalchemy import insert, select, true
+
+    with engine.begin() as connection:
+        connection.execute(
+            insert(profile_practice_units).from_select(
+                ["profile_id", "unit_id"],
+                select(Profile.id, Unit.id).select_from(
+                    Profile.__table__.join(Unit.__table__, true())
+                ),
+            )
+        )
     with TestClient(create_app()) as client:
         yield client
 

@@ -17,6 +17,7 @@ class UnitOutput(BaseModel):
     code: str
     title: str
     sort_order: int
+    card_count: int = 0
 
 
 class UnitCreate(BaseModel):
@@ -42,6 +43,7 @@ class ProfileCreate(BaseModel):
     display_name: ProfileName
     preferred_direction: Direction = "greek_to_italian"
     default_session_size: SessionSize = 25
+    practice_unit_ids: list[UUID] = []
 
 
 class ProfileUpdate(BaseModel):
@@ -49,6 +51,7 @@ class ProfileUpdate(BaseModel):
     display_name: ProfileName | None = None
     preferred_direction: Direction | None = None
     default_session_size: SessionSize | None = None
+    practice_unit_ids: list[UUID] | None = None
 
     @model_validator(mode="after")
     def reject_explicit_null(self):
@@ -67,6 +70,7 @@ class ProfileOutput(BaseModel):
     preferred_direction: Direction
     default_session_size: SessionSize
     created_at: datetime
+    practice_unit_ids: list[UUID]
 
 
 class TagCreate(BaseModel):
@@ -155,6 +159,7 @@ class VocabularyFields(BaseModel):
 
 
 class VocabularyCreate(VocabularyFields):
+    unit_id: UUID
     italian: EntryText
     greek: EntryText
     word_type: WordType
@@ -165,7 +170,7 @@ class VocabularyUpdate(VocabularyFields):
     greek: EntryText | None = None
     word_type: WordType | None = None
 
-    @field_validator("italian", "greek", "word_type", mode="before")
+    @field_validator("italian", "greek", "word_type", "unit_id", mode="before")
     @classmethod
     def required_fields_cannot_be_null(cls, value):
         if value is None:

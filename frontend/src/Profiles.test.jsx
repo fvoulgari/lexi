@@ -15,6 +15,7 @@ import {
 import App from "./App.jsx";
 let profiles;
 const server = setupServer(
+  http.get("*/api/units", () => HttpResponse.json([{id: "u", code: "00", title: "Benvenuti", card_count: 10}])),
   http.get("*/api/auth/session", () =>
     HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
   ),
@@ -43,13 +44,15 @@ beforeEach(() => {
     {
       id: "f",
       display_name: "Foteini",
-      preferred_direction: "greek_to_italian",
+      practice_unit_ids: ["u"],
+        preferred_direction: "greek_to_italian",
       default_session_size: 25,
     },
     {
       id: "s",
       display_name: "Spyros",
-      preferred_direction: "italian_to_greek",
+      practice_unit_ids: ["u"],
+        preferred_direction: "italian_to_greek",
       default_session_size: 10,
     },
   ];
@@ -179,4 +182,21 @@ test("profile load errors can retry and revoked access returns to the gate", asy
   status = 401;
   openSettings();
   expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
+});
+
+test("practice units persist, clear explicitly and select only current units", async () => {
+  localStorage.setItem("notebook-profile", "f");
+  openSettings();
+  const user = userEvent.setup();
+  const unit = await screen.findByRole("checkbox", {name: "00 · Benvenuti — 10 cards"});
+  expect(unit).toBeChecked();
+  await user.click(screen.getByRole("button", {name: "Clear selections"}));
+  expect(unit).not.toBeChecked();
+  await user.click(screen.getByRole("button", {name: "Save changes"}));
+  await screen.findByText("Preferences saved.");
+  expect(profiles.find(p => p.id === "f").practice_unit_ids).toEqual([]);
+  await user.click(screen.getByRole("button", {name: "Select all"}));
+  await user.click(screen.getByRole("button", {name: "Save changes"}));
+  await waitFor(() => expect(profiles.find(p => p.id === "f").practice_unit_ids).toEqual(["u"]));
+  expect(profiles.find(p => p.id === "s").practice_unit_ids).toEqual(["u"]);
 });

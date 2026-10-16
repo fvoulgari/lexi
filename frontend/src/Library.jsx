@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, Upload, Download, FolderPlus } from "lucide-react";
 import PropTypes from "prop-types";
+import EnablePracticeUnit from "./EnablePracticeUnit.jsx";
 import CardActions from "./CardActions.jsx";
 import Import from "./Import.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
@@ -356,6 +357,7 @@ export default function Library({ text, csrf, onLocked }) {
             <span lang="el">{saved.entry.greek}</span>
           </p>
           {saved.duplicate_ids.length > 0 && <p>{text.duplicateWarning}</p>}
+          {saved.entry.unit?.id && <EnablePracticeUnit key={saved.entry.unit.id} unitId={saved.entry.unit.id} text={text} csrf={csrf} onLocked={onLocked} />}
         </div>
       )}
 

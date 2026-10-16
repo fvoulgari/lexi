@@ -1,3 +1,4 @@
+import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -8,6 +9,7 @@ import Library from "./Library.jsx";
 import { copy } from "./copy.js";
 let lastParams;
 const server = setupServer(
+ http.get("*/api/profiles", () => HttpResponse.json([])),
   http.get("*/api/units", () =>
     HttpResponse.json([
       { id: "u", code: "003", title: "Travel", sort_order: 3 },
@@ -23,6 +25,7 @@ const server = setupServer(
           italian: lastParams.get("page") === "2" ? "due" : "uno",
           greek: "ένα",
           word_type: "noun",
+          unit: {id:"u", code:"003", title:"Travel"},
           tags: [],
         },
       ],
@@ -40,7 +43,7 @@ function open(text = copy.en) {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Library text={text} csrf="csrf" onLocked={() => {}} />
+      <MemoryRouter><Library text={text} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -122,7 +125,7 @@ test("create a unit and assign it while tag controls remain hidden", async () =>
   await user.type(screen.getByLabelText("Italian *"), "viaggiare");
   await user.type(screen.getByLabelText("Greek *"), "ταξιδεύω");
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
-  await user.selectOptions(screen.getByLabelText("Unit"), "new-unit");
+  await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "new-unit");
   expect(
     screen.queryByRole("group", { name: "Assign tags" }),
   ).not.toBeInTheDocument();
@@ -144,7 +147,7 @@ test("editing preserves hidden tags while allowing unit changes in Italian", asy
             greek: "σπίτι",
             word_type: "noun",
             unit: { id: "u", code: "003", title: "Travel" },
-            tags: [{ id: "t", name: "Daily" }],
+                  tags: [{ id: "t", name: "Daily" }],
           },
         ],
         total: 1,
@@ -161,14 +164,14 @@ test("editing preserves hidden tags while allowing unit changes in Italian", asy
   open(copy.it);
   const user = userEvent.setup();
   await user.click(await cardAction("Modifica scheda: casa"));
-  expect(screen.getByLabelText("Unità")).toHaveValue("u");
+  expect(screen.getByRole("combobox", {name: "Unità *"})).toHaveValue("u");
   expect(
     screen.queryByRole("group", { name: "Assegna etichette" }),
   ).not.toBeInTheDocument();
-  await user.selectOptions(screen.getByLabelText("Unità"), "");
+  await user.selectOptions(screen.getByRole("combobox", {name: "Unità *"}), "u");
   await user.click(screen.getByRole("button", { name: "Salva scheda" }));
   await waitFor(() => expect(saved?.tag_ids).toEqual(["t"]));
-  expect(saved.unit_id).toBeNull();
+  expect(saved.unit_id).toBe("u");
 });
 
 test("failed unit creation retains the draft for retry with Greek labels", async () => {
@@ -219,6 +222,7 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
                   italian: second ? "last" : "first",
                   greek: "ένα",
                   word_type: "noun",
+                  unit: {id:"u", code:"003", title:"Travel"},
                   tags: [{ id: "t", name: "Daily" }],
                 },
               ],

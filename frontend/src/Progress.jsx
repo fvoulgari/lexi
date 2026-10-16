@@ -32,7 +32,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
   const error = profiles.error || history.error;
 
   const difficultDirection =
-    data?.directions?.find((row) => row.difficult_entries > 0)?.key ||
+    data?.directions?.find((row) => row.practice_difficult_entries > 0)?.key ||
     profile?.preferred_direction;
 
   const difficultPracticeUrl = difficultDirection
@@ -230,11 +230,11 @@ export default function Progress({ text, onLocked, detailed = false }) {
             </section>
           )}
 
-          {!detailed && data.difficult_entries > 0 && (
+          {!detailed && data.practice_difficult_entries > 0 && (
             <div className="home-difficult">
               <span>
                 {text.difficultCount}
-                <strong>{data.difficult_entries}</strong>
+                <strong>{data.practice_difficult_entries}</strong>
               </span>
 
               <Link className="home-difficult-button" to={difficultPracticeUrl}>
@@ -419,19 +419,22 @@ function DetailedProgress({
           >
             <h2>{text.detailCardsToReview}</h2>
             {data.directions
-              .filter((row) => row.difficult_entries > 0)
+              .filter((row) => row.practice_difficult_entries > 0)
               .map((row) => (
                 <DifficultEntries
                   key={`${profile.id}-${row.key}`}
                   text={text}
                   profileId={profile.id}
                   direction={row.key}
-                  count={row.difficult_entries}
+                  count={row.practice_difficult_entries}
                   onLocked={onLocked}
                 />
               ))}
-            {!data.difficult_entries && (
-              <p className="detail-muted">{text.noDifficultEntries}</p>
+            {!data.practice_difficult_entries && (
+              <p className="detail-muted">
+                {profile.practice_unit_ids?.length ? text.noDifficultEntries : text.noPracticeUnits}
+                {!profile.practice_unit_ids?.length && <> <Link to="/settings#practice-units">{text.settings}</Link></>}
+              </p>
             )}
           </section>
         </>

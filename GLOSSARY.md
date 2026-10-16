@@ -30,8 +30,11 @@ The optional grammatical gender of the Italian expression in a vocabulary entry,
 The optional grammatical gender of the Greek expression in a vocabulary entry, independent of the Italian expression's gender.
 
 **Unit**:
-An optional teaching chapter identified by a stable code, display title, and ordering. Each entry belongs to at most one unit.
+A teaching chapter identified by a stable code, display title, and ordering. Every vocabulary card belongs to exactly one unit. Units and their cards are shared by all learners.
 _Avoid_: Category, tag
+
+**Practice units**:
+The units a learner has chosen as their practice pool, narrowed further by session filters. An empty selection provides no practice cards, new units require a separate choice, and changing the selection preserves learning history.
 
 **Tag**:
 A thematic label shared by vocabulary entries. An entry may have multiple tags independently of its unit and word type.

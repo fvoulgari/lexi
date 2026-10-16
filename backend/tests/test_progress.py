@@ -89,7 +89,7 @@ def test_breakdowns_preserve_review_time_units_and_types(logged_in):
     entries = client.get("/api/vocabulary?page_size=100").json()["items"]
     units = client.get("/api/units").json()
     for entry, unit_id, word_type in [
-        (entries[0], None, "noun"),
+        (entries[0], units[1]["id"], "noun"),
         (entries[1], units[0]["id"], "verb"),
     ]:
         assert (
@@ -115,7 +115,7 @@ def test_breakdowns_preserve_review_time_units_and_types(logged_in):
         "verb": 1,
     }
     assert {row["key"]: row["total_reviews"] for row in data["units"]} == {
-        None: 1,
+        units[1]["code"]: 1,
         units[0]["code"]: 1,
     }
     assert data["recent_session"]["remembered"] == 50

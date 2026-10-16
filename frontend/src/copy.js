@@ -7,6 +7,21 @@ export const copy = {
     exporting: "Exporting…",
     exportStarted: "CSV download started.",
     ...progressCopy.en,
+    chooseUnit: "Choose a unit",
+    practiceUnitsTitle: "Practice units",
+    practiceUnitsHint: "Choose which units to include in your practice.",
+    selectAllUnits: "Select all",
+    unitCardCount: "{count} cards",
+    unitCardCountOne: "{count} card",
+    noPracticeUnits: "Choose units to start practising.",
+    practiceScopeEmpty:
+      "The selected units have no eligible cards for this practice.",
+    enablePracticeUnit: "Enable this unit for {name}",
+    unitEnabled: "This unit is enabled for {name}.",
+    choosePracticeProfile: "Choose a profile in settings to enable this unit.",
+    csvDestination: "Import destination",
+    csvUnitConflict:
+      "The CSV unit columns differ from the selected destination. All new cards will be imported into your selected unit. Existing cards are unchanged.",
     setupPracticeType: "Practice mode",
     setupRandomPractice: "Random cards",
     setupCategoryPractice: "With filters",
@@ -138,6 +153,7 @@ export const copy = {
     fieldHint:
       "Enter the required text and choose a listed value. Text is limited to 500 characters, or 10,000 for examples, notes and pronunciation.",
     fields: {
+      unit_id: "Unit",
       italian: "Italian",
       greek: "Greek",
       word_type: "Word type",
@@ -214,6 +230,8 @@ export const copy = {
     skip: "Skip to content",
     libraryNote: "One word at a time.",
     errors: {
+      no_practice_units: "Choose units to start practising.",
+      invalid_unit: "Choose a unit",
       entry_reviewed: "This card has reviews and cannot be deleted.",
       entry_deleted:
         "This unreviewed card was deleted. It was skipped and the session count was adjusted.",
@@ -252,6 +270,23 @@ export const copy = {
     exporting: "Εξαγωγή…",
     exportStarted: "Η λήψη CSV ξεκίνησε.",
     ...progressCopy.el,
+    chooseUnit: "Επίλεξε ενότητα",
+    practiceUnitsTitle: "Ενότητες εξάσκησης",
+    practiceUnitsHint:
+      "Διάλεξε ποιες ενότητες θα χρησιμοποιούνται στην εξάσκησή σου.",
+    selectAllUnits: "Επιλογή όλων",
+    unitCardCount: "{count} κάρτες",
+    unitCardCountOne: "{count} κάρτα",
+    noPracticeUnits: "Διάλεξε ενότητες για να ξεκινήσεις εξάσκηση.",
+    practiceScopeEmpty:
+      "Οι επιλεγμένες ενότητες δεν έχουν διαθέσιμες κάρτες για αυτή την εξάσκηση.",
+    enablePracticeUnit: "Ενεργοποίηση ενότητας για το προφίλ {name}",
+    unitEnabled: "Η ενότητα είναι ενεργή για το προφίλ {name}.",
+    choosePracticeProfile:
+      "Επίλεξε προφίλ στις ρυθμίσεις για να ενεργοποιήσεις αυτή την ενότητα.",
+    csvDestination: "Ενότητα εισαγωγής",
+    csvUnitConflict:
+      "Οι ενότητες που αναφέρονται στο CSV διαφέρουν από την επιλεγμένη. Όλες οι νέες κάρτες θα εισαχθούν στην ενότητα που επέλεξες. Οι υπάρχουσες κάρτες δεν αλλάζουν.",
     setupPracticeType: "Τρόπος εξάσκησης",
     setupRandomPractice: "Τυχαίες κάρτες",
     setupCategoryPractice: "Με φίλτρα",
@@ -384,6 +419,7 @@ export const copy = {
     fieldHint:
       "Συμπλήρωσε το υποχρεωτικό κείμενο και επίλεξε τιμή από τη λίστα. Όριο 500 χαρακτήρων ή 10.000 για παραδείγματα, σημειώσεις και προφορά.",
     fields: {
+      unit_id: "Ενότητα",
       italian: "Ιταλικά",
       greek: "Ελληνικά",
       word_type: "Μέρος του λόγου",
@@ -460,6 +496,8 @@ export const copy = {
     skip: "Μετάβαση στο περιεχόμενο",
     libraryNote: "Μια λέξη τη φορά.",
     errors: {
+      no_practice_units: "Διάλεξε ενότητες για να ξεκινήσεις εξάσκηση.",
+      invalid_unit: "Επίλεξε ενότητα",
       entry_reviewed:
         "Αυτή η κάρτα έχει αξιολογήσεις και δεν μπορεί να διαγραφεί.",
       entry_deleted:
@@ -501,6 +539,22 @@ export const copy = {
     exporting: "Esportazione…",
     exportStarted: "Download CSV avviato.",
     ...progressCopy.it,
+    chooseUnit: "Scegli un’unità",
+    practiceUnitsTitle: "Unità di esercitazione",
+    practiceUnitsHint: "Scegli quali unità includere nelle tue esercitazioni.",
+    selectAllUnits: "Seleziona tutte",
+    unitCardCount: "{count} schede",
+    unitCardCountOne: "{count} scheda",
+    noPracticeUnits: "Scegli le unità per iniziare a esercitarti.",
+    practiceScopeEmpty:
+      "Le unità selezionate non hanno schede disponibili per questa esercitazione.",
+    enablePracticeUnit: "Attiva questa unità per {name}",
+    unitEnabled: "Questa unità è attiva per {name}.",
+    choosePracticeProfile:
+      "Scegli un profilo nelle impostazioni per attivare questa unità.",
+    csvDestination: "Unità di importazione",
+    csvUnitConflict:
+      "Le colonne delle unità nel CSV differiscono dalla destinazione selezionata. Tutte le nuove schede saranno importate nell’unità scelta. Le schede esistenti non vengono modificate.",
     setupPracticeType: "Modalità di esercitazione",
     setupRandomPractice: "Schede casuali",
     setupCategoryPractice: "Con filtri",
@@ -635,6 +689,7 @@ export const copy = {
     fieldHint:
       "Inserisci il testo obbligatorio e scegli un valore dalla lista. Limite di 500 caratteri, o 10.000 per esempi, note e pronuncia.",
     fields: {
+      unit_id: "Unità",
       italian: "Italiano",
       greek: "Greco",
       word_type: "Tipo di parola",
@@ -711,6 +766,8 @@ export const copy = {
     skip: "Vai al contenuto",
     libraryNote: "Una parola alla volta.",
     errors: {
+      no_practice_units: "Scegli le unità per iniziare a esercitarti.",
+      invalid_unit: "Scegli un’unità",
       entry_reviewed:
         "Questa scheda ha delle revisioni e non può essere eliminata.",
       entry_deleted:

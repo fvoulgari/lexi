@@ -11,6 +11,7 @@ def headers(client):
 
 def test_meaning_can_be_added_and_edited_across_devices(logged_in):
     body = {
+        "unit_id": logged_in.get("/api/units").json()[0]["id"],
         "italian": "  il perché  ",
         "greek": "το γιατί",
         "word_type": "noun",
@@ -27,7 +28,7 @@ def test_meaning_can_be_added_and_edited_across_devices(logged_in):
     assert response.status_code == 201
     entry = response.json()["entry"]
     assert entry["italian"] == "il perché"
-    for field in body.keys() - {"italian"}:
+    for field in body.keys() - {"italian", "unit_id"}:
         assert entry[field] == body[field]
     with TestClient(create_app()) as device:
         device.post(
@@ -54,13 +55,19 @@ def test_meaning_can_be_added_and_edited_across_devices(logged_in):
 def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
     first = logged_in.post(
         "/api/vocabulary",
-        json={"italian": "il caffè", "greek": "ο καφές", "word_type": "noun"},
+        json={
+            "unit_id": logged_in.get("/api/units").json()[0]["id"],
+            "italian": "il caffè",
+            "greek": "ο καφές",
+            "word_type": "noun",
+        },
         headers=headers(logged_in),
     ).json()
     assert first["duplicate_ids"]
     duplicate = logged_in.post(
         "/api/vocabulary",
         json={
+            "unit_id": logged_in.get("/api/units").json()[0]["id"],
             "italian": " IL CAFFE\u0300 ",
             "greek": " Ο ΚΑΦΕ\u0301Σ ",
             "word_type": "noun",
@@ -83,7 +90,12 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
     ]:
         saved = logged_in.post(
             "/api/vocabulary",
-            json={"italian": italian, "greek": greek, "word_type": "noun"},
+            json={
+                "unit_id": logged_in.get("/api/units").json()[0]["id"],
+                "italian": italian,
+                "greek": greek,
+                "word_type": "noun",
+            },
             headers=headers(logged_in),
         ).json()
         assert saved["duplicate_ids"] == []

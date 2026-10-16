@@ -403,7 +403,7 @@ def test_category_queue_combines_library_filters_and_persists(logged_in):
             f"/api/vocabulary/{entry['id']}",
             headers=csrf,
             json={
-                "unit_id": None if index == 0 else units[0]["id"],
+                "unit_id": units[0]["id"],
                 "word_type": "noun" if index < 2 else "verb",
                 "tag_ids": tag_ids if index == 0 else [tag_ids[1]],
             },
@@ -451,8 +451,9 @@ def test_category_queue_combines_library_filters_and_persists(logged_in):
             "size": None,
             "no_unit": True,
         },
-    ).json()
-    assert [c["entry_id"] for c in only_unassigned["cards"]] == [entries[0]["id"]]
+    )
+    assert only_unassigned.status_code == 409
+    assert only_unassigned.json()["error"]["code"] == "no_matches"
     empty = client.post(
         "/api/sessions",
         headers=csrf,
@@ -477,6 +478,7 @@ def test_category_queue_size_all_and_filter_validation(logged_in):
             "/api/vocabulary",
             headers=csrf,
             json={
+                "unit_id": client.get("/api/units").json()[0]["id"],
                 "italian": f"voce {index}",
                 "greek": f"λέξη {index}",
                 "word_type": "noun" if index < 6 else "verb",
@@ -577,6 +579,7 @@ def test_mixed_quotas_overlap_and_recent_boundary(
                 "/api/vocabulary",
                 headers=csrf,
                 json={
+                    "unit_id": client.get("/api/units").json()[0]["id"],
                     "italian": f"entry {index}",
                     "greek": f"έννοια {index}",
                     "word_type": "noun",
@@ -665,6 +668,7 @@ def test_mixed_isolation_excluded_times_and_partial_backfill(
             "/api/vocabulary",
             headers=csrf,
             json={
+                "unit_id": client.get("/api/units").json()[0]["id"],
                 "italian": f"aaa entry {index - 12 if index >= 27 else index:02}",
                 "greek": f"έννοια {index}",
                 "word_type": "noun",
