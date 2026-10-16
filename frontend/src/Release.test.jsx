@@ -46,7 +46,7 @@ function open(language, route = "/") {
 }
 
 test.each(["el", "en", "it"])(
-  "all screens and empty-state entry forms are labelled in %s",
+  "all screens and empty-state card forms are labelled in %s",
   async (language) => {
     const text = copy[language];
     open(language);

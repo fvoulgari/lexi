@@ -106,7 +106,7 @@ test("login refreshes a CSRF token rotated after the gate loaded", async () => {
   ).toBeInTheDocument();
 });
 
-test("a learner browses entries loaded from the API and moves to the next page", async () => {
+test("a learner browses cards loaded from the API and moves to the next page", async () => {
   authenticated = true;
   server.use(
     http.get("*/api/vocabulary", ({ request }) => {

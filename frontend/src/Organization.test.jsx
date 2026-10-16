@@ -111,7 +111,7 @@ test("create a unit and tags then assign them independently of word type", async
     await user.click(screen.getByRole("button", { name: "Create" }));
     await screen.findByRole("checkbox", { name });
   }
-  await user.click(screen.getByRole("button", { name: "Add entry" }));
+  await user.click(screen.getByRole("button", { name: "Add card" }));
   await user.type(screen.getByLabelText("Italian *"), "viaggiare");
   await user.type(screen.getByLabelText("Greek *"), "ταξιδεύω");
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
@@ -120,7 +120,7 @@ test("create a unit and tags then assign them independently of word type", async
   const { within } = await import("@testing-library/react");
   await user.click(within(form).getByRole("checkbox", { name: "Travel" }));
   await user.click(within(form).getByRole("checkbox", { name: "Food" }));
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  await user.click(screen.getByRole("button", { name: "Save card" }));
   await waitFor(() => expect(saved?.tag_ids).toEqual(["tag-0", "tag-1"]));
   expect(saved.unit_id).toBe("new-unit");
   expect(saved.word_type).toBe("verb");
@@ -155,7 +155,7 @@ test("editing retains assignments across languages and clears them on save", asy
   open(copy.it);
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: "Modifica voce: casa" }),
+    await screen.findByRole("button", { name: "Modifica scheda: casa" }),
   );
   expect(screen.getByLabelText("Unità")).toHaveValue("u");
   const { within } = await import("@testing-library/react");
@@ -165,7 +165,7 @@ test("editing retains assignments across languages and clears them on save", asy
   expect(assignments.getByRole("checkbox", { name: "Daily" })).toBeChecked();
   await user.selectOptions(screen.getByLabelText("Unità"), "");
   await user.click(assignments.getByRole("checkbox", { name: "Daily" }));
-  await user.click(screen.getByRole("button", { name: "Salva voce" }));
+  await user.click(screen.getByRole("button", { name: "Salva scheda" }));
   await waitFor(() => expect(saved?.tag_ids).toEqual([]));
   expect(saved.unit_id).toBeNull();
 });
@@ -234,7 +234,7 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
   await user.click(await screen.findByRole("checkbox", { name: "Daily" }));
   await user.click(await screen.findByRole("button", { name: "Next page" }));
   await user.click(
-    await screen.findByRole("button", { name: "Edit entry: last" }),
+    await screen.findByRole("button", { name: "Edit card: last" }),
   );
   const { within } = await import("@testing-library/react");
   await user.click(
@@ -243,7 +243,7 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
       { name: "Daily" },
     ),
   );
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(
     await screen.findByRole("heading", { name: "first" }),
   ).toBeInTheDocument();

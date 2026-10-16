@@ -7,6 +7,10 @@ export const copy = {
     exporting: "Exporting…",
     exportStarted: "CSV download started.",
     ...progressCopy.en,
+    homePracticeTitle: "Your next word is waiting.",
+    homePracticeHint: "Practise with your flashcards and build your learning history.",
+    homeNotebook: "Your notebook",
+    homeEmptyTitle: "Expand your vocabulary, lexi-lexi.",
     csvExample: "Download example CSV",
     csvImport: "Import vocabulary",
     csvFile: "CSV file",
@@ -14,13 +18,13 @@ export const copy = {
     csvConfirm: "Confirm import",
     csvResult: "Import results",
     csvRow: "Row",
-    csvDetails: "Entry details",
+    csvDetails: "Card details",
     csvUnits: "Proposed new units",
     csvTags: "Proposed new tags",
     csvHint:
       "Upload UTF-8 CSV, up to 1 MiB and 2000 rows. Required columns: italian, greek, word_type. Separate tags with |. New units need unit_code and unit_title.",
     csvConfirmHint:
-      "Confirm to import valid rows. Duplicates and invalid rows are skipped. Current library data is checked again; existing entries are never overwritten.",
+      "Confirm to import valid rows. Duplicates and invalid rows are skipped. Current library data is checked again; existing cards are never overwritten.",
     csvLimit: "CSV exceeds the 1 MiB limit.",
     csvInvalid: "Check the CSV file.",
     csvCounts: {
@@ -31,13 +35,13 @@ export const copy = {
       error: "Error",
     },
 
-    deleteEntry: "Delete entry",
+    deleteEntry: "Delete card",
     confirmDelete: "Permanently delete",
     deleteWarning:
-      "This permanently removes an entry only if it has no reviews.",
-    entryDeleted: "Entry deleted.",
+      "This permanently removes an card only if it has no reviews.",
+    entryDeleted: "Card deleted.",
     entrySkipped:
-      "This unreviewed entry was deleted. It was skipped and the session count was adjusted.",
+      "This unreviewed card was deleted. It was skipped and the session count was adjusted.",
     motionReducedActive: "Reduced motion is active.",
     motionFullActive: "Full motion is active.",
     deviceSettings: "Device settings",
@@ -58,15 +62,15 @@ export const copy = {
     mixedExplanation:
       "40% difficult, 30% reviewed in the last seven days, 30% random. Shortages are filled from the library without repeats.",
     noDifficultEntries:
-      "No difficult entries for this learner and direction. Review vocabulary first or choose another direction.",
+      "No difficult cards for this learner and direction. Review vocabulary first or choose another direction.",
     difficultyExplanation:
-      "Difficult entries have at least one review and a weighted difficulty score of 0.5 or more. Inactivity does not change difficulty.",
+      "Difficult cards have at least one review and a weighted difficulty score of 0.5 or more. Inactivity does not change difficulty.",
 
     randomPractice: "Random practice",
     practiceType: "Practice type",
     categoryPractice: "Category practice",
     noCategoryMatches:
-      "No entries match these filters. Clear filters or add vocabulary and try again.",
+      "No cards match these filters. Clear filters or add vocabulary and try again.",
     practiceSize: "Session size",
     startPractice: "Start practice",
     revealAnswer: "Reveal answer",
@@ -74,15 +78,15 @@ export const copy = {
     hard: "Hard",
     easy: "Easy",
     shortage:
-      "Only {count} entries are available for your requested {size} cards. Each appears once.",
+      "Only {count} cards are available for your requested {size} cards. Each appears once.",
     noMatches:
-      "No vocabulary entries are available. Add entries to the library and try again.",
+      "No vocabulary cards are available. Add cards to the library and try again.",
     finishPractice: "Finish and see summary",
     sessionSummary: "Session summary",
-    reviewed: "Submitted reviews",
-    remembered: "Remembered this session",
+    reviewed: "Card reviews",
+    remembered: "Recall",
     noReviews: "No reviews yet. Reveal alone does not count as a review.",
-    needsPractice: "Entries needing practice",
+    needsPractice: "Cards needing practice",
     practiceAgain: "Practice Again",
     returnHome: "Return Home",
     practiceRetry: "Retry",
@@ -106,20 +110,20 @@ export const copy = {
     create: "Create",
     created: "Created.",
 
-    addEntry: "Add entry",
-    editEntry: "Edit entry",
-    saveEntry: "Save entry",
+    addEntry: "Add card",
+    editEntry: "Edit card",
+    saveEntry: "Save card",
     cancel: "Cancel",
-    entrySaved: "Entry saved.",
+    entrySaved: "Card saved.",
     chooseType: "Choose a word type",
     unspecified: "Not specified",
     masculine: "Masculine",
     feminine: "Feminine",
     neuter: "Neuter",
     meaningHint:
-      "One meaning per entry. For a different meaning, add a new entry. Required fields are marked *.",
+      "One meaning per card. For a different meaning, add a new card. Required fields are marked *.",
     duplicateWarning:
-      "A matching Italian–Greek pair already exists. Your entry was saved; keep it if it represents a different meaning.",
+      "A matching Italian–Greek pair already exists. Your card was saved; keep it if it represents a different meaning.",
     checkFields: "Check these fields:",
     fieldHint:
       "Enter the required text and choose a listed value. Text is limited to 500 characters, or 10,000 for examples, notes and pronunciation.",
@@ -152,7 +156,7 @@ export const copy = {
     direction: "Learning direction",
     sessionSize: "Default session size",
     sizeHint:
-      "Choose 10, 25, 50, or All entries. Preferences follow this learner across devices.",
+      "Choose 10, 25, 50, or All cards. Preferences follow this learner across devices.",
     nameRequired: "Enter a name of 1–80 characters.",
     saving: "Saving…",
     savePreferences: "Save preferences",
@@ -173,8 +177,8 @@ export const copy = {
     libraryTitle: "Your vocabulary notebook",
     libraryIntro: "New words. A world of possibilities.",
     vocabulary: "VOCABULARY LIBRARY",
-    entries: "entries",
-    entry: "entry",
+    entries: "cards",
+    entry: "card",
     unit: "Unit",
     noUnit: "No unit",
     previous: "Previous page",
@@ -183,7 +187,7 @@ export const copy = {
     of: "of",
     loading: "Opening your notebook…",
     empty: "A fresh page",
-    emptyText: "Your vocabulary entries will appear here.",
+    emptyText: "Your vocabulary cards will appear here.",
     retry: "Try again",
     locked: "Your notebook has been locked. Enter the password to continue.",
     noun: "Noun",
@@ -200,9 +204,9 @@ export const copy = {
     skip: "Skip to content",
     libraryNote: "One word at a time.",
     errors: {
-      entry_reviewed: "This entry has reviews and cannot be deleted.",
+      entry_reviewed: "This card has reviews and cannot be deleted.",
       entry_deleted:
-        "This unreviewed entry was deleted. It was skipped and the session count was adjusted.",
+        "This unreviewed card was deleted. It was skipped and the session count was adjusted.",
       incorrect_password: "That password isn’t quite right. Try again.",
       login_throttled: "Too many attempts. Please try again in a minute.",
       csrf_rejected: "This page needs refreshing. Reload and try again.",
@@ -219,6 +223,10 @@ export const copy = {
     exporting: "Εξαγωγή…",
     exportStarted: "Η λήψη CSV ξεκίνησε.",
     ...progressCopy.el,
+    homePracticeTitle: "Η επόμενη λέξη σε περιμένει.",
+    homePracticeHint: "Ξεκίνα με τις κάρτες σου και χτίσε το δικό σου ιστορικό μάθησης.",
+    homeNotebook: "Το τετράδιό σου",
+    homeEmptyTitle: "Εμπλούτισε το λεξιλόγιό σου, lexi-lexi.",
     csvExample: "Λήψη παραδείγματος CSV",
     csvImport: "Εισαγωγή λεξιλογίου",
     csvFile: "Αρχείο CSV",
@@ -226,13 +234,13 @@ export const copy = {
     csvConfirm: "Επιβεβαίωση εισαγωγής",
     csvResult: "Αποτελέσματα εισαγωγής",
     csvRow: "Γραμμή",
-    csvDetails: "Λεπτομέρειες εγγραφής",
+    csvDetails: "Λεπτομέρειες κάρτας",
     csvUnits: "Προτεινόμενες νέες ενότητες",
     csvTags: "Προτεινόμενες νέες ετικέτες",
     csvHint:
       "Ανεβάστε CSV UTF-8, έως 1 MiB και 2000 γραμμές. Απαιτούνται: italian, greek, word_type. Διαχωρίστε ετικέτες με |. Οι νέες ενότητες χρειάζονται unit_code και unit_title.",
     csvConfirmHint:
-      "Επιβεβαιώστε για εισαγωγή έγκυρων γραμμών. Διπλότυπες και μη έγκυρες γραμμές παραλείπονται. Η βιβλιοθήκη ελέγχεται ξανά· υπάρχουσες εγγραφές δεν αντικαθίστανται.",
+      "Επιβεβαιώστε για εισαγωγή έγκυρων γραμμών. Διπλότυπες και μη έγκυρες γραμμές παραλείπονται. Η βιβλιοθήκη ελέγχεται ξανά· υπάρχουσες κάρτες δεν αντικαθίστανται.",
     csvLimit: "Το CSV υπερβαίνει το όριο 1 MiB.",
     csvInvalid: "Ελέγξτε το αρχείο CSV.",
     csvCounts: {
@@ -243,13 +251,13 @@ export const copy = {
       error: "Σφάλμα",
     },
 
-    deleteEntry: "Διαγραφή καταχώρισης",
+    deleteEntry: "Διαγραφή κάρτας",
     confirmDelete: "Οριστική διαγραφή",
     deleteWarning:
-      "Η καταχώριση διαγράφεται οριστικά μόνο αν δεν έχει αξιολογήσεις.",
-    entryDeleted: "Η καταχώριση διαγράφηκε.",
+      "Η κάρτα διαγράφεται οριστικά μόνο αν δεν έχει αξιολογήσεις.",
+    entryDeleted: "Η κάρτα διαγράφηκε.",
     entrySkipped:
-      "Αυτή η καταχώριση χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
+      "Αυτή η κάρτα χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
     motionReducedActive: "Η μειωμένη κίνηση είναι ενεργή.",
     motionFullActive: "Η πλήρης κίνηση είναι ενεργή.",
     deviceSettings: "Ρυθμίσεις συσκευής",
@@ -265,20 +273,20 @@ export const copy = {
 
     practice: "Εξάσκηση",
     practiceSelection: "Επιλογή εξάσκησης",
-    difficultPractice: "Εξάσκηση δύσκολων καταχωρίσεων",
+    difficultPractice: "Εξάσκηση δύσκολων καρτών",
     mixedPractice: "Μικτή εξάσκηση",
     mixedExplanation:
       "40% δύσκολες, 30% με επανάληψη τις τελευταίες επτά ημέρες, 30% τυχαίες. Τα κενά συμπληρώνονται από τη βιβλιοθήκη χωρίς επαναλήψεις.",
     noDifficultEntries:
-      "Δεν υπάρχουν δύσκολες καταχωρίσεις για αυτό το προφίλ και την κατεύθυνση. Κάνε πρώτα εξάσκηση ή επίλεξε άλλη κατεύθυνση.",
+      "Δεν υπάρχουν δύσκολες κάρτες για αυτό το προφίλ και την κατεύθυνση. Κάνε πρώτα εξάσκηση ή επίλεξε άλλη κατεύθυνση.",
     difficultyExplanation:
-      "Οι δύσκολες καταχωρίσεις έχουν τουλάχιστον μία αξιολόγηση και σταθμισμένη βαθμολογία δυσκολίας τουλάχιστον 0,5. Η αδράνεια δεν αλλάζει τη δυσκολία.",
+      "Οι δύσκολες κάρτες έχουν τουλάχιστον μία αξιολόγηση και σταθμισμένη βαθμολογία δυσκολίας τουλάχιστον 0,5. Η αδράνεια δεν αλλάζει τη δυσκολία.",
 
     randomPractice: "Τυχαία εξάσκηση",
     practiceType: "Τύπος εξάσκησης",
     categoryPractice: "Εξάσκηση ανά κατηγορία",
     noCategoryMatches:
-      "Δεν υπάρχουν καταχωρίσεις με αυτά τα φίλτρα. Καθάρισε τα φίλτρα ή πρόσθεσε λεξιλόγιο και ξαναδοκίμασε.",
+      "Δεν υπάρχουν κάρτες με αυτά τα φίλτρα. Καθάρισε τα φίλτρα ή πρόσθεσε λεξιλόγιο και ξαναδοκίμασε.",
     practiceSize: "Μέγεθος συνεδρίας",
     startPractice: "Έναρξη εξάσκησης",
     revealAnswer: "Εμφάνιση απάντησης",
@@ -286,16 +294,16 @@ export const copy = {
     hard: "Δύσκολο",
     easy: "Εύκολο",
     shortage:
-      "Υπάρχουν μόνο {count} καταχωρίσεις για τις {size} κάρτες που ζήτησες. Κάθε μία εμφανίζεται μία φορά.",
+      "Υπάρχουν μόνο {count} κάρτες για τις {size} κάρτες που ζήτησες. Κάθε μία εμφανίζεται μία φορά.",
     noMatches:
-      "Δεν υπάρχουν καταχωρίσεις. Πρόσθεσε λεξιλόγιο και δοκίμασε ξανά.",
+      "Δεν υπάρχουν κάρτες. Πρόσθεσε λεξιλόγιο και δοκίμασε ξανά.",
     finishPractice: "Τέλος και σύνοψη",
     sessionSummary: "Σύνοψη συνεδρίας",
-    reviewed: "Αποθηκευμένες αξιολογήσεις",
-    remembered: "Θυμήθηκα σε αυτή τη συνεδρία",
+    reviewed: "Επαναλήψεις καρτών",
+    remembered: "Θυμήθηκες",
     noReviews:
       "Δεν υπάρχουν αξιολογήσεις ακόμη. Η εμφάνιση απάντησης δεν μετρά ως αξιολόγηση.",
-    needsPractice: "Καταχωρίσεις για εξάσκηση",
+    needsPractice: "Κάρτες για εξάσκηση",
     practiceAgain: "Εξάσκηση ξανά",
     returnHome: "Επιστροφή στην αρχική",
     practiceRetry: "Ξαναδοκίμασε",
@@ -319,20 +327,20 @@ export const copy = {
     create: "Δημιουργία",
     created: "Δημιουργήθηκε.",
 
-    addEntry: "Προσθήκη καταχώρισης",
-    editEntry: "Επεξεργασία καταχώρισης",
-    saveEntry: "Αποθήκευση καταχώρισης",
+    addEntry: "Προσθήκη κάρτας",
+    editEntry: "Επεξεργασία κάρτας",
+    saveEntry: "Αποθήκευση κάρτας",
     cancel: "Ακύρωση",
-    entrySaved: "Η καταχώριση αποθηκεύτηκε.",
+    entrySaved: "Η κάρτα αποθηκεύτηκε.",
     chooseType: "Επίλεξε μέρος του λόγου",
     unspecified: "Δεν έχει οριστεί",
     masculine: "Αρσενικό",
     feminine: "Θηλυκό",
     neuter: "Ουδέτερο",
     meaningHint:
-      "Μία σημασία ανά καταχώριση. Για διαφορετική σημασία, πρόσθεσε νέα καταχώριση. Τα υποχρεωτικά πεδία έχουν *.",
+      "Μία σημασία ανά κάρτα. Για διαφορετική σημασία, πρόσθεσε νέα κάρτα. Τα υποχρεωτικά πεδία έχουν *.",
     duplicateWarning:
-      "Υπάρχει ήδη ίδιο ζεύγος ιταλικών–ελληνικών. Η καταχώριση αποθηκεύτηκε· κράτησέ την αν εκφράζει διαφορετική σημασία.",
+      "Υπάρχει ήδη ίδιο ζεύγος ιταλικών–ελληνικών. Η κάρτα αποθηκεύτηκε· κράτησέ την αν εκφράζει διαφορετική σημασία.",
     checkFields: "Έλεγξε τα πεδία:",
     fieldHint:
       "Συμπλήρωσε το υποχρεωτικό κείμενο και επίλεξε τιμή από τη λίστα. Όριο 500 χαρακτήρων ή 10.000 για παραδείγματα, σημειώσεις και προφορά.",
@@ -365,7 +373,7 @@ export const copy = {
     direction: "Κατεύθυνση μάθησης",
     sessionSize: "Προεπιλεγμένο μέγεθος συνεδρίας",
     sizeHint:
-      "Επίλεξε 10, 25, 50 ή όλες τις καταχωρίσεις. Οι προτιμήσεις ακολουθούν το προφίλ σε όλες τις συσκευές.",
+      "Επίλεξε 10, 25, 50 ή όλες τις κάρτες. Οι προτιμήσεις ακολουθούν το προφίλ σε όλες τις συσκευές.",
     nameRequired: "Συμπλήρωσε όνομα με 1–80 χαρακτήρες.",
     saving: "Αποθήκευση…",
     savePreferences: "Αποθήκευση προτιμήσεων",
@@ -386,8 +394,8 @@ export const copy = {
     libraryTitle: "Το τετράδιο λεξιλογίου σου",
     libraryIntro: "Νέες λέξεις. Ένας κόσμος γεμάτος δυνατότητες.",
     vocabulary: "ΣΥΛΛΟΓΗ ΛΕΞΙΛΟΓΙΟΥ",
-    entries: "καταχωρίσεις",
-    entry: "καταχώριση",
+    entries: "κάρτες",
+    entry: "κάρτα",
     unit: "Ενότητα",
     noUnit: "Χωρίς ενότητα",
     previous: "Προηγούμενη σελίδα",
@@ -396,7 +404,7 @@ export const copy = {
     of: "από",
     loading: "Το τετράδιό σου ανοίγει…",
     empty: "Μια καινούρια σελίδα",
-    emptyText: "Οι καταχωρίσεις λεξιλογίου σου θα εμφανιστούν εδώ.",
+    emptyText: "Οι κάρτες λεξιλογίου σου θα εμφανιστούν εδώ.",
     retry: "Δοκίμασε ξανά",
     locked: "Το τετράδιο κλειδώθηκε. Βάλε τον κωδικό για να συνεχίσεις.",
     noun: "Ουσιαστικό",
@@ -414,9 +422,9 @@ export const copy = {
     libraryNote: "Μια λέξη τη φορά.",
     errors: {
       entry_reviewed:
-        "Αυτή η καταχώριση έχει αξιολογήσεις και δεν μπορεί να διαγραφεί.",
+        "Αυτή η κάρτα έχει αξιολογήσεις και δεν μπορεί να διαγραφεί.",
       entry_deleted:
-        "Αυτή η καταχώριση χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
+        "Αυτή η κάρτα χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
       incorrect_password: "Ο κωδικός δεν είναι σωστός. Δοκίμασε ξανά.",
       login_throttled: "Πολλές προσπάθειες. Δοκίμασε ξανά σε ένα λεπτό.",
       csrf_rejected:
@@ -434,6 +442,10 @@ export const copy = {
     exporting: "Esportazione…",
     exportStarted: "Download CSV avviato.",
     ...progressCopy.it,
+    homePracticeTitle: "La prossima parola ti aspetta.",
+    homePracticeHint: "Esercitati con le tue schede e costruisci la tua cronologia di apprendimento.",
+    homeNotebook: "Il tuo quaderno",
+    homeEmptyTitle: "Arricchisci il tuo vocabolario, lexi-lexi.",
     csvExample: "Scarica CSV di esempio",
     csvImport: "Importa vocabolario",
     csvFile: "File CSV",
@@ -441,13 +453,13 @@ export const copy = {
     csvConfirm: "Conferma importazione",
     csvResult: "Risultati importazione",
     csvRow: "Riga",
-    csvDetails: "Dettagli della voce",
+    csvDetails: "Dettagli della scheda",
     csvUnits: "Nuove unità proposte",
     csvTags: "Nuove etichette proposte",
     csvHint:
       "Carica CSV UTF-8, fino a 1 MiB e 2000 righe. Colonne obbligatorie: italian, greek, word_type. Separa le etichette con |. Le nuove unità richiedono unit_code e unit_title.",
     csvConfirmHint:
-      "Conferma per importare le righe valide. Duplicati e righe non valide vengono saltati. La biblioteca viene verificata di nuovo; le voci esistenti non vengono sovrascritte.",
+      "Conferma per importare le righe valide. Duplicati e righe non valide vengono saltati. La biblioteca viene verificata di nuovo; le schede esistenti non vengono sovrascritte.",
     csvLimit: "Il CSV supera il limite di 1 MiB.",
     csvInvalid: "Controlla il file CSV.",
     csvCounts: {
@@ -458,13 +470,13 @@ export const copy = {
       error: "Errore",
     },
 
-    deleteEntry: "Elimina voce",
+    deleteEntry: "Elimina scheda",
     confirmDelete: "Elimina definitivamente",
     deleteWarning:
-      "La voce viene eliminata definitivamente solo se non ha revisioni.",
-    entryDeleted: "Voce eliminata.",
+      "La scheda viene eliminata definitivamente solo se non ha revisioni.",
+    entryDeleted: "Scheda eliminata.",
     entrySkipped:
-      "Questa voce senza revisioni è stata eliminata. È stata saltata e il numero di carte è stato aggiornato.",
+      "Questa scheda senza revisioni è stata eliminata. È stata saltata e il numero di schede è stato aggiornato.",
     motionReducedActive: "Il movimento ridotto è attivo.",
     motionFullActive: "Il movimento completo è attivo.",
     deviceSettings: "Impostazioni del dispositivo",
@@ -480,20 +492,20 @@ export const copy = {
 
     practice: "Esercitazione",
     practiceSelection: "Selezione esercitazione",
-    difficultPractice: "Esercitazione delle voci difficili",
+    difficultPractice: "Esercitazione delle schede difficili",
     mixedPractice: "Esercitazione mista",
     mixedExplanation:
       "40% difficili, 30% ripassate negli ultimi sette giorni, 30% casuali. Le carenze sono colmate dalla biblioteca senza ripetizioni.",
     noDifficultEntries:
-      "Nessuna voce difficile per questo profilo e questa direzione. Esercitati prima o scegli un’altra direzione.",
+      "Nessuna scheda difficile per questo profilo e questa direzione. Esercitati prima o scegli un’altra direzione.",
     difficultyExplanation:
-      "Le voci difficili hanno almeno una valutazione e un punteggio ponderato di difficoltà di almeno 0,5. L’inattività non cambia la difficoltà.",
+      "Le schede difficili hanno almeno una valutazione e un punteggio ponderato di difficoltà di almeno 0,5. L’inattività non cambia la difficoltà.",
 
     randomPractice: "Esercitazione casuale",
     practiceType: "Tipo di esercitazione",
     categoryPractice: "Esercitazione per categorie",
     noCategoryMatches:
-      "Nessuna voce corrisponde a questi filtri. Cancella i filtri o aggiungi vocaboli e riprova.",
+      "Nessuna scheda corrisponde a questi filtri. Cancella i filtri o aggiungi vocaboli e riprova.",
     practiceSize: "Dimensione della sessione",
     startPractice: "Inizia esercitazione",
     revealAnswer: "Mostra risposta",
@@ -501,15 +513,15 @@ export const copy = {
     hard: "Difficile",
     easy: "Facile",
     shortage:
-      "Sono disponibili solo {count} voci per le {size} schede richieste. Ogni voce appare una sola volta.",
-    noMatches: "Nessuna voce disponibile. Aggiungi vocaboli e riprova.",
+      "Sono disponibili solo {count} schede per le {size} schede richieste. Ogni scheda appare una sola volta.",
+    noMatches: "Nessuna scheda disponibile. Aggiungi vocaboli e riprova.",
     finishPractice: "Termina e mostra riepilogo",
     sessionSummary: "Riepilogo della sessione",
-    reviewed: "Valutazioni salvate",
-    remembered: "Ricordato in questa sessione",
+    reviewed: "Ripassi delle schede",
+    remembered: "Hai ricordato",
     noReviews:
       "Nessuna valutazione. Mostrare la risposta non conta come valutazione.",
-    needsPractice: "Voci da esercitare",
+    needsPractice: "Schede da esercitare",
     practiceAgain: "Esercitati di nuovo",
     returnHome: "Torna alla home",
     practiceRetry: "Riprova",
@@ -533,20 +545,20 @@ export const copy = {
     create: "Crea",
     created: "Creato.",
 
-    addEntry: "Aggiungi voce",
-    editEntry: "Modifica voce",
-    saveEntry: "Salva voce",
+    addEntry: "Aggiungi scheda",
+    editEntry: "Modifica scheda",
+    saveEntry: "Salva scheda",
     cancel: "Annulla",
-    entrySaved: "Voce salvata.",
+    entrySaved: "Scheda salvata.",
     chooseType: "Scegli il tipo di parola",
     unspecified: "Non specificato",
     masculine: "Maschile",
     feminine: "Femminile",
     neuter: "Neutro",
     meaningHint:
-      "Un significato per voce. Per un significato diverso, aggiungi una nuova voce. I campi obbligatori hanno *.",
+      "Un significato per scheda. Per un significato diverso, aggiungi una nuova scheda. I campi obbligatori hanno *.",
     duplicateWarning:
-      "Esiste già una coppia italiano–greco corrispondente. La voce è stata salvata; mantienila se esprime un significato diverso.",
+      "Esiste già una coppia italiano–greco corrispondente. La scheda è stata salvata; mantienila se esprime un significato diverso.",
     checkFields: "Controlla questi campi:",
     fieldHint:
       "Inserisci il testo obbligatorio e scegli un valore dalla lista. Limite di 500 caratteri, o 10.000 per esempi, note e pronuncia.",
@@ -579,7 +591,7 @@ export const copy = {
     direction: "Direzione di apprendimento",
     sessionSize: "Dimensione predefinita della sessione",
     sizeHint:
-      "Scegli 10, 25, 50 o tutte le voci. Le preferenze seguono il profilo su tutti i dispositivi.",
+      "Scegli 10, 25, 50 o tutte le schede. Le preferenze seguono il profilo su tutti i dispositivi.",
     nameRequired: "Inserisci un nome di 1–80 caratteri.",
     saving: "Salvataggio…",
     savePreferences: "Salva preferenze",
@@ -600,8 +612,8 @@ export const copy = {
     libraryTitle: "Il tuo quaderno di vocaboli",
     libraryIntro: "Nuove parole. Un mondo di possibilità.",
     vocabulary: "RACCOLTA DI VOCABOLI",
-    entries: "voci",
-    entry: "voce",
+    entries: "schede",
+    entry: "scheda",
     unit: "Unità",
     noUnit: "Nessuna unità",
     previous: "Pagina precedente",
@@ -610,7 +622,7 @@ export const copy = {
     of: "di",
     loading: "Apertura del quaderno…",
     empty: "Una pagina nuova",
-    emptyText: "Le tue voci di vocabolario appariranno qui.",
+    emptyText: "Le tue schede di vocabolario appariranno qui.",
     retry: "Riprova",
     locked: "Il quaderno è bloccato. Inserisci la password per continuare.",
     noun: "Sostantivo",
@@ -628,9 +640,9 @@ export const copy = {
     libraryNote: "Una parola alla volta.",
     errors: {
       entry_reviewed:
-        "Questa voce ha delle revisioni e non può essere eliminata.",
+        "Questa scheda ha delle revisioni e non può essere eliminata.",
       entry_deleted:
-        "Questa voce senza revisioni è stata eliminata. È stata saltata e il numero di carte è stato aggiornato.",
+        "Questa scheda senza revisioni è stata eliminata. È stata saltata e il numero di schede è stato aggiornato.",
       incorrect_password: "La password non è corretta. Riprova.",
       login_throttled: "Troppi tentativi. Riprova tra un minuto.",
       csrf_rejected: "Aggiorna la pagina e riprova.",

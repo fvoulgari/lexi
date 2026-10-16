@@ -99,6 +99,10 @@ h2 {
   padding: 8px 12px;
   font-size: 13px;
 }
+/* Route changes focus this container; keep focus rings on interactive controls. */
+main:focus {
+  outline: none;
+}
 main {
   max-width: 1184px;
   margin: auto;
@@ -1210,5 +1214,442 @@ button:disabled {
   }
   main {
     padding-bottom: 160px;
+  }
+}
+
+/* Lexi homepage */
+.progress-page.lexi-home {
+  --home-cream: #f8f7f0;
+  --home-surface: #fffef8;
+  --home-sage: #e8eddf;
+  --home-green: #526e52;
+  --home-ink: #344336;
+  --home-muted: #65715c;
+  --home-border: #dfe5d7;
+
+  width: 100%;
+  max-width: 960px;
+  min-width: 0;
+  margin-inline: auto;
+  padding: clamp(20px, 4vw, 40px);
+  color: var(--home-ink);
+  background: var(--home-cream);
+}
+
+.lexi-home,
+.lexi-home * {
+  box-sizing: border-box;
+}
+
+.lexi-home .progress-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.lexi-home .progress-heading h1 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.7rem, 4vw, 2.1rem);
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+/* Compact learner profile selector */
+.lexi-home .profile-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 10px 40px 10px 12px;
+  border: 1px solid #dce3d4;
+  border-radius: 16px;
+  background: #fffef8;
+  box-shadow: 0 2px 8px rgb(52 67 54 / 3%);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.lexi-home .profile-picker:hover {
+  border-color: #b7c7ad;
+}
+
+.lexi-home .profile-picker:focus-within {
+  border-color: #526e52;
+  box-shadow: 0 0 0 3px rgb(82 110 82 / 12%);
+}
+
+.lexi-home .profile-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #e8eddf;
+  color: #526e52;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lexi-home .profile-picker-field {
+  min-width: 0;
+}
+
+.lexi-home .profile-picker label {
+  display: block;
+  margin: 0 0 2px;
+  color: #727d68;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.lexi-home .profile-picker-name {
+  display: block;
+  max-width: 200px;
+  overflow-wrap: anywhere;
+  color: #344336;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* The native select covers the pill, including its avatar and chevron. */
+.lexi-home .profile-picker select {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.lexi-home .profile-picker::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid #687b5d;
+  border-bottom: 1.5px solid #687b5d;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lexi-home .profile-picker {
+    transition: none;
+  }
+}
+
+.lexi-home .home-practice-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: clamp(22px, 4vw, 30px);
+  border-radius: 20px;
+  background: var(--home-sage);
+}
+
+.lexi-home .home-practice-banner h2 {
+  margin: 0 0 10px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.4rem, 3vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.lexi-home .home-practice-banner p {
+  max-width: 390px;
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.lexi-home .home-start-button,
+.lexi-home .home-difficult-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 12px 18px;
+  border-radius: 11px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.lexi-home .home-start-button {
+  flex-shrink: 0;
+  border: 1px solid var(--home-green);
+  background: var(--home-green);
+  color: #fffef8;
+}
+
+.lexi-home .home-start-button:hover {
+  background: #435e43;
+  box-shadow: 0 4px 12px #34433614;
+}
+
+.lexi-home .home-section-heading {
+  margin: 28px 0 14px;
+}
+
+.lexi-home .home-section-heading h2 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.lexi-home .home-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.lexi-home .home-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 22px 18px;
+  border: 1px solid var(--home-border);
+  border-radius: 15px;
+  background: var(--home-surface);
+}
+
+.lexi-home .home-stats dt {
+  order: 2;
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.lexi-home .home-stats dd {
+  order: 1;
+  margin: 0;
+  color: var(--home-green);
+  font-size: 2rem;
+  font-weight: 400;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.lexi-home .home-empty {
+  margin-top: 24px;
+  padding: 12px 0;
+}
+
+.lexi-home .home-empty h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.lexi-home .home-empty p {
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.lexi-home .home-recent {
+  margin: 24px 0 0;
+  padding: 24px;
+  border: 1px solid var(--home-border);
+  border-radius: 17px;
+  background: var(--home-surface);
+  box-shadow: none;
+}
+
+.lexi-home .home-recent h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.lexi-home .home-session-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin: 22px 0 16px;
+  padding: 0;
+}
+
+.lexi-home .home-session-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lexi-home .home-session-stats > div + div {
+  padding-left: 22px;
+  border-left: 1px solid var(--home-border);
+}
+
+.lexi-home .home-session-stats dt {
+  order: 2;
+  color: var(--home-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.lexi-home .home-session-stats dd {
+  order: 1;
+  margin: 0;
+  color: var(--home-green);
+  font-size: 1.9rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.lexi-home .home-recall-hint {
+  max-width: 560px;
+  margin: 0;
+  color: var(--home-muted);
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+.lexi-home .home-difficult {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 16px 20px;
+  border-radius: 13px;
+  background: #eef1e7;
+}
+
+.lexi-home .home-difficult > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--home-muted);
+  font-size: 0.85rem;
+}
+
+.lexi-home .home-difficult strong {
+  color: var(--home-green);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.lexi-home .home-difficult-button {
+  border: 1px solid #cfd9c5;
+  background: var(--home-surface);
+  color: var(--home-green);
+}
+
+.lexi-home .home-difficult-button:hover {
+  background: #e4eadb;
+}
+
+.lexi-home .home-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin-top: 22px;
+}
+
+.lexi-home .home-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 0;
+  color: var(--home-green);
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+
+.lexi-home .home-text-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.lexi-home a:focus-visible,
+.lexi-home select:focus-visible,
+.lexi-home button:focus-visible {
+  outline: 3px solid var(--home-green);
+  outline-offset: 4px;
+}
+
+@media (max-width: 700px) {
+  .lexi-home .home-practice-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .lexi-home .home-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lexi-home .home-stats > div:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 420px) {
+  .lexi-home .home-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .lexi-home .home-start-button,
+  .lexi-home .home-difficult-button {
+    width: 100%;
+  }
+
+  .lexi-home .home-recent {
+    padding: 20px 18px;
+  }
+
+  .lexi-home .home-session-stats {
+    gap: 12px;
+  }
+
+  .lexi-home .home-session-stats > div + div {
+    padding-left: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lexi-home .home-start-button,
+  .lexi-home .home-difficult-button {
+    transition: none;
   }
 }

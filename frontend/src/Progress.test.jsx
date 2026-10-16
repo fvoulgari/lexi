@@ -126,10 +126,18 @@ test("Home greets the selected learner, shows recent recall and opens difficult 
     await screen.findByRole("heading", { name: "Welcome, Foteini" }),
   ).toBeInTheDocument();
   expect(await screen.findByText("100%")).toBeInTheDocument();
-  expect(screen.getByText("Remembered this session")).toBeInTheDocument();
-  expect(screen.getByText("Vocabulary entries")).toBeInTheDocument();
+  expect(screen.getByText("Recall")).toBeInTheDocument();
+  expect(screen.getByText("Vocabulary cards")).toBeInTheDocument();
+  const summary = screen.getByText("Vocabulary cards").closest("dl");
+  expect(summary.children).toHaveLength(3);
+  expect(within(summary).queryByText("Card reviews")).not.toBeInTheDocument();
+  expect(within(summary).getByText("Cards practised").nextElementSibling).toHaveTextContent("1");
+  const recent = screen.getByRole("region", { name: "Recent practice" });
+  expect(within(recent).getByText("Card reviews")).toBeInTheDocument();
+  expect(within(recent).queryByText("Percentage of responses rated ‘Easy’ or ‘Hard’ in the latest session.")).not.toBeInTheDocument();
+
   await userEvent.click(
-    screen.getByRole("link", { name: "Practise difficult entries" }),
+    screen.getByRole("link", { name: "Practise difficult cards" }),
   );
   expect(await screen.findByLabelText("Practice type")).toHaveValue(
     "difficult",
@@ -138,6 +146,11 @@ test("Home greets the selected learner, shows recent recall and opens difficult 
 });
 test("Progress shows separate direction counts and switches to an empty learner without stale history", async () => {
   open("/progress");
+  await screen.findByText("Vocabulary cards");
+  const summary = screen.getByText("Vocabulary cards").closest("dl");
+  expect(summary.children).toHaveLength(4);
+  expect(within(summary).getByText("Card reviews").nextElementSibling).toHaveTextContent("3");
+  expect(within(summary).getByText("Cards practised").nextElementSibling).toHaveTextContent("1");
   const directions = await screen.findByRole("region", {
     name: "By learning direction",
   });
@@ -166,7 +179,7 @@ test("Progress shows separate direction counts and switches to an empty learner 
   expect(screen.queryByText("100%")).not.toBeInTheDocument();
   expect(screen.queryByText("00 · Benvenuti")).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("link", { name: "Practise difficult entries" }),
+    screen.queryByRole("link", { name: "Practise difficult cards" }),
   ).not.toBeInTheDocument();
   expect(localStorage.getItem("notebook-profile")).toBe("a");
 });
@@ -211,4 +224,26 @@ test("missing remembered learner prompts selection and does not expose a differe
   ).toBeInTheDocument();
   expect(screen.getByLabelText("Learner profile")).toHaveValue("");
   expect(screen.queryByText("100%")).not.toBeInTheDocument();
+});
+
+test("Greek home uses friendly card labels and explains session recall", async () => {
+  localStorage.setItem("notebook-language", "el");
+  open();
+  await screen.findByText("Κάρτες λεξιλογίου");
+  expect(screen.getByText("Κάρτες που εξασκήθηκαν")).toBeInTheDocument();
+  const recent = screen.getByRole("region", { name: "Πρόσφατη εξάσκηση" });
+  expect(within(recent).getByText("Επαναλήψεις καρτών")).toBeInTheDocument();
+  expect(within(recent).getByText("Θυμήθηκες")).toBeInTheDocument();
+  expect(within(recent).queryByText("Ποσοστό απαντήσεων “Εύκολο” ή “Δύσκολο” στην τελευταία συνεδρία.")).not.toBeInTheDocument();
+});
+
+test("Italian home uses card terminology and explains session recall", async () => {
+  localStorage.setItem("notebook-language", "it");
+  open();
+  await screen.findByText("Schede di vocabolario");
+  expect(screen.getByText("Schede esercitate")).toBeInTheDocument();
+  const recent = screen.getByRole("region", { name: "Esercizio recente" });
+  expect(within(recent).getByText("Ripassi delle schede")).toBeInTheDocument();
+  expect(within(recent).getByText("Hai ricordato")).toBeInTheDocument();
+  expect(within(recent).queryByText("Percentuale di risposte valutate “Facile” o “Difficile” nell’ultima sessione.")).not.toBeInTheDocument();
 });

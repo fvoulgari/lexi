@@ -87,7 +87,7 @@ function openLibrary() {
 test("add a complete bilingual meaning and edit it from the library", async () => {
   openLibrary();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Add entry" }));
+  await user.click(await screen.findByRole("button", { name: "Add card" }));
   await user.type(screen.getByLabelText("Italian *"), "il perché");
   await user.type(screen.getByLabelText("Greek *"), "το γιατί");
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
@@ -104,13 +104,13 @@ test("add a complete bilingual meaning and edit it from the library", async () =
   );
   await user.type(screen.getByLabelText("Greek example"), "Δεν ξέρω το γιατί.");
   await user.type(screen.getByLabelText("Pronunciation text"), "perˈke");
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Entry saved.");
+  await user.click(screen.getByRole("button", { name: "Save card" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Card saved.");
   expect(
     await screen.findByRole("heading", { name: "il perché" }),
   ).toBeInTheDocument();
   await user.click(
-    screen.getByRole("button", { name: "Edit entry: il perché" }),
+    screen.getByRole("button", { name: "Edit card: il perché" }),
   );
   expect(screen.getByLabelText("Italian gender")).toHaveValue("masculine");
   expect(screen.getByLabelText("Greek example")).toHaveValue(
@@ -118,7 +118,7 @@ test("add a complete bilingual meaning and edit it from the library", async () =
   );
   await user.clear(screen.getByLabelText("Italian *"));
   await user.type(screen.getByLabelText("Italian *"), "il motivo");
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(
     await screen.findByRole("heading", { name: "il motivo" }),
   ).toBeInTheDocument();
@@ -143,8 +143,8 @@ test("required fields are identified and failed saves keep the draft for retry",
   );
   openLibrary();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Add entry" }));
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  await user.click(await screen.findByRole("button", { name: "Add card" }));
+  await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Italian, Greek, Word type",
   );
@@ -152,7 +152,7 @@ test("required fields are identified and failed saves keep the draft for retry",
   await user.type(screen.getByLabelText("Italian *"), "è");
   await user.type(screen.getByLabelText("Greek *"), "είναι");
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Check these fields: Italian",
   );
@@ -163,8 +163,8 @@ test("required fields are identified and failed saves keep the draft for retry",
   expect(screen.getByLabelText("Greek *")).toHaveValue("είναι");
   expect(screen.getByLabelText("Italian *")).toHaveFocus();
   failed = false;
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Entry saved.");
+  await user.click(screen.getByRole("button", { name: "Save card" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Card saved.");
 });
 
 test("matching-pair warnings appear after save and all interface languages retain the draft", async () => {
@@ -180,7 +180,7 @@ test("matching-pair warnings appear after save and all interface languages retai
   );
   openLibrary();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Add entry" }));
+  await user.click(await screen.findByRole("button", { name: "Add card" }));
   await user.type(screen.getByLabelText("Italian *"), "la casa");
   await user.type(screen.getByLabelText("Greek *"), "το σπίτι");
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
@@ -190,7 +190,7 @@ test("matching-pair warnings appear after save and all interface languages retai
   await user.selectOptions(screen.getByLabelText("Γλώσσα εφαρμογής"), "it");
   expect(screen.getByLabelText("Italiano *")).toHaveValue("la casa");
   expect(screen.getByLabelText("Tipo di parola *")).toHaveValue("noun");
-  await user.click(screen.getByRole("button", { name: "Salva voce" }));
+  await user.click(screen.getByRole("button", { name: "Salva scheda" }));
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Esiste già una coppia italiano–greco corrispondente",
   );
@@ -208,20 +208,20 @@ test("cancel restores focus and a connection error allows retry without losing t
   openLibrary();
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: "Edit entry: la casa" }),
+    await screen.findByRole("button", { name: "Edit card: la casa" }),
   );
   await user.type(screen.getByLabelText("Notes"), " — σπίτι");
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Check your connection",
   );
   expect(screen.getByLabelText("Notes")).toHaveValue("Home — σπίτι");
   await user.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.queryByLabelText("Notes")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Add entry" })).toHaveFocus();
+  expect(screen.getByRole("button", { name: "Add card" })).toHaveFocus();
 });
 
-test("a pending save prevents switching to another entry until completion", async () => {
+test("a pending save prevents switching to another card until completion", async () => {
   let finishSave;
   const responseReady = new Promise((resolve) => {
     finishSave = resolve;
@@ -237,25 +237,25 @@ test("a pending save prevents switching to another entry until completion", asyn
   openLibrary();
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: "Edit entry: la casa" }),
+    await screen.findByRole("button", { name: "Edit card: la casa" }),
   );
   await user.type(screen.getByLabelText("Notes"), " — revised");
-  await user.click(screen.getByRole("button", { name: "Save entry" }));
+  await user.click(screen.getByRole("button", { name: "Save card" }));
   try {
     expect(
       await screen.findByRole("button", { name: "Saving…" }),
     ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Add entry" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add card" })).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Edit entry: la casa" }),
+      screen.getByRole("button", { name: "Edit card: la casa" }),
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   } finally {
     finishSave();
   }
-  expect(await screen.findByRole("status")).toHaveTextContent("Entry saved.");
-  expect(screen.getByRole("button", { name: "Add entry" })).toBeEnabled();
-  await user.click(screen.getByRole("button", { name: "Add entry" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Card saved.");
+  expect(screen.getByRole("button", { name: "Add card" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Add card" }));
   await user.type(screen.getByLabelText("Italian *"), "nuovo");
   expect(screen.getByLabelText("Italian *")).toHaveValue("nuovo");
 });
@@ -277,13 +277,13 @@ test("delete confirms the meaning, explains review protection, and retries a fai
   openLibrary();
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: "Delete entry: la casa" }),
+    await screen.findByRole("button", { name: "Delete card: la casa" }),
   );
   expect(screen.getByRole("dialog")).toHaveTextContent("la casa");
   expect(screen.getByRole("dialog")).toHaveTextContent("το σπίτι");
   await user.click(screen.getByRole("button", { name: "Permanently delete" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "This entry has reviews and cannot be deleted.",
+    "This card has reviews and cannot be deleted.",
   );
   expect(screen.getByRole("heading", { name: "la casa" })).toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText("Interface language"), "el");
@@ -296,11 +296,11 @@ test("delete confirms the meaning, explains review protection, and retries a fai
   );
   protectedEntry = false;
   await user.click(screen.getByRole("button", { name: "Permanently delete" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Entry deleted.");
+  expect(await screen.findByRole("status")).toHaveTextContent("Card deleted.");
   expect(
     screen.queryByRole("heading", { name: "la casa" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Add entry" })).toHaveFocus();
+  expect(screen.getByRole("button", { name: "Add card" })).toHaveFocus();
 });
 
 test("cancel and Escape restore delete focus; connection failures retain the confirmation", async () => {
@@ -308,7 +308,7 @@ test("cancel and Escape restore delete focus; connection failures retain the con
   openLibrary();
   const user = userEvent.setup();
   const action = await screen.findByRole("button", {
-    name: "Delete entry: la casa",
+    name: "Delete card: la casa",
   });
   await user.click(action);
   expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();

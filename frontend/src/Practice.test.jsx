@@ -117,7 +117,7 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
     "f",
   );
   await user.click(screen.getByRole("button", { name: "Start practice" }));
-  expect(await screen.findByText(/Only 1 entries/)).toBeInTheDocument();
+  expect(await screen.findByText(/Only 1 cards/)).toBeInTheDocument();
   expect(
     screen.getByRole("option", { name: "Greek → Italian" }),
   ).toBeInTheDocument();
@@ -202,7 +202,7 @@ test("zero matches remain in setup with an explanation", async () => {
   await user.selectOptions(screen.getByLabelText("Session size"), "all");
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "No vocabulary entries are available",
+    "No vocabulary cards are available",
   );
   expect(screen.getByRole("button", { name: "Start practice" })).toBeEnabled();
 });
@@ -407,7 +407,7 @@ test("category practice combines selections, explains shortages and reaches summ
   expect(
     await screen.findByRole("heading", { name: "Category practice" }),
   ).toBeInTheDocument();
-  expect(screen.getByText(/Only 1 entries/)).toBeInTheDocument();
+  expect(screen.getByText(/Only 1 cards/)).toBeInTheDocument();
   expect(screen.getByText("la casa")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Reveal answer" }));
   await user.click(await screen.findByRole("button", { name: "Hard" }));
@@ -490,7 +490,7 @@ test("difficult selection follows direction and uses the review flow", async () 
     screen.getByLabelText("Learning direction"),
     "italian_to_greek",
   );
-  expect(await screen.findByText(/No difficult entries/)).toBeInTheDocument();
+  expect(await screen.findByText(/No difficult cards/)).toBeInTheDocument();
   expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
   await user.selectOptions(
     screen.getByLabelText("Learning direction"),
