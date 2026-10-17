@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -394,4 +394,18 @@ test("navbar navigation resets scroll without letting focus scroll the page", as
   expect(main).toHaveFocus();
   focus.mockRestore();
   scroll.mockRestore();
+});
+
+
+test("the header contains navigation and the Lexi logo returns to home", async () => {
+  authenticated = true;
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+  renderApp();
+  const header = screen.getByRole("banner");
+  await within(header).findByRole("navigation", {name: copy.en.library});
+  const logo = within(header).getByRole("link", {name: "Lexi", exact:true});
+  expect(logo).toHaveAttribute("href", "/");
+  await userEvent.click(logo);
+  expect(await screen.findByRole("heading", {name: copy.en.welcome})).toBeInTheDocument();
+  expect(within(header).getByRole("link", {name: copy.en.home, exact:true})).toHaveAttribute("aria-current", "page");
 });

@@ -19,6 +19,7 @@ import {
   LogOut,
 } from "lucide-react";
 import {
+  Link,
   NavLink,
   Navigate,
   Route,
@@ -120,12 +121,40 @@ export default function App() {
         {text.skip}
       </a>
       <header className="topbar">
-        <div className="brand">
+        <Link className="brand" to="/">
           <span className="brand-icon">
             <BookOpen size={24} aria-hidden="true" />
           </span>
-          <div>Lexi</div>
-        </div>
+          <span>Lexi</span>
+        </Link>
+        {session.data?.authenticated && (
+          <nav className="main-navigation" aria-label={text.library}>
+            <NavLink to="/" end>
+              <House size={18} aria-hidden="true" />
+              {text.home}
+            </NavLink>
+            <NavLink to="/vocabulary">
+              <LibraryBig size={18} aria-hidden="true" />
+              {text.library}
+            </NavLink>
+            <NavLink to="/practice">
+              <Layers size={18} aria-hidden="true" />
+              {text.practice}
+            </NavLink>
+            <NavLink to="/progress">
+              <ChartNoAxesCombined size={18} aria-hidden="true" />
+              {text.progress}
+            </NavLink>
+            <NavLink to="/settings">
+              <Settings size={18} aria-hidden="true" />
+              {text.settings}
+            </NavLink>
+            <button disabled={logout.isPending} onClick={() => logout.mutate()}>
+              <LogOut size={18} aria-hidden="true" />
+              <span>{text.logout}</span>
+            </button>
+          </nav>
+        )}
         <label className="language-picker">
           <span className="sr-only">{text.language}</span>
           <select
@@ -140,34 +169,7 @@ export default function App() {
           </select>
         </label>
       </header>
-      {session.data?.authenticated && (
-        <nav className="main-navigation" aria-label={text.library}>
-          <NavLink to="/" end>
-            <House size={18} aria-hidden="true" />
-            {text.home}
-          </NavLink>
-          <NavLink to="/vocabulary">
-            <LibraryBig size={18} aria-hidden="true" />
-            {text.library}
-          </NavLink>
-          <NavLink to="/practice">
-            <Layers size={18} aria-hidden="true" />
-            {text.practice}
-          </NavLink>
-          <NavLink to="/progress">
-            <ChartNoAxesCombined size={18} aria-hidden="true" />
-            {text.progress}
-          </NavLink>
-          <NavLink to="/settings">
-            <Settings size={18} aria-hidden="true" />
-            {text.settings}
-          </NavLink>
-          <button disabled={logout.isPending} onClick={() => logout.mutate()}>
-            <LogOut size={18} aria-hidden="true" />
-            <span>{text.logout}</span>
-          </button>
-        </nav>
-      )}
+
       {!online && session.data?.authenticated && (
         <p className="connection-notice" role="status">
           {text.offlineNote}
