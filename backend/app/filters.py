@@ -17,3 +17,20 @@ def category_conditions(unit_ids, no_unit, word_types, tag_ids):
     if tag_ids:
         conditions.append(VocabularyEntry.tags.any(Tag.id.in_(tag_ids)))
     return conditions
+
+
+def vocabulary_conditions(q, unit_ids, no_unit, word_types, tag_ids):
+    conditions = category_conditions(unit_ids, no_unit, word_types, tag_ids)
+    if q.strip():
+        pattern = (
+            "%"
+            + q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            + "%"
+        )
+        conditions.append(
+            or_(
+                VocabularyEntry.italian.ilike(pattern, escape="\\"),
+                VocabularyEntry.greek.ilike(pattern, escape="\\"),
+            )
+        )
+    return conditions

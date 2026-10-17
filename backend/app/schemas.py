@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
     StringConstraints,
     field_validator,
     model_validator,
@@ -173,6 +174,19 @@ class VocabularyUpdate(VocabularyFields):
         if value is None:
             raise ValueError("Italian, Greek and word type cannot be null.")
         return value
+
+
+class VocabularyBulk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: Literal["move", "delete"]
+    entry_ids: list[UUID] = Field(min_length=1)
+    unit_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def destination_for_move_only(self):
+        if (self.action == "move") != (self.unit_id is not None):
+            raise ValueError("Moving requires a destination unit; deletion does not.")
+        return self
 
 
 class VocabularySaved(BaseModel):

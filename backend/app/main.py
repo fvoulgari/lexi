@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -14,7 +14,7 @@ from app.config import Settings
 from app.csv_export import export_library
 from app.database import database
 from app.duplicates import normalized_pair
-from app.filters import category_conditions
+from app.filters import vocabulary_conditions
 from app.imports import import_router
 from app.models import (
     LearningProgress,
@@ -42,6 +42,7 @@ from app.schemas import (
     VocabularyUpdate,
     WordType,
 )
+from app.vocabulary_bulk import vocabulary_bulk_router
 
 
 def create_app():
@@ -130,6 +131,7 @@ def create_app():
     app.include_router(practice_router(sessions, gate))
     app.include_router(progress_router(sessions, gate))
     app.include_router(import_router(sessions, gate))
+    app.include_router(vocabulary_bulk_router(sessions, gate))
 
     app.get("/api/auth/session")(gate.state)
     app.post("/api/auth/login")(gate.login)
@@ -149,24 +151,7 @@ def create_app():
         word_types: list[WordType] = Query(default=[]),
         tag_ids: list[UUID] = Query(default=[]),
     ):
-        conditions = []
-        if q.strip():
-            # Treat wildcard characters as literal search text.
-            pattern = (
-                "%"
-                + q.strip()
-                .replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_")
-                + "%"
-            )
-            conditions.append(
-                or_(
-                    VocabularyEntry.italian.ilike(pattern, escape="\\"),
-                    VocabularyEntry.greek.ilike(pattern, escape="\\"),
-                )
-            )
-        conditions.extend(category_conditions(unit_ids, no_unit, word_types, tag_ids))
+        conditions = vocabulary_conditions(q, unit_ids, no_unit, word_types, tag_ids)
         with sessions() as db:
             total = db.scalar(
                 select(func.count()).select_from(VocabularyEntry).where(*conditions)

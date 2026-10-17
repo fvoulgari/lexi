@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, ChevronLeft, ChevronRight, Plus, SlidersHorizontal, Upload, Download, FolderPlus } from "lucide-react";
+import {
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  SlidersHorizontal,
+  Upload,
+  Download,
+  FolderPlus,
+} from "lucide-react";
 import PropTypes from "prop-types";
+import BulkVocabularyActions from "./BulkVocabularyActions.jsx";
 import CardActions from "./CardActions.jsx";
 import Import from "./Import.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
@@ -63,6 +73,13 @@ export default function Library({ text, csrf, onLocked }) {
   useEffect(() => {
     if (saved && !isSaving) document.getElementById("add-entry")?.focus();
   }, [saved, isSaving]);
+  const [selecting, setSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState(null);
+  useEffect(() => {
+    if (bulkNotice && !bulkBusy) document.getElementById("add-entry")?.focus();
+  }, [bulkNotice, bulkBusy]);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
     q: "",
@@ -74,6 +91,8 @@ export default function Library({ text, csrf, onLocked }) {
     queryFn: () => request("/api/units"),
   });
   function changeFilter(key, value) {
+    setSelectedIds([]);
+    setBulkNotice(null);
     setFilters((current) => ({ ...current, [key]: value }));
     setPage(1);
   }
@@ -139,7 +158,7 @@ export default function Library({ text, csrf, onLocked }) {
         <button
           className="primary"
           id="add-entry"
-          disabled={isSaving || deletePending}
+          disabled={isSaving || deletePending || selecting || bulkBusy}
           onClick={() => {
             setSaved(null);
             setEditing(null);
@@ -154,6 +173,7 @@ export default function Library({ text, csrf, onLocked }) {
           {text.search}
           <input
             type="search"
+            disabled={bulkBusy}
             maxLength={500}
             value={filters.q}
             onChange={(event) => changeFilter("q", event.target.value)}
@@ -169,6 +189,7 @@ export default function Library({ text, csrf, onLocked }) {
           <p>{text.filterHint}</p>
           <Choices
             legend={text.units}
+            disabled={bulkBusy}
             options={[
               { id: "none", label: text.noUnit },
               ...(units.data || []).map((unit) => ({
@@ -181,6 +202,7 @@ export default function Library({ text, csrf, onLocked }) {
           />
           <Choices
             legend={text.filterType}
+            disabled={bulkBusy}
             options={[
               "noun",
               "verb",
@@ -196,7 +218,10 @@ export default function Library({ text, csrf, onLocked }) {
         {(filters.q || filterCount > 0) && (
           <button
             className="secondary"
+            disabled={bulkBusy}
             onClick={() => {
+              setSelectedIds([]);
+              setBulkNotice(null);
               setFilters({ q: "", unit_ids: [], word_types: [] });
               setPage(1);
             }}
@@ -359,6 +384,74 @@ export default function Library({ text, csrf, onLocked }) {
         </div>
       )}
 
+      {bulkNotice && (
+        <p role="status" className="save-notice">
+          {(bulkNotice.action === "move"
+            ? bulkNotice.count === 1
+              ? text.bulkMovedOne
+              : text.bulkMoved
+            : bulkNotice.count === 1
+              ? text.bulkDeletedOne
+              : text.bulkDeleted
+          ).replace("{count}", bulkNotice.count)}
+        </p>
+      )}
+      {!selecting && library.data?.total > 0 && (
+        <button
+          id="select-cards"
+          type="button"
+          className="secondary bulk-start"
+          disabled={
+            isSaving ||
+            deletePending ||
+            deleting !== null ||
+            editing !== undefined ||
+            creating !== null
+          }
+          onClick={() => {
+            setSelecting(true);
+            setBulkNotice(null);
+            setOpenCard(null);
+            setSaved(null);
+            setDeleted(false);
+          }}
+        >
+          {text.bulkSelect}
+        </button>
+      )}
+      {selecting && (
+        <BulkVocabularyActions
+          text={text}
+          csrf={csrf}
+          onLocked={onLocked}
+          ids={selectedIds}
+          pageIds={(library.data?.items || []).map((entry) => entry.id)}
+          units={units.data || []}
+          onChange={setSelectedIds}
+          onPendingChange={setBulkBusy}
+          onExit={() => {
+            setSelecting(false);
+            setSelectedIds([]);
+            requestAnimationFrame(() =>
+              document.getElementById("select-cards")?.focus(),
+            );
+          }}
+          onComplete={async (result) => {
+            setBulkNotice(result);
+            setSelectedIds([]);
+            setSelecting(false);
+            setPage(1);
+            for (const key of [
+              "vocabulary",
+              "units",
+              "progress",
+              "difficult-entries",
+              "progress-difficult",
+            ])
+              await client.invalidateQueries({ queryKey: [key] });
+          }}
+        />
+      )}
       <div className="library-caption">
         <span>
           {text.italian} <span aria-hidden="true">↔</span> {text.greek}
@@ -389,9 +482,28 @@ export default function Library({ text, csrf, onLocked }) {
           <ul className="entry-grid">
             {library.data.items.map((entry) => (
               <li
-                className={`entry-card type-${entry.word_type}`}
+                className={`entry-card type-${entry.word_type}${selectedIds.includes(entry.id) ? " is-selected" : ""}`}
                 key={entry.id}
               >
+                {selecting && (
+                  <label className="card-selection">
+                    <input
+                      type="checkbox"
+                      disabled={bulkBusy}
+                      checked={selectedIds.includes(entry.id)}
+                      onChange={(event) =>
+                        setSelectedIds((current) =>
+                          event.target.checked
+                            ? [...current, entry.id]
+                            : current.filter((id) => id !== entry.id),
+                        )
+                      }
+                    />
+                    <span className="sr-only">
+                      {text.bulkSelectCard}: {entry.italian} — {entry.greek}
+                    </span>
+                  </label>
+                )}
                 <div className="entry-meta">
                   <span className="type-badge">
                     {text[entry.word_type] || text.other}
@@ -409,9 +521,15 @@ export default function Library({ text, csrf, onLocked }) {
                   text={text}
                   open={openCard === entry.id}
                   onOpenChange={(open) => setOpenCard(open ? entry.id : null)}
-                  editDisabled={isSaving || deletePending}
+                  editDisabled={
+                    isSaving || deletePending || selecting || bulkBusy
+                  }
                   deleteDisabled={
-                    isSaving || deletePending || deleting !== null
+                    isSaving ||
+                    deletePending ||
+                    deleting !== null ||
+                    selecting ||
+                    bulkBusy
                   }
                   onEdit={() => {
                     setSaved(null);
@@ -434,8 +552,11 @@ export default function Library({ text, csrf, onLocked }) {
           >
             <button
               aria-label={text.previous}
-              disabled={page === 1}
-              onClick={() => setPage((value) => value - 1)}
+              disabled={page === 1 || bulkBusy}
+              onClick={() => {
+                setSelectedIds([]);
+                setPage((value) => value - 1);
+              }}
             >
               <ChevronLeft size={18} aria-hidden="true" />
               <span>{text.previous}</span>
@@ -445,8 +566,11 @@ export default function Library({ text, csrf, onLocked }) {
             </p>
             <button
               aria-label={text.next}
-              disabled={page >= pages}
-              onClick={() => setPage((value) => value + 1)}
+              disabled={page >= pages || bulkBusy}
+              onClick={() => {
+                setSelectedIds([]);
+                setPage((value) => value + 1);
+              }}
             >
               <span>{text.next}</span>
               <ChevronRight size={18} aria-hidden="true" />

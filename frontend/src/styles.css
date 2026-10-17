@@ -1830,3 +1830,27 @@ button:disabled {
 .unit-assignment-controls select { flex: 1 1 200px; width: auto; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid #d8dfce; border-radius: 10px; background: #fffef9; color: #354c39; font: inherit; font-size: 14px; }
 .unit-assignment-controls button { min-height: 44px; }
 .csv-destination-summary { font-size: 14px; line-height: 1.6; color: #486044; }
+
+/* Shared-library selection and atomic card operations. */
+.library-page .bulk-start { margin-top: 20px; }
+.library-page .bulk-vocabulary { margin-top: 22px; padding: 20px; border: 1px solid #dde3d4; border-radius: 16px; background: #f8f7ef; color: #354c39; }
+.bulk-selection-controls, .bulk-action-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.bulk-selection-controls > label { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 14px; }
+.bulk-selection-controls [role="status"] { font-size: 13px; color: #65715c; }
+.bulk-action-buttons { margin-top: 14px; }
+.bulk-action-buttons button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.bulk-vocabulary .destructive { color: #8b4b42; border-color: #d9c6be; }
+.bulk-vocabulary .destructive:hover:not(:disabled) { background: #f4e9e3; }
+.bulk-vocabulary input[type="checkbox"], .library-page .card-selection input { width: 20px; height: 20px; accent-color: #526e52; flex: 0 0 auto; }
+.library-page .card-selection { display: flex; align-items: center; min-height: 44px; margin: -8px 0 8px; width: fit-content; padding-right: 16px; cursor: pointer; }
+.library-page .entry-card.is-selected { border-color: #526e52; box-shadow: 0 0 0 1px #526e52; }
+.bulk-confirmation { margin-top: 20px; padding-top: 18px; border-top: 1px solid #dde3d4; }
+.bulk-confirmation h2 { margin: 0 0 10px; font-size: 18px; }
+.bulk-confirmation p { font-size: 14px; line-height: 1.6; }
+.bulk-confirmation > label { display: grid; gap: 8px; max-width: 440px; font-size: 14px; }
+.bulk-confirmation select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid #d8dfce; border-radius: 10px; background: #fffef9; color: #354c39; font: inherit; }
+.bulk-vocabulary button { max-width: 100%; white-space: normal; }
+@media (max-width: 600px) {
+  .library-page .bulk-vocabulary { padding: 16px; }
+  .bulk-action-buttons > button { flex: 1 1 150px; }
+}

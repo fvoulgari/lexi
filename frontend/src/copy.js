@@ -3,6 +3,21 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    bulkSelect: "Select cards",
+    bulkSelectCard: "Select card",
+    bulkPage: "Select all on this page",
+    bulkSelectedOne: "{count} card selected",
+    bulkSelected: "{count} cards selected",
+    bulkMove: "Move to unit",
+    bulkDelete: "Delete selected",
+    bulkDestination: "Destination unit",
+    bulkDeleteTitle: "Delete selected cards?",
+    bulkDeleteWarning: "Deletion is permanent. If any cards are reviewed or unavailable, they will be excluded and you will confirm the remaining selection again.",
+    bulkMovedOne: "{count} card moved.",
+    bulkMoved: "{count} cards moved.",
+    bulkDeletedOne: "{count} card deleted.",
+    bulkDeleted: "{count} cards deleted.",
+
     exportLibrary: "Export full library (CSV)",
     exporting: "Exporting…",
     exportStarted: "CSV download started.",
@@ -225,6 +240,9 @@ export const copy = {
     skip: "Skip to content",
     libraryNote: "One word at a time.",
     errors: {
+      bulk_selection_updated: "Reviewed or unavailable cards were removed from the selection. Nothing was deleted. Confirm to delete the remaining cards.",
+      bulk_nothing_to_delete: "All selected cards are reviewed or unavailable. Nothing was deleted.",
+      bulk_missing: "Some selected cards no longer exist. Clear the selection and select again.",
       invalid_unit: "Choose a unit",
       entry_reviewed: "This card has reviews and cannot be deleted.",
       entry_deleted:
@@ -260,6 +278,21 @@ export const copy = {
       "Profiles are shared: anyone with access to the notebook can select them.",
   },
   el: {
+    bulkSelect: "Επιλογή καρτών",
+    bulkSelectCard: "Επιλογή κάρτας",
+    bulkPage: "Επιλογή όλων στη σελίδα",
+    bulkSelectedOne: "{count} επιλεγμένη κάρτα",
+    bulkSelected: "{count} επιλεγμένες κάρτες",
+    bulkMove: "Μετακίνηση σε ενότητα",
+    bulkDelete: "Διαγραφή επιλεγμένων",
+    bulkDestination: "Ενότητα προορισμού",
+    bulkDeleteTitle: "Διαγραφή επιλεγμένων καρτών;",
+    bulkDeleteWarning: "Η διαγραφή είναι οριστική. Αν υπάρχουν κάρτες με ιστορικό εξάσκησης ή που δεν υπάρχουν πλέον, θα εξαιρεθούν και θα επιβεβαιώσεις ξανά για τις υπόλοιπες.",
+    bulkMovedOne: "Μετακινήθηκε {count} κάρτα.",
+    bulkMoved: "Μετακινήθηκαν {count} κάρτες.",
+    bulkDeletedOne: "Διαγράφηκε {count} κάρτα.",
+    bulkDeleted: "Διαγράφηκαν {count} κάρτες.",
+
     exportLibrary: "Εξαγωγή όλης της βιβλιοθήκης (CSV)",
     exporting: "Εξαγωγή…",
     exportStarted: "Η λήψη CSV ξεκίνησε.",
@@ -483,6 +516,9 @@ export const copy = {
     skip: "Μετάβαση στο περιεχόμενο",
     libraryNote: "Μια λέξη τη φορά.",
     errors: {
+      bulk_selection_updated: "Οι κάρτες με ιστορικό εξάσκησης ή που δεν υπάρχουν πλέον εξαιρέθηκαν από την επιλογή. Δεν διαγράφηκε καμία κάρτα. Επιβεβαίωσε για να διαγράψεις τις υπόλοιπες.",
+      bulk_nothing_to_delete: "Όλες οι επιλεγμένες κάρτες έχουν ιστορικό εξάσκησης ή δεν υπάρχουν πλέον. Δεν διαγράφηκε καμία κάρτα.",
+      bulk_missing: "Κάποιες επιλεγμένες κάρτες δεν υπάρχουν πλέον. Καθάρισε την επιλογή και επίλεξε ξανά.",
       invalid_unit: "Επίλεξε ενότητα",
       entry_reviewed:
         "Αυτή η κάρτα έχει αξιολογήσεις και δεν μπορεί να διαγραφεί.",
@@ -521,6 +557,21 @@ export const copy = {
       "Τα προφίλ είναι κοινόχρηστα: όποιος έχει πρόσβαση στο τετράδιο μπορεί να τα επιλέξει.",
   },
   it: {
+    bulkSelect: "Seleziona schede",
+    bulkSelectCard: "Seleziona scheda",
+    bulkPage: "Seleziona tutte le schede nella pagina",
+    bulkSelectedOne: "{count} scheda selezionata",
+    bulkSelected: "{count} schede selezionate",
+    bulkMove: "Sposta in un’unità",
+    bulkDelete: "Elimina selezionate",
+    bulkDestination: "Unità di destinazione",
+    bulkDeleteTitle: "Eliminare le schede selezionate?",
+    bulkDeleteWarning: "L’eliminazione è definitiva. Se alcune schede hanno ripassi o non sono più disponibili, saranno escluse e confermerai di nuovo la selezione rimanente.",
+    bulkMovedOne: "{count} scheda spostata.",
+    bulkMoved: "{count} schede spostate.",
+    bulkDeletedOne: "{count} scheda eliminata.",
+    bulkDeleted: "{count} schede eliminate.",
+
     exportLibrary: "Esporta tutta la biblioteca (CSV)",
     exporting: "Esportazione…",
     exportStarted: "Download CSV avviato.",
@@ -746,6 +797,9 @@ export const copy = {
     skip: "Vai al contenuto",
     libraryNote: "Una parola alla volta.",
     errors: {
+      bulk_selection_updated: "Le schede con ripassi o non più disponibili sono state escluse dalla selezione. Nessuna scheda è stata eliminata. Conferma per eliminare le rimanenti.",
+      bulk_nothing_to_delete: "Tutte le schede selezionate hanno ripassi o non sono più disponibili. Nessuna scheda è stata eliminata.",
+      bulk_missing: "Alcune schede selezionate non esistono più. Cancella la selezione e seleziona di nuovo.",
       invalid_unit: "Scegli un’unità",
       entry_reviewed:
         "Questa scheda ha delle revisioni e non può essere eliminata.",

@@ -23,6 +23,7 @@ export async function request(path, options = {}) {
       code: body.error?.code || "request_failed",
       status: response.status,
       fields: body.error?.fields,
+      entry_ids: body.error?.entry_ids,
     });
   }
   return body;
