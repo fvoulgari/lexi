@@ -97,8 +97,11 @@ linux/amd64 production Docker image on PRs. Failed, skipped, or cancelled valida
 fail the gate. Ordinary merges require a PR and this check; administrators retain
 bypass access, and reviewer approval is not mandatory. CI uses Python 3.14, Node 24, and disposable
 PostgreSQL 18. PR checks have read-only repository access. Successful main checks publish the
-production image to GHCR. Published releases and prereleases run the same checks
-on their tagged commit and publish exact release/SHA tags without changing latest;
+production image to GHCR. Creating a canonical stable `vMAJOR.MINOR.PATCH` tag
+runs the same checks on its exact commit, which must belong to main, and publishes
+immutable version/SHA tags without changing latest. Prerelease and malformed tags
+are ignored; GitHub Release publication does not trigger a build. Existing release
+tags are protected against updates and deletion. No Railway deployment runs yet;
 see [image publication](docs/image-publication.md) for
 tags, ordering, public-package setup, and verification.
 
