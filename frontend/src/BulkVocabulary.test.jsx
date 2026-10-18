@@ -405,3 +405,47 @@ test("bulk deletion submits selected cards from multiple pages", async () => {
   );
   expect(entries.map((entry) => entry.id)).toEqual(["e0"]);
 });
+
+for (const leavesFilter of [false, true]) {
+  test(`editing on page two keeps the nearest valid page (leaves filter: ${leavesFilter})`, async () => {
+    server.use(
+      http.patch("*/api/vocabulary/:id", async ({ request, params }) => {
+        const body = await request.json();
+        entries = entries.map((entry) =>
+          entry.id === params.id ? { ...entry, ...body } : entry,
+        );
+        return HttpResponse.json({
+          entry: entries.find((entry) => entry.id === params.id),
+          duplicate_ids: [],
+        });
+      }),
+    );
+    open();
+    const user = userEvent.setup();
+    await screen.findByRole("button", { name: "Next page" });
+    await user.type(screen.getByRole("searchbox"), "carta");
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: `${copy.en.cardActions}: carta 12`,
+      }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Edit card: carta 12" }),
+    );
+    await user.clear(screen.getByLabelText("Italian *"));
+    await user.type(
+      screen.getByLabelText("Italian *"),
+      leavesFilter ? "updated" : "carta updated",
+    );
+    await user.click(screen.getByRole("button", { name: "Save card" }));
+    await screen.findByText(/^Card saved\./);
+    expect(
+      await screen.findByText(leavesFilter ? "Page 1 of 1" : "Page 2 of 2"),
+    ).toBeInTheDocument();
+    if (!leavesFilter)
+      expect(
+        screen.getByRole("heading", { name: "carta updated" }),
+      ).toBeInTheDocument();
+  });
+}

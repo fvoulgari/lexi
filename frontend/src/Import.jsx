@@ -47,7 +47,13 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
       } else {
         setResult(report);
         setPreview(null);
-        for (const key of ["vocabulary", "units", "tags"])
+        for (const key of [
+          "vocabulary",
+          "units",
+          "tags",
+          "difficult-entries",
+          "progress-difficult",
+        ])
           client.invalidateQueries({ queryKey: [key] });
       }
     } catch (failure) {
@@ -93,7 +99,9 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
           onLocked={onLocked}
           onClose={() => {
             setCreatingUnit(false);
-            requestAnimationFrame(() => document.getElementById("csv-destination-unit")?.focus());
+            requestAnimationFrame(() =>
+              document.getElementById("csv-destination-unit")?.focus(),
+            );
           }}
           onCreated={(unit) => {
             setUnitId(unit.id);
@@ -200,8 +208,10 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
             {result ? text.csvResult : text.csvPreview}
           </h3>
           <p role={result ? "status" : undefined}>
-            {["imported", "valid", "skipped", "duplicate", "error"]
-              .map((key) => `${text.csvCounts[key]}: ${report.counts[key]}`)
+            {["imported", "updated", "valid", "skipped", "duplicate", "error"]
+              .map(
+                (key) => `${text.csvCounts[key]}: ${report.counts[key] ?? 0}`,
+              )
               .join(" · ")}
           </p>
           {report.destination_unit && (
@@ -268,6 +278,20 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
                       </p>
                     )}
                   </details>
+                )}
+                {row.changed_fields?.length > 0 && (
+                  <p>
+                    {text.csvChangedFields}:{" "}
+                    {row.changed_fields
+                      .map((field) =>
+                        field === "unit_id"
+                          ? text.unit
+                          : field === "tags"
+                            ? text.tags
+                            : text.fields[field] || field,
+                      )
+                      .join(", ")}
+                  </p>
                 )}
                 <ul>
                   {row.errors.map((message, index) => (

@@ -236,7 +236,8 @@ def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in
 
     preview = upload("preview")
     assert preview.status_code == 200
-    assert preview.json()["counts"]["duplicate"] == 11
+    assert preview.json()["counts"]["duplicate"] == 1
+    assert preview.json()["counts"]["updated"] == 10
     for entry in logged_in.get("/api/vocabulary?page_size=100").json()["items"]:
         assert (
             logged_in.delete(

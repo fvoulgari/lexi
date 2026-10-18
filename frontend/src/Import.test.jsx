@@ -34,8 +34,10 @@ const report = {
   ],
 };
 const server = setupServer(
- http.get("*/api/profiles", () => HttpResponse.json([])),
-  http.get("*/api/units", () => HttpResponse.json([{id:"u", code:"07", title:"Domande"}])),
+  http.get("*/api/profiles", () => HttpResponse.json([])),
+  http.get("*/api/units", () =>
+    HttpResponse.json([{ id: "u", code: "07", title: "Domande" }]),
+  ),
   http.get("*/api/tags", () => HttpResponse.json([])),
   http.get("*/api/vocabulary", () =>
     HttpResponse.json({ items: [], total: 0 }),
@@ -62,7 +64,9 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MemoryRouter><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
+      <MemoryRouter>
+        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
@@ -81,7 +85,7 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
   await user.selectOptions(screen.getByLabelText("Unit *"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(await screen.findByText("greek: required")).toBeInTheDocument();
-  expect(screen.getByRole("combobox", {name: "Unit *"})).toHaveValue("u");
+  expect(screen.getByRole("combobox", { name: "Unit *" })).toHaveValue("u");
   expect(screen.getByText("questions")).toBeInTheDocument();
   await user.click(screen.getByText("Card details"));
   expect(screen.getByText("Italian gender")).toBeInTheDocument();
@@ -105,7 +109,9 @@ test("failed confirmation retains preview for retry and changing file clears it"
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MemoryRouter><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
+      <MemoryRouter>
+        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   const user = userEvent.setup();
@@ -140,7 +146,9 @@ test("interface language changes retain the file and preview", async () => {
   });
   const view = (text) => (
     <QueryClientProvider client={client}>
-      <MemoryRouter><Library text={text} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
+      <MemoryRouter>
+        <Library text={text} csrf="csrf" onLocked={() => {}} />
+      </MemoryRouter>
     </QueryClientProvider>
   );
   const rendered = render(view(copy.en));
@@ -192,7 +200,9 @@ test.each(["success", "error"])(
           new QueryClient({ defaultOptions: { queries: { retry: false } } })
         }
       >
-        <MemoryRouter><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
+        <MemoryRouter>
+          <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+        </MemoryRouter>
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
@@ -212,7 +222,7 @@ test.each(["success", "error"])(
     );
     await user.upload(screen.getByLabelText("CSV file"), file);
     await user.selectOptions(screen.getByLabelText("Unit *"), "u");
-  await user.click(screen.getByRole("button", { name: "Preview" }));
+    await user.click(screen.getByRole("button", { name: "Preview" }));
     await user.click(toggle);
     expect(panel).not.toBeVisible();
     finish();
@@ -240,7 +250,9 @@ test.each(["el", "en", "it"])(
           new QueryClient({ defaultOptions: { queries: { retry: false } } })
         }
       >
-        <MemoryRouter><Library text={text} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
+        <MemoryRouter>
+          <Library text={text} csrf="csrf" onLocked={() => {}} />
+        </MemoryRouter>
       </QueryClientProvider>,
     );
     const user = userEvent.setup();
@@ -298,22 +310,111 @@ test.each(["el", "en", "it"])(
 test("CSV destination conflicts are visible without any profile assignment", async () => {
   localStorage.setItem("notebook-profile", "f");
   server.use(
-    http.get("*/api/profiles", () => HttpResponse.json([{id:"f", display_name:"Foteini", practice_unit_ids: []}])),
-    http.post("*/api/imports/preview", ({request}) => {
+    http.get("*/api/profiles", () =>
+      HttpResponse.json([
+        { id: "f", display_name: "Foteini", practice_unit_ids: [] },
+      ]),
+    ),
+    http.post("*/api/imports/preview", ({ request }) => {
       expect(new URL(request.url).searchParams.get("unit_id")).toBe("u");
-      return HttpResponse.json({...report, destination_unit:{id:"u",code:"07",title:"Domande"},unit_conflicts:1});
+      return HttpResponse.json({
+        ...report,
+        destination_unit: { id: "u", code: "07", title: "Domande" },
+        unit_conflicts: 1,
+      });
     }),
   );
-  render(<MemoryRouter><QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><Library text={copy.en} csrf="csrf" onLocked={() => {}} /></QueryClientProvider></MemoryRouter>);
+  render(
+    <MemoryRouter>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", {name:"Import CSV"}));
-  await user.selectOptions(screen.getByRole("combobox", {name:"Unit *"}), "u");
-  await user.upload(screen.getByLabelText("CSV file"), new File(["italian,greek,word_type\ncasa,σπίτι,noun\n"], "cards.csv", {type:"text/csv"}));
-  await user.click(screen.getByRole("button", {name:"Preview"}));
+  await user.click(screen.getByRole("button", { name: "Import CSV" }));
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Unit *" }),
+    "u",
+  );
+  await user.upload(
+    screen.getByLabelText("CSV file"),
+    new File(["italian,greek,word_type\ncasa,σπίτι,noun\n"], "cards.csv", {
+      type: "text/csv",
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(await screen.findByText(copy.en.csvUnitConflict)).toBeInTheDocument();
-  expect(screen.getByText("07 · Domande", {selector:"strong"})).toBeInTheDocument();
-  await user.click(screen.getByRole("button", {name:"Confirm import"}));
+  expect(
+    screen.getByText("07 · Domande", { selector: "strong" }),
+  ).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Confirm import" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
-  expect(screen.queryByRole("button", {name:/Enable this unit/})).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /Enable this unit/ }),
+  ).not.toBeInTheDocument();
   localStorage.removeItem("notebook-profile");
+});
+
+test("an update-only CSV shows changed fields and can be confirmed", async () => {
+  const updates = {
+    ...report,
+    counts: {
+      imported: 0,
+      updated: 1,
+      valid: 1,
+      skipped: 0,
+      duplicate: 0,
+      error: 0,
+    },
+    rows: [
+      {
+        ...report.rows[0],
+        status: "updated",
+        changed_fields: ["pronunciation"],
+      },
+    ],
+  };
+  server.use(
+    http.post("*/api/imports/preview", () => HttpResponse.json(updates)),
+    http.post("*/api/imports/confirm", () => HttpResponse.json(updates)),
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MemoryRouter>
+        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Import CSV" }));
+  await user.upload(
+    screen.getByLabelText("CSV file"),
+    new File(
+      [
+        "italian,greek,word_type,pronunciation\nil perché,το γιατί,noun,perˈke\n",
+      ],
+      "updates.csv",
+      { type: "text/csv" },
+    ),
+  );
+  await user.selectOptions(await screen.findByLabelText("Unit *"), "u");
+  await user.click(screen.getByRole("button", { name: "Preview" }));
+  expect(
+    await screen.findByText("Changed fields: Pronunciation text"),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/Imported: 0 · Updated: 1/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Confirm import" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Confirm import" }));
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Imported: 0 · Updated: 1",
+  );
 });

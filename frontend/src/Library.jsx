@@ -338,11 +338,13 @@ export default function Library({ text, csrf, onLocked }) {
             setEditing(undefined);
             document.getElementById("add-entry")?.focus();
           }}
-          onSaved={(result) => {
-            setPage(1);
+          onSaved={async (result) => {
+            const wasEditing = Boolean(editing);
+            if (!wasEditing) setPage(1);
             setSaved(result);
             setEditing(undefined);
-            client.invalidateQueries({ queryKey: ["vocabulary"] });
+            if (wasEditing) await refreshLibrary();
+            else await client.invalidateQueries({ queryKey: ["vocabulary"] });
             document.getElementById("add-entry")?.focus();
           }}
         />

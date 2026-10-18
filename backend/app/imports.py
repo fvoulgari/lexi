@@ -84,12 +84,24 @@ async def read_csv(request):
 
 def evaluate(db, rows, confirm, destination):
     tags = {t.name: t for t in db.scalars(select(Tag))}
-    pairs = {
-        normalized_pair(it, el)
-        for it, el in db.execute(select(VocabularyEntry.italian, VocabularyEntry.greek))
-    }
+    # Keep a simulated library during preview too, so later rows see earlier changes.
+    pairs = {}
+    for existing in db.scalars(select(VocabularyEntry).order_by(VocabularyEntry.id)):
+        pair = normalized_pair(existing.italian, existing.greek)
+        pairs.setdefault(pair, []).append(
+            {
+                "entry": existing,
+                "values": {
+                    field: getattr(existing, field)
+                    for field in VocabularyCreate.model_fields
+                    if field not in {"unit_id", "tag_ids"}
+                },
+                "unit_id": existing.unit_id,
+                "tags": {tag.name for tag in existing.tags},
+            }
+        )
     proposed_tags, results = set(), []
-    counts = dict(imported=0, valid=0, skipped=0, duplicate=0, error=0)
+    counts = dict(imported=0, updated=0, valid=0, skipped=0, duplicate=0, error=0)
     for number, original in enumerate(rows, 2):
         row = {
             key: value.strip() if isinstance(value, str) else value
@@ -99,6 +111,7 @@ def evaluate(db, rows, confirm, destination):
         entry = unit_spec = None
         conflict = False
         names = []
+        changed_fields = []
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
@@ -108,10 +121,11 @@ def evaluate(db, rows, confirm, destination):
             if version:
                 row = {key: restore_text(value) for key, value in row.items()}
             for alias, field in ALIASES.items():
+                alias_supplied = alias in row
                 value = row.pop(alias, "")
                 if value and row.get(field) and value != row[field]:
                     raise ValueError(f"{alias} conflicts with {field}.")
-                if value:
+                if value or (alias_supplied and field not in row):
                     row[field] = value
             code = row.pop("unit_code", "")
             title = row.pop("unit_title", "")
@@ -161,24 +175,70 @@ def evaluate(db, rows, confirm, destination):
         status = "error" if errors else "valid"
         if not errors:
             pair = normalized_pair(entry.italian, entry.greek)
-            if pair in pairs:
-                status = "duplicate"
+            matches = pairs.get(pair, [])
+            values = entry.model_dump(exclude={"unit_id", "tag_ids"})
+            # An omitted column is not an instruction to erase stored content.
+            supplied = {key: value for key, value in values.items() if key in row}
+            if len(matches) > 1:
+                status = "error"
+                errors = [
+                    "Multiple cards match this Italian–Greek pair. "
+                    "Edit them individually."
+                ]
             else:
-                pairs.add(pair)
-                proposed_tags.update(name for name in names if name not in tags)
-                if confirm:
-                    unit = destination
-                    assigned_tags = []
-                    for name in names:
-                        if name not in tags:
-                            tags[name] = Tag(name=name)
-                            db.add(tags[name])
-                        assigned_tags.append(tags[name])
-                    values = entry.model_dump(exclude={"unit_id", "tag_ids"})
-                    db.add(VocabularyEntry(**values, unit=unit, tags=assigned_tags))
-                    counts["imported"] += 1
+                current = matches[0] if matches else None
+                if current:
+                    changed_fields = [
+                        key
+                        for key, value in supplied.items()
+                        if current["values"][key] != value
+                    ]
+                    if current["unit_id"] != destination.id:
+                        changed_fields.append("unit_id")
+                    if "tags" in original and current["tags"] != set(names):
+                        changed_fields.append("tags")
+                    status = "updated" if changed_fields else "duplicate"
+                if status != "duplicate":
+                    if not current:
+                        current = {
+                            "entry": None,
+                            "values": values,
+                            "unit_id": destination.id,
+                            "tags": set(names),
+                        }
+                        pairs[pair] = [current]
+                    current["values"].update(supplied)
+                    current["unit_id"] = destination.id
+                    if "tags" in original:
+                        current["tags"] = set(names)
+                    proposed_tags.update(name for name in names if name not in tags)
+                    if confirm:
+                        stored = current["entry"]
+                        if stored is None:
+                            stored = VocabularyEntry(
+                                **current["values"], unit=destination
+                            )
+                            db.add(stored)
+                            current["entry"] = stored
+                            counts["imported"] += 1
+                        else:
+                            for key in changed_fields:
+                                if key not in {"unit_id", "tags"}:
+                                    setattr(stored, key, supplied[key])
+                            if "unit_id" in changed_fields:
+                                stored.unit = destination
+                        if "tags" in original:
+                            assigned_tags = []
+                            for name in names:
+                                if name not in tags:
+                                    tags[name] = Tag(name=name)
+                                    db.add(tags[name])
+                                assigned_tags.append(tags[name])
+                            stored.tags = assigned_tags
         counts[status] += 1
-        if status != "valid":
+        if status == "updated":
+            counts["valid"] += 1
+        if status in {"error", "duplicate"}:
             counts["skipped"] += 1
         results.append(
             {
@@ -187,6 +247,7 @@ def evaluate(db, rows, confirm, destination):
                 "italian": original.get("italian", ""),
                 "greek": original.get("greek", ""),
                 "status": status,
+                "changed_fields": changed_fields,
                 "errors": errors,
                 "entry": entry.model_dump(exclude={"unit_id", "tag_ids"})
                 if entry

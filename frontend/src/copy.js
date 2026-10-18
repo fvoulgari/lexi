@@ -59,10 +59,12 @@ export const copy = {
     csvHint:
       "Upload UTF-8 CSV, up to 1 MiB and 2000 rows. Required columns: italian, greek, word_type. Separate tags with |.",
     csvConfirmHint:
-      "Confirm to import valid rows. Duplicates and invalid rows are skipped. Current library data is checked again; existing cards are never overwritten.",
+      "Confirm to import new cards and update changed fields on cards with the same Italian–Greek pair. Identical and invalid rows are skipped. Missing columns leave existing values unchanged; blank cells clear those fields. Practice history is preserved. The library is checked again on confirmation.",
     csvLimit: "CSV exceeds the 1 MiB limit.",
     csvInvalid: "Check the CSV file.",
+    csvChangedFields: "Changed fields",
     csvCounts: {
+      updated: "Updated",
       imported: "Imported",
       valid: "Valid",
       skipped: "Skipped",
@@ -338,10 +340,12 @@ export const copy = {
     csvHint:
       "Ανεβάστε CSV UTF-8, έως 1 MiB και 2000 γραμμές. Απαιτούνται: italian, greek, word_type. Διαχωρίστε ετικέτες με |.",
     csvConfirmHint:
-      "Επιβεβαιώστε για εισαγωγή έγκυρων γραμμών. Διπλότυπες και μη έγκυρες γραμμές παραλείπονται. Η βιβλιοθήκη ελέγχεται ξανά· υπάρχουσες κάρτες δεν αντικαθίστανται.",
+      "Επιβεβαιώστε για να εισαγάγετε νέες κάρτες και να ενημερώσετε τα πεδία που έχουν αλλάξει στις κάρτες με το ίδιο ζεύγος ιταλικών–ελληνικών. Οι πανομοιότυπες και οι μη έγκυρες σειρές παραλείπονται. Οι στήλες που λείπουν αφήνουν τις υπάρχουσες τιμές ως έχουν· τα κενά κελιά διαγράφουν τα αντίστοιχα πεδία. Το ιστορικό εξάσκησης διατηρείται. Η βιβλιοθήκη ελέγχεται εκ νέου κατά την επιβεβαίωση.",
     csvLimit: "Το CSV υπερβαίνει το όριο 1 MiB.",
     csvInvalid: "Ελέγξτε το αρχείο CSV.",
+    csvChangedFields: "Τροποποιημένα πεδία",
     csvCounts: {
+      updated: "Ενημερώθηκε",
       imported: "Εισήχθησαν",
       valid: "Έγκυρες",
       skipped: "Παραλείφθηκαν",
@@ -620,10 +624,12 @@ export const copy = {
     csvHint:
       "Carica CSV UTF-8, fino a 1 MiB e 2000 righe. Colonne obbligatorie: italian, greek, word_type. Separa le etichette con |.",
     csvConfirmHint:
-      "Conferma per importare le righe valide. Duplicati e righe non valide vengono saltati. La biblioteca viene verificata di nuovo; le schede esistenti non vengono sovrascritte.",
+      "Conferma per importare nuove schede e aggiornare i campi modificati nelle schede con la stessa coppia italiano-greco. Le righe identiche e non valide vengono ignorate. Le colonne mancanti lasciano invariati i valori esistenti; le celle vuote azzerano quei campi. La cronologia delle operazioni viene conservata. Al momento della conferma, la libreria viene ricontrollata.",
     csvLimit: "Il CSV supera il limite di 1 MiB.",
     csvInvalid: "Controlla il file CSV.",
+    csvChangedFields: "Campi modificati",
     csvCounts: {
+      updated: "Aggiornato",
       imported: "Importate",
       valid: "Valide",
       skipped: "Saltate",

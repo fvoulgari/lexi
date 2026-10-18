@@ -13,7 +13,7 @@ The supplied product brief defines the initial release, delivered in stages. Fut
 - Place all ten initial sample vocabulary entries in Unit 00, "Benvenuti". Create Unit 01, "Un nuovo inizio", initially empty.
 - Filters match any selected value within a group and require every selected group to match.
 - Permanent deletion is allowed only for entries with no reviews. Explain the restriction when reviews exist.
-- CSV import previews valid and invalid rows, duplicate skips, and proposed new units and tags before confirmation. Import valid nonduplicate rows without overwriting existing entries.
+- CSV import previews new cards, field updates, unchanged duplicates, invalid rows and proposed tags before confirmation. Match existing cards by their normalized Italian–Greek pair and update only changed supplied fields, preserving practice history and statistics. Omitted optional columns preserve stored values; blank cells clear optional fields. Multiple existing matches are row errors.
 - Duplicate matching normalizes surrounding whitespace, Unicode, and case, preserves accents, and compares both Italian and Greek text.
 - CSV uses italian_gender and greek_gender; legacy gender is an alias for italian_gender. Conflicting values are row errors.
 
