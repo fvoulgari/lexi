@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Layers,
   ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 import PropTypes from "prop-types";
 import { request } from "./api.js";
@@ -649,9 +650,19 @@ function Summary({ text, sessionId, onAgain, onLocked }) {
   }, []);
   return (
     <div className="session-summary">
-      <h1 ref={title} tabIndex={-1}>
-        {text.sessionSummary}
-      </h1>
+      <header className="summary-heading">
+        <h1 ref={title} tabIndex={-1}>
+          {text.sessionSummary}
+        </h1>
+        {summary.isSuccess && (
+          <p className="summary-review-total">
+            {(summary.data.total === 1
+              ? text.summaryReviewOne
+              : text.summaryReviews
+            ).replace("{count}", summary.data.total)}
+          </p>
+        )}
+      </header>
       {summary.isPending ? (
         <p role="status">{text.loading}</p>
       ) : summary.isError ? (
@@ -663,9 +674,6 @@ function Summary({ text, sessionId, onAgain, onLocked }) {
         </>
       ) : (
         <>
-          <p>
-            {text.reviewed}: {summary.data.total}
-          </p>
           <dl className="summary-counts">
             {["again", "hard", "easy"].map((value) => (
               <div key={value}>
@@ -674,22 +682,51 @@ function Summary({ text, sessionId, onAgain, onLocked }) {
               </div>
             ))}
           </dl>
-          <h2>{text.remembered}</h2>
-          <p className="remembered-value">
-            {Math.round(summary.data.remembered)}%
-          </p>
-          {!summary.data.total && <p>{text.noReviews}</p>}
+          <div className="summary-recall">
+            {summary.data.total > 0 ? (
+              <>
+                <p className="summary-recall-value">
+                  {text.summaryRecall.replace(
+                    "{percent}",
+                    Math.round(summary.data.remembered),
+                  )}
+                </p>
+                <p className="summary-recall-hint">
+                  {text.summaryRecallHint
+                    .replace("{easy}", text.easy)
+                    .replace("{hard}", text.hard)}
+                </p>
+              </>
+            ) : (
+              <p className="summary-recall-hint">{text.noReviews}</p>
+            )}
+          </div>
           {!!summary.data.needs_practice.length && (
-            <>
-              <h2>{text.needsPractice}</h2>
+            <details className="summary-practice">
+              <summary>
+                <span>
+                  {(summary.data.needs_practice.length === 1
+                    ? text.summaryPracticeOne
+                    : text.summaryPractice
+                  ).replace("{count}", summary.data.needs_practice.length)}
+                </span>
+                <ChevronDown size={18} aria-hidden="true" />
+              </summary>
               <ul>
                 {summary.data.needs_practice.map((e) => (
                   <li key={e.id}>
-                    {e.snapshot.italian} · {e.snapshot.greek} — {text[e.rating]}
+                    <div className="summary-card-words">
+                      <span lang="it">{e.snapshot.italian}</span>
+                      <span aria-hidden="true"> → </span>
+                      <span lang="el">{e.snapshot.greek}</span>
+                    </div>
+                    <span className="summary-rating" data-rating={e.rating}>
+                      {text[e.rating]}
+                    </span>
                   </li>
                 ))}
               </ul>
-            </>
+            </details>
           )}
         </>
       )}
@@ -697,7 +734,9 @@ function Summary({ text, sessionId, onAgain, onLocked }) {
         <button className="primary" onClick={onAgain}>
           {text.practiceAgain}
         </button>
-        <Link to="/">{text.returnHome}</Link>
+        <Link to="/" className="secondary">
+          {text.returnHome}
+        </Link>
       </div>
     </div>
   );

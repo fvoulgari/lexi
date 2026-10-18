@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -152,7 +152,7 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
   expect(
     await screen.findByRole("heading", { name: "Session summary" }),
   ).toBeInTheDocument();
-  expect(await screen.findByText("100%")).toBeInTheDocument();
+  expect(await screen.findByText("You recalled 100%")).toBeInTheDocument();
   expect(saves).toEqual([
     { direction: "greek_to_italian", rating: "hard" },
     { direction: "greek_to_italian", rating: "hard" },
@@ -228,7 +228,8 @@ test("finishing without a review is defined and reloading starts fresh setup", a
   await user.click(
     await screen.findByRole("button", { name: "Finish and see summary" }),
   );
-  expect(await screen.findByText("0%")).toBeInTheDocument();
+  await screen.findByText(copy.en.noReviews);
+  expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   expect(screen.getByText(/No reviews yet/)).toBeInTheDocument();
   await user.click(screen.getByRole("link", { name: "Return Home" }));
   expect(
@@ -603,7 +604,8 @@ test("deleting the final unreviewed card reaches a zero-review summary with an e
     await screen.findByRole("heading", { name: "Session summary" }),
   ).toBeInTheDocument();
   expect(screen.getByText(/It was skipped/)).toBeInTheDocument();
-  expect(screen.getByText("0%")).toBeInTheDocument();
+  expect(screen.getByText(copy.en.noReviews)).toBeInTheDocument();
+  expect(screen.queryByText(/%/)).not.toBeInTheDocument();
 });
 
 test("mixed setup follows the reveal, review and summary journey", async () => {
@@ -835,3 +837,137 @@ test("all shared units can be selected directly without profile assignment", asy
   await user.click(screen.getByRole("button", {name:"Start practice"}));
   expect(await screen.findByRole("button", {name:"Reveal answer"})).toBeInTheDocument();
 });
+
+const practiceSummaryCards = [
+  {
+    id: "review-a",
+    snapshot: { italian: "la casa", greek: "το σπίτι" },
+    rating: "again",
+  },
+  {
+    id: "review-b",
+    snapshot: { italian: "il libro", greek: "το βιβλίο" },
+    rating: "hard",
+  },
+  {
+    id: "review-c",
+    snapshot: { italian: "la chiave", greek: "το κλειδί" },
+    rating: "again",
+  },
+];
+async function completeWithSummary(data, language = "el") {
+  server.use(
+    http.get("*/api/sessions/s/summary", () => HttpResponse.json(data)),
+  );
+  localStorage.setItem("notebook-language", language);
+  openPractice();
+  const text = copy[language];
+  const user = userEvent.setup();
+  await user.selectOptions(await screen.findByLabelText(text.profile), "f");
+  await user.click(screen.getByRole("button", { name: text.startPractice }));
+  await user.click(
+    await screen.findByRole("button", { name: text.finishPractice }),
+  );
+  const heading = await screen.findByRole("heading", {
+    name: text.sessionSummary,
+  });
+  await screen.findByText(
+    (data.total === 1 ? text.summaryReviewOne : text.summaryReviews).replace(
+      "{count}",
+      data.total,
+    ),
+  );
+  return { user, panel: heading.closest(".session-summary"), text };
+}
+
+test("completed summary shows review counts, combined recall and a closed disclosure counted from the actual list", async () => {
+  const { user, panel } = await completeWithSummary({
+    total: 5,
+    counts: { again: 2, hard: 1, easy: 2 },
+    remembered: 60,
+    needs_practice: practiceSummaryCards,
+  });
+  expect(
+    within(panel.querySelector("header")).getByText("5 αξιολογήσεις"),
+  ).toBeInTheDocument();
+  expect(within(panel).getByText("Θυμήθηκες το 60%")).toBeInTheDocument();
+  expect(
+    within(panel).getByText("Απαντήσεις “Εύκολο” ή “Δύσκολο”."),
+  ).toBeInTheDocument();
+  expect(
+    [...panel.querySelectorAll(".summary-counts dt")].map(
+      (el) => el.textContent,
+    ),
+  ).toEqual([copy.el.again, copy.el.hard, copy.el.easy]);
+  expect(
+    [...panel.querySelectorAll(".summary-counts dd")].map(
+      (el) => el.textContent,
+    ),
+  ).toEqual(["2", "1", "2"]);
+  const toggle = within(panel).getByText("Θέλουν λίγη εξάσκηση · 3 κάρτες");
+  const details = toggle.closest("details");
+  expect(details).not.toHaveAttribute("open");
+  expect(within(details).getByText("la casa")).not.toBeVisible();
+  expect(details.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  await user.click(toggle);
+  expect(details).toHaveAttribute("open");
+  const cards = within(details).getAllByRole("listitem");
+  expect(cards).toHaveLength(3);
+  practiceSummaryCards.forEach((card, index) => {
+    expect(within(cards[index]).getByText(card.snapshot.italian)).toBeVisible();
+    expect(within(cards[index]).getByText(card.snapshot.greek)).toBeVisible();
+    expect(within(cards[index]).getByText(copy.el[card.rating])).toBeVisible();
+  });
+  await user.click(toggle);
+  expect(details).not.toHaveAttribute("open");
+  expect(
+    within(panel).getByRole("button", { name: copy.el.practiceAgain }),
+  ).toHaveClass("primary");
+  expect(
+    within(panel).getByRole("link", { name: copy.el.returnHome }),
+  ).toHaveAttribute("href", "/");
+  expect(
+    within(panel).getByRole("link", { name: copy.el.returnHome }),
+  ).toHaveClass("secondary");
+});
+
+test.each([
+  ["el", "Θέλει λίγη εξάσκηση · 1 κάρτα", "Θυμήθηκες το 100%"],
+  ["en", "A little more practice · 1 card", "You recalled 100%"],
+  ["it", "Un po’ di pratica in più · 1 scheda", "Hai ricordato il 100%"],
+])(
+  "summary uses singular card wording and translated percentages in %s",
+  async (language, label, recall) => {
+    const { panel } = await completeWithSummary(
+      {
+        total: 1,
+        counts: { again: 0, hard: 1, easy: 0 },
+        remembered: 100,
+        needs_practice: [practiceSummaryCards[1]],
+      },
+      language,
+    );
+    expect(within(panel).getByText(label)).toBeInTheDocument();
+    expect(within(panel).getByText(recall)).toBeInTheDocument();
+  },
+);
+
+test.each([0, 1])(
+  "summary hides an empty card list with %s reviews and avoids unmeasured percentages",
+  async (total) => {
+    const { panel } = await completeWithSummary({
+      total,
+      counts: { again: 0, hard: 0, easy: total },
+      remembered: total ? 100 : 0,
+      needs_practice: [],
+    });
+    expect(panel.querySelector("details")).not.toBeInTheDocument();
+    expect(within(panel).queryByText(/NaN/)).not.toBeInTheDocument();
+    if (!total) {
+      expect(within(panel).getByText(copy.el.noReviews)).toBeVisible();
+      expect(within(panel).queryByText(/%/)).not.toBeInTheDocument();
+    } else {
+      expect(within(panel).getByText("Θυμήθηκες το 100%")).toBeVisible();
+    }
+  },
+);
