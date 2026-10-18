@@ -48,7 +48,7 @@ jobs:
         working-directory: backend
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: lexi-test-only
@@ -116,22 +116,25 @@ jobs:
     name: Application checks passed
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [backend, frontend]
+    needs: [source, backend, frontend, publication-validation]
     if: ${{ always() }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.workflow_sha }}
       - name: Require all checks to succeed
         env:
           BACKEND_RESULT: ${{ needs.backend.result }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
-        run: |
-          test "$BACKEND_RESULT" = success
-          test "$FRONTEND_RESULT" = success
+          PUBLICATION_RESULT: ${{ needs.publication-validation.result }}
+        run: bash scripts/check-results.sh
 
   publication-validation:
     name: Image publication validation
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    needs: [source, checks]
+    needs: [source, backend, frontend]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

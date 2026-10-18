@@ -34,7 +34,7 @@ For a failed application release, redeploy the previous known-good image if comp
 
 PostgreSQL volume backups are opt-in. In the PostgreSQL service's **Backups** tab, enable **Daily**, verify the first backup completes, and check subsequent completion dates. Daily backups are retained for six days, so up to a day's changes may be lost. Take a manual volume snapshot before a risky migration. Volume snapshots remain tied to that service/project/environment; deleting the volume also deletes its backups. Keep protected logical dumps separately. See [Railway volume backups](https://docs.railway.com/volumes/backups) and [the PostgreSQL restore guide](https://docs.railway.com/guides/postgres-backups-restores).
 
-For a manual logical backup, run PostgreSQL 17 client tools in a maintenance container or PostgreSQL container on the same private network. The application image does not include `pg_dump`. Supply libpq `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` and `PGPASSWORD` through protected environment variables; do not put a password on the command line. Use the same PostgreSQL major version as the server (or a supported newer dump client). Store dumps with restricted access, encryption and offsite retention.
+For a manual logical backup, run PostgreSQL 18 client tools in a maintenance container or PostgreSQL container on the same private network. The application image does not include `pg_dump`. Supply libpq `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` and `PGPASSWORD` through protected environment variables; do not put a password on the command line. Use the same PostgreSQL major version as the server (or a supported newer dump client). Store dumps with restricted access, encryption and offsite retention.
 
 ```sh
 umask 077
@@ -62,7 +62,7 @@ docker compose exec -T postgres pg_restore -U notebook -d notebook_restore \
 
 ## Repeat the connected persistence and restore drill
 
-Use a fresh private Docker network, PostgreSQL 17 container and database, with a localhost-only test port if needed. Run the production image on that network, supply disposable secrets, `COOKIE_SECURE=false`, and `PUBLIC_ORIGIN=http://localhost:8801`; publish only `127.0.0.1:8801:8000`. Seed once. In the following commands, the PostgreSQL container is `lexi-release-postgres`, the application is `lexi-release-app`, and the source database is `lexi_release`.
+Use a fresh private Docker network, PostgreSQL 18 container and database, with a localhost-only test port if needed. Run the production image on that network, supply disposable secrets, `COOKIE_SECURE=false`, and `PUBLIC_ORIGIN=http://localhost:8801`; publish only `127.0.0.1:8801:8000`. Seed once. In the following commands, the PostgreSQL container is `lexi-release-postgres`, the application is `lexi-release-app`, and the source database is `lexi_release`.
 
 ```sh
 # SHARED_PASSWORD must already be in this shell's environment.

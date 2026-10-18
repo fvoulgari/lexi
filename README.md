@@ -61,7 +61,7 @@ The initial library has ten entries in Unit 00, Benvenuti. Unit 01, Un nuovo ini
 
 ## Run without application containers
 
-Use Python 3.14, Node 24, and a PostgreSQL 17 database. Keep PostgreSQL private or bound to localhost.
+Use Python 3.14, Node 24, and a PostgreSQL 18 database. Keep PostgreSQL private or bound to localhost.
 
 ```sh
 cd backend
@@ -91,9 +91,12 @@ Vite proxies `/api` to the backend, keeping browser requests on one origin. Over
 
 GitHub Actions runs the backend and frontend checks below on pull requests targeting
 `main` and every push to `main`. The **Application checks passed** job succeeds only
-when both **Backend checks** and **Frontend checks** succeed; failed, skipped, or
-cancelled checks fail the gate. CI uses Python 3.14, Node 24, and disposable
-PostgreSQL 17. PR checks have read-only repository access. Successful main checks publish the
+when **Backend checks**, **Frontend checks**, and **Image publication validation**
+succeed. Image validation runs registry integration tests and builds the combined
+linux/amd64 production Docker image on PRs. Failed, skipped, or cancelled validations
+fail the gate. Ordinary merges require a PR and this check; administrators retain
+bypass access, and reviewer approval is not mandatory. CI uses Python 3.14, Node 24, and disposable
+PostgreSQL 18. PR checks have read-only repository access. Successful main checks publish the
 production image to GHCR. Published releases and prereleases run the same checks
 on their tagged commit and publish exact release/SHA tags without changing latest;
 see [image publication](docs/image-publication.md) for
@@ -105,7 +108,7 @@ API tests use a **disposable real PostgreSQL database**, not SQLite. The configu
 ```sh
 docker run -d --name notebook-test-postgres \
   -e POSTGRES_PASSWORD=lexi-test-only -e POSTGRES_DB=lexi_test \
-  -p 127.0.0.1:55432:5432 postgres:17-alpine
+  -p 127.0.0.1:55432:5432 postgres:18-alpine
 ```
 
 Wait until `docker exec notebook-test-postgres pg_isready -U postgres -d lexi_test` succeeds, then:
