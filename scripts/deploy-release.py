@@ -50,7 +50,13 @@ class ReleaseError(Exception):
 def request(url, headers, body=None):
     data = None if body is None else json.dumps(body).encode()
     req = Request(
-        url, data=data, headers={"Content-Type": "application/json", **headers}
+        url,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "lexi-release-deployment/1.0",
+            **headers,
+        }
     )
     with urlopen(req, timeout=30) as response:
         return json.load(response)

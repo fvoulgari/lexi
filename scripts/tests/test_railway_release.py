@@ -81,6 +81,12 @@ class RailwayReleaseTests(unittest.TestCase):
                     self.respond({}, 404)
 
             def do_POST(self):
+                # Railway edge filtering rejects urllib's default user agent.
+                if self.path == "/railway" and self.headers.get(
+                    "User-Agent", ""
+                ).startswith("Python-urllib/"):
+                    self.respond({"error": "blocked client"}, 403)
+                    return
                 data = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 owner.requests.append(("POST", self.path, data))
                 if self.path == "/railway":
