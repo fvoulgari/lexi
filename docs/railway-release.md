@@ -19,12 +19,13 @@ and setup do not create a tag or replace the running deployment.
 
 The GitHub production environment allows the `v*.*.*` tag pattern, requires no
 additional manual approval, and contains the environment-scoped `RAILWAY_TOKEN`
-secret once the operator completes setup. The workflow independently rejects
+secret (verified present on 18 October 2026). The workflow independently rejects
 noncanonical versions and revalidates main ancestry after waiting for production.
 PR and main jobs never receive this secret or initiate a rollout.
 
 Railway's authenticated CLI API returned `Not Authorized` for project-token
-creation during setup, so this one credential step remains manual:
+creation during setup. The operator completed the following manual credential
+step; use the same procedure when rotating the token:
 
 1. In the existing lexi project's Settings → Tokens, create a project token scoped
    to **production**, named `lexi-github-production-releases`.
@@ -108,8 +109,10 @@ GitHub production was created with the version-tag restriction and no reviewer o
 timer approval. Main still requires Application checks passed with administrator
 bypass and zero approving reviews. GHCR public visibility/pull and Actions package
 writes have evidence in the image-publication guide. The Railway project-token
-creation API was denied and no token was created; secret provisioning remains an
-operator step. Do not call deployment setup complete until that secret is present.
+creation API was denied, so the operator created the production-scoped token
+through the dashboard. The setup wizard verified its project/environment scope
+before storing it. GitHub read-back confirms the production `RAILWAY_TOKEN`
+secret exists (updated `2026-10-18T20:27:31Z`); its value was not read back.
 
 Controlled HTTP APIs exercise the release command without live deployment access.
 They verify image/target identity, success timing, numeric/paginated history,
@@ -120,8 +123,10 @@ hosted event-routing, image-pull, startup migration, and Railway readiness evide
 Local validation passed: 35 pipeline tests (including 18 controlled release API
 cases), 112 backend tests on disposable PostgreSQL 18, 204 frontend tests, lint,
 compilation, frontend build, and the linux/amd64 production Docker build. Standards
-and spec reviews found no code issues; the spec review explicitly leaves #45's
-credential installation pending. Actionlint passes with the previously documented
+and spec reviews found no code issues; the credential installation identified
+during review is now complete. A regression test also covers Railway edge
+filtering of the default Python user agent; the deployment client sends an
+explicit application user agent. Actionlint passes with the previously documented
 unsupported `queue` diagnostic excluded. No separate typechecking command exists.
 
 ## Initial provisioning and manual deployment
