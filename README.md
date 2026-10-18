@@ -101,7 +101,10 @@ production image to GHCR. Creating a canonical stable `vMAJOR.MINOR.PATCH` tag
 runs the same checks on its exact commit, which must belong to main, and publishes
 immutable version/SHA tags without changing latest. Prerelease and malformed tags
 are ignored; GitHub Release publication does not trigger a build. Existing release
-tags are protected against updates and deletion. No Railway deployment runs yet;
+tags are protected against updates and deletion. After the
+[production credential setup](docs/railway-release.md#production-credential-setup),
+stable releases deploy that exact digest to Railway and require readiness; main
+merges and PRs do not deploy;
 see [image publication](docs/image-publication.md) for
 tags, ordering, public-package setup, and verification.
 

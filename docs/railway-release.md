@@ -2,9 +2,132 @@
 
 One application service serves the React build and FastAPI API on the same origin. A separate PostgreSQL service owns all durable vocabulary, learner preferences, gate sessions, review events and learning records. See [ADR 0001](adr/0001-railway-application-and-private-postgresql.md). Local Compose and the separate frontend/backend development builds remain supported.
 
-## Prepare and deploy
+## Automated releases
 
-Actual production deployment requires separate authorization. The following is the operator procedure after that authorization.
+Main merges publish checked SHA images without deploying. Creating a canonical
+stable version tag on a commit reachable from main runs checks, publishes the
+immutable version image, and deploys its exact registry digest to the existing
+lexi production application. GitHub Release publication and prerelease tags do not
+deploy. The tagged revision must contain the deployment workflow.
+
+The first automated version must be greater than the existing v1.1.2 baseline.
+After merging the deployment PR and completing the credential step below, an
+operator-created stable tag is the explicit release action. This implementation
+and setup do not create a tag or replace the running deployment.
+
+### Production credential setup
+
+The GitHub production environment allows the `v*.*.*` tag pattern, requires no
+additional manual approval, and contains the environment-scoped `RAILWAY_TOKEN`
+secret once the operator completes setup. The workflow independently rejects
+noncanonical versions and revalidates main ancestry after waiting for production.
+PR and main jobs never receive this secret or initiate a rollout.
+
+Railway's authenticated CLI API returned `Not Authorized` for project-token
+creation during setup, so this one credential step remains manual:
+
+1. In the existing lexi project's Settings → Tokens, create a project token scoped
+   to **production**, named `lexi-github-production-releases`.
+2. From a terminal authenticated to GitHub, run
+   `gh secret set RAILWAY_TOKEN --repo fvoulgari/lexi --env production` and paste the
+   token into its hidden prompt. Do not commit it or add it to application variables.
+3. Verify the secret name with
+   `gh secret list --repo fvoulgari/lexi --env production`. Token values are not
+   readable back from GitHub. Confirm the Railway token is scoped to project
+   `de2e2c78-8a6b-41aa-afeb-c6d8002ecc79`, environment
+   `c41cced0-97ff-441b-b86e-38a191a48188`, before storing it.
+
+Do not substitute the CLI's account credential for the scoped project token.
+Missing credentials fail before production mutations. GitHub access uses the job's
+GITHUB_TOKEN with `deployments: write`; GHCR images remain public and Railway needs
+no runtime registry credential. Railway documents the
+[project-token scope and header](https://docs.railway.com/integrations/api).
+
+### Release processing and durable state
+
+Production jobs share a single concurrency group with cancellation disabled.
+Up to 100 jobs can wait; overflow cancels/rejects a queued job and must be treated
+as an uncompleted release, never success. Inspect the Actions run and rerun after
+capacity recovers. The publisher's version and SHA locks remain separate.
+
+The release command stores its durable intent and outcome in GitHub Deployments
+for environment `production`, task `lexi-release`. The payload records schema 1,
+version, checked SHA, and pinned image. GitHub's automatic environment deployments
+use another task and are not the version ledger. Preserve these records and their
+statuses: the numeric maximum of every historical successful version, plus the
+v1.1.2 baseline, prevents queued older versions from deploying. Later `inactive`
+statuses do not erase historical success. Records and statuses are paginated;
+exceeding the bounded history scan fails closed for operator review.
+
+A release records intent before applying any source change. Configuration is
+committed with `skipDeploys=true`, changing only the application's image and
+readiness settings. The command waits for effective environment configuration to
+show the requested image, `/api/health`, 120 seconds, and one replica; legacy
+service-instance fields may differ from that effective configuration. It checks
+that the existing rollout has not changed, then explicitly starts one deployment
+and immediately records its exact Railway ID. No rebuild is requested on Railway.
+
+Only that ID's `SUCCESS`, matching project/environment/service and image digest,
+advances successful-release state. Polling is bounded to 15 minutes; configuration
+convergence is bounded to two minutes, within the job's 25-minute limit. Failure,
+crash, timeout, approval wait, or any other non-success state fails the job. No
+application rollback, migration downgrade, or database change is performed by the
+release command. The container still runs startup migrations normally.
+
+### Reruns and failed rollout recovery
+
+- An already successful version with the same SHA/digest is a no-op. Conflicting
+  identities and versions older than the successful high-water mark are rejected.
+- A rerun with a recorded Railway ID observes that same rollout; it never starts a
+  duplicate. This also recovers a timeout or a failed GitHub success-status write.
+- Before another version starts, interrupted earlier releases are reconciled.
+  Active/approval-waiting rollouts block a new deployment. A recovered success
+  advances the high-water mark before queued-version eligibility is checked.
+- A deployment intent without a recorded Railway ID is ambiguous. Inspect Railway
+  history around that attempt and reconcile the GitHub record with the exact ID
+  before retrying. Do not blindly rerun the deployment mutation. If no rollout
+  actually started, an operator must resolve that unused intent after confirming
+  the source/configuration state. Never delete successful history to force a release.
+- Terminal failed/crashed rollouts require operator assessment of migration/schema
+  compatibility before a new release. Unexpected or unrecorded source changes also
+  require reconciliation rather than silently replacing a manual deployment.
+
+For manual application/database recovery, follow the migration and backup sections
+below. A new stable tag is an explicit release; it does not imply a safe schema rollback.
+
+## Setup verification (18 October 2026)
+
+The effective production environment configuration was read back with
+`/api/health`, a 120-second timeout, and `multiRegionConfig.sfo.numReplicas=1` after
+a patch explicitly skipped deployments. The source remains
+`ghcr.io/fvoulgari/lexi:v1.1.2`; the live deployment ID remains
+`7e05f23e-0d50-4610-b5b7-036d9aece929`. PostgreSQL remains version 18 on private
+networking. Runtime variables and startup commands were not changed.
+
+GitHub production was created with the version-tag restriction and no reviewer or
+timer approval. Main still requires Application checks passed with administrator
+bypass and zero approving reviews. GHCR public visibility/pull and Actions package
+writes have evidence in the image-publication guide. The Railway project-token
+creation API was denied and no token was created; secret provisioning remains an
+operator step. Do not call deployment setup complete until that secret is present.
+
+Controlled HTTP APIs exercise the release command without live deployment access.
+They verify image/target identity, success timing, numeric/paginated history,
+convergence, busy rollouts, failure/timeout/approval states, lost-success recording,
+reruns, and ambiguous attempts. The first authorized stable tag must still provide
+hosted event-routing, image-pull, startup migration, and Railway readiness evidence.
+
+Local validation passed: 35 pipeline tests (including 18 controlled release API
+cases), 112 backend tests on disposable PostgreSQL 18, 204 frontend tests, lint,
+compilation, frontend build, and the linux/amd64 production Docker build. Standards
+and spec reviews found no code issues; the spec review explicitly leaves #45's
+credential installation pending. Actionlint passes with the previously documented
+unsupported `queue` diagnostic excluded. No separate typechecking command exists.
+
+## Initial provisioning and manual deployment
+
+The following operator procedure is for initial provisioning or explicitly
+requested manual recovery; ordinary releases use the automated path above.
 
 1. Build and verify the root image with `docker build -t italian-notebook .`. Select the repository root, root `Dockerfile` for the application service. Do not select the development Dockerfiles. The final image runs as `notebook`, contains no Node runtime, and serves the compiled frontend directly.
 2. Add PostgreSQL in the same Railway project **and environment**, with its persistent volume. Retain private networking and remove any public TCP proxy. Set application `DATABASE_URL` to a reference such as `${{Postgres.DATABASE_URL}}` (replace `Postgres` with the actual service name); verify the resolved hostname ends in `.railway.internal`. Do not use `DATABASE_PUBLIC_URL`. The app accepts `postgresql://` and `postgres://` URLs and uses psycopg. Private DNS is available at runtime, so migrations run at startup rather than during image build. See [Railway private networking](https://docs.railway.com/networking/private-networking).

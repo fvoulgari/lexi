@@ -24,8 +24,10 @@ The required **Application checks passed** merge gate includes backend checks,
 frontend checks, and image publication validation (registry integration tests plus
 the production Docker build on PRs). Failed, cancelled, or skipped validation fails
 the gate. Main protection requires PRs and this check for ordinary merges, with
-administrator bypass and no mandatory reviewer approval. No automatic deployment
-or image retention is configured here.
+administrator bypass and no mandatory reviewer approval. Stable releases then
+deploy the verified digest through the protected GitHub production environment;
+main and PR events do not deploy. See the [Railway runbook](railway-release.md) for
+credential setup, ordering, readiness, and recovery. No image retention is configured.
 
 ## Stable release publication
 
@@ -52,8 +54,8 @@ image without rebuilding.
 
 A successful run exposes `digest` and `image` job outputs, where `image` is
 `ghcr.io/fvoulgari/lexi@sha256:<digest>`. These identify the verified registry
-manifest, not the local image config ID. Ticket #44 consumes this contract to add
-Railway deployment; this ticket does not deploy.
+manifest, not the local image config ID. The production deployment job consumes this contract to deploy the same artifact
+without rebuilding. It runs only after successful stable-tag publication.
 
 ### Version identity and concurrency
 
