@@ -20,7 +20,12 @@ publication must not update latest or the main ordering metadata.
 A promotion failure leaves the SHA image available. After resolving the failure,
 rerun the failed promotion job; it checks current latest again. Queue overflow can
 cancel a promotion, but cannot cancel its independently completed SHA publication.
-No automatic deployment, branch protection, or image retention is configured here.
+The required **Application checks passed** merge gate includes backend checks,
+frontend checks, and image publication validation (registry integration tests plus
+the production Docker build on PRs). Failed, cancelled, or skipped validation fails
+the gate. Main protection requires PRs and this check for ordinary merges, with
+administrator bypass and no mandatory reviewer approval. No automatic deployment
+or image retention is configured here.
 
 ## Release publication
 
@@ -91,3 +96,37 @@ labels and linux/amd64 platform, and compare the latest digest before/after. A
 release with failing checks must skip release publication. Include a release from
 an older supported revision and overlap with main publication. These event and
 GHCR-write checks require real releases and are not established by PR validation.
+
+## Merge-gate verification (18 October 2026)
+
+GitHub's main branch protection was configured and read back for ticket #42:
+
+- Required check: `Application checks passed`, bound to the GitHub Actions app.
+- The PR branch must be up to date before merging.
+- Pull requests are required, with zero required approving reviews.
+- Administrator enforcement is disabled, retaining administrator bypass.
+
+Inspect the live [main protection settings](https://github.com/fvoulgari/lexi/settings/branches)
+when changing required check names. Protection already requires the existing check
+name; its expanded validation takes effect when this workflow change is merged.
+Local gate tests execute the same command as the aggregate job and verify that only
+all-success inputs pass; failure, cancellation, skip, missing/empty, and unknown
+results fail closed. Registry integration tests and the production Docker build
+verify image behavior separately.
+
+Local verification passed: 112 backend tests against a separate PostgreSQL 18
+container, 204 frontend tests, seven gate/registry/source tests, backend/frontend
+lint and compilation, and the linux/amd64 production Docker build. This project
+uses JavaScript and Python and has no separate typechecking command.
+
+Actionlint v1.7.12 passed with only its unsupported `queue` syntax diagnostic
+excluded. The three existing `queue: max` declarations were preserved; GitHub
+[documents this concurrency option](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax).
+
+Hosted verification remains: on a PR containing this change, confirm the aggregate
+job waits for image validation and fails when any required validation fails or is
+skipped. Confirm a passing PR can merge without reviewer approval, and that its
+main run publishes a SHA image and promotes latest without deploying Railway.
+Record hosted run links after those events; local tests and protection read-back
+do not prove hosted event routing or GHCR writes. No release tag or production
+rollout is needed for this ticket.

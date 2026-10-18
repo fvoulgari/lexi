@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { MemoryRouter } from "react-router-dom";
 import {
@@ -579,14 +579,16 @@ test("deleting the final unreviewed card reaches a zero-review summary with an e
     http.post("*/api/sessions/s/cards/0/reveal", () =>
       HttpResponse.json({ error: { code: "entry_deleted" } }, { status: 409 }),
     ),
-    http.get("*/api/sessions/s/summary", () =>
-      HttpResponse.json({
+    http.get("*/api/sessions/s/summary", async () => {
+      // Exercise a response that arrives after the summary screen opens.
+      await delay(100);
+      return HttpResponse.json({
         total: 0,
         counts: { again: 0, hard: 0, easy: 0 },
         remembered: 0,
         needs_practice: [],
-      }),
-    ),
+      });
+    }),
   );
   openPractice();
   const user = userEvent.setup();
@@ -602,7 +604,7 @@ test("deleting the final unreviewed card reaches a zero-review summary with an e
     await screen.findByRole("heading", { name: "Session summary" }),
   ).toBeInTheDocument();
   expect(screen.getByText(/It was skipped/)).toBeInTheDocument();
-  expect(screen.getByText(copy.en.noReviews)).toBeInTheDocument();
+  expect(await screen.findByText(copy.en.noReviews)).toBeInTheDocument();
   expect(screen.queryByText(/%/)).not.toBeInTheDocument();
 });
 
