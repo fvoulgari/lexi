@@ -18,6 +18,14 @@ Export uses UTF-8 with a BOM (read as `utf-8-sig`), comma delimiters, CRLF recor
 
 Absent optional text is blank. IDs, timestamps and learner records are omitted: this is a reusable vocabulary exchange, not a database backup.
 
+## Reviewing an import
+
+The inline preview shows 10 rows per page, with filters for valid rows (including updates), duplicates and errors. Pagination and filters only change what is displayed: confirmation submits the complete selected CSV and the server rechecks every row. Close hides the preview while retaining the file and settings; reopen displays the saved preview. Cancel before confirmation aborts validation and clears the file, report and destination selection. Late validation responses cannot restore a cancelled or replaced preview.
+
+Confirmation closes the preview and shows progress followed by a green completion banner or a red error banner. Database import uses a server transaction and has no safe cancellation endpoint. Cancellation and file/settings changes are disabled during confirmation; aborting a browser request would not undo committed writes. On a connection failure the result may be unknown; the retained file and preview allow a retry, and the server rechecks existing pairs using the same duplicate/update rules.
+
+Pronunciation is displayed exactly as supplied, including hyphens and stress marks. For newly authored vocabulary, prefer readable cues with hyphens and marked stress, for example `αμπ-μπι-νά-ρε` for `abbinare`. This is a content convention, never an automatic transformation; existing CSV text is not transliterated, resegmented or stripped of hyphens.
+
 ## Spreadsheet safety and text fidelity
 
 CSV quoting alone does not prevent spreadsheet formulas. Every exported cell is prefixed with an apostrophe if it starts with an apostrophe, tab, CR or LF, or its first non-whitespace character is `=`, `+`, `-`, `@` (including their full-width forms). The prefix makes the value text in spreadsheet imports. Literal initial apostrophes are doubled so escaping is reversible. Tags are first encoded as JSON, whose initial `[` makes the whole cell text; tag names are not individually modified.

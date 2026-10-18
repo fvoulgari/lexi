@@ -142,7 +142,7 @@ try {
   await noOverflow();
   await page.getByLabel("Shared password").fill("password");
   await page.getByRole("button", { name: "Open my notebook" }).click();
-  await page.getByRole("link", { name: "Vocabulary", exact: true }).click();
+  await page.getByRole("link", { name: "Words", exact: true }).click();
   await page.getByText("PRIVATE CASA").waitFor();
   await page.getByRole("link", { name: "Practice", exact: true }).click();
   await page.getByLabel("Learner profile", { exact: true }).selectOption("1");

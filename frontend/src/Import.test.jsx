@@ -1,6 +1,6 @@
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -81,7 +81,7 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
     ),
   );
   expect(
-    screen.queryByRole("button", { name: "Confirm import" }),
+    screen.queryByRole("button", { name: "Import 1 card" }),
   ).not.toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText("Unit *"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
@@ -91,14 +91,14 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
   await user.click(screen.getByText("Card details"));
   expect(screen.getByText("Italian gender")).toBeInTheDocument();
   expect(screen.getByText("Italian pronunciation")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Confirm import" }));
+  await user.click(screen.getByRole("button", { name: "Import 1 card" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
   await user.click(screen.getByRole("button", { name: "Import CSV" }));
   expect(screen.getByRole("status", { hidden: true })).not.toBeVisible();
   await user.click(screen.getByRole("button", { name: "Import CSV" }));
   expect(screen.getByRole("status")).toHaveTextContent("Imported: 1");
   expect(
-    screen.queryByRole("button", { name: "Confirm import" }),
+    screen.queryByRole("button", { name: "Import 1 card" }),
   ).not.toBeInTheDocument();
 });
 
@@ -126,18 +126,19 @@ test("failed confirmation retains preview for retry and changing file clears it"
   await user.selectOptions(screen.getByLabelText("Unit *"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   await user.click(
-    await screen.findByRole("button", { name: "Confirm import" }),
+    await screen.findByRole("button", { name: "Import 1 card" }),
   );
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Check your connection",
   );
-  expect(screen.getByRole("button", { name: "Confirm import" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Open preview" }));
+  expect(screen.getByRole("button", { name: "Import 1 card" })).toBeEnabled();
   await user.upload(
     screen.getByLabelText("CSV file"),
     new File(["new"], "new.csv", { type: "text/csv" }),
   );
   expect(
-    screen.queryByRole("button", { name: "Confirm import" }),
+    screen.queryByRole("button", { name: "Import 1 card" }),
   ).not.toBeInTheDocument();
 });
 
@@ -165,15 +166,15 @@ test("interface language changes retain the file and preview", async () => {
   );
   await user.selectOptions(screen.getByLabelText("Unit *"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
-  await screen.findByRole("button", { name: "Confirm import" });
+  await screen.findByRole("button", { name: "Import 1 card" });
   rendered.rerender(view(copy.el));
   expect(
-    screen.getByRole("button", { name: "Επιβεβαίωση εισαγωγής" }),
+    screen.getByRole("button", { name: "Εισαγωγή 1 κάρτας" }),
   ).toBeEnabled();
   expect(screen.getByLabelText("Αρχείο CSV").files[0].name).toBe("test.csv");
   rendered.rerender(view(copy.it));
   expect(
-    screen.getByRole("button", { name: "Conferma importazione" }),
+    screen.getByRole("button", { name: "Importa 1 scheda" }),
   ).toBeEnabled();
 });
 
@@ -229,9 +230,13 @@ test.each(["success", "error"])(
     finish();
     if (outcome === "success") {
       expect(
-        await screen.findByRole("button", { name: "Confirm import" }),
+        await screen.findByRole("button", { name: "Import 1 card" }),
       ).toBeVisible();
-      expect(screen.getByRole("heading", { name: "Preview" })).toHaveFocus();
+      await waitFor(() =>
+        expect(
+          screen.getByRole("heading", { name: "Import preview" }),
+        ).toHaveFocus(),
+      );
     } else {
       expect(await screen.findByRole("alert")).toHaveTextContent("Invalid row");
     }
@@ -343,7 +348,7 @@ test("CSV destination conflicts are visible without any profile assignment", asy
   expect(
     screen.getByText("07 · Domande", { selector: "strong" }),
   ).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Confirm import" }));
+  await user.click(screen.getByRole("button", { name: "Import 1 card" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
   expect(
     screen.queryByRole("button", { name: /Enable this unit/ }),
@@ -402,9 +407,9 @@ test("an update-only CSV shows changed fields and can be confirmed", async () =>
   expect(
     await screen.findByText("Changed fields: Italian pronunciation"),
   ).toBeInTheDocument();
-  expect(screen.getByText(/Imported: 0 · Updated: 1/)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Confirm import" })).toBeEnabled();
-  await user.click(screen.getByRole("button", { name: "Confirm import" }));
+  expect(screen.queryByText(/Imported:/)).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Import 1 card" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Import 1 card" }));
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Imported: 0 · Updated: 1",
   );

@@ -9,7 +9,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
     "lint": "eslint .",
-    "test:pwa": "npm run build && node tests/pwa.mjs"
+    "test:pwa": "npm run build && node tests/pwa.mjs",
+    "test:mobile": "npm run build && node tests/mobile-navigation.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.2",

@@ -356,3 +356,66 @@ def test_ambiguous_existing_pairs_are_reported_without_updating_either_card(logg
         assert report["counts"]["error"] == 1
         assert "Multiple cards" in report["rows"][0]["errors"][0]
     assert client.get("/api/vocabulary?q=nuovo").json() == before
+
+
+def test_245_row_file_imports_every_card_and_preserves_existing_progress(logged_in):
+    import csv
+    import io
+
+    from test_practice import start
+
+    client = logged_in
+    session = start(client).json()
+    card = session["cards"][0]
+    existing = client.get(f"/api/vocabulary/{card['entry_id']}").json()
+    path = f"/api/sessions/{session['id']}/cards/0"
+    client.post(
+        path + "/reveal",
+        json={"direction": session["direction"]},
+        headers=headers(client),
+    )
+    client.post(
+        path + "/reviews",
+        json={"direction": session["direction"], "rating": "hard"},
+        headers=headers(client),
+    )
+    progress_path = f"/api/profiles/{session['profile_id']}/progress"
+    progress = client.get(progress_path).json()
+    before = client.get("/api/vocabulary").json()["total"]
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        ["italian", "greek", "word_type", "pronunciation", "greek_pronunciation"]
+    )
+    for index in range(245):
+        writer.writerow(
+            [
+                f"csv-card-{index}",
+                f"κάρτα-{index}",
+                "expression",
+                "αμπ-μπι-νά-ρε",
+                "kàr-ta",
+            ]
+        )
+    content = output.getvalue()
+    preview = upload(client, content).json()
+    assert len(preview["rows"]) == 245
+    assert preview["counts"]["valid"] == 245
+    # Preview is read-only, regardless of how the frontend paginates it.
+    assert client.get("/api/vocabulary").json()["total"] == before
+    assert client.get(progress_path).json() == progress
+    result = upload(client, content, "confirm").json()
+    assert result["counts"]["imported"] == 245
+    assert client.get("/api/vocabulary").json()["total"] == before + 245
+    for index in [0, 9, 10, 244]:
+        saved = client.get(f"/api/vocabulary?q=csv-card-{index}").json()["items"]
+        entry = next(row for row in saved if row["italian"] == f"csv-card-{index}")
+        assert entry["pronunciation"] == "αμπ-μπι-νά-ρε"
+        assert entry["greek_pronunciation"] == "kàr-ta"
+    assert client.get(f"/api/vocabulary/{existing['id']}").json() == existing
+    assert client.get(progress_path).json() == {
+        **progress,
+        "vocabulary_count": progress["vocabulary_count"] + 245,
+    }
+    assert upload(client, content, "confirm").json()["counts"]["duplicate"] == 245
+    assert client.get("/api/vocabulary").json()["total"] == before + 245

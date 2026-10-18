@@ -1,5 +1,17 @@
 import { useEffect, useState } from "react";
 
+export function useMobileViewport() {
+  const [media] = useState(() => window.matchMedia?.("(max-width: 760px)"));
+  const [mobile, setMobile] = useState(() => media?.matches ?? false);
+  useEffect(() => {
+    if (!media) return;
+    const update = () => setMobile(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, [media]);
+  return mobile;
+}
+
 export function useDeviceSetting(key, values, fallback) {
   const [value, setValue] = useState(() => {
     try {

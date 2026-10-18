@@ -33,7 +33,12 @@ import Profiles from "./Profiles.jsx";
 import Practice from "./Practice.jsx";
 import Progress from "./Progress.jsx";
 import DeviceSettings from "./DeviceSettings.jsx";
-import { useDeviceSetting, useReducedMotion } from "./device-settings.js";
+import MobileNavigation from "./MobileNavigation.jsx";
+import {
+  useDeviceSetting,
+  useReducedMotion,
+  useMobileViewport,
+} from "./device-settings.js";
 
 export default function App() {
   const location = useLocation();
@@ -48,6 +53,7 @@ export default function App() {
     "el",
   );
   const reducedMotion = useReducedMotion("system");
+  const mobile = useMobileViewport();
   const [online, setOnline] = useState(() => navigator.onLine);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -154,6 +160,18 @@ export default function App() {
               <span>{text.logout}</span>
             </button>
           </nav>
+        )}
+        {mobile && session.data?.authenticated && (
+          <button
+            className="mobile-lock"
+            type="button"
+            aria-label={text.logout}
+            title={text.logout}
+            disabled={logout.isPending}
+            onClick={() => logout.mutate()}
+          >
+            <LogOut size={20} aria-hidden="true" />
+          </button>
         )}
         <label className="language-picker">
           <span className="sr-only">{text.language}</span>
@@ -333,6 +351,9 @@ export default function App() {
         )}
       </main>
       <footer className="install-note">{text.installNote}</footer>
+      {mobile && session.data?.authenticated && (
+        <MobileNavigation text={text} />
+      )}
     </div>
   );
 }

@@ -43,6 +43,10 @@ export default function CardActions({
       const top = viewport?.offsetTop || 0;
       const width = viewport?.width || window.innerWidth;
       const height = viewport?.height || window.innerHeight;
+      const navigation = document.querySelector(".mobile-navigation");
+      const bottom = navigation?.getClientRects().length
+        ? Math.min(top + height, navigation.getBoundingClientRect().top)
+        : top + height;
       setPosition({
         left: Math.max(
           left + 8,
@@ -51,12 +55,13 @@ export default function CardActions({
         top: Math.max(
           top + 8,
           Math.min(
-            rect.bottom + 6 + bounds.height <= top + height - 8
+            rect.bottom + 6 + bounds.height <= bottom - 8
               ? rect.bottom + 6
               : rect.top - bounds.height - 6,
-            top + height - bounds.height - 8,
+            bottom - bounds.height - 8,
           ),
         ),
+        maxHeight: Math.max(44, bottom - top - 16),
       });
     }
     function outside(event) {

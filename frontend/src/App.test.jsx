@@ -409,3 +409,27 @@ test("the header contains navigation and the Lexi logo returns to home", async (
   expect(await screen.findByRole("heading", {name: copy.en.welcome})).toBeInTheDocument();
   expect(within(header).getByRole("link", {name: copy.en.home, exact:true})).toHaveAttribute("aria-current", "page");
 });
+
+test("mobile navigation follows viewport changes, retains header controls and disappears when locked", async () => {
+  authenticated = true;
+  const mobile = new EventTarget();
+  mobile.matches = true;
+  vi.stubGlobal("matchMedia", (query) => query === "(max-width: 760px)" ? mobile : Object.assign(new EventTarget(), { matches: false }));
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+  try {
+    renderApp();
+    const nav = await screen.findByRole("navigation", { name: copy.en.mobileNavigation });
+    expect(within(nav).getAllByRole("link")).toHaveLength(5);
+    const header = screen.getByRole("banner");
+    expect(within(header).getByRole("link", { name: "Lexi" })).toHaveAttribute("href", "/");
+    expect(within(header).getByLabelText("Interface language")).toBeInTheDocument();
+    expect(within(header).getByLabelText("Lock notebook")).toHaveClass("mobile-lock");
+    act(() => { mobile.matches = false; mobile.dispatchEvent(new Event("change")); });
+    expect(screen.queryByRole("navigation", { name: copy.en.mobileNavigation })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lock notebook" })).not.toHaveClass("mobile-lock");
+    act(() => { mobile.matches = true; mobile.dispatchEvent(new Event("change")); });
+    await userEvent.click(within(header).getByLabelText("Lock notebook"));
+    await screen.findByLabelText("Shared password");
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  } finally { vi.unstubAllGlobals(); }
+});

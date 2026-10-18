@@ -1,12 +1,17 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import PropTypes from "prop-types";
-import { FileDown, ArrowRight } from "lucide-react";
+import { FileDown, ArrowRight, X } from "lucide-react";
 import UnitPicker from "./UnitPicker.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
 import csvExample from "../../backend/app/csv_example.json";
 import { request } from "./api.js";
-import { isRelevantField } from "./grammar.js";
+import ImportEntryDetails from "./ImportEntryDetails.jsx";
+
+const PAGE_SIZE = 10;
+const eligible = (row) => ["valid", "updated"].includes(row.status);
+const format = (template, values) =>
+  template.replace(/\{(\w+)\}/g, (_, key) => values[key]);
 
 export default function Import({ text, csrf, onLocked, onAttention }) {
   const client = useQueryClient();
@@ -26,12 +31,75 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState("idle");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const operation = useRef({ id: 0, stage: "idle", controller: null });
+  const fileInput = useRef(null);
+  const previewTrigger = useRef(null);
+  const entryList = useRef(null);
   const reportHeading = useRef(null);
-  async function submit(action) {
-    onAttention();
-    setBusy(true);
+  const previewId = useId();
+  const importing = stage === "importing";
+  const busy = stage !== "idle";
+  useEffect(
+    () => () => {
+      operation.current.controller?.abort();
+      operation.current.id += 1;
+    },
+    [],
+  );
+  function resetReport() {
+    if (operation.current.stage === "importing") return;
+    operation.current.controller?.abort();
+    operation.current = {
+      id: operation.current.id + 1,
+      stage: "idle",
+      controller: null,
+    };
+    setStage("idle");
+    setPreview(null);
+    setPreviewOpen(false);
+    setResult(null);
     setError(null);
+    setFilter("all");
+    setPage(1);
+  }
+  function cancel() {
+    if (operation.current.stage === "importing") return;
+    resetReport();
+    setFile(null);
+    setUnitId("");
+    setCreatingUnit(false);
+    if (fileInput.current) fileInput.current.value = "";
+    fileInput.current?.focus();
+  }
+  function closePreview() {
+    if (operation.current.stage === "importing") return;
+    setPreviewOpen(false);
+    previewTrigger.current?.focus();
+  }
+  function navigatePage(nextPage) {
+    setPage(nextPage);
+    requestAnimationFrame(() => {
+      entryList.current?.focus({ preventScroll: true });
+      entryList.current?.scrollIntoView?.({ block: "start" });
+    });
+  }
+  async function submit(action) {
+    // Lock synchronously: React state alone does not guard rapid repeated clicks.
+    if (operation.current.stage !== "idle" || !file || !unitId) return;
+    if (action === "confirm" && (!preview || !preview.rows.some(eligible)))
+      return;
+    const controller = action === "preview" ? new AbortController() : null;
+    const id = operation.current.id + 1;
+    const nextStage = action === "preview" ? "validating" : "importing";
+    operation.current = { id, stage: nextStage, controller };
+    onAttention();
+    setStage(nextStage);
+    setError(null);
+    if (action === "confirm") setPreviewOpen(false);
     try {
       if (file.size > 1048576) throw new Error(text.csvLimit);
       const report = await request(
@@ -40,14 +108,11 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
           method: "POST",
           headers: { "X-CSRF-Token": csrf, "Content-Type": "text/csv" },
           body: file,
+          ...(controller ? { signal: controller.signal } : {}),
         },
       );
-      if (action === "preview") {
-        setPreview(report);
-        setResult(null);
-      } else {
-        setResult(report);
-        setPreview(null);
+      // Confirmation sends the original file, never the filtered/visible rows.
+      if (action === "confirm") {
         for (const key of [
           "vocabulary",
           "units",
@@ -57,22 +122,65 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
         ])
           client.invalidateQueries({ queryKey: [key] });
       }
+      if (operation.current.id !== id) return;
+      if (action === "preview") {
+        setPreview(report);
+        setPreviewOpen(true);
+        setFilter("all");
+        setPage(1);
+        setResult(null);
+      } else {
+        setResult(report);
+        setPreview(null);
+        setPreviewOpen(false);
+      }
     } catch (failure) {
+      if (operation.current.id !== id || controller?.signal.aborted) return;
       if (failure.status === 401) onLocked();
       else
         setError(
           failure.code === "invalid_csv"
             ? `${text.csvInvalid} ${failure.message}`
-            : text.errors[failure.code] || failure.message,
+            : action === "confirm"
+              ? `${text.errors[failure.code] || failure.message} ${text.csvConfirmationError}`
+              : text.errors[failure.code] || failure.message,
         );
     } finally {
-      onAttention();
-      setBusy(false);
+      if (operation.current.id === id) {
+        operation.current = { id, stage: "idle", controller: null };
+        onAttention();
+        setStage("idle");
+      }
     }
   }
-  const report = result || preview;
+  const report = result || (previewOpen ? preview : null);
+  const filters = [
+    { key: "all", label: text.csvAllRows, matches: () => true },
+    { key: "valid", label: text.csvValidRows, matches: eligible },
+    {
+      key: "duplicate",
+      label: text.csvDuplicateRows,
+      matches: (row) => row.status === "duplicate",
+    },
+    {
+      key: "error",
+      label: text.csvErrorRows,
+      matches: (row) => row.status === "error",
+    },
+  ];
+  const filtered =
+    preview?.rows.filter(filters.find((item) => item.key === filter).matches) ||
+    [];
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const visibleRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const eligibleCount = preview?.rows.filter(eligible).length || 0;
   useEffect(() => {
-    if (report) reportHeading.current?.focus();
+    if (!report) return;
+    const frame = requestAnimationFrame(() => {
+      reportHeading.current?.focus();
+      reportHeading.current?.scrollIntoView?.({ block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [report]);
   return (
     <section className="csv-import" aria-label={text.csvImport}>
@@ -83,13 +191,11 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
         text={text}
         units={units.data || []}
         value={unitId}
-        disabled={busy || units.isPending || creatingUnit}
+        disabled={importing || units.isPending || creatingUnit}
         onCreate={() => setCreatingUnit(true)}
         onChange={(value) => {
+          resetReport();
           setUnitId(value);
-          setPreview(null);
-          setResult(null);
-          setError(null);
         }}
       />
       {creatingUnit && (
@@ -105,9 +211,8 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
             );
           }}
           onCreated={(unit) => {
+            resetReport();
             setUnitId(unit.id);
-            setPreview(null);
-            setResult(null);
           }}
         />
       )}
@@ -125,13 +230,12 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
         {text.csvFile}
         <input
           type="file"
+          ref={fileInput}
           accept=".csv,text/csv"
-          disabled={busy}
+          disabled={importing}
           onChange={(event) => {
+            resetReport();
             setFile(event.target.files[0] || null);
-            setPreview(null);
-            setResult(null);
-            setError(null);
           }}
         />
       </label>
@@ -152,7 +256,11 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
           </a>
         </div>
         <button
+          type="button"
+          ref={previewTrigger}
           className="primary"
+          aria-expanded={previewOpen}
+          aria-controls={previewId}
           disabled={
             !file ||
             !unitId ||
@@ -161,12 +269,40 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
             units.isPending ||
             creatingUnit
           }
-          onClick={() => submit("preview")}
+          onClick={() => (preview ? setPreviewOpen(true) : submit("preview"))}
         >
-          {busy ? text.saving : text.csvPreview}
+          {importing
+            ? text.csvImporting
+            : busy
+              ? text.csvValidating
+              : preview
+                ? text.csvReopenPreview
+                : text.csvPreview}
           <ArrowRight size={17} aria-hidden="true" />
         </button>
       </div>
+      {!previewOpen && !result && (file || busy) && (
+        <div className="csv-pending-actions">
+          {stage === "validating" && (
+            <p aria-live="polite">{text.csvValidating}</p>
+          )}
+          {importing && (
+            <p className="csv-import-progress" aria-live="polite">
+              <strong>{text.csvImporting}</strong>
+              <br />
+              {text.csvImportingHint}
+            </p>
+          )}
+          <button
+            type="button"
+            className="secondary"
+            onClick={cancel}
+            disabled={importing}
+          >
+            {text.csvCancel}
+          </button>
+        </div>
+      )}
       <div id={exampleId} hidden={!exampleOpen} className="csv-example-table">
         <table aria-label={text.csvViewExample}>
           <thead>
@@ -199,17 +335,40 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
         <p>{text.csvHint}</p>
       </details>
       {error && (
-        <p role="alert" className="error">
+        <p role="alert" className="error csv-result-error">
           {error}
         </p>
       )}
       {report && (
-        <div>
-          <h3 ref={reportHeading} tabIndex={-1}>
-            {result ? text.csvResult : text.csvPreview}
-          </h3>
+        <section
+          className={`csv-report-panel${result ? " csv-result-success" : ""}`}
+          id={previewId}
+          aria-labelledby={`${previewId}-heading`}
+          aria-busy={importing}
+        >
+          <header className="csv-report-heading">
+            <h3 id={`${previewId}-heading`} ref={reportHeading} tabIndex={-1}>
+              {result ? text.csvResult : text.csvPreviewTitle}
+            </h3>
+            {!result && (
+              <button
+                type="button"
+                className="csv-close"
+                aria-label={text.csvClosePreview}
+                title={text.csvClosePreview}
+                disabled={importing}
+                onClick={closePreview}
+              >
+                <X size={22} aria-hidden="true" />
+              </button>
+            )}
+          </header>
+          <p className="csv-filename">{file?.name}</p>
           <p role={result ? "status" : undefined}>
-            {["imported", "updated", "valid", "skipped", "duplicate", "error"]
+            {(result
+              ? ["imported", "updated", "skipped", "duplicate", "error"]
+              : ["valid", "duplicate", "error"]
+            )
               .map(
                 (key) => `${text.csvCounts[key]}: ${report.counts[key] ?? 0}`,
               )
@@ -226,102 +385,149 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
           {report.unit_conflicts > 0 && (
             <p role="note">{text.csvUnitConflict}</p>
           )}
-          {preview && (
+          {!result && (
             <>
-              <p>{text.csvConfirmHint}</p>
-              <h4>{text.csvTags}</h4>
-              <ul>
-                {report.proposed_tags.map((tag) => (
-                  <li key={tag}>{tag}</li>
-                ))}
-              </ul>
+              <p>{text.csvReviewHint}</p>
+              <details className="csv-import-rules">
+                <summary>{text.csvImportRules}</summary>
+                <p>{text.csvConfirmHint}</p>
+              </details>
+              {report.proposed_tags?.length > 0 && (
+                <p>
+                  <strong>{text.csvTags}:</strong>{" "}
+                  {report.proposed_tags.join(", ")}
+                </p>
+              )}
             </>
           )}
-          <ol className="import-rows">
-            {report.rows.map((row) => (
-              <li key={row.row}>
-                <strong>
-                  {text.csvRow} {row.row} · {text.csvCounts[row.status]}
-                </strong>
-                <p>
-                  <span lang="it">{row.italian}</span> —{" "}
-                  <span lang="el">{row.greek}</span>
-                </p>
-                {row.entry && (
-                  <details>
-                    <summary>{text.csvDetails}</summary>
-                    <dl>
-                      {Object.entries(row.entry)
-                        .filter(
-                          ([key, value]) =>
-                            key !== "notes" &&
-                            value != null &&
-                            value !== "" &&
-                            isRelevantField(key, row.entry.word_type),
-                        )
-                        .map(([key, value]) => (
-                          <div key={key}>
-                            <dt>{text.fields[key] || key}</dt>
-                            <dd>
-                              {[
-                                "word_type",
-                                "italian_gender",
-                                "greek_gender",
-                              ].includes(key)
-                                ? text[value]
-                                : value}
-                            </dd>
-                          </div>
+          {!result && (
+            <>
+              <div
+                className="csv-filters"
+                role="group"
+                aria-label={text.csvFilters}
+              >
+                {filters.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    aria-pressed={filter === item.key}
+                    onClick={() => {
+                      setFilter(item.key);
+                      setPage(1);
+                    }}
+                  >
+                    {item.label} ({preview.rows.filter(item.matches).length})
+                  </button>
+                ))}
+              </div>
+              <ol
+                ref={entryList}
+                tabIndex={-1}
+                className="import-rows"
+                aria-label={text.csvPreviewTitle}
+              >
+                {visibleRows.map((row) => (
+                  <li key={row.row}>
+                    <div className="csv-row-meta">
+                      <span>
+                        {text.csvRow} {row.row} ·{" "}
+                        {row.status === "updated"
+                          ? text.csvWillUpdate
+                          : text.csvCounts[row.status]}
+                      </span>
+                      {row.entry?.word_type && (
+                        <span>{text[row.entry.word_type]}</span>
+                      )}
+                    </div>
+                    <p className="csv-row-words">
+                      <span lang="it">{row.italian}</span> →{" "}
+                      <span lang="el">{row.greek}</span>
+                    </p>
+                    {row.entry && <ImportEntryDetails row={row} text={text} />}
+                    {row.changed_fields?.length > 0 && (
+                      <p>
+                        {text.csvChangedFields}:{" "}
+                        {row.changed_fields
+                          .map((field) =>
+                            field === "unit_id"
+                              ? text.unit
+                              : field === "tags"
+                                ? text.tags
+                                : text.fields[field] || field,
+                          )
+                          .join(", ")}
+                      </p>
+                    )}
+                    {row.errors?.length > 0 && (
+                      <div className="csv-row-errors">
+                        {row.errors.map((message, index) => (
+                          <p key={index} className="error">
+                            {message}
+                          </p>
                         ))}
-                    </dl>
-                    {row.unit && (
-                      <p>
-                        {text.unit}: {row.unit.code} — {row.unit.title}
-                      </p>
+                      </div>
                     )}
-                    {row.tags?.length > 0 && (
-                      <p>
-                        {text.tags}: {row.tags.join(", ")}
-                      </p>
-                    )}
-                  </details>
-                )}
-                {row.changed_fields?.length > 0 && (
-                  <p>
-                    {text.csvChangedFields}:{" "}
-                    {row.changed_fields
-                      .map((field) =>
-                        field === "unit_id"
-                          ? text.unit
-                          : field === "tags"
-                            ? text.tags
-                            : text.fields[field] || field,
-                      )
-                      .join(", ")}
-                  </p>
-                )}
-                <ul>
-                  {row.errors.map((message, index) => (
-                    <li key={index} className="error">
-                      {message}
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ol>
-          {preview && (
-            <button
-              className="primary"
-              disabled={
-                busy || !unitId || creatingUnit || preview.counts.valid === 0
-              }
-              onClick={() => submit("confirm")}
-            >
-              {busy ? text.saving : text.csvConfirm}
-            </button>
+                  </li>
+                ))}
+              </ol>
+              {!filtered.length && <p>{text.csvNoRows}</p>}
+              <nav className="csv-pagination" aria-label={text.csvPreviewTitle}>
+                <p aria-live="polite">
+                  {format(text.csvRange, {
+                    start: filtered.length ? (page - 1) * PAGE_SIZE + 1 : 0,
+                    end: Math.min(page * PAGE_SIZE, filtered.length),
+                    total: filtered.length,
+                  })}
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    disabled={page === 1}
+                    onClick={() => navigatePage(page - 1)}
+                  >
+                    {text.previous}
+                  </button>
+                  <span aria-current="page">
+                    {format(text.csvPage, { page, pages })}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={page === pages}
+                    onClick={() => navigatePage(page + 1)}
+                  >
+                    {text.next}
+                  </button>
+                </div>
+              </nav>
+              <div className="csv-action-bar">
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={importing}
+                  onClick={cancel}
+                >
+                  {text.csvCancel}
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={
+                    busy || !unitId || creatingUnit || eligibleCount === 0
+                  }
+                  onClick={() => submit("confirm")}
+                >
+                  {format(
+                    eligibleCount === 1
+                      ? text.csvImportCard
+                      : text.csvImportCards,
+                    { count: eligibleCount },
+                  )}
+                </button>
+              </div>
+            </>
           )}
-        </div>
+        </section>
       )}
     </section>
   );
