@@ -736,3 +736,68 @@ def test_mixed_isolation_excluded_times_and_partial_backfill(
         else [0, 1, 2, 20, 21, 22, 23, 24, 25, 26]
     )
     assert selected == {entries[i]["id"] for i in indices}
+
+
+@pytest.mark.parametrize("profile_id", [None, "", "not-a-uuid"])
+def test_session_requires_explicit_valid_profile_id(logged_in, profile_id):
+    body = {"direction": "greek_to_italian"}
+    if profile_id is not None:
+        body["profile_id"] = profile_id
+    response = logged_in.post("/api/sessions", json=body, headers=headers(logged_in))
+    assert response.status_code == 422
+
+
+def test_unknown_profile_cannot_create_session(logged_in):
+    response = start(logged_in, profile=str(uuid4()))
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "profile_not_found"
+
+
+def test_unavailable_session_profile_blocks_reads_reveals_reviews_and_retries(
+    logged_in, monkeypatch
+):
+    from sqlalchemy.orm import Session
+
+    from app.models import Profile
+
+    session = start(logged_in).json()
+    path = f"/api/sessions/{session['id']}"
+    csrf = headers(logged_in)
+    direction = {"direction": "greek_to_italian"}
+    review = {**direction, "rating": "hard"}
+    assert (
+        logged_in.post(
+            path + "/cards/0/reveal", json=direction, headers=csrf
+        ).status_code
+        == 200
+    )
+    assert (
+        logged_in.post(path + "/cards/0/reviews", json=review, headers=csrf).status_code
+        == 200
+    )
+
+    # Foreign keys currently prevent deleting a referenced learner. Simulate a
+    # missing learner at the database lookup to exercise the defensive API guard.
+    original_scalar = Session.scalar
+
+    def missing_profile(db, statement, *args, **kwargs):
+        if any(
+            column.get("entity") is Profile
+            for column in getattr(statement, "column_descriptions", [])
+        ):
+            return None
+        return original_scalar(db, statement, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Session, "scalar", missing_profile)
+        responses = [
+            logged_in.get(path),
+            logged_in.get(path + "/summary"),
+            logged_in.post(path + "/cards/1/reveal", json=direction, headers=csrf),
+            logged_in.post(path + "/cards/1/reviews", json=review, headers=csrf),
+            logged_in.post(path + "/cards/0/reviews", json=review, headers=csrf),
+        ]
+        for response in responses:
+            assert response.status_code == 404
+            assert response.json()["error"]["code"] == "profile_not_found"
+    assert logged_in.get(path + "/summary").json()["total"] == 1

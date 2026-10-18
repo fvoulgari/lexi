@@ -314,3 +314,105 @@ test("detailed difficult-card retry, language pairs, direction link and revoked 
   await userEvent.selectOptions(screen.getByLabelText("Learner profile"),"f");
   expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
 });
+
+test("home offers profile selection without auto-selecting or practice", async () => {
+  localStorage.removeItem("notebook-profile");
+  open();
+  expect(
+    await screen.findByText("Choose your profile to continue."),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("Learner profile")).toHaveValue("");
+  expect(localStorage.getItem("notebook-profile")).toBeNull();
+  expect(screen.getByRole("link", { name: "New profile" })).toHaveAttribute(
+    "href",
+    "/settings",
+  );
+  expect(
+    screen.queryByRole("link", { name: /Start practice/ }),
+  ).not.toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText("Learner profile"), "f");
+  expect(
+    await screen.findByRole("heading", { name: "Welcome, Foteini" }),
+  ).toBeInTheDocument();
+  expect(localStorage.getItem("notebook-profile")).toBe("f");
+});
+
+test("home with no profiles offers creation through settings", async () => {
+  localStorage.removeItem("notebook-profile");
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+  open();
+  expect(
+    await screen.findByText("Create your profile to get started."),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: /Start practice/ }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("link", { name: "Create profile" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "New profile" }),
+  );
+  expect(screen.getByLabelText("Name")).toBeInTheDocument();
+});
+
+test("home waits for profiles before offering creation", async () => {
+  let finish;
+  const response = new Promise((resolve) => {
+    finish = resolve;
+  });
+  server.use(
+    http.get("*/api/profiles", async () => {
+      await response;
+      return HttpResponse.json([]);
+    }),
+  );
+  open();
+  await screen.findByRole("heading", { name: "Welcome to Lexi" });
+  expect(screen.getByRole("status")).toBeInTheDocument();
+  expect(
+    screen.queryByText("Create your profile to get started."),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Create profile" }),
+  ).not.toBeInTheDocument();
+  finish();
+  expect(
+    await screen.findByText("Create your profile to get started."),
+  ).toBeInTheDocument();
+});
+
+test("home profile request error offers retry without empty-state guidance", async () => {
+  server.use(
+    http.get("*/api/profiles", () =>
+      HttpResponse.json(
+        { error: { code: "service_unavailable" } },
+        { status: 503 },
+      ),
+    ),
+  );
+  open();
+  await screen.findByRole("alert");
+  expect(
+    screen.queryByText("Create your profile to get started."),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+  await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(
+    await screen.findByText("Create your profile to get started."),
+  ).toBeInTheDocument();
+});
+
+test("home preserves a missing learner message and allows choosing another", async () => {
+  localStorage.setItem("notebook-profile", "removed");
+  open();
+  expect(
+    await screen.findByText(
+      "The remembered learner is no longer available. Choose a profile.",
+    ),
+  ).toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText("Learner profile"), "a");
+  expect(
+    await screen.findByRole("heading", { name: "Welcome, Alex" }),
+  ).toBeInTheDocument();
+});

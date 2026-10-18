@@ -406,7 +406,7 @@ test("the header contains navigation and the Lexi logo returns to home", async (
   const logo = within(header).getByRole("link", {name: "Lexi", exact:true});
   expect(logo).toHaveAttribute("href", "/");
   await userEvent.click(logo);
-  expect(await screen.findByRole("heading", {name: copy.en.welcome})).toBeInTheDocument();
+  expect(await screen.findByRole("heading", {name: copy.en.homeWelcomeTitle})).toBeInTheDocument();
   expect(within(header).getByRole("link", {name: copy.en.home, exact:true})).toHaveAttribute("aria-current", "page");
 });
 

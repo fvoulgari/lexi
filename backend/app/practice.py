@@ -74,10 +74,25 @@ def practice_router(sessions, gate):
     router = APIRouter(prefix="/api/sessions", dependencies=[Depends(gate.require)])
     writes = [Depends(gate.check_csrf)]
 
+    def require_profile(db, profile_id):
+        profile = db.scalar(
+            select(Profile).where(Profile.id == profile_id).with_for_update()
+        )
+        if profile is None:
+            raise HTTPException(
+                404,
+                detail={
+                    "code": "profile_not_found",
+                    "message": "Learner profile not found. Choose another profile.",
+                },
+            )
+        return profile
+
     def find_session(db, session_id):
         session = db.get(PracticeSession, session_id)
         if session is None:
             raise HTTPException(404, "Practice session not found.")
+        require_profile(db, session.profile_id)
         return session
 
     def session_output(db, session):
@@ -107,9 +122,7 @@ def practice_router(sessions, gate):
     @router.post("", status_code=201, dependencies=writes)
     def create(body: SessionCreate):
         with sessions.begin() as db:
-            profile = db.get(Profile, body.profile_id)
-            if profile is None:
-                raise HTTPException(404, "Learner profile not found.")
+            require_profile(db, body.profile_id)
             selection = select(VocabularyEntry).where(
                 *category_conditions(
                     body.unit_ids, body.no_unit, body.word_types, body.tag_ids
@@ -181,6 +194,8 @@ def practice_router(sessions, gate):
         )
         if session is None:
             raise HTTPException(404, "Practice session not found.")
+        # Lock the learner before any reveal, review, or idempotent retry.
+        require_profile(db, session.profile_id)
         card = db.get(SessionCard, (session_id, position))
         if card is None:
             raise HTTPException(404, "Session card not found.")
@@ -247,12 +262,6 @@ def practice_router(sessions, gate):
                 return event_output(existing)
             if card.revealed_direction != body.direction:
                 raise HTTPException(409, "Reveal this answer before rating it.")
-            # Serialize aggregate updates across sessions for the same learner.
-            db.scalar(
-                select(Profile)
-                .where(Profile.id == session.profile_id)
-                .with_for_update()
-            )
             require_entry(db, card)
             event = ReviewEvent(
                 session_id=session_id,

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Shuffle,
@@ -15,9 +15,11 @@ import Choices from "./Choices.jsx";
 import PracticeCardView from "./PracticeCardView.jsx";
 
 export default function Practice({ text, csrf, onLocked }) {
+  const client = useQueryClient();
   const profiles = useQuery({
     queryKey: ["profiles"],
     queryFn: () => request("/api/profiles"),
+    retry: false,
   });
   const [profileId, setProfileId] = useState(() => {
     try {
@@ -29,21 +31,62 @@ export default function Practice({ text, csrf, onLocked }) {
   const [session, setSession] = useState(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
-  const profile = profiles.data?.find((p) => p.id === profileId);
+  const [unavailableId, setUnavailableId] = useState(null);
+  const starting = useRef(false);
+  const profile =
+    profiles.isSuccess && profileId !== unavailableId
+      ? profiles.data.find((p) => p.id === profileId)
+      : undefined;
+
+  function selectProfile(id) {
+    setProfileId(id);
+    setUnavailableId(null);
+    setSession(null);
+    setError(null);
+    try {
+      if (id) localStorage.setItem("notebook-profile", id);
+      else localStorage.removeItem("notebook-profile");
+    } catch {
+      /* Selection also works without device storage. */
+    }
+  }
+
+  function profileUnavailable() {
+    setUnavailableId(profileId);
+    setSession(null);
+    setError(null);
+    void profiles.refetch();
+  }
   useEffect(() => {
     if (profiles.error?.status === 401) onLocked();
   }, [profiles.error, onLocked]);
-  const post = (path, body) =>
-    request(path, {
-      method: "POST",
-      headers: { "X-CSRF-Token": csrf },
-      body: JSON.stringify(body),
-    });
+  async function post(path, body) {
+    // Revalidate before every write, including reveal and review retries.
+    // A remembered ID alone never authorizes practice.
+    const current = await request("/api/profiles");
+    client.setQueryData(["profiles"], current);
+    if (!profile || !current.some((item) => item.id === profile.id)) {
+      profileUnavailable();
+      throw Object.assign(new Error(), { code: "profile_not_found" });
+    }
+    try {
+      return await request(path, {
+        method: "POST",
+        headers: { "X-CSRF-Token": csrf },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      if (error.code === "profile_not_found") profileUnavailable();
+      throw error;
+    }
+  }
   function showError(error) {
     if (error.status === 401) onLocked();
-    else setError(error);
+    else if (error.code !== "profile_not_found") setError(error);
   }
   async function start(direction, size, type, filters) {
+    if (!profile || starting.current) return;
+    starting.current = true;
     setPending(true);
     setError(null);
     try {
@@ -54,7 +97,7 @@ export default function Practice({ text, csrf, onLocked }) {
         ...(type === "category" ? filters : {}),
         ...(["difficult", "mixed"].includes(type) ? { mode: type } : {}),
       });
-      setSession({ ...result, direction, type });
+      setSession({ ...result, profile_id: profile.id, direction, type });
       try {
         localStorage.setItem("notebook-profile", profile.id);
       } catch {
@@ -63,6 +106,7 @@ export default function Practice({ text, csrf, onLocked }) {
     } catch (error) {
       showError(error);
     } finally {
+      starting.current = false;
       setPending(false);
     }
   }
@@ -76,13 +120,52 @@ export default function Practice({ text, csrf, onLocked }) {
         <button onClick={() => profiles.refetch()}>{text.retry}</button>
       </div>
     );
-  if (session)
+  if (!profile)
+    return (
+      <section
+        className="progress-page lexi-home home-welcome"
+        aria-labelledby="practice-profile-title"
+      >
+        <h1 id="practice-profile-title">{text.practice}</h1>
+        {profileId && <p role="status">{text.missingProfile}</p>}
+        <p className="home-welcome-hint">{text.practiceChooseProfile}</p>
+        {profiles.data.length > 0 ? (
+          <div className="home-welcome-picker">
+            <label htmlFor="practice-profile">{text.profile}</label>
+            <select
+              id="practice-profile"
+              value=""
+              onChange={(event) => selectProfile(event.target.value)}
+            >
+              <option value="">{text.chooseProfile}</option>
+              {profiles.data
+                .filter((item) => item.id !== unavailableId)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.display_name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        ) : (
+          <p className="home-welcome-hint">{text.homeCreateProfileHint}</p>
+        )}
+        <Link
+          className={profiles.data.length ? "home-text-link" : "primary"}
+          to="/settings"
+        >
+          {profiles.data.length ? text.settingsNewProfile : text.createProfile}
+        </Link>
+      </section>
+    );
+  if (session && session.profile_id === profile.id)
     return (
       <ActivePractice
         text={text}
         session={session}
         profile={profile}
         post={post}
+        onProfileUnavailable={profileUnavailable}
         onLocked={onLocked}
         onAgain={() => {
           setSession(null);
@@ -108,7 +191,7 @@ export default function Practice({ text, csrf, onLocked }) {
               id="practice-profile"
               value={profile?.id || ""}
               disabled={pending}
-              onChange={(e) => setProfileId(e.target.value)}
+              onChange={(e) => selectProfile(e.target.value)}
             >
               <option value="">{text.chooseProfile}</option>
               {profiles.data.map((p) => (
@@ -132,6 +215,7 @@ export default function Practice({ text, csrf, onLocked }) {
           onStart={start}
           onLocked={onLocked}
           error={error}
+          onProfileUnavailable={profileUnavailable}
         />
       </div>
     </section>
@@ -157,7 +241,15 @@ function Direction({ text, value, onChange, disabled = false }) {
     </>
   );
 }
-function Setup({ text, profile, pending, onStart, onLocked, error }) {
+function Setup({
+  text,
+  profile,
+  pending,
+  onStart,
+  onLocked,
+  error,
+  onProfileUnavailable,
+}) {
   const [searchParams] = useSearchParams();
   const [type, setType] = useState(
     searchParams.get("mode") === "difficult" ? "difficult" : "random",
@@ -199,7 +291,8 @@ function Setup({ text, profile, pending, onStart, onLocked, error }) {
   });
   useEffect(() => {
     if (difficult.error?.status === 401) onLocked();
-  }, [difficult.error, onLocked]);
+    else if (difficult.error?.status === 404) onProfileUnavailable();
+  }, [difficult.error, onLocked, onProfileUnavailable]);
   const [size, setSize] = useState(
     String(profile ? (profile.default_session_size ?? "all") : 25),
   );
@@ -414,7 +507,15 @@ function SetupOptions({
     </fieldset>
   );
 }
-function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
+function ActivePractice({
+  text,
+  session,
+  profile,
+  post,
+  onLocked,
+  onAgain,
+  onProfileUnavailable,
+}) {
   const [cards, setCards] = useState(() =>
     session.cards.filter((c) => !c.skipped),
   );
@@ -489,6 +590,7 @@ function ActivePractice({ text, session, profile, post, onLocked, onAgain }) {
         <Summary
           text={text}
           sessionId={session.id}
+          onProfileUnavailable={onProfileUnavailable}
           onAgain={onAgain}
           onLocked={onLocked}
         />
@@ -635,7 +737,7 @@ function Flashcard({
     </>
   );
 }
-function Summary({ text, sessionId, onAgain, onLocked }) {
+function Summary({ text, sessionId, onAgain, onLocked, onProfileUnavailable }) {
   const summary = useQuery({
     queryKey: ["practice-summary", sessionId],
     queryFn: () => request(`/api/sessions/${sessionId}/summary`),
@@ -643,7 +745,9 @@ function Summary({ text, sessionId, onAgain, onLocked }) {
   });
   useEffect(() => {
     if (summary.error?.status === 401) onLocked();
-  }, [summary.error, onLocked]);
+    else if (summary.error?.code === "profile_not_found")
+      onProfileUnavailable();
+  }, [summary.error, onLocked, onProfileUnavailable]);
   const title = useRef(null);
   useEffect(() => {
     title.current?.focus();

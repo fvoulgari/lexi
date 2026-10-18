@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -99,14 +99,12 @@ beforeEach(() => {
   saves = [];
   fail = false;
 });
-function openPractice() {
+function openPractice(path = "/practice", client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return render(
     <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
+      client={client}
     >
-      <MemoryRouter initialEntries={["/practice"]}>
+      <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -971,3 +969,130 @@ test.each([0, 1])(
     }
   },
 );
+
+test.each([
+  ["/practice", ""],
+  ["/practice?mode=difficult&direction=italian_to_greek", ""],
+  ["/practice?mode=difficult", "deleted"],
+])("direct practice URL %s requires a loaded, valid learner (%s)", async (path, remembered) => {
+  if (remembered) localStorage.setItem("notebook-profile", remembered);
+  const requests = [];
+  server.events.on("request:start", ({ request }) => {
+    const url = new URL(request.url);
+    if (url.pathname.includes("difficult-entries") || url.pathname.startsWith("/api/sessions")) requests.push(url.pathname);
+  });
+  openPractice(path);
+  expect(await screen.findByText(copy.en.practiceChooseProfile)).toBeVisible();
+  expect(screen.getByLabelText(copy.en.profile)).toHaveValue("");
+  expect(screen.queryByRole("button", { name: copy.en.startPractice })).not.toBeInTheDocument();
+  expect(requests).toEqual([]);
+  expect(localStorage.getItem("notebook-profile")).toBe(remembered || null);
+  if (remembered) expect(screen.getByText(copy.en.missingProfile)).toBeVisible();
+  if (path.includes("difficult")) {
+    server.use(http.get("*/api/profiles/f/difficult-entries", () => HttpResponse.json([])));
+    await userEvent.selectOptions(screen.getByLabelText(copy.en.profile), "f");
+    expect(await screen.findByRole("radio", { name: copy.en.setupDifficultPractice, exact: true })).toBeChecked();
+    expect(localStorage.getItem("notebook-profile")).toBe("f");
+  }
+  server.events.removeAllListeners("request:start");
+});
+
+test("practice waits for profiles and keeps request errors separate from an empty list", async () => {
+  localStorage.setItem("notebook-profile", "f");
+  let finish;
+  const response = new Promise(resolve => { finish = resolve; });
+  server.use(http.get("*/api/profiles", async () => {
+    await response;
+    return HttpResponse.json({error:{code:"service_unavailable"}}, {status:503});
+  }));
+  openPractice("/practice?mode=difficult");
+  expect(await screen.findByRole("status")).toHaveTextContent(copy.en.loading);
+  expect(screen.queryByText(copy.en.practiceChooseProfile)).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", {name:copy.en.createProfile})).not.toBeInTheDocument();
+  finish();
+  expect(await screen.findByRole("alert")).toBeVisible();
+  expect(screen.queryByText(copy.en.homeCreateProfileHint)).not.toBeInTheDocument();
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
+  await userEvent.click(screen.getByRole("button", {name:copy.en.retry}));
+  expect(await screen.findByText(copy.en.homeCreateProfileHint)).toBeVisible();
+  expect(screen.queryByLabelText(copy.en.profile)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", {name:copy.en.createProfile})).toHaveAttribute("href", "/settings");
+});
+
+test.each(["start", "reveal", "review"])("learner deleted before %s prevents the practice write", async stage => {
+  localStorage.setItem("notebook-profile", "f");
+  openPractice();
+  const user = userEvent.setup();
+  await screen.findByRole("button", {name:copy.en.startPractice});
+  if (stage !== "start") {
+    await user.click(screen.getByRole("button", {name:copy.en.startPractice}));
+    await screen.findByRole("button", {name:copy.en.revealAnswer});
+  }
+  if (stage === "review") {
+    await user.click(screen.getByRole("button", {name:copy.en.revealAnswer}));
+    await screen.findByText("la casa");
+  }
+  let writes = 0;
+  server.use(
+    http.get("*/api/profiles", () => HttpResponse.json([])),
+    http.post("*/api/sessions", () => { writes++; return HttpResponse.json({}); }),
+    http.post("*/api/sessions/s/cards/0/reveal", () => { writes++; return HttpResponse.json({}); }),
+    http.post("*/api/sessions/s/cards/0/reviews", () => { writes++; return HttpResponse.json({}); }),
+  );
+  await user.click(screen.getByRole("button", {name:stage === "start" ? copy.en.startPractice : stage === "reveal" ? copy.en.revealAnswer : copy.en.hard}));
+  expect(await screen.findByText(copy.en.practiceChooseProfile)).toBeVisible();
+  expect(writes).toBe(0);
+  expect(screen.queryByRole("button", {name:copy.en.hard})).not.toBeInTheDocument();
+});
+
+test("backend learner rejection stops the session and permits choosing another learner", async () => {
+  const client = new QueryClient({defaultOptions:{queries:{retry:false}}});
+  localStorage.setItem("notebook-profile", "f");
+  openPractice("/practice", client);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", {name:copy.en.startPractice}));
+  await user.click(await screen.findByRole("button", {name:copy.en.revealAnswer}));
+  await screen.findByText("la casa");
+  server.use(http.post("*/api/sessions/s/cards/0/reviews", () => {
+    server.use(http.get("*/api/profiles", () => HttpResponse.json([{id:"a",display_name:"Alex"}])));
+    return HttpResponse.json({error:{code:"profile_not_found"}}, {status:404});
+  }));
+  await user.click(screen.getByRole("button", {name:copy.en.hard}));
+  expect(await screen.findByText(copy.en.practiceChooseProfile)).toBeVisible();
+  expect(screen.queryByRole("button", {name:copy.en.practiceRetry})).not.toBeInTheDocument();
+  await screen.findByRole("option", {name:"Alex"});
+  await user.selectOptions(screen.getByLabelText(copy.en.profile), "a");
+  expect(screen.getByRole("button", {name:copy.en.startPractice})).toBeVisible();
+  expect(localStorage.getItem("notebook-profile")).toBe("a");
+});
+
+test("profiles cache removal during practice unmounts the active session", async () => {
+  const client = new QueryClient({defaultOptions:{queries:{retry:false}}});
+  localStorage.setItem("notebook-profile", "f");
+  openPractice("/practice", client);
+  await userEvent.click(await screen.findByRole("button", {name:copy.en.startPractice}));
+  await screen.findByRole("button", {name:copy.en.revealAnswer});
+  act(() => client.setQueryData(["profiles"], [{id:"a",display_name:"Alex"}]));
+  expect(await screen.findByText(copy.en.practiceChooseProfile)).toBeVisible();
+  await userEvent.selectOptions(screen.getByLabelText(copy.en.profile), "a");
+  expect(screen.getByRole("button", {name:copy.en.startPractice})).toBeVisible();
+  expect(screen.queryByRole("button", {name:copy.en.revealAnswer})).not.toBeInTheDocument();
+});
+
+test("failed learner revalidation prevents review and preserves the card for retry", async () => {
+  localStorage.setItem("notebook-profile", "f");
+  openPractice();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", {name:copy.en.startPractice}));
+  await user.click(await screen.findByRole("button", {name:copy.en.revealAnswer}));
+  await screen.findByText("la casa");
+  server.use(http.get("*/api/profiles", () => HttpResponse.json({error:{code:"service_unavailable"}}, {status:503})));
+  await user.click(screen.getByRole("button", {name:copy.en.hard}));
+  expect(await screen.findByRole("alert")).toHaveTextContent(copy.en.errors.service_unavailable);
+  expect(saves).toEqual([]);
+  expect(screen.getByText("la casa")).toBeVisible();
+  server.use(http.get("*/api/profiles", () => HttpResponse.json([{id:"f",display_name:"Foteini"}])));
+  await user.click(screen.getByRole("button", {name:copy.en.practiceRetry}));
+  expect(await screen.findByRole("heading", {name:copy.en.sessionSummary})).toBeVisible();
+  expect(saves).toEqual([{direction:"greek_to_italian",rating:"hard"}]);
+});

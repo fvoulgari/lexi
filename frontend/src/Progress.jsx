@@ -76,6 +76,67 @@ export default function Progress({ text, onLocked, detailed = false }) {
       />
     );
 
+  if (!profile) {
+    return (
+      <section
+        className="progress-page lexi-home home-welcome"
+        aria-labelledby="home-welcome-title"
+      >
+        <h1 id="home-welcome-title">{text.homeWelcomeTitle}</h1>
+        {profiles.isPending ? (
+          <p role="status">{text.loading}</p>
+        ) : profiles.isError ? (
+          <div>
+            <p className="error" role="alert">
+              {text.errors[profiles.error.code] || text.errors.request_failed}
+            </p>
+            <button
+              className="secondary"
+              type="button"
+              onClick={() => profiles.refetch()}
+            >
+              {text.retry}
+            </button>
+          </div>
+        ) : profiles.isSuccess ? (
+          <>
+            {selected && <p role="status">{text.missingProfile}</p>}
+            <p className="home-welcome-hint">
+              {profiles.data.length
+                ? text.homeChooseProfileHint
+                : text.homeCreateProfileHint}
+            </p>
+            {profiles.data.length > 0 && (
+              <div className="home-welcome-picker">
+                <label htmlFor="progress-profile">{text.profile}</label>
+                <select
+                  id="progress-profile"
+                  value=""
+                  onChange={(event) => selectProfile(event.target.value)}
+                >
+                  <option value="">{text.chooseProfile}</option>
+                  {profiles.data.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.display_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <Link
+              className={profiles.data.length ? "home-text-link" : "primary"}
+              to="/settings"
+            >
+              {profiles.data.length
+                ? text.settingsNewProfile
+                : text.createProfile}
+            </Link>
+          </>
+        ) : null}
+      </section>
+    );
+  }
+
   return (
     <section className={`progress-page${detailed ? "" : " lexi-home"}`}>
       <div className="progress-heading">

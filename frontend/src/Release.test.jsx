@@ -52,9 +52,10 @@ test.each(["el", "en", "it"])(
     open(language);
     const user = userEvent.setup();
     expect(
-      await screen.findByRole("heading", { name: text.welcome }),
+      await screen.findByRole("heading", { name: text.homeWelcomeTitle }),
     ).toBeVisible();
-    expect(screen.getByLabelText(text.profile)).toBeVisible();
+    expect(screen.queryByLabelText(text.profile)).not.toBeInTheDocument();
+    expect(await screen.findByText(text.homeCreateProfileHint)).toBeVisible();
     expect(document.documentElement).toHaveAttribute("lang", language);
     const nav = within(screen.getByRole("navigation"));
     await user.click(
@@ -87,10 +88,10 @@ test.each(["el", "en", "it"])(
     expect(
       await screen.findByRole("heading", { name: text.practice }),
     ).toBeVisible();
-    expect(screen.getByRole("group", {name: text.setupDirection})).toBeVisible();
+    expect(await screen.findByText(text.practiceChooseProfile)).toBeVisible();
     expect(
-      screen.getByRole("button", { name: text.startPractice }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: text.startPractice }),
+    ).not.toBeInTheDocument();
     await user.click(
       nav.getByRole("link", { name: text.progress, exact: true }),
     );
