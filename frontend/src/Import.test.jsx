@@ -6,6 +6,7 @@ import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { beforeAll, afterAll, afterEach, test, expect } from "vitest";
 import Library from "./Library.jsx";
+import csvExample from "../../backend/app/csv_example.json";
 import { copy } from "./copy.js";
 const report = {
   counts: { imported: 0, valid: 1, skipped: 1, duplicate: 0, error: 1 },
@@ -89,7 +90,7 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
   expect(screen.getByText("questions")).toBeInTheDocument();
   await user.click(screen.getByText("Card details"));
   expect(screen.getByText("Italian gender")).toBeInTheDocument();
-  expect(screen.getByText("Pronunciation text")).toBeInTheDocument();
+  expect(screen.getByText("Italian pronunciation")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Confirm import" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
   await user.click(screen.getByRole("button", { name: "Import CSV" }));
@@ -278,22 +279,12 @@ test.each(["el", "en", "it"])(
       within(table)
         .getAllByRole("columnheader")
         .map((cell) => cell.textContent),
-    ).toEqual(["italian", "greek", "word_type"]);
+    ).toEqual(csvExample.headers);
     expect(
       within(table)
         .getAllByRole("cell")
         .map((cell) => cell.textContent),
-    ).toEqual([
-      "casa",
-      "σπίτι",
-      "noun",
-      "parlare",
-      "μιλάω",
-      "verb",
-      "bello",
-      "όμορφος",
-      "adjective",
-    ]);
+    ).toEqual(csvExample.rows.flat());
     expect(screen.getByRole("link", { name: text.csvExample })).toHaveAttribute(
       "href",
       "/api/imports/example",
@@ -409,7 +400,7 @@ test("an update-only CSV shows changed fields and can be confirmed", async () =>
   await user.selectOptions(await screen.findByLabelText("Unit *"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(
-    await screen.findByText("Changed fields: Pronunciation text"),
+    await screen.findByText("Changed fields: Italian pronunciation"),
   ).toBeInTheDocument();
   expect(screen.getByText(/Imported: 0 · Updated: 1/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Confirm import" })).toBeEnabled();

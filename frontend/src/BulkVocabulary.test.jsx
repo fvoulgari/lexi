@@ -71,6 +71,8 @@ beforeEach(() => {
     italian: `carta ${index}`,
     greek: `κάρτα ${index}`,
     word_type: "noun",
+    italian_gender: "masculine",
+    greek_gender: "neuter",
     unit: units[0],
   }));
   writes = [];

@@ -56,6 +56,8 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
     first = logged_in.post(
         "/api/vocabulary",
         json={
+            "italian_gender": "masculine",
+            "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
             "italian": "il caffè",
             "greek": "ο καφές",
@@ -67,6 +69,8 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
     duplicate = logged_in.post(
         "/api/vocabulary",
         json={
+            "italian_gender": "masculine",
+            "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
             "italian": " IL CAFFE\u0300 ",
             "greek": " Ο ΚΑΦΕ\u0301Σ ",
@@ -91,6 +95,8 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
         saved = logged_in.post(
             "/api/vocabulary",
             json={
+                "italian_gender": "masculine",
+                "greek_gender": "neuter",
                 "unit_id": logged_in.get("/api/units").json()[0]["id"],
                 "italian": italian,
                 "greek": greek,
@@ -110,7 +116,14 @@ def test_input_validation_is_actionable_and_writes_are_protected(logged_in):
         ({"greek": None}, "greek"),
         ({"word_type": "invalid"}, "word_type"),
         ({"italian": "x" * 501}, "italian"),
-        ({"greek_gender": "invalid"}, "greek_gender"),
+        (
+            {
+                "italian_gender": "masculine",
+                "word_type": "noun",
+                "greek_gender": "invalid",
+            },
+            "greek_gender",
+        ),
         ({"italian": "\u0000"}, "italian"),
         ({"notes": "\ud800"}, "notes"),
         ({"unit_id": str(uuid4())}, "unit_id"),

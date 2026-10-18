@@ -6,6 +6,7 @@ import UnitPicker from "./UnitPicker.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
 import csvExample from "../../backend/app/csv_example.json";
 import { request } from "./api.js";
+import { isRelevantField } from "./grammar.js";
 
 export default function Import({ text, csrf, onLocked, onAttention }) {
   const client = useQueryClient();
@@ -251,7 +252,13 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
                     <summary>{text.csvDetails}</summary>
                     <dl>
                       {Object.entries(row.entry)
-                        .filter(([, value]) => value != null && value !== "")
+                        .filter(
+                          ([key, value]) =>
+                            key !== "notes" &&
+                            value != null &&
+                            value !== "" &&
+                            isRelevantField(key, row.entry.word_type),
+                        )
                         .map(([key, value]) => (
                           <div key={key}>
                             <dt>{text.fields[key] || key}</dt>

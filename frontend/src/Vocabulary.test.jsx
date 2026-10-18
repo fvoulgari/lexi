@@ -15,7 +15,7 @@ import {
 import App from "./App.jsx";
 let entries;
 const server = setupServer(
- http.get("*/api/profiles", () => HttpResponse.json([])),
+  http.get("*/api/profiles", () => HttpResponse.json([])),
   http.get("*/api/auth/session", () =>
     HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
   ),
@@ -33,7 +33,11 @@ const server = setupServer(
   ),
   http.post("*/api/vocabulary", async ({ request }) => {
     expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
-    const entry = { unit: {id:"u",code:"00",title:"Benvenuti"}, id: "new", ...(await request.json()) };
+    const entry = {
+      unit: { id: "u", code: "00", title: "Benvenuti" },
+      id: "new",
+      ...(await request.json()),
+    };
     entries.push(entry);
     return HttpResponse.json({ entry, duplicate_ids: [] }, { status: 201 });
   }),
@@ -64,7 +68,8 @@ beforeEach(() => {
       italian_gender: "feminine",
       greek_gender: "neuter",
       notes: "Home",
-      unit: {id:"u", code:"00", title:"Benvenuti"},
+      italian_example: "Home",
+      unit: { id: "u", code: "00", title: "Benvenuti" },
     },
   ];
 });
@@ -92,9 +97,17 @@ test("add a complete bilingual meaning and edit it from the library", async () =
   await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "il perché");
   await user.type(screen.getByLabelText("Greek *"), "το γιατί");
-  await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "u");
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Unit *" }),
+    "u",
+  );
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
-  await user.click(screen.getByText("Optional details", {exact:true}));
+  await user.selectOptions(
+    screen.getByLabelText("Italian gender"),
+    "masculine",
+  );
+  await user.selectOptions(screen.getByLabelText("Greek gender"), "neuter");
+  await user.click(screen.getByText("Optional details", { exact: true }));
   await user.selectOptions(
     screen.getByLabelText("Italian gender"),
     "masculine",
@@ -107,7 +120,7 @@ test("add a complete bilingual meaning and edit it from the library", async () =
     "Non so il perché.",
   );
   await user.type(screen.getByLabelText("Greek example"), "Δεν ξέρω το γιατί.");
-  await user.type(screen.getByLabelText("Pronunciation"), "perˈke");
+  await user.type(screen.getByLabelText("Italian pronunciation"), "perˈke");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Card saved.");
   expect(
@@ -138,7 +151,11 @@ test("required fields are identified and failed saves keep the draft for retry",
           { error: { code: "invalid_input", fields: ["italian"] } },
           { status: 422 },
         );
-      const entry = { unit: {id:"u",code:"00",title:"Benvenuti"}, id: "retry", ...(await request.json()) };
+      const entry = {
+        unit: { id: "u", code: "00", title: "Benvenuti" },
+        id: "retry",
+        ...(await request.json()),
+      };
       entries.push(entry);
       return HttpResponse.json({ entry, duplicate_ids: [] }, { status: 201 });
     }),
@@ -153,7 +170,10 @@ test("required fields are identified and failed saves keep the draft for retry",
   expect(screen.getByLabelText("Italian *")).toHaveFocus();
   await user.type(screen.getByLabelText("Italian *"), "è");
   await user.type(screen.getByLabelText("Greek *"), "είναι");
-  await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "u");
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Unit *" }),
+    "u",
+  );
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -173,7 +193,11 @@ test("required fields are identified and failed saves keep the draft for retry",
 test("matching-pair warnings appear after save and all interface languages retain the draft", async () => {
   server.use(
     http.post("*/api/vocabulary", async ({ request }) => {
-      const entry = { unit: {id:"u",code:"00",title:"Benvenuti"}, id: "duplicate", ...(await request.json()) };
+      const entry = {
+        unit: { id: "u", code: "00", title: "Benvenuti" },
+        id: "duplicate",
+        ...(await request.json()),
+      };
       entries.push(entry);
       return HttpResponse.json(
         { entry, duplicate_ids: ["house"] },
@@ -186,8 +210,16 @@ test("matching-pair warnings appear after save and all interface languages retai
   await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "la casa");
   await user.type(screen.getByLabelText("Greek *"), "το σπίτι");
-  await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "u");
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Unit *" }),
+    "u",
+  );
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
+  await user.selectOptions(
+    screen.getByLabelText("Italian gender"),
+    "masculine",
+  );
+  await user.selectOptions(screen.getByLabelText("Greek gender"), "neuter");
   await user.selectOptions(screen.getByLabelText("Interface language"), "el");
   expect(screen.getByLabelText("Ιταλικά *")).toHaveValue("la casa");
   expect(screen.getByLabelText("Ελληνικά *")).toHaveValue("το σπίτι");
@@ -212,14 +244,14 @@ test("cancel restores focus and a connection error allows retry without losing t
   openLibrary();
   const user = userEvent.setup();
   await user.click(await cardAction("Edit card: la casa"));
-  await user.type(screen.getByLabelText("Notes"), " — σπίτι");
+  await user.type(screen.getByLabelText("Italian example"), " — σπίτι");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Check your connection",
   );
-  expect(screen.getByLabelText("Notes")).toHaveValue("Home — σπίτι");
+  expect(screen.getByLabelText("Italian example")).toHaveValue("Home — σπίτι");
   await user.click(screen.getByRole("button", { name: "Cancel" }));
-  expect(screen.queryByLabelText("Notes")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Italian example")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "New card" })).toHaveFocus();
 });
 
@@ -239,14 +271,16 @@ test("a pending save prevents switching to another card until completion", async
   openLibrary();
   const user = userEvent.setup();
   await user.click(await cardAction("Edit card: la casa"));
-  await user.type(screen.getByLabelText("Notes"), " — revised");
+  await user.type(screen.getByLabelText("Italian example"), " — revised");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   try {
     expect(
       await screen.findByRole("button", { name: "Saving…" }),
     ).toBeDisabled();
     expect(screen.getByRole("button", { name: "New card" })).toBeDisabled();
-    expect(screen.getByRole("button", {name: "Card actions: la casa"})).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Card actions: la casa" }),
+    ).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   } finally {
     finishSave();
@@ -325,21 +359,33 @@ async function cardAction(name) {
   const summary = await screen.findByLabelText(
     `${name.startsWith("Modifica") ? "Azioni scheda" : "Card actions"}: ${italian}`,
   );
-  if (summary.getAttribute("aria-expanded") !== "true") await userEvent.click(summary);
+  if (summary.getAttribute("aria-expanded") !== "true")
+    await userEvent.click(summary);
   return screen.getByRole("menuitem", { name });
 }
 
 test("floating card actions support one open menu, keyboard navigation and dismissal", async () => {
-  entries.push({id: "book", italian: "il libro", greek: "το βιβλίο", word_type: "noun"});
+  entries.push({
+    id: "book",
+    italian: "il libro",
+    greek: "το βιβλίο",
+    word_type: "noun",
+  });
   openLibrary();
   const user = userEvent.setup();
-  const house = await screen.findByRole("button", {name: "Card actions: la casa"});
+  const house = await screen.findByRole("button", {
+    name: "Card actions: la casa",
+  });
   house.focus();
   await user.keyboard("{ArrowDown}");
-  const edit = screen.getByRole("menuitem", {name: "Edit card: la casa"});
-  const remove = screen.getByRole("menuitem", {name: "Delete card: la casa"});
+  const edit = screen.getByRole("menuitem", { name: "Edit card: la casa" });
+  const remove = screen.getByRole("menuitem", { name: "Delete card: la casa" });
   expect(edit).toHaveFocus();
   expect(screen.getByRole("menu").parentElement).toBe(document.body);
+  await user.keyboard("{ArrowDown}");
+  expect(
+    screen.getByRole("menuitem", { name: "Preview card: la casa" }),
+  ).toHaveFocus();
   await user.keyboard("{ArrowDown}");
   expect(remove).toHaveFocus();
   await user.keyboard("{ArrowDown}");
@@ -354,48 +400,56 @@ test("floating card actions support one open menu, keyboard navigation and dismi
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(house).toHaveFocus();
   await user.keyboard("{ArrowUp}");
-  expect(screen.getByRole("menuitem", {name: "Delete card: la casa"})).toHaveFocus();
-  const book = screen.getByRole("button", {name: "Card actions: il libro"});
+  expect(
+    screen.getByRole("menuitem", { name: "Delete card: la casa" }),
+  ).toHaveFocus();
+  const book = screen.getByRole("button", { name: "Card actions: il libro" });
   await user.click(book);
   expect(screen.getAllByRole("menu")).toHaveLength(1);
   expect(house).toHaveAttribute("aria-expanded", "false");
   expect(book).toHaveAttribute("aria-expanded", "true");
-  await user.click(screen.getByRole("heading", {name: "Your vocabulary"}));
+  await user.click(screen.getByRole("heading", { name: "Your vocabulary" }));
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(book).toHaveFocus();
   await user.click(book);
   await user.keyboard("{Tab}");
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   await user.click(house);
-  await user.click(screen.getByRole("menuitem", {name: "Delete card: la casa"}));
+  await user.click(
+    screen.getByRole("menuitem", { name: "Delete card: la casa" }),
+  );
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(screen.getByRole("dialog")).toBeInTheDocument();
-  expect(screen.getByRole("button", {name: "Cancel"})).toHaveFocus();
-  await user.click(screen.getByRole("button", {name: "Cancel"}));
+  expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
   expect(house).toHaveFocus();
 });
 
 test("inline unit creation preserves the card draft and selects the new unit", async () => {
-  let units = [{id:"u", code:"00", title:"Benvenuti"}];
+  let units = [{ id: "u", code: "00", title: "Benvenuti" }];
   server.use(
     http.get("*/api/units", () => HttpResponse.json(units)),
-    http.post("*/api/units", async ({request}) => {
-      const unit = {id:"fresh", ...await request.json()};
+    http.post("*/api/units", async ({ request }) => {
+      const unit = { id: "fresh", ...(await request.json()) };
       units = [...units, unit];
-      return HttpResponse.json(unit, {status:201});
-    })
+      return HttpResponse.json(unit, { status: 201 });
+    }),
   );
   openLibrary();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", {name:"New card"}));
+  await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "nuovo");
   await user.type(screen.getByLabelText("Greek *"), "νέο");
-  const picker = document.getElementById("entry-unit_id").closest(".unit-assignment");
+  const picker = document
+    .getElementById("entry-unit_id")
+    .closest(".unit-assignment");
   await user.click(picker.querySelector("button"));
   await user.type(screen.getByLabelText("Unit code"), "NEW");
   await user.type(screen.getByLabelText("Title"), "New unit");
-  await user.click(screen.getByRole("button", {name:"Create", exact:true}));
-  expect(await screen.findByRole("combobox", {name:"Unit *"})).toHaveValue("fresh");
+  await user.click(screen.getByRole("button", { name: "Create", exact: true }));
+  expect(await screen.findByRole("combobox", { name: "Unit *" })).toHaveValue(
+    "fresh",
+  );
   expect(screen.getByLabelText("Italian *")).toHaveValue("nuovo");
   expect(screen.getByLabelText("Greek *")).toHaveValue("νέο");
 });

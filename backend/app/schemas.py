@@ -7,9 +7,12 @@ from pydantic import (
     ConfigDict,
     Field,
     StringConstraints,
+    ValidationError,
     field_validator,
     model_validator,
 )
+
+from app.grammar import clean_grammar, missing_gender_fields
 
 
 class UnitOutput(BaseModel):
@@ -95,12 +98,31 @@ class VocabularyOutput(BaseModel):
     greek_gender: str | None
     italian_plural: str | None
     greek_plural: str | None
+    italian_feminine_singular: str | None
+    italian_masculine_plural: str | None
+    italian_feminine_plural: str | None
     italian_example: str | None
     greek_example: str | None
     notes: str | None
+    italian_masculine_singular: str | None
+    greek_masculine_singular: str | None
+    greek_masculine_plural: str | None
+    greek_feminine_singular: str | None
+    greek_feminine_plural: str | None
+    greek_neuter_singular: str | None
+    greek_neuter_plural: str | None
+    italian_adjective_gender: str | None
+    greek_adjective_gender: str | None
+    greek_pronunciation: str | None
     pronunciation: str | None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("italian_gender", "greek_gender", mode="before")
+    @classmethod
+    def legacy_common_is_unset(cls, value):
+        # Reading old cards/snapshots must never guess gender from their article.
+        return None if value == "common" else value
 
 
 class VocabularyPage(BaseModel):
@@ -118,23 +140,55 @@ OptionalText = Annotated[
 ]
 PluralText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 WordType = Literal["noun", "verb", "adjective", "adverb", "expression", "other"]
-Gender = Literal["masculine", "feminine", "neuter"]
+ItalianGender = Literal["masculine", "feminine"]
+GreekGender = Literal["masculine", "feminine", "neuter"]
 
 
 class VocabularyFields(BaseModel):
     model_config = ConfigDict(extra="forbid")
     unit_id: UUID | None = None
     tag_ids: list[UUID] = []
-    italian_gender: Gender | None = None
-    greek_gender: Gender | None = None
+    italian_gender: ItalianGender | None = None
+    greek_gender: GreekGender | None = None
     italian_plural: PluralText | None = None
     greek_plural: PluralText | None = None
+    italian_feminine_singular: PluralText | None = None
+    italian_masculine_plural: PluralText | None = None
+    italian_feminine_plural: PluralText | None = None
     italian_example: OptionalText | None = None
     greek_example: OptionalText | None = None
     notes: OptionalText | None = None
+    italian_masculine_singular: PluralText | None = None
+    greek_masculine_singular: PluralText | None = None
+    greek_masculine_plural: PluralText | None = None
+    greek_feminine_singular: PluralText | None = None
+    greek_feminine_plural: PluralText | None = None
+    greek_neuter_singular: PluralText | None = None
+    greek_neuter_plural: PluralText | None = None
+    italian_adjective_gender: ItalianGender | None = None
+    greek_adjective_gender: GreekGender | None = None
+    greek_pronunciation: OptionalText | None = None
     pronunciation: OptionalText | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def discard_incompatible_grammar(cls, values):
+        if isinstance(values, dict) and values.get("word_type"):
+            return clean_grammar(values, values["word_type"])
+        return values
+
     @field_validator(
+        "italian_masculine_singular",
+        "greek_masculine_singular",
+        "greek_masculine_plural",
+        "greek_feminine_singular",
+        "greek_feminine_plural",
+        "greek_neuter_singular",
+        "greek_neuter_plural",
+        "greek_pronunciation",
+        "italian_feminine_singular",
+        "italian_masculine_plural",
+        "italian_feminine_plural",
         "italian_plural",
         "greek_plural",
         "italian_example",
@@ -161,6 +215,33 @@ class VocabularyCreate(VocabularyFields):
     italian: EntryText
     greek: EntryText
     word_type: WordType
+
+    @model_validator(mode="after")
+    def require_entry_genders(self):
+        missing = missing_gender_fields(self.model_dump())
+        if missing:
+            raise ValidationError.from_exception_data(
+                type(self).__name__,
+                [
+                    {
+                        "type": "value_error",
+                        "loc": (field,),
+                        "input": getattr(self, field),
+                        "ctx": {
+                            "error": ValueError(
+                                "Choose the entry's gender for "
+                                + (
+                                    "Italian."
+                                    if field.startswith("italian")
+                                    else "Greek."
+                                )
+                            )
+                        },
+                    }
+                    for field in missing
+                ],
+            )
+        return self
 
 
 class VocabularyUpdate(VocabularyFields):

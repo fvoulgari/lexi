@@ -2,6 +2,7 @@ import csv
 import io
 import json
 
+from csv_fixtures import with_genders
 from test_vocabulary_editing import headers
 
 
@@ -146,9 +147,11 @@ def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
         "/api/vocabulary",
         headers=headers(logged_in),
         json={
+            "italian_gender": "masculine",
+            "greek_gender": "neuter",
             "italian": "＠formula",
             "greek": "＝τύπος",
-            "word_type": "other",
+            "word_type": "noun",
             "unit_id": unit["id"],
             "tag_ids": [tag["id"]],
             "italian_plural": "-plural",
@@ -283,7 +286,7 @@ def test_versioned_import_validates_tags_and_leaves_legacy_text_unchanged(logged
         return logged_in.post(
             "/api/imports/preview?unit_id="
             + logged_in.get("/api/units").json()[0]["id"],
-            content=content.getvalue(),
+            content=with_genders(content.getvalue()),
             headers={**headers(logged_in), "Content-Type": "text/csv"},
         ).json()
 

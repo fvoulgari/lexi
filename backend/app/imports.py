@@ -13,6 +13,7 @@ from sqlalchemy import select, text
 
 from app.csv_format import FORMAT_VERSION, restore_text
 from app.duplicates import normalized_pair
+from app.grammar import clean_grammar
 from app.models import Tag, Unit, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
 
@@ -32,11 +33,24 @@ COLUMNS = {
     "gender",
     "italian_gender",
     "greek_gender",
+    "italian_feminine_singular",
+    "italian_masculine_plural",
+    "italian_feminine_plural",
     "italian_plural",
     "greek_plural",
     "italian_example",
     "greek_example",
     "notes",
+    "italian_masculine_singular",
+    "greek_masculine_singular",
+    "greek_masculine_plural",
+    "greek_feminine_singular",
+    "greek_feminine_plural",
+    "greek_neuter_singular",
+    "greek_neuter_plural",
+    "italian_adjective_gender",
+    "greek_adjective_gender",
+    "greek_pronunciation",
     "pronunciation",
     "unit_code",
     "unit_title",
@@ -163,8 +177,15 @@ def evaluate(db, rows, confirm, destination):
                 title=destination.title,
                 sort_order=destination.sort_order,
             )
+            matches = pairs.get(
+                normalized_pair(row.get("italian", ""), row.get("greek", "")), []
+            )
+            # A CSV update may omit gender if the existing card already has it.
+            # Missing legacy genders must be corrected explicitly in this row.
+            previous = matches[0]["values"] if len(matches) == 1 else {}
             entry = VocabularyCreate(
-                unit_id=destination.id, **{k: v or None for k, v in row.items()}
+                unit_id=destination.id,
+                **{**previous, **{k: v or None for k, v in row.items()}},
             )
         except ValidationError as exc:
             errors = [
@@ -178,7 +199,10 @@ def evaluate(db, rows, confirm, destination):
             matches = pairs.get(pair, [])
             values = entry.model_dump(exclude={"unit_id", "tag_ids"})
             # An omitted column is not an instruction to erase stored content.
-            supplied = {key: value for key, value in values.items() if key in row}
+            supplied = clean_grammar(
+                {key: value for key, value in values.items() if key in row},
+                entry.word_type,
+            )
             if len(matches) > 1:
                 status = "error"
                 errors = [

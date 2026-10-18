@@ -1,8 +1,40 @@
 {
-  "headers": ["italian", "greek", "word_type"],
+  "headers": [
+    "italian",
+    "greek",
+    "word_type",
+    "italian_gender",
+    "greek_gender",
+    "italian_adjective_gender",
+    "greek_adjective_gender"
+  ],
   "rows": [
-    ["casa", "σπίτι", "noun"],
-    ["parlare", "μιλάω", "verb"],
-    ["bello", "όμορφος", "adjective"]
+    [
+      "casa",
+      "σπίτι",
+      "noun",
+      "masculine",
+      "neuter",
+      "",
+      ""
+    ],
+    [
+      "parlare",
+      "μιλάω",
+      "verb",
+      "",
+      "",
+      "",
+      ""
+    ],
+    [
+      "bello",
+      "όμορφος",
+      "adjective",
+      "",
+      "",
+      "masculine",
+      "masculine"
+    ]
   ]
 }

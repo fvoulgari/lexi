@@ -95,7 +95,14 @@ def test_breakdowns_preserve_review_time_units_and_types(logged_in):
         assert (
             client.patch(
                 f"/api/vocabulary/{entry['id']}",
-                json={"unit_id": unit_id, "word_type": word_type},
+                json={
+                    "italian_gender": "masculine",
+                    "greek_gender": "neuter",
+                    "italian_adjective_gender": "masculine",
+                    "greek_adjective_gender": "masculine",
+                    "unit_id": unit_id,
+                    "word_type": word_type,
+                },
                 headers=headers(client),
             ).status_code
             == 200

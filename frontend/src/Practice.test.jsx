@@ -137,7 +137,7 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
   await user.keyboard("{Enter}");
   expect(await screen.findByText("la casa")).toBeInTheDocument();
   expect(screen.getByText("KA-za")).toBeInTheDocument();
-  expect(screen.getByText("welcome")).toBeInTheDocument();
+  expect(screen.queryByText("welcome")).not.toBeInTheDocument();
   fail = true;
   await user.click(screen.getByRole("button", { name: "Hard" }));
   expect(await screen.findByRole("alert")).toBeInTheDocument();

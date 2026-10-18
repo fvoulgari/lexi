@@ -96,6 +96,10 @@ def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
             client.post(
                 "/api/vocabulary",
                 json={
+                    "italian_gender": "masculine",
+                    "greek_gender": "neuter",
+                    "italian_adjective_gender": "masculine",
+                    "greek_adjective_gender": "masculine",
                     "italian": italian,
                     "greek": greek,
                     "word_type": kind,

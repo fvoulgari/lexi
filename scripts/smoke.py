@@ -114,11 +114,11 @@ def main():
             expected=201,
         )
         csv = (
-            "italian,greek,word_type,unit_code,unit_title,tags\n"
+            "italian,greek,word_type,unit_code,unit_title,tags,italian_gender,greek_gender\n"
             f"il quaderno {marker},το τετράδιο {marker},noun,release-{marker},"
-            f"Release drill {marker},release-{marker}\n"
+            f"Release drill {marker},release-{marker},masculine,neuter\n"
             f"scrivere {marker},γράφω {marker},verb,release-{marker},"
-            f"Release drill {marker},release-{marker}\n"
+            f"Release drill {marker},release-{marker},,\n"
         )
         before = first["total"]
         preview = request(

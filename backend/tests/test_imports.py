@@ -1,7 +1,9 @@
+from csv_fixtures import with_genders
 from test_vocabulary_editing import headers
 
 
 def upload(client, csv, action="preview"):
+    csv = with_genders(csv)
     from uuid import uuid4
 
     response = client.get("/api/units")
@@ -52,6 +54,8 @@ def test_stale_preview_and_repeat_confirmation_skip_normalized_duplicates(logged
     logged_in.post(
         "/api/vocabulary",
         json={
+            "italian_gender": "masculine",
+            "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
             "italian": "il perché",
             "greek": "το γιατί",
@@ -140,10 +144,10 @@ def test_example_is_gated_utf8_and_importable(logged_in):
         == 3
     )
     assert response.text.splitlines() == [
-        "italian,greek,word_type",
-        "casa,σπίτι,noun",
-        "parlare,μιλάω,verb",
-        "bello,όμορφος,adjective",
+        "italian,greek,word_type,italian_gender,greek_gender,italian_adjective_gender,greek_adjective_gender",
+        "casa,σπίτι,noun,masculine,neuter,,",
+        "parlare,μιλάω,verb,,,,",
+        "bello,όμορφος,adjective,,,masculine,masculine",
     ]
     logged_in.cookies.clear()
     assert logged_in.get("/api/imports/example").status_code == 401
@@ -279,6 +283,8 @@ def test_updates_compare_fields_clear_blanks_and_simulate_repeated_rows(logged_i
     preview = upload(client, changed).json()
     assert [row["status"] for row in preview["rows"]] == ["updated", "duplicate"]
     assert set(preview["rows"][0]["changed_fields"]) == {
+        "italian_gender",
+        "greek_gender",
         "italian",
         "word_type",
         "notes",
@@ -333,6 +339,8 @@ def test_ambiguous_existing_pairs_are_reported_without_updating_either_card(logg
         client.post(
             "/api/vocabulary",
             json={
+                "italian_gender": "masculine",
+                "greek_gender": "neuter",
                 "italian": "nuovo",
                 "greek": "νέο",
                 "word_type": "noun",

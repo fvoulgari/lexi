@@ -2,6 +2,7 @@ import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MoreHorizontal } from "lucide-react";
 import PropTypes from "prop-types";
+import CardPreview from "./CardPreview.jsx";
 
 export default function CardActions({
   entry,
@@ -16,8 +17,16 @@ export default function CardActions({
   const trigger = useRef(null);
   const menu = useRef(null);
   const lastFirst = useRef(false);
+  const previewDialog = useRef(null);
+  const [previewing, setPreviewing] = useState(false);
   const id = useId();
   const [position, setPosition] = useState({ left: 0, top: 0 });
+  useLayoutEffect(() => {
+    if (previewing) {
+      previewDialog.current.showModal();
+      previewDialog.current.querySelector("button")?.focus();
+    }
+  }, [previewing]);
   function dismiss(restore = true) {
     onOpenChange(false);
     if (restore && trigger.current?.isConnected) trigger.current.focus();
@@ -53,7 +62,10 @@ export default function CardActions({
     function outside(event) {
       if (!panel.contains(event.target) && !button.contains(event.target)) {
         // Keep focus on the trigger when dismissing against noninteractive content.
-        if (!event.target.closest("button, a, input, select, textarea, summary")) event.preventDefault();
+        if (
+          !event.target.closest("button, a, input, select, textarea, summary")
+        )
+          event.preventDefault();
         onOpenChange(false);
         button.focus();
       }
@@ -181,6 +193,19 @@ export default function CardActions({
               type="button"
               role="menuitem"
               tabIndex={-1}
+              aria-label={`${text.cardPreview}: ${entry.italian}`}
+              disabled={editDisabled}
+              onClick={() => {
+                dismiss(false);
+                setPreviewing(true);
+              }}
+            >
+              {text.cardPreview}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
               className="card-action-delete"
               aria-label={`${text.deleteEntry}: ${entry.italian}`}
               disabled={deleteDisabled}
@@ -192,6 +217,31 @@ export default function CardActions({
               {text.deleteEntry}
             </button>
           </div>,
+          document.body,
+        )}
+      {previewing &&
+        createPortal(
+          <dialog
+            ref={previewDialog}
+            className="card-preview-dialog"
+            aria-label={`${text.cardPreview}: ${entry.italian}`}
+            onCancel={(event) => {
+              event.preventDefault();
+              previewDialog.current.close();
+            }}
+            onClose={() => {
+              setPreviewing(false);
+              trigger.current?.focus();
+            }}
+          >
+            <CardPreview
+              entry={entry}
+              text={text}
+              initiallyOpen
+              draft={false}
+              onClose={() => previewDialog.current.close()}
+            />
+          </dialog>,
           document.body,
         )}
     </>

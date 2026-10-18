@@ -27,7 +27,13 @@ def start(client, profile, mode="random", **extra):
 
 def test_required_units_for_manual_cards_and_csv(logged_in):
     client = logged_in
-    body = {"italian": "nuovo", "greek": "νέο", "word_type": "adjective"}
+    body = {
+        "italian_adjective_gender": "masculine",
+        "greek_adjective_gender": "masculine",
+        "italian": "nuovo",
+        "greek": "νέο",
+        "word_type": "adjective",
+    }
     for unit in ({}, {"unit_id": None}, {"unit_id": str(uuid4())}):
         assert (
             client.post(
@@ -66,6 +72,8 @@ def test_session_unit_choices_apply_without_profile_assignment(logged_in, mode):
         client.post(
             "/api/vocabulary",
             json={
+                "italian_adjective_gender": "masculine",
+                "greek_adjective_gender": "masculine",
                 "italian": "nuovo",
                 "greek": "νέο",
                 "word_type": "adjective",
@@ -116,6 +124,8 @@ def test_new_profile_can_practise_new_unit_immediately(logged_in, test_database)
     card = client.post(
         "/api/vocabulary",
         json={
+            "italian_adjective_gender": "masculine",
+            "greek_adjective_gender": "masculine",
             "italian": "nuovo",
             "greek": "νέο",
             "word_type": "adjective",

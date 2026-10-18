@@ -6,13 +6,14 @@ Export uses UTF-8 with a BOM (read as `utf-8-sig`), comma delimiters, CRLF recor
 | --- | --- |
 | `italian`, `greek` | Required expression and equivalent, one meaning per row. |
 | `word_type` | `noun`, `verb`, `adjective`, `adverb`, `expression`, or `other`. |
-| `italian_gender`, `greek_gender` | Independent `masculine`, `feminine`, `neuter`, or blank. |
+| `italian_gender`, `greek_gender` | Required noun genders on save: Italian `masculine`, `feminine`; Greek also `neuter`. Blank is invalid for noun saves. `common` is rejected on import; legacy stored values export blank for correction. |
 | `unit_code` | Unit code as text, including leading zeros (`00`, `007`); blank means No unit. |
 | `unit_title`, `unit_sort_order` | Optional unit display title and integer order; blank without a unit. |
 | `tags` | JSON array of tag names, e.g. `["cibo", "καφές"]`; `[]` means none. JSON safely preserves commas, quotes, semicolons and Unicode in names. |
 | `italian_plural`, `greek_plural` | Optional plurals. |
 | `italian_example`, `greek_example` | Optional examples, including multiline text. |
-| `notes`, `pronunciation` | Optional notes and pronunciation text. |
+| `notes` | Retained for legacy data exchange. Not shown or editable in the card UI. |
+| `pronunciation`, `greek_pronunciation` | Independent free-text pronunciation for Italian and Greek. `pronunciation` retains its legacy Italian meaning; notation/alphabet is unrestricted. |
 | `csv_format` | `italian-notebook-v1` on every exported row, identifying reversible escaping and JSON tags. |
 
 Absent optional text is blank. IDs, timestamps and learner records are omitted: this is a reusable vocabulary exchange, not a database backup.
@@ -22,6 +23,10 @@ Absent optional text is blank. IDs, timestamps and learner records are omitted: 
 CSV quoting alone does not prevent spreadsheet formulas. Every exported cell is prefixed with an apostrophe if it starts with an apostrophe, tab, CR or LF, or its first non-whitespace character is `=`, `+`, `-`, `@` (including their full-width forms). The prefix makes the value text in spreadsheet imports. Literal initial apostrophes are doubled so escaping is reversible. Tags are first encoded as JSON, whose initial `[` makes the whole cell text; tag names are not individually modified.
 
 Import through the spreadsheet's text/CSV dialog and choose **Text** for all columns, particularly `unit_code`. CSV has no type information, and opening it directly may convert `007` to `7` even when quoted. Keep the original downloaded file for reuse; spreadsheet resaving may remove escaping, leading zeros or accents. Do not remove safety prefixes before opening in a spreadsheet.
+
+Required adjective main-form gender metadata uses `italian_adjective_gender` (masculine/feminine) and `greek_adjective_gender` (masculine/feminine/neuter). These describe the singular main entry independently of noun gender. There are no defaults or inferred genders. New adjective rows require both selectors; a CSV update may omit them only if the existing card has valid stored genders. Missing legacy values require correction, and blank selectors are row errors. Forms use `italian_masculine_singular`, `italian_masculine_plural`, `italian_feminine_singular`, `italian_feminine_plural`, and the six Greek counterparts for masculine, feminine and neuter. Each form accepts up to 500 characters, including identical/invariable forms. Greek forms are nominative. No forms are generated, and combined Greek translations are never split. Card/form ordering starts with the selected gender's plural, then the other genders' singular/plural pairs; the selected singular is not repeated. Gender changes preserve stored forms under their original labels and never overwrite main text.
+
+The original column names and aliases remain accepted. For new noun/adjective rows or legacy rows with missing gender, supply the appropriate Italian and Greek gender columns; other categories need neither. Both pronunciation fields and all additional forms are optional; missing compatible columns preserve values on update. Saving a row clears grammar incompatible with its part of speech. Generic noun plurals are never reinterpreted as adjective forms.
 
 ## Compatibility with import
 

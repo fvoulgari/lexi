@@ -3,6 +3,13 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    chooseGender: "Choose gender",
+    cardDetailLabels: {
+      singular: "Singular",
+      gender: "Gender",
+      plural: "Plural",
+      example: "Example",
+    },
     cardPreview: "Preview card",
     cardPreviewHint:
       "Live preview of your unsaved changes. Previewing does not count as practice.",
@@ -171,6 +178,19 @@ export const copy = {
     fieldHint:
       "Enter the required text and choose a listed value. Text is limited to 500 characters, or 10,000 for examples, notes and pronunciation.",
     fields: {
+      italian_adjective_gender: "Italian main-form gender",
+      greek_adjective_gender: "Greek main-form gender",
+      italian_masculine_singular: "Masculine singular",
+      greek_masculine_singular: "Masculine singular",
+      greek_neuter_singular: "Neuter singular",
+      greek_neuter_plural: "Neuter plural",
+      greek_pronunciation: "Greek pronunciation",
+      greek_masculine_plural: "Masculine plural",
+      greek_feminine_singular: "Feminine singular",
+      greek_feminine_plural: "Feminine plural",
+      italian_feminine_singular: "Feminine singular",
+      italian_masculine_plural: "Masculine plural",
+      italian_feminine_plural: "Feminine plural",
       unit_id: "Unit",
       italian: "Italian",
       greek: "Greek",
@@ -182,7 +202,7 @@ export const copy = {
       italian_example: "Italian example",
       greek_example: "Greek example",
       notes: "Notes",
-      pronunciation: "Pronunciation text",
+      pronunciation: "Italian pronunciation",
     },
 
     allEntries: "All",
@@ -289,6 +309,13 @@ export const copy = {
       "Profiles are shared: anyone with access to the notebook can select them.",
   },
   el: {
+    chooseGender: "Επιλέξτε το γένος",
+    cardDetailLabels: {
+      singular: "Ενικός",
+      gender: "Γένος",
+      plural: "Πληθυντικός",
+      example: "Παράδειγμα",
+    },
     cardPreview: "Κάρτα προεπισκόπησης",
     cardPreviewHint:
       "Ζωντανή προεπισκόπηση των αλλαγών που δεν έχετε αποθηκεύσει. Η προεπισκόπηση δεν θεωρείται εξάσκηση.",
@@ -457,6 +484,19 @@ export const copy = {
     fieldHint:
       "Συμπλήρωσε το υποχρεωτικό κείμενο και επίλεξε τιμή από τη λίστα. Όριο 500 χαρακτήρων ή 10.000 για παραδείγματα, σημειώσεις και προφορά.",
     fields: {
+      italian_adjective_gender: "Το γένος των κύριων μορφών στα ιταλικά",
+      greek_adjective_gender: "Το γένος των κύριων μορφών στην ελληνική γλώσσα",
+      italian_masculine_singular: "Αρσενικό ενικό",
+      greek_masculine_singular: "Αρσενικό ενικό",
+      greek_neuter_singular: "Ουδέτερο ενικό",
+      greek_neuter_plural: "Ουδέτερος πληθυντικός",
+      greek_pronunciation: "Προφορά ελληνικών",
+      greek_masculine_plural: "Αρσενικό πληθυντικού",
+      greek_feminine_singular: "Θηλυκό ενικού",
+      greek_feminine_plural: "Θηλυκό πληθυντικού",
+      italian_feminine_singular: "Θηλυκό ενικού",
+      italian_masculine_plural: "Αρσενικό πληθυντικού",
+      italian_feminine_plural: "Θηλυκό πληθυντικού",
       unit_id: "Ενότητα",
       italian: "Ιταλικά",
       greek: "Ελληνικά",
@@ -468,7 +508,7 @@ export const copy = {
       italian_example: "Ιταλικό παράδειγμα",
       greek_example: "Ελληνικό παράδειγμα",
       notes: "Σημειώσεις",
-      pronunciation: "Κείμενο προφοράς",
+      pronunciation: "Προφορά ιταλικών",
     },
 
     allEntries: "Όλες",
@@ -578,6 +618,13 @@ export const copy = {
       "Τα προφίλ είναι κοινόχρηστα: όποιος έχει πρόσβαση στο τετράδιο μπορεί να τα επιλέξει.",
   },
   it: {
+    chooseGender: "Scegli il genere",
+    cardDetailLabels: {
+      singular: "Singolare",
+      gender: "Genere",
+      plural: "Plurale",
+      example: "Esempio",
+    },
     cardPreview: "Scheda di anteprima",
     cardPreviewHint:
       "Anteprima in tempo reale delle modifiche non salvate. L'anteprima non viene considerata come esercitazione.",
@@ -748,6 +795,19 @@ export const copy = {
     fieldHint:
       "Inserisci il testo obbligatorio e scegli un valore dalla lista. Limite di 500 caratteri, o 10.000 per esempi, note e pronuncia.",
     fields: {
+      italian_adjective_gender: "Genere delle forme principali in italiano",
+      greek_adjective_gender: "Genere delle forme principali in greco",
+      italian_masculine_singular: "Singolare maschile",
+      greek_masculine_singular: "Singolare maschile",
+      greek_neuter_singular: "Singolare neutro",
+      greek_neuter_plural: "Plurale neutro",
+      greek_pronunciation: "Pronuncia greca",
+      greek_masculine_plural: "Plurale maschile",
+      greek_feminine_singular: "Singolare femminile",
+      greek_feminine_plural: "Plurale femminile",
+      italian_feminine_singular: "Singolare femminile",
+      italian_masculine_plural: "Plurale maschile",
+      italian_feminine_plural: "Plurale femminile",
       unit_id: "Unità",
       italian: "Italiano",
       greek: "Greco",
@@ -759,7 +819,7 @@ export const copy = {
       italian_example: "Esempio italiano",
       greek_example: "Esempio greco",
       notes: "Note",
-      pronunciation: "Testo di pronuncia",
+      pronunciation: "Pronuncia italiana",
     },
 
     allEntries: "Tutte",

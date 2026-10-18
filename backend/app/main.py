@@ -15,6 +15,7 @@ from app.csv_export import export_library
 from app.database import database
 from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
+from app.grammar import clean_grammar, missing_gender_fields
 from app.imports import import_router
 from app.models import (
     LearningProgress,
@@ -93,19 +94,30 @@ def create_app():
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
+        fields = sorted(
+            {
+                str(error["loc"][1])
+                for error in exc.errors()
+                if len(error["loc"]) > 1 and error["loc"][0] == "body"
+            }
+        )
+        languages = [
+            language
+            for prefix, language in (("italian", "Italian"), ("greek", "Greek"))
+            if any(
+                field.startswith(prefix) and field.endswith("_gender")
+                for field in fields
+            )
+        ]
         return JSONResponse(
             status_code=422,
             content={
                 "error": {
                     "code": "invalid_input",
-                    "message": "Check the submitted fields.",
-                    "fields": sorted(
-                        {
-                            str(error["loc"][1])
-                            for error in exc.errors()
-                            if len(error["loc"]) > 1 and error["loc"][0] == "body"
-                        }
-                    ),
+                    "message": "Check the entry's gender for: " + ", ".join(languages)
+                    if languages
+                    else "Check the submitted fields.",
+                    "fields": fields,
                 }
             },
         )
@@ -230,12 +242,42 @@ def create_app():
                         },
                     )
             if entry_id is None:
+                values = clean_grammar(values, values["word_type"])
                 entry = VocabularyEntry(**values)
                 db.add(entry)
             else:
                 entry = db.get(VocabularyEntry, entry_id)
                 if entry is None:
                     raise HTTPException(404, detail="Vocabulary entry not found.")
+                values = clean_grammar(values, values.get("word_type", entry.word_type))
+                missing = missing_gender_fields(
+                    {
+                        "word_type": entry.word_type,
+                        **{
+                            field: getattr(entry, field)
+                            for field in (
+                                "italian_gender",
+                                "greek_gender",
+                                "italian_adjective_gender",
+                                "greek_adjective_gender",
+                            )
+                        },
+                        **values,
+                    }
+                )
+                if missing:
+                    raise HTTPException(
+                        422,
+                        detail={
+                            "code": "invalid_input",
+                            "fields": missing,
+                            "message": "Choose the entry's gender for: "
+                            + ", ".join(
+                                "Italian" if field.startswith("italian") else "Greek"
+                                for field in missing
+                            ),
+                        },
+                    )
                 for field, value in values.items():
                     setattr(entry, field, value)
             if tag_ids is not None:

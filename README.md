@@ -2,6 +2,49 @@
 
 A calm, mobile-first Italian–Greek vocabulary notebook. The application provides a shared-password gate and a real PostgreSQL-backed, paginated library with mobile forms for adding and editing vocabulary meanings. Random flashcard practice saves reviews and independent learner records. Home and Progress show independent learner review histories. CSV import supports preview and confirmation, and the full library can be exported safely as CSV.
 
+## Development shortcuts
+
+Run `make` or `make help` from the repository root to see the available commands. Use Python 3.14, Node 24, and Docker for the PostgreSQL services.
+
+For the Docker application stack:
+
+```sh
+make env
+# Configure the root .env as described below.
+make up
+make seed  # Explicit first-time seeding.
+make logs
+# Stop services while keeping database volumes:
+make down
+```
+
+For native development with hot reload:
+
+```sh
+make setup PYTHON=python3.14
+# Configure backend/.env with your local database URL and application settings.
+# If using Compose PostgreSQL, configure the root .env too.
+make db-up
+make migrate-local
+make seed-local
+make backend
+# In a second terminal:
+make frontend
+```
+
+`make env` preserves existing environment files. Root `.env` configures Compose; `backend/.env` configures native backend commands. Both are untracked. Seeding remains explicit. If PostgreSQL is already running elsewhere, skip `make db-up` and set the native database URL accordingly.
+
+For checks after installing local dependencies:
+
+```sh
+make test-db-up
+make check                  # Python/JavaScript lint, tests, and frontend build.
+make test-backend PYTEST_ARGS="-q tests/test_imports.py"
+make test-db-down
+```
+
+The test database is separate from development data and uses the existing default test URL on localhost:55432. `make test-db-up` creates or restarts it and waits for readiness. Test commands do not start Docker automatically, so an exported `TEST_DATABASE_URL` can point to another disposable database ending in `_test`. `make test-pwa` runs the browser checks when Playwright Chromium is installed. `make smoke` checks a running application using an exported `SHARED_PASSWORD` and optional `SMOKE_BASE_URL`.
+
 ## Start locally with Docker
 
 Requires Docker Desktop (or Docker Engine with Compose).
@@ -126,11 +169,11 @@ Verify the restored library before planning a live database replacement. Do not 
 
 ## Add and edit vocabulary meanings
 
-Choose **Add entry** in Vocabulary, or **Edit entry** on a library card. Each entry represents one meaning: add a new entry for a different meaning, and edit wording or grammatical information on the existing entry. Italian, Greek and one of the six word types are required. Independent Italian/Greek genders, plurals and examples, notes and pronunciation text are optional. Text retains accents and leading articles; only surrounding whitespace is trimmed. Blank optional text clears the field. Text fields are limited to 500 characters, or 10,000 for examples, notes and pronunciation.
+Choose **Add entry** in Vocabulary, or **Edit entry** on a library card. Each entry represents one meaning: add a new entry for a different meaning, and edit wording or grammatical information on the existing entry. Italian, Greek and one of the six word types are required. Nouns and adjectives also require explicit Italian and Greek genders beside their main entries. Plurals, additional adjective forms, examples and pronunciation remain optional. Notes are no longer shown or edited; existing stored notes remain preserved for API/CSV compatibility. Text retains accents and leading articles; only surrounding whitespace is trimmed. Blank optional text clears the field. Text fields are limited to 500 characters, or 10,000 for examples, notes and pronunciation.
 
 Saving refreshes the library and shows the saved pair. Matching Italian–Greek pairs produce a warning after saving, without blocking a distinct meaning. Matching uses Unicode NFC, case folding and surrounding whitespace trimming; accents and articles remain significant. Edits preserve the entry ID.
 
-The gated API supports `POST /api/vocabulary`, `GET /api/vocabulary/{id}` and partial `PATCH /api/vocabulary/{id}`. Writes require the session's CSRF token. Save responses contain `entry` and `duplicate_ids`; validation errors identify fields in `error.fields`. Optional `unit_id` must reference an existing unit. The form supports one optional unit and any number of tags independently of word type. Clearing the unit chooses No unit; clearing all tag checkboxes removes those assignments. Omitting either assignment field in a partial API edit preserves it.
+The gated API supports `POST /api/vocabulary`, `GET /api/vocabulary/{id}` and partial `PATCH /api/vocabulary/{id}`. Writes require the session's CSRF token. Save responses contain `entry` and `duplicate_ids`; validation errors identify fields in `error.fields`. Optional `unit_id` must reference an existing unit. The form supports one unit and any number of tags independently of word type. Clearing the unit chooses No unit; clearing all tag checkboxes removes those assignments. Omitting either assignment field in a partial API edit preserves it.
 
 ## Organize and find vocabulary
 
@@ -161,13 +204,27 @@ The gated API provides `POST /api/sessions` with `profile_id`, `direction` and `
 
 The practice migration adds four tables without changing existing vocabulary. Application rollback can leave these tables in place; downgrading the migration deletes practice history. The API tests cover snapshots, retries, concurrent submissions, rollback on database failure, application restart, isolation and shortages; rendered tests cover reveal, retry, direction switches, summaries and fresh setup.
 
+## Grammar fields by part of speech
+
+The add/edit form places part of speech and Unit (including creating a unit) in the first row, then Italian/Greek entries with their corresponding genders. Optional details include both examples and pronunciation. Required noun/adjective gender selectors sit beside the corresponding main fields, outside optional details. The six existing categories are unchanged.
+
+- **Nouns:** independent Italian and Greek genders and plurals. Italian offers masculine and feminine; Greek also offers neuter. Both genders require explicit selection on create or edit. Each card represents the form entered with its article (`il barista` is masculine, `la barista` feminine). Legacy `common` values open unset for manual correction without inferring gender from articles. Articles and invariable plurals are entered manually and preserved.
+- **Adjectives:** Italian and Greek each have their own main-form gender, separate from noun gender. Neither language defaults or infers gender; Italian supports masculine/feminine and Greek also neuter. The main text is the singular form of that selected gender. Optional fields start with its plural, then show each remaining gender under a short heading with paired Singular/Plural inputs. Greek forms are nominative. All forms are manually entered (up to 500 characters), including identical, irregular or invariable forms. Changing a selector reorders the fields without moving values between labels or overwriting the main text. Existing combined translations such as `ψηλός, -ή, -ό` are not split. Old cards with missing gender stay readable and reviewable, but must be corrected when next saved.
+- **Verbs, adverbs, expressions and other:** examples and pronunciation only. No conjugation tables or new categories are added.
+
+Switching categories preserves unsaved grammar in the form; saving clears incompatible grammar in that card through both API and CSV writes. Partial API edits preserve compatible omitted fields. Cards, practice snapshots and previews display only grammar relevant to their part of speech and the answer language. Empty details are omitted. Existing legacy metadata is hidden where irrelevant and is only cleaned when a card is saved; generic plurals are never inferred to be adjective forms.
+
+Migration `a35b66f8c007` added three nullable Italian adjective-form columns. Migration `b46c77a9d008` adds seven missing form columns (Italian masculine singular and all six Greek forms), two independent nullable main-form gender columns, and nullable `greek_pronunciation`. Existing `pronunciation` remains Italian pronunciation. Neither migration rewrites existing vocabulary or learning history. Run the existing migrations before starting the updated backend (`make migrate-local`, or automatic startup migrations in Docker).
+
+Pronunciation has independent Italian and Greek text fields for every category. The labels name the language being pronounced, not the writing system; either field accepts Greek characters, Latin notation or other free text. Revealed cards and previews show only the destination language's pronunciation. Grammar pairs, examples and pronunciation have separate spacing. Adjective cards show a compact gender/plural line followed by one singular/plural line per remaining gender; incomplete pairs explicitly identify the populated form. Desktop example fields share one row and pronunciation fields share the next, after both grammar groups. Examples use compact textareas and pronunciation uses single-line free-text inputs. Revealed cards label the destination language’s pronunciation simply “Προφορά” (or the selected interface language’s equivalent).
+
 ## Preview and confirm CSV imports
 
 In Vocabulary, choose or create a required destination unit, choose a **CSV file**, then **Preview import**. Inspect the destination, new, updated, duplicate and invalid rows, expandable entry details, and proposed tags. All imported cards use that destination. **Confirm import** explicitly imports new cards and updates changed fields on matching cards, rechecking current library data in one transaction. Failed confirmations retain the file and preview for retry. Changing the file clears its preview. No vocabulary, units or tags are written during preview.
 
 Download the gated example from the import panel or `GET /api/imports/example`. Use UTF-8 CSV (an optional UTF-8 BOM is accepted), at most **1 MiB and 2000 data rows**. Standard CSV quoting allows commas/newlines inside quoted text. Column headers are case-sensitive and unique; unsupported headers and malformed CSV are file errors. Missing/extra row cells are row errors. Row numbers count logical CSV records (header is row 1), including multiline records.
 
-Required columns: `italian`, `greek`, `word_type` (`noun`, `verb`, `adjective`, `adverb`, `expression`, `other`). Optional columns: `italian_gender`, `greek_gender`, legacy `gender`, `italian_plural`, `greek_plural`, `italian_example`, `greek_example`, `notes`, `pronunciation`, `unit_code`, `unit_title`, `unit_sort_order`, `tags`, `csv_format`. Existing vocabulary field lengths and gender values (`masculine`, `feminine`, `neuter`) apply. Blank optional text becomes null. `gender` is an Italian-gender alias; disagreeing nonblank alias/explicit values invalidate that row. Greek gender remains independent. Legacy `type`, `unit`, `plural`, and `example` alias `word_type`, `unit_code`, `italian_plural`, and `italian_example`; disagreeing nonblank alias/explicit values are row errors. Pronunciation is plain text.
+Required columns: `italian`, `greek`, `word_type` (`noun`, `verb`, `adjective`, `adverb`, `expression`, `other`). Optional columns: `italian_adjective_gender`, `greek_adjective_gender`, `italian_masculine_singular`, `greek_masculine_singular`, `greek_masculine_plural`, `greek_feminine_singular`, `greek_feminine_plural`, `greek_neuter_singular`, `greek_neuter_plural`, `greek_pronunciation`, `italian_feminine_singular`, `italian_masculine_plural`, `italian_feminine_plural`, `italian_gender`, `greek_gender`, legacy `gender`, `italian_plural`, `greek_plural`, `italian_example`, `greek_example`, `notes`, `pronunciation`, `unit_code`, `unit_title`, `unit_sort_order`, `tags`, `csv_format`. Existing vocabulary field lengths and gender values apply: Italian nouns accept `masculine`, `feminine`; Greek nouns also accept `neuter`. Gender must be selected independently in both languages when saving a noun or adjective. New API/CSV writes reject `common`; existing stored values are read/exported as unset and are not bulk rewritten. Blank optional text becomes null. `gender` is an Italian-gender alias; disagreeing nonblank alias/explicit values invalidate that row. Greek gender remains independent. Legacy `type`, `unit`, `plural`, and `example` alias `word_type`, `unit_code`, `italian_plural`, and `italian_example`; disagreeing nonblank alias/explicit values are row errors. Pronunciation is plain text: legacy `pronunciation` is Italian, and optional `greek_pronunciation` is Greek. Main adjective genders are independently optional: `italian_adjective_gender` accepts `masculine`/`feminine`; `greek_adjective_gender` also accepts `neuter`. Noun rows require both noun genders, and adjective rows require both main-form genders. CSV updates may omit gender columns only when the existing card already supplies valid genders. Blank cells do not default or infer gender and produce row errors for nouns/adjectives.
 
 `tags` uses pipe-separated names, for example `daily|questions`; names are trimmed, empty names ignored, and repeated names collapsed. A literal pipe cannot be part of a tag name in this legacy encoding. Exported rows carry `csv_format=italian-notebook-v1`, use JSON arrays for tags (including literal pipes), and reversibly decode spreadsheet safety prefixes before validation. See [the CSV format](docs/csv-format.md). Names match existing tags exactly, preserving case and accents. New names are created only for imported or updated rows.
 

@@ -9,7 +9,7 @@ import Library from "./Library.jsx";
 import { copy } from "./copy.js";
 let lastParams;
 const server = setupServer(
- http.get("*/api/profiles", () => HttpResponse.json([])),
+  http.get("*/api/profiles", () => HttpResponse.json([])),
   http.get("*/api/units", () =>
     HttpResponse.json([
       { id: "u", code: "003", title: "Travel", sort_order: 3 },
@@ -25,7 +25,9 @@ const server = setupServer(
           italian: lastParams.get("page") === "2" ? "due" : "uno",
           greek: "ένα",
           word_type: "noun",
-          unit: {id:"u", code:"003", title:"Travel"},
+          italian_gender: "masculine",
+          greek_gender: "neuter",
+          unit: { id: "u", code: "003", title: "Travel" },
           tags: [],
         },
       ],
@@ -43,7 +45,9 @@ function open(text = copy.en) {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MemoryRouter><Library text={text} csrf="csrf" onLocked={() => {}} /></MemoryRouter>
+      <MemoryRouter>
+        <Library text={text} csrf="csrf" onLocked={() => {}} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -125,7 +129,10 @@ test("create a unit and assign it while tag controls remain hidden", async () =>
   await user.type(screen.getByLabelText("Italian *"), "viaggiare");
   await user.type(screen.getByLabelText("Greek *"), "ταξιδεύω");
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
-  await user.selectOptions(screen.getByRole("combobox", {name: "Unit *"}), "new-unit");
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Unit *" }),
+    "new-unit",
+  );
   expect(
     screen.queryByRole("group", { name: "Assign tags" }),
   ).not.toBeInTheDocument();
@@ -146,8 +153,10 @@ test("editing preserves hidden tags while allowing unit changes in Italian", asy
             italian: "casa",
             greek: "σπίτι",
             word_type: "noun",
+            italian_gender: "masculine",
+            greek_gender: "neuter",
             unit: { id: "u", code: "003", title: "Travel" },
-                  tags: [{ id: "t", name: "Daily" }],
+            tags: [{ id: "t", name: "Daily" }],
           },
         ],
         total: 1,
@@ -164,11 +173,14 @@ test("editing preserves hidden tags while allowing unit changes in Italian", asy
   open(copy.it);
   const user = userEvent.setup();
   await user.click(await cardAction("Modifica scheda: casa"));
-  expect(screen.getByRole("combobox", {name: "Unità *"})).toHaveValue("u");
+  expect(screen.getByRole("combobox", { name: "Unità *" })).toHaveValue("u");
   expect(
     screen.queryByRole("group", { name: "Assegna etichette" }),
   ).not.toBeInTheDocument();
-  await user.selectOptions(screen.getByRole("combobox", {name: "Unità *"}), "u");
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Unità *" }),
+    "u",
+  );
   await user.click(screen.getByRole("button", { name: "Salva scheda" }));
   await waitFor(() => expect(saved?.tag_ids).toEqual(["t"]));
   expect(saved.unit_id).toBe("u");
@@ -224,10 +236,16 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
             : [
                 {
                   id: "e",
-                  italian: second ? "last" : changed ? "first after save" : "first",
+                  italian: second
+                    ? "last"
+                    : changed
+                      ? "first after save"
+                      : "first",
                   greek: "ένα",
                   word_type: "noun",
-                  unit: {id:"u", code:"003", title:"Travel"},
+                  italian_gender: "masculine",
+                  greek_gender: "neuter",
+                  unit: { id: "u", code: "003", title: "Travel" },
                   tags: [{ id: "t", name: "Daily" }],
                 },
               ],
@@ -264,23 +282,41 @@ async function cardAction(name) {
   const summary = await screen.findByLabelText(
     `${name.startsWith("Modifica") ? "Azioni scheda" : "Card actions"}: ${italian}`,
   );
-  if (summary.getAttribute("aria-expanded") !== "true") await userEvent.click(summary);
+  if (summary.getAttribute("aria-expanded") !== "true")
+    await userEvent.click(summary);
   return screen.getByRole("menuitem", { name });
 }
 
 test("library loading, retry and empty results remain accessible", async () => {
   let resolveRequest;
-  const pending = new Promise((resolve) => { resolveRequest = resolve; });
-  server.use(http.get("*/api/vocabulary", async () => {
-    await pending;
-    return HttpResponse.json({error: {code: "service_unavailable"}}, {status: 503});
-  }));
+  const pending = new Promise((resolve) => {
+    resolveRequest = resolve;
+  });
+  server.use(
+    http.get("*/api/vocabulary", async () => {
+      await pending;
+      return HttpResponse.json(
+        { error: { code: "service_unavailable" } },
+        { status: 503 },
+      );
+    }),
+  );
   open();
   expect(screen.getByRole("status")).toHaveTextContent(copy.en.loading);
   resolveRequest();
-  expect(await screen.findByRole("alert")).toHaveTextContent(copy.en.errors.service_unavailable);
-  server.use(http.get("*/api/vocabulary", () => HttpResponse.json({items: [], total: 0})));
-  await userEvent.click(screen.getByRole("button", {name: "Try again"}));
-  expect(await screen.findByRole("heading", {name: "A fresh page"})).toBeInTheDocument();
-  expect(screen.queryByRole("button", {name: "Clear filters"})).not.toBeInTheDocument();
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    copy.en.errors.service_unavailable,
+  );
+  server.use(
+    http.get("*/api/vocabulary", () =>
+      HttpResponse.json({ items: [], total: 0 }),
+    ),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(
+    await screen.findByRole("heading", { name: "A fresh page" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Clear filters" }),
+  ).not.toBeInTheDocument();
 });
