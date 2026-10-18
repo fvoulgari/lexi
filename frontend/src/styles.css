@@ -1877,3 +1877,22 @@ button:disabled {
   .library-page .bulk-vocabulary { padding: 16px; }
   .bulk-action-buttons > button { flex: 1 1 150px; }
 }
+
+.card-preview {
+  margin: 24px 0;
+  padding-top: 20px;
+  border-top: 1px solid #cad9c6;
+}
+.card-preview section > p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #52634f;
+}
+.card-preview select {
+  display: block;
+  max-width: 100%;
+  margin-top: 8px;
+}
+.card-preview .flashcard button {
+  margin: 12px 0;
+}

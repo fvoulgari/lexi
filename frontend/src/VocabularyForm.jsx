@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PropTypes from "prop-types";
 import UnitPicker from "./UnitPicker.jsx";
+import CardPreview from "./CardPreview.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
 import { request } from "./api.js";
 
@@ -266,6 +267,13 @@ export default function VocabularyForm({
                 : text.errors[save.error?.code] || text.errors.request_failed}
             </p>
           )}
+          <CardPreview
+            text={text}
+            entry={{
+              ...values,
+              unit: (units.data || []).find((unit) => unit.id === unitId),
+            }}
+          />
           <div className="form-actions">
             <button
               type="submit"

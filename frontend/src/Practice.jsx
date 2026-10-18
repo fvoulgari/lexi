@@ -11,6 +11,7 @@ import {
 import PropTypes from "prop-types";
 import { request } from "./api.js";
 import Choices from "./Choices.jsx";
+import PracticeCardView from "./PracticeCardView.jsx";
 
 export default function Practice({ text, csrf, onLocked }) {
   const profiles = useQuery({
@@ -519,8 +520,6 @@ function Flashcard({
   useEffect(() => {
     if (revealed) answer.current?.focus();
   }, [revealed]);
-  const front = direction === "greek_to_italian" ? "greek" : "italian";
-  const back = front === "greek" ? "italian" : "greek";
   const entry = card.snapshot;
   function failed(error) {
     if (error.code === "entry_deleted") {
@@ -584,18 +583,13 @@ function Flashcard({
           revealButton.current?.focus();
         }}
       />
-      <div className="flashcard">
-        <div className="card-metadata">
-          <span>
-            {entry.unit
-              ? `${entry.unit.code} · ${entry.unit.title}`
-              : text.noUnit}
-          </span>
-          {entry.word_type && <span>{text[entry.word_type]}</span>}
-        </div>
-        <p lang={front === "greek" ? "el" : "it"} className="card-prompt">
-          {entry[front]}
-        </p>
+      <PracticeCardView
+        entry={entry}
+        text={text}
+        direction={direction}
+        revealed={revealed}
+        answerRef={answer}
+      >
         {!revealed && (
           <button
             ref={revealButton}
@@ -606,35 +600,8 @@ function Flashcard({
             {pending ? text.loading : text.revealAnswer}
           </button>
         )}
-        {revealed && (
-          <div className="card-answer" ref={answer} tabIndex={-1}>
-            <h2 lang={back === "greek" ? "el" : "it"}>{entry[back]}</h2>
-            <dl>
-              {[
-                "italian_gender",
-                "greek_gender",
-                "italian_plural",
-                "greek_plural",
-                "italian_example",
-                "greek_example",
-                "pronunciation",
-                "notes",
-              ]
-                .filter((field) => entry[field])
-                .map((field) => (
-                  <div key={field}>
-                    <dt>{text.fields[field]}</dt>
-                    <dd>
-                      {field.endsWith("_gender")
-                        ? text[entry[field]]
-                        : entry[field]}
-                    </dd>
-                  </div>
-                ))}
-            </dl>
-          </div>
-        )}
-      </div>
+      </PracticeCardView>
+
       <div className="rating-buttons">
         {["again", "hard", "easy"].map((value) => (
           <button

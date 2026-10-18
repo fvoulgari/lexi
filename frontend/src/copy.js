@@ -3,6 +3,11 @@ export const languages = { el: "Ελληνικά", en: "English", it: "Italiano"
 
 export const copy = {
   en: {
+    cardPreview: "Preview card",
+    cardPreviewHint:
+      "Live preview of your unsaved changes. Previewing does not count as practice.",
+    cardHidePreview: "Hide preview",
+    cardHideAnswer: "Hide answer",
     bulkSelect: "Select cards",
     bulkSelectCard: "Select card",
     bulkPage: "Select all on this page",
@@ -284,6 +289,11 @@ export const copy = {
       "Profiles are shared: anyone with access to the notebook can select them.",
   },
   el: {
+    cardPreview: "Κάρτα προεπισκόπησης",
+    cardPreviewHint:
+      "Ζωντανή προεπισκόπηση των αλλαγών που δεν έχετε αποθηκεύσει. Η προεπισκόπηση δεν θεωρείται εξάσκηση.",
+    cardHidePreview: "Απόκρυψη προεπισκόπησης",
+    cardHideAnswer: "Απόκρυψη απάντησης",
     bulkSelect: "Επιλογή καρτών",
     bulkSelectCard: "Επιλογή κάρτας",
     bulkPage: "Επιλογή όλων στη σελίδα",
@@ -568,6 +578,11 @@ export const copy = {
       "Τα προφίλ είναι κοινόχρηστα: όποιος έχει πρόσβαση στο τετράδιο μπορεί να τα επιλέξει.",
   },
   it: {
+    cardPreview: "Scheda di anteprima",
+    cardPreviewHint:
+      "Anteprima in tempo reale delle modifiche non salvate. L'anteprima non viene considerata come esercitazione.",
+    cardHidePreview: "Nascondi anteprima",
+    cardHideAnswer: "Nascondi la risposta",
     bulkSelect: "Seleziona schede",
     bulkSelectCard: "Seleziona scheda",
     bulkPage: "Seleziona tutte le schede nella pagina",

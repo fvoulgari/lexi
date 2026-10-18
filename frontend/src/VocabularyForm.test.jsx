@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -157,3 +157,79 @@ test("an optional-field server error opens details before focusing it and preser
   await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
   expect(payload.notes).toBe("Keep this draft");
 });
+
+test("card preview follows unsaved edits and both learning directions without writes", async () => {
+  const writes = vi.fn();
+  server.use(
+    http.patch("*/api/vocabulary/:id", () => {
+      writes();
+      return HttpResponse.json({});
+    }),
+  );
+  const saved = openForm({
+    ...card,
+    pronunciation: "old sound",
+    notes: "old note",
+  });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "Preview card" }));
+  const preview = screen.getByRole("region", { name: "Preview card" });
+  expect(within(preview).getByText("σπίτι")).toBeVisible();
+  expect(within(preview).queryByText("casa")).not.toBeInTheDocument();
+  await user.click(
+    within(preview).getByRole("button", { name: "Reveal answer" }),
+  );
+  expect(within(preview).getByRole("heading", { name: "casa" })).toBeVisible();
+  await user.clear(screen.getByLabelText("Italian *"));
+  await user.type(screen.getByLabelText("Italian *"), "la casa");
+  await user.clear(screen.getByLabelText(copy.en.cardPronunciation));
+  await user.type(
+    screen.getByLabelText(copy.en.cardPronunciation),
+    "new sound",
+  );
+  await user.clear(screen.getByLabelText(copy.en.fields.notes));
+  expect(
+    within(preview).getByRole("heading", { name: "la casa" }),
+  ).toBeVisible();
+  expect(within(preview).getByText("new sound")).toBeVisible();
+  expect(within(preview).queryByText("old note")).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
+  expect(within(preview).getByText(copy.en.verb)).toBeVisible();
+  await user.selectOptions(
+    within(preview).getByLabelText("Learning direction"),
+    "italian_to_greek",
+  );
+  expect(within(preview).getByText("la casa")).toBeVisible();
+  expect(within(preview).queryByText("σπίτι")).not.toBeInTheDocument();
+  await user.click(
+    within(preview).getByRole("button", { name: "Reveal answer" }),
+  );
+  expect(within(preview).getByRole("heading", { name: "σπίτι" })).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Hide preview" }));
+  expect(
+    screen.queryByRole("region", { name: "Preview card" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Italian *")).toHaveValue("la casa");
+  expect(writes).not.toHaveBeenCalled();
+  expect(saved).not.toHaveBeenCalled();
+});
+
+for (const language of ["el", "it"]) {
+  test(`preview controls are localized in ${language}`, async () => {
+    const text = copy[language];
+    openForm(card, text);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: text.cardPreview }));
+    const preview = screen.getByRole("region", { name: text.cardPreview });
+    expect(within(preview).getByText(text.cardPreviewHint)).toBeVisible();
+    await user.click(
+      within(preview).getByRole("button", { name: text.revealAnswer }),
+    );
+    expect(
+      within(preview).getByRole("heading", { name: "casa" }),
+    ).toBeVisible();
+    expect(
+      within(preview).getByRole("button", { name: text.cardHideAnswer }),
+    ).toBeVisible();
+  });
+}
