@@ -47,14 +47,15 @@ if output=$(docker pull --platform linux/amd64 "$sha_image" 2>&1); then
   fi
 elif [[ "$output" = *'manifest unknown'* || "$output" = *"$sha_image: not found"* ]]; then
   if [[ "$release_exists" = true ]]; then
-    docker tag "$release_image" "$sha_image"
+    docker buildx imagetools create --prefer-index=false \
+      --tag "$sha_image" "$IMAGE@$release_digest"
   else
     docker build --platform linux/amd64 --load --provenance=false \
       --label org.opencontainers.image.source=https://github.com/fvoulgari/lexi \
       --label "org.opencontainers.image.revision=$SOURCE_SHA" \
       -t "$sha_image" .
+    docker push "$sha_image"
   fi
-  docker push "$sha_image"
 else
   echo "$output" >&2
   exit 1
@@ -72,8 +73,10 @@ if [[ "$release_exists" = true ]]; then
     exit 1
   fi
 else
-  docker tag "$sha_image" "$release_image"
-  docker push "$release_image"
+  # Copy the registry manifest verbatim; a daemon pull/tag/push can transcode OCI
+  # manifests or flatten indexes, changing the digest despite identical layers.
+  docker buildx imagetools create --prefer-index=false \
+    --tag "$release_image" "$IMAGE@$sha_digest"
   release_digest=$(registry_digest "$release_image")
   if [[ "$release_digest" != "$sha_digest" ]]; then
     echo 'Published release digest does not match the verified SHA image.' >&2
