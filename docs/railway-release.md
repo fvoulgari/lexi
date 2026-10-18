@@ -220,3 +220,17 @@ The evidence compares imported vocabulary, both direction totals, full progress 
 ## Release evidence and limitations
 
 See [the release verification record](release-verification.md) for executed checks, the screen audit and remaining operator checks. Device installation differs between browsers; real iOS/Android installation and Railway edge behavior require verification in those environments. Continuous monitoring, point-in-time recovery, automated offsite logical dumps, individual authentication, multi-replica migration coordination and offline private practice remain deferred improvements.
+
+## Release publication failure on v1.1.3
+
+The first v1.1.3 tag run passed checks but stopped before deployment: the Docker
+runner converted the SHA image's OCI manifest to Docker format while retagging,
+changing the digest although config and layer identities were unchanged. The
+publisher now copies registry manifests by digest with
+`docker buildx imagetools create --prefer-index=false` and still requires exact
+digest equality. This also preserves indexes and missing-SHA recovery.
+
+The already published v1.1.3 image remains immutable. Do not move that Git tag or
+overwrite the image. Merge the fix and use a new stable version (v1.1.4 or higher).
+Rerunning v1.1.3 uses its original script and cannot pick up this fix. Deployment
+was skipped for that failed run; no successful-release state was advanced.

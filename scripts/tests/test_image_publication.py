@@ -1,5 +1,6 @@
 """Observe publication through a disposable Docker registry, not workflow internals."""
 
+import json
 import os
 import subprocess
 import tempfile
@@ -200,7 +201,14 @@ class ImagePublicationTests(unittest.TestCase):
         registry, repository = self.image.split("/", 1)
         request = Request(
             f"http://{registry}/v2/{repository}/manifests/{tag}",
-            headers={"Accept": "application/vnd.docker.distribution.manifest.v2+json"},
+            headers={
+                "Accept": (
+                    "application/vnd.docker.distribution.manifest.v2+json, "
+                    "application/vnd.docker.distribution.manifest.list.v2+json, "
+                    "application/vnd.oci.image.manifest.v1+json, "
+                    "application/vnd.oci.image.index.v1+json"
+                )
+            },
         )
         with urlopen(request, timeout=10) as response:
             return response.headers["Docker-Content-Digest"]
@@ -216,6 +224,69 @@ class ImagePublicationTests(unittest.TestCase):
         again = self.release(repository, sha)
         self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
         self.assertEqual(self.digest("v1.2.0"), digest)
+
+    def test_release_preserves_existing_sha_index_digest(self):
+        self.check_registry_manifest_preserved(index=True)
+
+    def test_release_preserves_existing_sha_oci_manifest_digest(self):
+        self.check_registry_manifest_preserved(index=False)
+
+    def check_registry_manifest_preserved(self, *, index):
+        repository, _, sha = self.release_repository()
+        docker(
+            "buildx",
+            "build",
+            "--platform",
+            "linux/amd64",
+            "--provenance=false",
+            "--push",
+            "--label",
+            f"org.opencontainers.image.revision={sha}",
+            "-t",
+            f"{self.image}:sha-{sha}",
+            repository,
+        )
+        leaf = self.digest(f"sha-{sha}")
+        registry, image_path = self.image.split("/", 1)
+        raw = docker(
+            "buildx", "imagetools", "inspect", "--raw", f"{self.image}@{leaf}"
+        ).encode()
+        manifest = {
+            "schemaVersion": 2,
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "manifests": [
+                {
+                    "mediaType": json.loads(raw)["mediaType"],
+                    "digest": leaf,
+                    "size": len(raw),
+                    "platform": {"os": "linux", "architecture": "amd64"},
+                }
+            ],
+        }
+        if not index:
+            manifest = json.loads(raw)
+            manifest["mediaType"] = "application/vnd.oci.image.manifest.v1+json"
+            manifest["config"]["mediaType"] = "application/vnd.oci.image.config.v1+json"
+            for layer in manifest["layers"] or []:
+                layer["mediaType"] = "application/vnd.oci.image.layer.v1.tar+gzip"
+        payload = json.dumps(manifest, indent=2).encode()
+        request = Request(
+            f"http://{registry}/v2/{image_path}/manifests/sha-{sha}",
+            data=payload,
+            method="PUT",
+            headers={"Content-Type": manifest["mediaType"]},
+        )
+        with urlopen(request, timeout=10):
+            pass
+        original = self.digest(f"sha-{sha}")
+        self.assertNotEqual(
+            original, leaf, "Fixture must have a distinct registry manifest"
+        )
+        output = Path(repository, "outputs")
+        result = self.release(repository, sha, output=output)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.digest("v1.2.0"), original)
+        self.assertIn(f"image={self.image}@{original}\n", output.read_text())
 
     def test_existing_release_restores_missing_sha_without_rebuilding(self):
         repository, _, sha = self.release_repository()
