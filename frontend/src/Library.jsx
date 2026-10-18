@@ -117,6 +117,21 @@ export default function Library({ text, csrf, onLocked }) {
   const filterCount = filters.unit_ids.length + filters.word_types.length;
   const pages = Math.max(1, Math.ceil((library.data?.total || 0) / 12));
 
+  async function refreshLibrary() {
+    await client.invalidateQueries({ queryKey: ["vocabulary"] });
+    // Read the refreshed total for the active filters, including off-page deletions.
+    const current = client.getQueryData(["vocabulary", page, filters]);
+    if (current)
+      setPage(Math.min(page, Math.max(1, Math.ceil(current.total / 12))));
+    for (const key of [
+      "progress",
+      "difficult-entries",
+      "progress-difficult",
+      "practice-summary",
+    ])
+      await client.invalidateQueries({ queryKey: [key] });
+  }
+
   function closeDelete() {
     setDeleting(null);
     setDeleteError(null);
@@ -133,9 +148,7 @@ export default function Library({ text, csrf, onLocked }) {
       setDeleting(null);
       setSaved(null);
       setEditing(undefined);
-      // Return to a valid page even when deleting the last result on this page.
-      setPage(1);
-      await client.invalidateQueries({ queryKey: ["vocabulary"] });
+      await refreshLibrary();
       setDeleted(true);
     } catch (error) {
       if (error.status === 401) onLocked();
@@ -440,15 +453,8 @@ export default function Library({ text, csrf, onLocked }) {
             setBulkNotice(result);
             setSelectedIds([]);
             setSelecting(false);
-            setPage(1);
-            for (const key of [
-              "vocabulary",
-              "units",
-              "progress",
-              "difficult-entries",
-              "progress-difficult",
-            ])
-              await client.invalidateQueries({ queryKey: [key] });
+            await refreshLibrary();
+            await client.invalidateQueries({ queryKey: ["units"] });
           }}
         />
       )}
@@ -554,7 +560,6 @@ export default function Library({ text, csrf, onLocked }) {
               aria-label={text.previous}
               disabled={page === 1 || bulkBusy}
               onClick={() => {
-                setSelectedIds([]);
                 setPage((value) => value - 1);
               }}
             >
@@ -568,7 +573,6 @@ export default function Library({ text, csrf, onLocked }) {
               aria-label={text.next}
               disabled={page >= pages || bulkBusy}
               onClick={() => {
-                setSelectedIds([]);
                 setPage((value) => value + 1);
               }}
             >

@@ -63,7 +63,7 @@ def test_move_preserves_review_history_and_other_card_fields(logged_in):
     )
 
 
-def test_delete_is_atomic_and_reviewed_cards_can_be_excluded(logged_in):
+def test_delete_is_atomic_and_removes_reviewed_cards_and_stats(logged_in):
     client = logged_in
     session = start(client).json()
     reviewed = session["cards"][0]["entry_id"]
@@ -74,7 +74,7 @@ def test_delete_is_atomic_and_reviewed_cards_can_be_excluded(logged_in):
         json={"direction": "greek_to_italian"},
         headers=headers(client),
     )
-    accepted = client.post(
+    client.post(
         path + "/reviews",
         json={"direction": "greek_to_italian", "rating": "hard"},
         headers=headers(client),
@@ -84,21 +84,17 @@ def test_delete_is_atomic_and_reviewed_cards_can_be_excluded(logged_in):
     response = bulk(client, "delete", [reviewed, other, missing])
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "bulk_blocked"
-    assert set(response.json()["error"]["entry_ids"]) == {reviewed, missing}
+    assert set(response.json()["error"]["entry_ids"]) == {missing}
     assert len(cards(client)) == total
-    response = bulk(client, "delete", [other, other])
-    assert response.json() == {"action": "delete", "count": 1}
-    assert len(cards(client)) == total - 1
-    assert client.get(f"/api/vocabulary/{reviewed}").status_code == 200
+    response = bulk(client, "delete", [reviewed, other, other])
+    assert response.json() == {"action": "delete", "count": 2}
+    assert len(cards(client)) == total - 2
+    assert client.get(f"/api/vocabulary/{reviewed}").status_code == 404
     assert client.get(f"/api/vocabulary/{other}").status_code == 404
-    assert (
-        client.post(
-            path + "/reviews",
-            json={"direction": "greek_to_italian", "rating": "hard"},
-            headers=headers(client),
-        ).json()
-        == accepted
-    )
+    stats = client.get(f"/api/profiles/{session['profile_id']}/progress").json()
+    assert stats["total_reviews"] == 0
+    assert stats["entries_practised"] == 0
+    assert client.get(f"/api/sessions/{session['id']}/summary").json()["total"] == 0
     assert (
         client.get(f"/api/sessions/{session['id']}").json()["cards"][1]["skipped"]
         is True

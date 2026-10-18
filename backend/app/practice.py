@@ -201,7 +201,7 @@ def practice_router(sessions, gate):
                 409,
                 detail={
                     "code": "entry_deleted",
-                    "message": "This unreviewed entry was deleted. Skip this card.",
+                    "message": "This entry was deleted. Skip this card.",
                 },
             )
 

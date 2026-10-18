@@ -12,7 +12,8 @@ export const copy = {
     bulkDelete: "Delete selected",
     bulkDestination: "Destination unit",
     bulkDeleteTitle: "Delete selected cards?",
-    bulkDeleteWarning: "Deletion is permanent. If any cards are reviewed or unavailable, they will be excluded and you will confirm the remaining selection again.",
+    bulkDeleteWarning:
+      "This permanently deletes the selected cards and their practice history for all learners, removing them from statistics. Unavailable cards will be excluded before you confirm again.",
     bulkMovedOne: "{count} card moved.",
     bulkMoved: "{count} cards moved.",
     bulkDeletedOne: "{count} card deleted.",
@@ -71,10 +72,11 @@ export const copy = {
 
     deleteEntry: "Delete card",
     confirmDelete: "Permanently delete",
-    deleteWarning: "This permanently removes a card only if it has no reviews.",
+    deleteWarning:
+      "This permanently deletes the card and its practice history for all learners, removing it from statistics.",
     entryDeleted: "Card deleted.",
     entrySkipped:
-      "This unreviewed card was deleted. It was skipped and the session count was adjusted.",
+      "This card was deleted. It was skipped and the session count was adjusted.",
     motionReducedActive: "Reduced motion is active.",
     motionFullActive: "Full motion is active.",
     deviceSettings: "On this device",
@@ -151,8 +153,7 @@ export const copy = {
     masculine: "Masculine",
     feminine: "Feminine",
     neuter: "Neuter",
-    meaningHint:
-      "Add the word or phrase and its translation.",
+    meaningHint: "Add the word or phrase and its translation.",
     cardEditHint: "Update the word or phrase and its translation.",
     cardRequiredHint: "* Required fields",
     cardOptionalDetails: "Optional details",
@@ -240,13 +241,16 @@ export const copy = {
     skip: "Skip to content",
     libraryNote: "One word at a time.",
     errors: {
-      bulk_selection_updated: "Reviewed or unavailable cards were removed from the selection. Nothing was deleted. Confirm to delete the remaining cards.",
-      bulk_nothing_to_delete: "All selected cards are reviewed or unavailable. Nothing was deleted.",
-      bulk_missing: "Some selected cards no longer exist. Clear the selection and select again.",
+      bulk_selection_updated:
+        "Reviewed or unavailable cards were removed from the selection. Nothing was deleted. Confirm to delete the remaining cards.",
+      bulk_nothing_to_delete:
+        "All selected cards are unavailable. Nothing was deleted.",
+      bulk_missing:
+        "Some selected cards no longer exist. Clear the selection and select again.",
       invalid_unit: "Choose a unit",
       entry_reviewed: "This card has reviews and cannot be deleted.",
       entry_deleted:
-        "This unreviewed card was deleted. It was skipped and the session count was adjusted.",
+        "This card was deleted. It was skipped and the session count was adjusted.",
       incorrect_password: "That password isn’t quite right. Try again.",
       login_throttled: "Too many attempts. Please try again in a minute.",
       csrf_rejected: "This page needs refreshing. Reload and try again.",
@@ -287,7 +291,8 @@ export const copy = {
     bulkDelete: "Διαγραφή επιλεγμένων",
     bulkDestination: "Ενότητα προορισμού",
     bulkDeleteTitle: "Διαγραφή επιλεγμένων καρτών;",
-    bulkDeleteWarning: "Η διαγραφή είναι οριστική. Αν υπάρχουν κάρτες με ιστορικό εξάσκησης ή που δεν υπάρχουν πλέον, θα εξαιρεθούν και θα επιβεβαιώσεις ξανά για τις υπόλοιπες.",
+    bulkDeleteWarning:
+      "Αυτό διαγράφει οριστικά τις επιλεγμένες κάρτες και το ιστορικό εξάσκησης για όλους τους μαθητές, αφαιρώντας τις από τα στατιστικά στοιχεία. Οι μη διαθέσιμες κάρτες θα εξαιρεθούν πριν επιβεβαιώσετε ξανά.",
     bulkMovedOne: "Μετακινήθηκε {count} κάρτα.",
     bulkMoved: "Μετακινήθηκαν {count} κάρτες.",
     bulkDeletedOne: "Διαγράφηκε {count} κάρτα.",
@@ -347,10 +352,10 @@ export const copy = {
     deleteEntry: "Διαγραφή κάρτας",
     confirmDelete: "Οριστική διαγραφή",
     deleteWarning:
-      "Η κάρτα διαγράφεται οριστικά μόνο αν δεν έχει αξιολογήσεις.",
+      "Με αυτόν τον τρόπο η κάρτα και το ιστορικό εξάσκησης για όλους τους μαθητές διαγράφονται οριστικά, ενώ η κάρτα αφαιρείται από τα στατιστικά στοιχεία.",
     entryDeleted: "Η κάρτα διαγράφηκε.",
     entrySkipped:
-      "Αυτή η κάρτα χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
+      "Αυτή η κάρτα διαγράφηκε. Παραλείφθηκε και ο αριθμός των συνεδριών προσαρμόστηκε.",
     motionReducedActive: "Η μειωμένη κίνηση είναι ενεργή.",
     motionFullActive: "Η πλήρης κίνηση είναι ενεργή.",
     deviceSettings: "Σε αυτή τη συσκευή",
@@ -427,8 +432,7 @@ export const copy = {
     masculine: "Αρσενικό",
     feminine: "Θηλυκό",
     neuter: "Ουδέτερο",
-    meaningHint:
-      "Πρόσθεσε τη λέξη ή τη φράση και τη μετάφρασή της.",
+    meaningHint: "Πρόσθεσε τη λέξη ή τη φράση και τη μετάφρασή της.",
     cardEditHint: "Επεξεργάσου τη λέξη ή τη φράση και τη μετάφρασή της.",
     cardRequiredHint: "* Υποχρεωτικά πεδία",
     cardOptionalDetails: "Προαιρετικές λεπτομέρειες",
@@ -516,14 +520,17 @@ export const copy = {
     skip: "Μετάβαση στο περιεχόμενο",
     libraryNote: "Μια λέξη τη φορά.",
     errors: {
-      bulk_selection_updated: "Οι κάρτες με ιστορικό εξάσκησης ή που δεν υπάρχουν πλέον εξαιρέθηκαν από την επιλογή. Δεν διαγράφηκε καμία κάρτα. Επιβεβαίωσε για να διαγράψεις τις υπόλοιπες.",
-      bulk_nothing_to_delete: "Όλες οι επιλεγμένες κάρτες έχουν ιστορικό εξάσκησης ή δεν υπάρχουν πλέον. Δεν διαγράφηκε καμία κάρτα.",
-      bulk_missing: "Κάποιες επιλεγμένες κάρτες δεν υπάρχουν πλέον. Καθάρισε την επιλογή και επίλεξε ξανά.",
+      bulk_selection_updated:
+        "Οι κάρτες με ιστορικό εξάσκησης ή που δεν υπάρχουν πλέον εξαιρέθηκαν από την επιλογή. Δεν διαγράφηκε καμία κάρτα. Επιβεβαίωσε για να διαγράψεις τις υπόλοιπες.",
+      bulk_nothing_to_delete:
+        "Όλες οι επιλεγμένες κάρτες δεν είναι διαθέσιμες. Δεν διαγράφηκε τίποτα.",
+      bulk_missing:
+        "Κάποιες επιλεγμένες κάρτες δεν υπάρχουν πλέον. Καθάρισε την επιλογή και επίλεξε ξανά.",
       invalid_unit: "Επίλεξε ενότητα",
       entry_reviewed:
         "Αυτή η κάρτα έχει αξιολογήσεις και δεν μπορεί να διαγραφεί.",
       entry_deleted:
-        "Αυτή η κάρτα χωρίς αξιολογήσεις διαγράφηκε. Παραλείφθηκε και το πλήθος της συνεδρίας προσαρμόστηκε.",
+        "Αυτή η κάρτα διαγράφηκε. Παραλείφθηκε και ο αριθμός των συνεδριών προσαρμόστηκε.",
       incorrect_password: "Ο κωδικός δεν είναι σωστός. Δοκίμασε ξανά.",
       login_throttled: "Πολλές προσπάθειες. Δοκίμασε ξανά σε ένα λεπτό.",
       csrf_rejected:
@@ -566,7 +573,8 @@ export const copy = {
     bulkDelete: "Elimina selezionate",
     bulkDestination: "Unità di destinazione",
     bulkDeleteTitle: "Eliminare le schede selezionate?",
-    bulkDeleteWarning: "L’eliminazione è definitiva. Se alcune schede hanno ripassi o non sono più disponibili, saranno escluse e confermerai di nuovo la selezione rimanente.",
+    bulkDeleteWarning:
+      "Questa operazione elimina definitivamente le schede selezionate e la cronologia delle esercitazioni relative a tutti gli studenti, rimuovendole dalle statistiche. Le schede non disponibili verranno escluse prima che tu confermi nuovamente.",
     bulkMovedOne: "{count} scheda spostata.",
     bulkMoved: "{count} schede spostate.",
     bulkDeletedOne: "{count} scheda eliminata.",
@@ -626,10 +634,10 @@ export const copy = {
     deleteEntry: "Elimina scheda",
     confirmDelete: "Elimina definitivamente",
     deleteWarning:
-      "La scheda viene eliminata definitivamente solo se non ha revisioni.",
+      "In questo modo la scheda e la cronologia delle esercitazioni relative a tutti gli studenti vengono eliminate definitivamente, escludendole dalle statistiche.",
     entryDeleted: "Scheda eliminata.",
     entrySkipped:
-      "Questa scheda senza revisioni è stata eliminata. È stata saltata e il numero di schede è stato aggiornato.",
+      "Questa scheda è stata eliminata. È stata saltata e il conteggio delle sessioni è stato aggiornato.",
     motionReducedActive: "Il movimento ridotto è attivo.",
     motionFullActive: "Il movimento completo è attivo.",
     deviceSettings: "Su questo dispositivo",
@@ -708,8 +716,7 @@ export const copy = {
     masculine: "Maschile",
     feminine: "Femminile",
     neuter: "Neutro",
-    meaningHint:
-      "Aggiungi la parola o la frase e la sua traduzione.",
+    meaningHint: "Aggiungi la parola o la frase e la sua traduzione.",
     cardEditHint: "Modifica la parola o la frase e la sua traduzione.",
     cardRequiredHint: "* Campi obbligatori",
     cardOptionalDetails: "Dettagli facoltativi",
@@ -797,14 +804,17 @@ export const copy = {
     skip: "Vai al contenuto",
     libraryNote: "Una parola alla volta.",
     errors: {
-      bulk_selection_updated: "Le schede con ripassi o non più disponibili sono state escluse dalla selezione. Nessuna scheda è stata eliminata. Conferma per eliminare le rimanenti.",
-      bulk_nothing_to_delete: "Tutte le schede selezionate hanno ripassi o non sono più disponibili. Nessuna scheda è stata eliminata.",
-      bulk_missing: "Alcune schede selezionate non esistono più. Cancella la selezione e seleziona di nuovo.",
+      bulk_selection_updated:
+        "Le schede con ripassi o non più disponibili sono state escluse dalla selezione. Nessuna scheda è stata eliminata. Conferma per eliminare le rimanenti.",
+      bulk_nothing_to_delete:
+        "Tutte le carte selezionate non sono disponibili. Non è stato eliminato nulla.",
+      bulk_missing:
+        "Alcune schede selezionate non esistono più. Cancella la selezione e seleziona di nuovo.",
       invalid_unit: "Scegli un’unità",
       entry_reviewed:
         "Questa scheda ha delle revisioni e non può essere eliminata.",
       entry_deleted:
-        "Questa scheda senza revisioni è stata eliminata. È stata saltata e il numero di schede è stato aggiornato.",
+        "Questa scheda è stata eliminata. È stata saltata e il conteggio delle sessioni è stato aggiornato.",
       incorrect_password: "La password non è corretta. Riprova.",
       login_throttled: "Troppi tentativi. Riprova tra un minuto.",
       csrf_rejected: "Aggiorna la pagina e riprova.",

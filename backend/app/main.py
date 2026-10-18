@@ -19,7 +19,6 @@ from app.imports import import_router
 from app.models import (
     LearningProgress,
     Profile,
-    ReviewEvent,
     Tag,
     Unit,
     VocabularyEntry,
@@ -43,6 +42,7 @@ from app.schemas import (
     WordType,
 )
 from app.vocabulary_bulk import vocabulary_bulk_router
+from app.vocabulary_deletion import delete_entries
 
 
 def create_app():
@@ -283,17 +283,7 @@ def create_app():
             )
             if entry is None:
                 raise HTTPException(404, "Vocabulary entry not found.")
-            if db.scalar(
-                select(ReviewEvent.id).where(ReviewEvent.entry_id == entry_id).limit(1)
-            ):
-                raise HTTPException(
-                    409,
-                    detail={
-                        "code": "entry_reviewed",
-                        "message": "This entry has reviews and cannot be deleted.",
-                    },
-                )
-            db.delete(entry)
+            delete_entries(db, [entry_id])
             return {"deleted": str(entry_id)}
 
     @app.patch(

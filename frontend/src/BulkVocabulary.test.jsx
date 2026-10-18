@@ -98,7 +98,7 @@ async function selectAll(user) {
   await screen.findByText("12 cards selected");
 }
 
-test("select-all only selects displayed cards and clears on page or filter changes without an API request", async () => {
+test("select-all only selects displayed cards and persists across pages and clears on filter changes without an API request", async () => {
   open();
   const user = userEvent.setup();
   await selectAll(user);
@@ -107,20 +107,20 @@ test("select-all only selects displayed cards and clears on page or filter chang
   const last = await screen.findByRole("checkbox", {
     name: "Select card: carta 12 — κάρτα 12",
   });
-  expect(screen.getByText("0 cards selected")).toBeInTheDocument();
+  expect(screen.getByText("12 cards selected")).toBeInTheDocument();
   await user.click(
     screen.getByRole("checkbox", { name: "Select all on this page" }),
   );
   expect(last).toBeChecked();
-  expect(screen.getByText("1 card selected")).toBeInTheDocument();
+  expect(screen.getByText("13 cards selected")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Previous page" }));
   await screen.findByRole("checkbox", {
     name: "Select card: carta 0 — κάρτα 0",
   });
-  expect(screen.getByText("0 cards selected")).toBeInTheDocument();
-  await user.click(
-    screen.getByRole("checkbox", { name: "Select all on this page" }),
-  );
+  expect(screen.getByText("13 cards selected")).toBeInTheDocument();
+  expect(
+    screen.getByRole("checkbox", { name: "Select card: carta 0 — κάρτα 0" }),
+  ).toBeChecked();
   await user.type(screen.getByRole("searchbox"), "carta 0");
   expect(screen.getByText("0 cards selected")).toBeInTheDocument();
   await waitFor(() =>
@@ -171,7 +171,7 @@ test("move-all uses an explicit destination and restores focus after completion"
   );
 });
 
-test("mass delete requires confirmation, Escape restores focus, and reviewed cards are automatically excluded", async () => {
+test("mass delete requires confirmation, Escape restores focus, and unavailable cards are automatically excluded", async () => {
   open();
   const user = userEvent.setup();
   await selectAll(user);
@@ -252,7 +252,7 @@ for (const language of ["el", "it"])
   });
 
 for (const allBlocked of [false, true])
-  test(`blocking cards are excluded automatically (${allBlocked ? "all blocked" : "missing and reviewed"})`, async () => {
+  test(`blocking cards are excluded automatically (${allBlocked ? "all blocked" : "unavailable cards"})`, async () => {
     server.use(
       http.post("*/api/vocabulary/bulk", async ({ request }) => {
         const body = await request.json();
@@ -307,3 +307,101 @@ for (const allBlocked of [false, true])
       ).toBeChecked();
     }
   });
+
+for (const remaining of [12, 13]) {
+  test(`deleting on page two stays on the nearest valid page (${remaining} remaining)`, async () => {
+    entries = Array.from({ length: remaining + 1 }, (_, index) => ({
+      ...entries[0],
+      id: `e${index}`,
+      italian: `carta ${index}`,
+    }));
+    open();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Next page" }));
+    await user.click(
+      screen.getByRole("button", { name: "Select cards", exact: true }),
+    );
+    await user.click(
+      await screen.findByRole("checkbox", {
+        name: "Select card: carta 12 — κάρτα 0",
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Permanently delete",
+      }),
+    );
+    await screen.findByText("1 card deleted.");
+    expect(
+      await screen.findByText(
+        `Page ${remaining === 12 ? 1 : 2} of ${remaining === 12 ? 1 : 2}`,
+      ),
+    ).toBeInTheDocument();
+  });
+}
+
+for (const remaining of [12, 13]) {
+  test(`single deletion keeps the nearest valid page (${remaining} remaining)`, async () => {
+    entries = Array.from({ length: remaining + 1 }, (_, index) => ({
+      ...entries[0],
+      id: `e${index}`,
+      italian: `carta ${index}`,
+    }));
+    server.use(
+      http.delete("*/api/vocabulary/:id", ({ params }) => {
+        entries = entries.filter((entry) => entry.id !== params.id);
+        return HttpResponse.json({ deleted: params.id });
+      }),
+    );
+    open();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Next page" }));
+    await user.click(
+      await screen.findByRole("button", {
+        name: `${copy.en.cardActions}: carta 12`,
+      }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Delete card: carta 12" }),
+    );
+    expect(screen.getByRole("dialog")).toHaveTextContent(copy.en.deleteWarning);
+    await user.click(
+      screen.getByRole("button", { name: "Permanently delete" }),
+    );
+    await screen.findByText("Card deleted.");
+    expect(
+      await screen.findByText(
+        `Page ${remaining === 12 ? 1 : 2} of ${remaining === 12 ? 1 : 2}`,
+      ),
+    ).toBeInTheDocument();
+  });
+}
+
+test("bulk deletion submits selected cards from multiple pages", async () => {
+  open();
+  const user = userEvent.setup();
+  await selectAll(user);
+  // Leave the unavailable fixture out of this selection.
+  await user.click(
+    screen.getByRole("checkbox", { name: "Select card: carta 0 — κάρτα 0" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Next page" }));
+  await screen.findByRole("checkbox", {
+    name: "Select card: carta 12 — κάρτα 12",
+  });
+  await user.click(
+    screen.getByRole("checkbox", { name: "Select all on this page" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Delete selected" }));
+  await user.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Permanently delete",
+    }),
+  );
+  await screen.findByText("12 cards deleted.");
+  expect(writes[0].entry_ids).toEqual(
+    Array.from({ length: 12 }, (_, i) => `e${i + 1}`),
+  );
+  expect(entries.map((entry) => entry.id)).toEqual(["e0"]);
+});

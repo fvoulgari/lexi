@@ -3,11 +3,12 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import delete, select, update
+from sqlalchemy import select, update
 
 from app.filters import vocabulary_conditions
-from app.models import ReviewEvent, Unit, VocabularyEntry
+from app.models import Unit, VocabularyEntry
 from app.schemas import VocabularyBulk, WordType
+from app.vocabulary_deletion import delete_entries
 
 
 def vocabulary_bulk_router(sessions, gate):
@@ -65,23 +66,18 @@ def vocabulary_bulk_router(sessions, gate):
                     .values(unit_id=body.unit_id)
                 )
             else:
-                reviewed = db.scalars(
-                    select(ReviewEvent.entry_id)
-                    .where(ReviewEvent.entry_id.in_(ids))
-                    .distinct()
-                ).all()
-                blocked = missing | set(reviewed)
+                blocked = missing
                 if blocked:
                     raise HTTPException(
                         409,
                         {
                             "code": "bulk_blocked",
                             "message": "No cards were deleted. "
-                            "Some selected cards are reviewed or unavailable.",
+                            "Some selected cards are unavailable.",
                             "entry_ids": sorted(str(id) for id in blocked),
                         },
                     )
-                db.execute(delete(VocabularyEntry).where(VocabularyEntry.id.in_(ids)))
+                delete_entries(db, ids)
             return {"count": len(ids), "action": body.action}
 
     return router

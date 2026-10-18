@@ -92,7 +92,13 @@ export default function BulkVocabularyActions({
             type="checkbox"
             disabled={pending || !pageIds.length}
             checked={!!pageIds.length && pageSelected === pageIds.length}
-            onChange={(event) => onChange(event.target.checked ? pageIds : [])}
+            onChange={(event) =>
+              onChange(
+                event.target.checked
+                  ? [...new Set([...ids, ...pageIds])]
+                  : ids.filter((id) => !pageIds.includes(id)),
+              )
+            }
           />
           {text.bulkPage}
         </label>
