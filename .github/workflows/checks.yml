@@ -265,3 +265,43 @@ jobs:
           SOURCE_SHA: ${{ needs.source.outputs.sha }}
           RELEASE_TAG: ${{ needs.source.outputs.release-tag }}
         run: bash scripts/publish-release.sh
+
+  deploy:
+    name: Deploy production release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    needs: [source, checks, release-publish]
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.source.outputs.eligible == 'true'
+    environment:
+      name: production
+    permissions:
+      contents: read
+      deployments: write
+    concurrency:
+      group: railway-lexi-production
+      queue: max
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          ref: ${{ needs.source.outputs.sha }}
+      - name: Revalidate release after waiting for production
+        env:
+          RELEASE_TAG: ${{ needs.source.outputs.release-tag }}
+          EXPECTED_SHA: ${{ needs.source.outputs.sha }}
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          bash scripts/release-source.sh
+      - name: Deploy verified image and await exact rollout
+        env:
+          RELEASE_TAG: ${{ needs.source.outputs.release-tag }}
+          SOURCE_SHA: ${{ needs.source.outputs.sha }}
+          RELEASE_IMAGE: ${{ needs.release-publish.outputs.image }}
+          GH_TOKEN: ${{ github.token }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GITHUB_API_URL: https://api.github.com
+          RAILWAY_API_URL: https://backboard.railway.com/graphql/v2
+        run: python3 scripts/deploy-release.py
