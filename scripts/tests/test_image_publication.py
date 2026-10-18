@@ -7,7 +7,7 @@ import time
 import unittest
 import uuid
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
 LABEL = "io.github.fvoulgari.lexi.main-run-number"
@@ -71,6 +71,7 @@ class ImagePublicationTests(unittest.TestCase):
                 "SOURCE_SHA": sha,
                 "MAIN_RUN_NUMBER": str(number),
             },
+            check=False,
             capture_output=True,
             text=True,
             timeout=90,
@@ -107,83 +108,204 @@ class ImagePublicationTests(unittest.TestCase):
         with self.assertRaises(subprocess.CalledProcessError):
             docker("pull", f"{self.image}:latest")
 
-    def test_stable_and_prerelease_tags_preserve_latest_and_existing_sha(self):
+    def test_stable_tags_preserve_latest_and_existing_sha(self):
         latest_sha = self.publish(30)
         self.assertEqual(self.promote(latest_sha, 30).returncode, 0)
-        with tempfile.TemporaryDirectory() as repository:
-
-            def git(*args):
-                return subprocess.check_output(
-                    ["git", *args], cwd=repository, text=True, timeout=10
-                ).strip()
-
-            git("init", "-q")
-            git("config", "user.name", "CI test")
-            git("config", "user.email", "ci@example.invalid")
-            Path(repository, "Dockerfile").write_text("FROM scratch\n")
-            git("add", "Dockerfile")
-            git("commit", "-qm", "Release source")
-            sha = git("rev-parse", "HEAD")
-            git("tag", "v1.2.0")
-            git("tag", "-a", "v1.3.0-rc.1", "-m", "Annotated prerelease")
-            self.assertNotEqual(git("rev-parse", "v1.3.0-rc.1"), sha)
-            for tag in ["v1.2.0", "v1.3.0-rc.1"]:
-                if tag == "v1.3.0-rc.1":
-                    # A main SHA build may exist before its latest promotion.
-                    docker(
-                        "build",
-                        "--platform",
-                        "linux/amd64",
-                        "--label",
-                        f"{LABEL}=99",
-                        "--label",
-                        f"org.opencontainers.image.revision={sha}",
-                        "-t",
-                        f"{self.image}:sha-{sha}",
-                        repository,
-                    )
-                    docker("push", f"{self.image}:sha-{sha}")
-                    original_id = docker(
-                        "inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}"
-                    )
-                result = subprocess.run(
-                    ["bash", str(ROOT / "scripts/publish-release.sh")],
-                    cwd=repository,
-                    env={
-                        **os.environ,
-                        "IMAGE": self.image,
-                        "SOURCE_SHA": sha,
-                        "RELEASE_TAG": tag,
-                    },
-                    capture_output=True,
-                    text=True,
-                    timeout=90,
+        repository, git, sha = self.release_repository()
+        git("tag", "-a", "v1.3.0", "-m", "Annotated stable release")
+        self.assertNotEqual(git("rev-parse", "v1.3.0"), sha)
+        for tag in ["v1.2.0", "v1.3.0"]:
+            if tag == "v1.3.0":
+                # A main SHA build may exist before its latest promotion.
+                docker(
+                    "build",
+                    "--platform",
+                    "linux/amd64",
+                    "--label",
+                    f"{LABEL}=99",
+                    "--label",
+                    f"org.opencontainers.image.revision={sha}",
+                    "-t",
+                    f"{self.image}:sha-{sha}",
+                    repository,
                 )
-                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                self.assertEqual(self.revision(tag), sha)
-                self.assertEqual(self.revision(f"sha-{sha}"), sha)
-                self.assertEqual(self.revision("latest"), latest_sha)
-                if tag == "v1.3.0-rc.1":
-                    self.assertEqual(
-                        docker(
-                            "inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}"
-                        ),
-                        original_id,
-                    )
-                    self.assertEqual(
-                        docker(
-                            "inspect",
-                            "--format",
-                            f'{{{{ index .Config.Labels "{LABEL}" }}}}',
-                            f"{self.image}:sha-{sha}",
-                        ),
-                        "99",
-                    )
-            digest = docker("inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}")
-            self.assertEqual(
-                docker("inspect", "--format", "{{.Id}}", f"{self.image}:v1.3.0-rc.1"),
-                digest,
-            )
+                docker("push", f"{self.image}:sha-{sha}")
+                original_id = docker(
+                    "inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}"
+                )
+            result = self.release(repository, sha, tag=tag)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(self.revision(tag), sha)
+            self.assertEqual(self.revision(f"sha-{sha}"), sha)
+            self.assertEqual(self.revision("latest"), latest_sha)
+            if tag == "v1.3.0":
+                self.assertEqual(
+                    docker("inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}"),
+                    original_id,
+                )
+                self.assertEqual(
+                    docker(
+                        "inspect",
+                        "--format",
+                        f'{{{{ index .Config.Labels "{LABEL}" }}}}',
+                        f"{self.image}:sha-{sha}",
+                    ),
+                    "99",
+                )
+        digest = docker("inspect", "--format", "{{.Id}}", f"{self.image}:sha-{sha}")
+        self.assertEqual(
+            docker("inspect", "--format", "{{.Id}}", f"{self.image}:v1.3.0"),
+            digest,
+        )
+
+    def release_repository(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        repository = directory.name
+
+        def git(*args):
+            return subprocess.check_output(
+                ["git", *args], cwd=repository, text=True, timeout=10
+            ).strip()
+
+        git("init", "-q")
+        git("config", "user.name", "CI test")
+        git("config", "user.email", "ci@example.invalid")
+        Path(repository, "Dockerfile").write_text("FROM scratch\n")
+        git("add", "Dockerfile")
+        git("commit", "-qm", "Release source")
+        sha = git("rev-parse", "HEAD")
+        git("update-ref", "refs/remotes/origin/main", sha)
+        git("tag", "v1.2.0")
+        return repository, git, sha
+
+    def release(self, repository, sha, image=None, output=None, tag="v1.2.0"):
+        return subprocess.run(
+            ["bash", str(ROOT / "scripts/publish-release.sh")],
+            cwd=repository,
+            env={
+                **os.environ,
+                "IMAGE": image or self.image,
+                "SOURCE_SHA": sha,
+                "RELEASE_TAG": tag,
+                **({"GITHUB_OUTPUT": str(output)} if output else {}),
+            },
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+
+    def digest(self, tag):
+        registry, repository = self.image.split("/", 1)
+        request = Request(
+            f"http://{registry}/v2/{repository}/manifests/{tag}",
+            headers={"Accept": "application/vnd.docker.distribution.manifest.v2+json"},
+        )
+        with urlopen(request, timeout=10) as response:
+            return response.headers["Docker-Content-Digest"]
+
+    def test_release_rerun_preserves_digest_and_exports_pinned_image(self):
+        repository, _, sha = self.release_repository()
+        output = Path(repository, "outputs")
+        first = self.release(repository, sha, output=output)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        digest = self.digest("v1.2.0")
+        self.assertIn(f"digest={digest}\n", output.read_text())
+        self.assertIn(f"image={self.image}@{digest}\n", output.read_text())
+        again = self.release(repository, sha)
+        self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+        self.assertEqual(self.digest("v1.2.0"), digest)
+
+    def test_existing_release_restores_missing_sha_without_rebuilding(self):
+        repository, _, sha = self.release_repository()
+        docker(
+            "build",
+            "--platform",
+            "linux/amd64",
+            "--provenance=false",
+            "--label",
+            f"org.opencontainers.image.revision={sha}",
+            "-t",
+            f"{self.image}:v1.2.0",
+            repository,
+        )
+        docker("push", f"{self.image}:v1.2.0")
+        original = self.digest("v1.2.0")
+        result = self.release(repository, sha)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.digest(f"sha-{sha}"), original)
+        self.assertEqual(self.digest("v1.2.0"), original)
+
+    def test_same_revision_with_different_content_cannot_replace_release(self):
+        repository, _, sha = self.release_repository()
+        first = self.release(repository, sha)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        original = self.digest("v1.2.0")
+        docker(
+            "build",
+            "--platform",
+            "linux/amd64",
+            "--provenance=false",
+            "--label",
+            f"org.opencontainers.image.revision={sha}",
+            "--label",
+            "test.changed-content=true",
+            "-t",
+            f"{self.image}:sha-{sha}",
+            repository,
+        )
+        docker("push", f"{self.image}:sha-{sha}")
+        result = self.release(repository, sha)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.digest("v1.2.0"), original)
+
+    def test_invalid_existing_sha_metadata_prevents_release(self):
+        repository, _, sha = self.release_repository()
+        wrong_sha = self.publish(10)
+        docker("tag", f"{self.image}:sha-{wrong_sha}", f"{self.image}:sha-{sha}")
+        docker("push", f"{self.image}:sha-{sha}")
+        result = self.release(repository, sha)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        with self.assertRaises(subprocess.CalledProcessError):
+            docker("pull", f"{self.image}:v1.2.0")
+
+    def test_wrong_platform_sha_prevents_release(self):
+        repository, _, sha = self.release_repository()
+        docker(
+            "build",
+            "--platform",
+            "linux/arm64",
+            "--provenance=false",
+            "--label",
+            f"org.opencontainers.image.revision={sha}",
+            "-t",
+            f"{self.image}:sha-{sha}",
+            repository,
+        )
+        docker("push", f"{self.image}:sha-{sha}")
+        result = self.release(repository, sha)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        with self.assertRaises(subprocess.CalledProcessError):
+            docker("pull", f"{self.image}:v1.2.0")
+
+    def test_registry_failure_does_not_count_as_missing_release(self):
+        repository, _, sha = self.release_repository()
+        result = self.release(repository, sha, image="127.0.0.1:1/lexi")
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_recreated_release_tag_cannot_replace_published_version(self):
+        repository, git, sha = self.release_repository()
+        first = self.release(repository, sha)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        git("tag", "-d", "v1.2.0")
+        git("commit", "--allow-empty", "-qm", "New release source")
+        new_sha = git("rev-parse", "HEAD")
+        git("update-ref", "refs/remotes/origin/main", new_sha)
+        git("tag", "v1.2.0")
+        result = self.release(repository, new_sha)
+        self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.revision("v1.2.0"), sha)
 
     def test_registry_failure_does_not_count_as_missing_latest(self):
         result = self.promote("0" * 40, 40, "127.0.0.1:1/lexi")
