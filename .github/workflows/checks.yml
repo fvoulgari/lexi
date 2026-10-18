@@ -5,11 +5,16 @@ on:
     branches: [main]
   push:
     branches: [main]
-  release:
-    types: [published]
+    tags: ['v*.*.*']
 
 permissions:
   contents: read
+
+# Serialize reruns/recreated events for the same release version. Main/PR runs
+# retain independent groups; SHA writes still share the job-level lock below.
+concurrency:
+  group: ghcr-lexi-release-${{ github.ref_type == 'tag' && github.ref || github.run_id }}
+  queue: max
 
 jobs:
   source:
@@ -19,6 +24,7 @@ jobs:
     outputs:
       sha: ${{ steps.source.outputs.sha }}
       release-tag: ${{ steps.source.outputs.release-tag }}
+      eligible: ${{ steps.source.outputs.eligible }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,18 +33,25 @@ jobs:
       - name: Resolve release tag to a commit
         id: source
         env:
-          EVENT_NAME: ${{ github.event_name }}
           EVENT_SHA: ${{ github.sha }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: |
           sha="$EVENT_SHA"
-          if [[ "$EVENT_NAME" = release ]]; then
-            sha=$(bash scripts/release-source.sh)
+          if [[ -n "$RELEASE_TAG" ]]; then
+            if ! bash scripts/release-source.sh --check-tag; then
+              echo 'Ignoring a non-stable release tag.'
+              echo 'eligible=false' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+            sha=$(EXPECTED_SHA="$EVENT_SHA" bash scripts/release-source.sh)
           fi
+          echo 'eligible=true' >> "$GITHUB_OUTPUT"
           printf 'sha=%s\n' "$sha" >> "$GITHUB_OUTPUT"
           printf 'release-tag=%s\n' "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
   backend:
+    if: needs.source.outputs.eligible == 'true'
     name: Backend checks
     needs: source
     runs-on: ubuntu-24.04
@@ -84,6 +97,7 @@ jobs:
         run: python -m compileall -q app
 
   frontend:
+    if: needs.source.outputs.eligible == 'true'
     name: Frontend checks
     needs: source
     runs-on: ubuntu-24.04
@@ -117,7 +131,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     needs: [source, backend, frontend, publication-validation]
-    if: ${{ always() }}
+    if: ${{ always() && needs.source.outputs.eligible != 'false' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -212,10 +226,13 @@ jobs:
 
   release-publish:
     name: Publish release image
+    outputs:
+      digest: ${{ steps.release.outputs.digest }}
+      image: ${{ steps.release.outputs.image }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [source, checks, publication-validation]
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.source.outputs.eligible == 'true'
     permissions:
       contents: read
       packages: write
@@ -228,13 +245,22 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           ref: ${{ needs.source.outputs.sha }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Log in to GHCR
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-      - name: Publish exact release tag and source SHA
+      - name: Refresh main and release identity
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          git fetch --force origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
         env:
+          RELEASE_TAG: ${{ needs.source.outputs.release-tag }}
+      - name: Publish exact release tag and source SHA
+        id: release
+        env:
+          EXPECTED_SHA: ${{ needs.source.outputs.sha }}
           IMAGE: ghcr.io/fvoulgari/lexi
           SOURCE_SHA: ${{ needs.source.outputs.sha }}
           RELEASE_TAG: ${{ needs.source.outputs.release-tag }}
