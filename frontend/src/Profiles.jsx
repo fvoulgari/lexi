@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "./api.js";
 
@@ -15,6 +15,11 @@ export default function Profiles({ text, csrf, onLocked }) {
   const [selected, setSelected] = useState(rememberedProfile);
   const [creating, setCreating] = useState(false);
   const [savedId, setSavedId] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [deleted, setDeleted] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const deleteButton = useRef(null);
+  const cancelButton = useRef(null);
   const profiles = useQuery({
     queryKey: ["profiles"],
     queryFn: () => request("/api/profiles"),
@@ -22,6 +27,42 @@ export default function Profiles({ text, csrf, onLocked }) {
   });
   const profile = profiles.data?.find((item) => item.id === selected);
   const missing = Boolean(selected && profiles.isSuccess && !profile);
+  function removed(id) {
+    client.setQueryData(["profiles"], (current) =>
+      (current || []).filter((item) => item.id !== id),
+    );
+    client.removeQueries({
+      predicate: (query) =>
+        query.queryKey.includes(id) || query.queryKey[0] === "practice-summary",
+    });
+    setSelected((current) => (current === id ? "" : current));
+    setSavedId(null);
+    setDeleting(null);
+    setDeleted(true);
+  }
+  const remove = useMutation({
+    mutationFn: (id) =>
+      request(`/api/profiles/${id}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": csrf },
+      }),
+    onSuccess: (_result, id) => removed(id),
+    onError: (error, id) => {
+      if (error.status === 401) onLocked();
+      else if (error.status === 404) removed(id);
+    },
+  });
+  function cancelDelete() {
+    if (remove.isPending) return;
+    setDeleting(null);
+    remove.reset();
+  }
+  useEffect(() => {
+    if (deleting) cancelButton.current?.focus();
+    else if (deleted)
+      document.getElementById("learner-profile-select")?.focus();
+    else deleteButton.current?.focus();
+  }, [deleting, deleted]);
   useEffect(() => {
     if (profiles.error?.status === 401) onLocked();
   }, [profiles.error, onLocked]);
@@ -70,9 +111,12 @@ export default function Profiles({ text, csrf, onLocked }) {
             <label>
               {text.profile}
               <select
+                id="learner-profile-select"
+                disabled={Boolean(deleting) || savingProfile}
                 value={profile?.id || ""}
                 onChange={(event) => {
                   setSavedId(null);
+                  setDeleted(false);
                   setSelected(event.target.value);
                   setCreating(false);
                 }}
@@ -87,8 +131,10 @@ export default function Profiles({ text, csrf, onLocked }) {
             </label>
             <button
               className="secondary"
+              disabled={Boolean(deleting) || savingProfile}
               onClick={() => {
                 setSavedId(null);
+                setDeleted(false);
                 setCreating(true);
               }}
             >
@@ -108,18 +154,81 @@ export default function Profiles({ text, csrf, onLocked }) {
               onSaved={saved}
               onChanged={() => setSavedId(null)}
               onLocked={onLocked}
+              onSavePending={setSavingProfile}
+              disabled={Boolean(deleting) || savingProfile}
             />
           )}
           {savedId === profile?.id && (
             <p role="status">{text.preferencesSaved}</p>
           )}
+          {profile && !creating && (
+            <button
+              ref={deleteButton}
+              className="secondary"
+              disabled={Boolean(deleting) || savingProfile}
+              onClick={() => {
+                remove.reset();
+                setDeleted(false);
+                setDeleting(profile);
+              }}
+            >
+              {text.deleteProfile}
+            </button>
+          )}
+          {deleting && (
+            <section
+              className="delete-confirmation"
+              role="dialog"
+              aria-labelledby="delete-profile-title"
+              aria-describedby="delete-profile-warning"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") cancelDelete();
+              }}
+            >
+              <h3 id="delete-profile-title">{text.deleteProfile}</h3>
+              <p>{deleting.display_name}</p>
+              <p id="delete-profile-warning">{text.deleteProfileWarning}</p>
+              {remove.isError && (
+                <p className="error" role="alert">
+                  {text.errors[remove.error.code] || text.errors.request_failed}
+                </p>
+              )}
+              <div className="form-actions">
+                <button
+                  ref={cancelButton}
+                  className="secondary"
+                  disabled={remove.isPending}
+                  onClick={cancelDelete}
+                >
+                  {text.cancel}
+                </button>
+                <button
+                  className="primary"
+                  disabled={remove.isPending}
+                  onClick={() => remove.mutate(deleting.id)}
+                >
+                  {remove.isPending ? text.saving : text.confirmDelete}
+                </button>
+              </div>
+            </section>
+          )}
+          {deleted && <p role="status">{text.profileDeleted}</p>}
         </>
       )}
     </section>
   );
 }
 
-function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
+function ProfileForm({
+  profile,
+  text,
+  csrf,
+  onSaved,
+  onChanged,
+  onLocked,
+  disabled,
+  onSavePending,
+}) {
   const [name, setName] = useState(profile?.display_name || "");
   const [direction, setDirection] = useState(
     profile?.preferred_direction || "greek_to_italian",
@@ -146,6 +255,10 @@ function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
       if (error.status === 401) onLocked();
     },
   });
+  useEffect(() => {
+    onSavePending(save.isPending);
+    return () => onSavePending(false);
+  }, [save.isPending, onSavePending]);
   return (
     <form
       className="profile-form"
@@ -161,7 +274,7 @@ function ProfileForm({ profile, text, csrf, onSaved, onChanged, onLocked }) {
       }}
     >
       {!profile && <h3>{text.settingsNewProfile}</h3>}
-      <fieldset disabled={save.isPending}>
+      <fieldset disabled={save.isPending || disabled}>
         <div className="profile-fields">
           <label className="profile-name-field" htmlFor="profile-name">
             {text.settingsName}

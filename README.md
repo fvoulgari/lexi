@@ -30,6 +30,8 @@ Session recall counts **Hard + Easy** responses as a proportion of submitted rev
 
 Lexi is built for a **small, trusted learning group**. A shared password controls access. Everyone admitted can edit the shared vocabulary library and select any learner profile. Profiles separate learning records; they are not private user accounts.
 
+In **Profiles and settings**, select a learner and choose **Delete profile**. The confirmation names the learner and explains that deletion permanently removes their preferences, practice sessions, reviews and progress. Cancel leaves the profile unchanged. Shared vocabulary and other learners are preserved. Anyone admitted to the shared notebook can delete a profile; there is no separate administrator role.
+
 Interface language is independent of the languages on the cards. The current vocabulary model supports Italian and Greek, not arbitrary language pairs. Pronunciation is entered as text; automatic translation and generated speech are not included.
 
 ## Technology

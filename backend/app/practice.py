@@ -187,6 +187,9 @@ def practice_router(sessions, gate):
             return session_output(db, find_session(db, session_id))
 
     def locked_card(db, session_id, position):
+        # All practice mutations lock the learner before the session, matching
+        # profile deletion and session creation to avoid inverse-lock deadlocks.
+        find_session(db, session_id)
         session = db.scalar(
             select(PracticeSession)
             .where(PracticeSession.id == session_id)
@@ -194,8 +197,6 @@ def practice_router(sessions, gate):
         )
         if session is None:
             raise HTTPException(404, "Practice session not found.")
-        # Lock the learner before any reveal, review, or idempotent retry.
-        require_profile(db, session.profile_id)
         card = db.get(SessionCard, (session_id, position))
         if card is None:
             raise HTTPException(404, "Session card not found.")
