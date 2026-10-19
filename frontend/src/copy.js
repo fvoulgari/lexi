@@ -1069,3 +1069,26 @@ const connectionCopy = {
 };
 for (const language of Object.keys(connectionCopy))
   Object.assign(copy[language], connectionCopy[language]);
+
+const profileDeletionCopy = {
+  en: {
+    deleteProfile: "Delete profile",
+    deleteProfileWarning:
+      "Are you sure? This permanently deletes this learner profile and all its practice history, reviews and progress. This cannot be undone. Shared vocabulary and other learners are kept.",
+    profileDeleted: "Profile permanently deleted.",
+  },
+  el: {
+    deleteProfile: "Διαγραφή προφίλ",
+    deleteProfileWarning:
+      "Είσαι σίγουρος; Θα διαγραφούν οριστικά αυτό το προφίλ και όλο το ιστορικό εξάσκησης, οι αξιολογήσεις και η πρόοδός του. Η ενέργεια δεν αναιρείται. Το κοινό λεξιλόγιο και τα άλλα προφίλ διατηρούνται.",
+    profileDeleted: "Το προφίλ διαγράφηκε οριστικά.",
+  },
+  it: {
+    deleteProfile: "Elimina profilo",
+    deleteProfileWarning:
+      "Sei sicuro? Il profilo e tutta la sua cronologia di esercitazione, le valutazioni e i progressi verranno eliminati definitivamente. L’azione è irreversibile. Il vocabolario condiviso e gli altri profili verranno conservati.",
+    profileDeleted: "Profilo eliminato definitivamente.",
+  },
+};
+for (const language of Object.keys(profileDeletionCopy))
+  Object.assign(copy[language], profileDeletionCopy[language]);

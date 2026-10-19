@@ -5,7 +5,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -19,7 +19,10 @@ from app.grammar import clean_grammar, missing_gender_fields
 from app.imports import import_router
 from app.models import (
     LearningProgress,
+    PracticeSession,
     Profile,
+    ReviewEvent,
+    SessionCard,
     Tag,
     Unit,
     VocabularyEntry,
@@ -429,13 +432,46 @@ def create_app():
     )
     def update_profile(profile_id: UUID, body: ProfileUpdate):
         with sessions.begin() as db:
-            profile = db.get(Profile, profile_id)
+            profile = db.scalar(
+                select(Profile).where(Profile.id == profile_id).with_for_update()
+            )
             if profile is None:
                 raise HTTPException(404, detail="Learner profile not found.")
             for field, value in body.model_dump(exclude_unset=True).items():
                 setattr(profile, field, value)
             db.flush()
             return ProfileOutput.model_validate(profile)
+
+    @app.delete(
+        "/api/profiles/{profile_id}",
+        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
+    )
+    def delete_profile(profile_id: UUID):
+        with sessions.begin() as db:
+            # Match practice writes' profile-first lock order. No new session or
+            # review can be created for this learner while history is removed.
+            profile = db.scalar(
+                select(Profile).where(Profile.id == profile_id).with_for_update()
+            )
+            if profile is None:
+                raise HTTPException(404, "Learner profile not found.")
+            session_ids = select(PracticeSession.id).where(
+                PracticeSession.profile_id == profile_id
+            )
+            db.execute(
+                delete(LearningProgress).where(
+                    LearningProgress.profile_id == profile_id
+                )
+            )
+            db.execute(delete(ReviewEvent).where(ReviewEvent.profile_id == profile_id))
+            db.execute(
+                delete(SessionCard).where(SessionCard.session_id.in_(session_ids))
+            )
+            db.execute(
+                delete(PracticeSession).where(PracticeSession.profile_id == profile_id)
+            )
+            db.delete(profile)
+        return {"deleted": True}
 
     @app.get(
         "/api/units",
