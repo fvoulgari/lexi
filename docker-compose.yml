@@ -1,14 +1,14 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: notebook
       POSTGRES_USER: notebook
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
-      -  5432:5432
+      - "127.0.0.1:5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres18_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U notebook -d notebook"]
       interval: 5s
@@ -46,4 +46,5 @@ services:
       backend:
         condition: service_healthy
 volumes:
-  postgres_data:
+  # Separate from legacy postgres_data; upgrading must not open PostgreSQL 17 data.
+  postgres18_data:

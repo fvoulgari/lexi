@@ -5,5 +5,7 @@
 **/.pytest_cache
 **/.ruff_cache
 **/dist
-.env
+**/.env
+**/.env.*
+!**/.env.example
 docs

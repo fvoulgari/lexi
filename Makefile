@@ -59,18 +59,7 @@ seed-local: ## Explicitly seed the native development database
 	cd backend && $(BACKEND_PYTHON) -m app.seed
 
 test-db-up: ## Create or start disposable PostgreSQL on localhost:55432 and wait for readiness
-	@if docker container inspect $(TEST_DB_CONTAINER) >/dev/null 2>&1; then \
-		docker start $(TEST_DB_CONTAINER) >/dev/null; \
-	else \
-		docker run -d --name $(TEST_DB_CONTAINER) \
-			-e POSTGRES_PASSWORD=lexi-test-only -e POSTGRES_DB=lexi_test \
-			-p 127.0.0.1:55432:5432 postgres:17-alpine >/dev/null; \
-	fi
-	@attempt=0; until docker exec $(TEST_DB_CONTAINER) pg_isready -U postgres -d lexi_test >/dev/null 2>&1; do \
-		attempt=$$((attempt + 1)); \
-		if [ "$$attempt" -ge 30 ]; then echo "Test database did not become ready within 30 attempts." >&2; exit 1; fi; \
-		sleep 1; \
-	done
+	$(PYTHON) scripts/test-db.py $(TEST_DB_CONTAINER)
 
 test-db-down: ## Stop the disposable test database without deleting it
 	docker stop $(TEST_DB_CONTAINER)
