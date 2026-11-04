@@ -71,6 +71,14 @@ def client(test_database, monkeypatch):
         def get_user_id(self):
             return self.subject
 
+        def get_tenant_id(self):
+            return "public"
+
+        def get_recipe_user_id(self):
+            from supertokens_python.types import RecipeUserId
+
+            return RecipeUserId(self.subject)
+
         async def revoke_session(self):
             TEST_SESSIONS.pop(self.token, None)
 

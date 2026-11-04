@@ -21,7 +21,6 @@ export default function Profiles({ text, csrf, onLocked }) {
       aria-labelledby="profile-settings-title"
     >
       <h2 id="profile-settings-title">{text.settingsProfileTitle}</h2>
-      <p>{text.accountPrivate}</p>
       {profiles.isPending ? (
         <p role="status">{text.loading}</p>
       ) : profiles.isError ? (
@@ -42,6 +41,7 @@ export default function Profiles({ text, csrf, onLocked }) {
           onSaved={(result) => {
             client.setQueryData(["profiles"], [result]);
             setSaved(true);
+            client.invalidateQueries({ queryKey: ["account-credentials"] });
           }}
         />
       ) : (

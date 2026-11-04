@@ -336,7 +336,7 @@ export const copy = {
     csvImportHeading: "Add new words.",
     csvIntro: "Choose a CSV file to preview the cards before importing them.",
     csvFormat: "CSV format and requirements",
-    settingsPageTitle: "Profiles and settings",
+    settingsPageTitle: "Profile and settings",
     settingsProfileTitle: "Your profile",
     settingsNewProfile: "New profile",
     settingsName: "Name",
@@ -1032,7 +1032,7 @@ export const copy = {
     csvIntro:
       "Scegli un file CSV per visualizzare le schede prima di importarle.",
     csvFormat: "Formato e requisiti CSV",
-    settingsPageTitle: "Profili e impostazioni",
+    settingsPageTitle: "Profilo e impostazioni",
     settingsProfileTitle: "Il tuo profilo",
     settingsNewProfile: "Nuovo profilo",
     settingsName: "Nome",

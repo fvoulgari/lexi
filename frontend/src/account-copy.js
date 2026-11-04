@@ -1,5 +1,18 @@
 export const accountCopy = {
   en: {
+    accountMethod_google: "Google",
+    accountMethod_password: "Email and password",
+    accountGoogle: "Signed in with Google",
+    passwordChangeThrottled: "Too many attempts. Wait a minute and try again.",
+    passwordChangeSignout:
+      "Changing your password signs you out on all devices.",
+    passwordMismatch: "The new passwords must match.",
+    currentPasswordIncorrect: "The current password is incorrect. Try again.",
+    confirmPassword: "Confirm new password",
+    newPassword: "New password",
+    currentPassword: "Current password",
+    changePassword: "Change password",
+    authResetDescription: "Enter your email to request a reset link.",
     authLoading_logout: "Signing out…",
     authLoading_verify: "Verifying email…",
     authLoading_google: "Connecting to Google…",
@@ -14,7 +27,7 @@ export const accountCopy = {
     authAlready: "Already have an account?",
     authNewHere: "New here?",
     authOr: "or",
-    authResetTitle: "Reset password",
+    authResetTitle: "Reset your password",
     authPassword: "Password",
     authShowPassword: "Show password",
     authHidePassword: "Hide password",
@@ -27,9 +40,9 @@ export const accountCopy = {
     authForgot: "Forgot password?",
     authBack: "Back to sign in",
     authRegistered:
-      "If registration is available for this address, a verification email is on its way. Sign in with your password to continue. If you already have an account, use your original sign-in method or reset your password.",
+      "Registration request accepted. Check your email for verification instructions if registration is available.",
     authRecoverySent:
-      "If an account can use password reset for this email, you’ll receive a reset link shortly.",
+      "If an account with this email supports password sign-in, we’ll send you a reset link.",
     authResetDone: "Password updated. Sign in with your new password.",
     authVerified: "Email verified. Sign in to continue.",
     authVerifyHint:
@@ -85,8 +98,7 @@ export const accountCopy = {
     authPrivacy:
       "Your progress and private vocabulary belong to your account. Signing up does not grant shared-library editing rights.",
     authCompleting: "Completing secure sign-in…",
-    authUnavailable:
-      "Sign-in is temporarily unavailable. Please try again shortly.",
+    authUnavailable: "This request could not be completed. Please try again.",
     logout: "Sign out",
     logoutAll: "Sign out on all devices",
     account: "Your account",
@@ -171,6 +183,22 @@ export const accountCopy = {
     noResults: "Nothing to show.",
   },
   el: {
+    accountMethod_google: "Google",
+    accountMethod_password: "Email και κωδικός",
+    accountGoogle: "Σύνδεση με Google",
+    passwordChangeThrottled:
+      "Πολλές προσπάθειες. Περίμενε ένα λεπτό και δοκίμασε ξανά.",
+    passwordChangeSignout:
+      "Η αλλαγή κωδικού σε αποσυνδέει από όλες τις συσκευές.",
+    passwordMismatch: "Οι νέοι κωδικοί πρέπει να ταιριάζουν.",
+    currentPasswordIncorrect:
+      "Ο τρέχων κωδικός δεν είναι σωστός. Δοκίμασε ξανά.",
+    confirmPassword: "Επιβεβαίωση νέου κωδικού",
+    newPassword: "Νέος κωδικός",
+    currentPassword: "Τρέχων κωδικός",
+    changePassword: "Αλλαγή κωδικού",
+    authResetDescription:
+      "Πληκτρολόγησε το email σου για να ζητήσεις σύνδεσμο επαναφοράς.",
     authLoading_logout: "Αποσύνδεση…",
     authLoading_verify: "Επιβεβαίωση email…",
     authLoading_google: "Σύνδεση με Google…",
@@ -185,7 +213,7 @@ export const accountCopy = {
     authAlready: "Έχετε ήδη λογαριασμό;",
     authNewHere: "Πρώτη φορά εδώ;",
     authOr: "ή",
-    authResetTitle: "Επαναφορά κωδικού",
+    authResetTitle: "Επαναφορά κωδικού πρόσβασης",
     authPassword: "Κωδικός πρόσβασης",
     authShowPassword: "Εμφάνιση κωδικού",
     authHidePassword: "Απόκρυψη κωδικού",
@@ -198,9 +226,9 @@ export const accountCopy = {
     authForgot: "Ξεχάσατε τον κωδικό;",
     authBack: "Επιστροφή στη σύνδεση",
     authRegistered:
-      "Αν μπορεί να δημιουργηθεί λογαριασμός με αυτή τη διεύθυνση, θα λάβετε email επιβεβαίωσης. Συνδεθείτε με τον κωδικό σας. Αν έχετε ήδη λογαριασμό, χρησιμοποιήστε την αρχική μέθοδο σύνδεσης ή επαναφέρετε τον κωδικό.",
+      "Το αίτημα εγγραφής έγινε δεκτό. Έλεγξε το email σου για οδηγίες επιβεβαίωσης, αν η εγγραφή είναι διαθέσιμη.",
     authRecoverySent:
-      "Αν ο λογαριασμός μπορεί να χρησιμοποιήσει επαναφορά κωδικού για αυτό το email, θα λάβετε σύντομα σύνδεσμο επαναφοράς.",
+      "Αν ένας λογαριασμός με αυτό το email υποστηρίζει σύνδεση με κωδικό, θα στείλουμε σύνδεσμο επαναφοράς.",
     authResetDone: "Ο κωδικός ενημερώθηκε. Συνδεθείτε με τον νέο κωδικό.",
     authVerified: "Το email επιβεβαιώθηκε. Συνδεθείτε για συνέχεια.",
     authVerifyHint:
@@ -256,8 +284,7 @@ export const accountCopy = {
     authPrivacy:
       "Η πρόοδος και το ιδιωτικό λεξιλόγιο ανήκουν στον λογαριασμό σου. Η εγγραφή δεν δίνει δικαιώματα επεξεργασίας της κοινής βιβλιοθήκης.",
     authCompleting: "Ολοκλήρωση ασφαλούς σύνδεσης…",
-    authUnavailable:
-      "Η σύνδεση δεν είναι διαθέσιμη προσωρινά. Δοκίμασε ξανά σε λίγο.",
+    authUnavailable: "Το αίτημα δεν ολοκληρώθηκε. Δοκίμασε ξανά σε λίγο.",
     logout: "Αποσύνδεση",
     logoutAll: "Αποσύνδεση από όλες τις συσκευές",
     account: "Ο λογαριασμός σου",
@@ -341,6 +368,20 @@ export const accountCopy = {
     noResults: "Δεν υπάρχουν στοιχεία.",
   },
   it: {
+    accountMethod_google: "Google",
+    accountMethod_password: "Email e password",
+    accountGoogle: "Accesso con Google",
+    passwordChangeThrottled: "Troppi tentativi. Attendi un minuto e riprova.",
+    passwordChangeSignout:
+      "La modifica della password ti disconnette da tutti i dispositivi.",
+    passwordMismatch: "Le nuove password devono coincidere.",
+    currentPasswordIncorrect: "La password attuale non è corretta. Riprova.",
+    confirmPassword: "Conferma nuova password",
+    newPassword: "Nuova password",
+    currentPassword: "Password attuale",
+    changePassword: "Cambia password",
+    authResetDescription:
+      "Inserisci la tua email per richiedere un link di recupero.",
     authLoading_logout: "Disconnessione…",
     authLoading_verify: "Verifica email…",
     authLoading_google: "Connessione a Google…",
@@ -355,7 +396,7 @@ export const accountCopy = {
     authAlready: "Hai già un account?",
     authNewHere: "Prima volta qui?",
     authOr: "oppure",
-    authResetTitle: "Reimposta password",
+    authResetTitle: "Reimposta la tua password",
     authPassword: "Password",
     authShowPassword: "Mostra password",
     authHidePassword: "Nascondi password",
@@ -368,9 +409,9 @@ export const accountCopy = {
     authForgot: "Password dimenticata?",
     authBack: "Torna all’accesso",
     authRegistered:
-      "Se è possibile registrare questo indirizzo, riceverai un’email di verifica. Accedi con la password per continuare. Se hai già un account, usa il metodo originale o reimposta la password.",
+      "Richiesta di registrazione accettata. Controlla l’email per le istruzioni di verifica, se la registrazione è disponibile.",
     authRecoverySent:
-      "Se un account può reimpostare la password per questa email, riceverai presto un link.",
+      "Se un account con questa email supporta l’accesso con password, invieremo un link di recupero.",
     authResetDone: "Password aggiornata. Accedi con la nuova password.",
     authVerified: "Email verificata. Accedi per continuare.",
     authVerifyHint:
@@ -425,8 +466,7 @@ export const accountCopy = {
     authPrivacy:
       "I progressi e il vocabolario privato appartengono al tuo account. La registrazione non concede diritti di modifica della biblioteca condivisa.",
     authCompleting: "Completamento dell’accesso sicuro…",
-    authUnavailable:
-      "L’accesso non è temporaneamente disponibile. Riprova tra poco.",
+    authUnavailable: "Non è stato possibile completare la richiesta. Riprova.",
     logout: "Esci",
     logoutAll: "Esci da tutti i dispositivi",
     account: "Il tuo account",

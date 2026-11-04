@@ -32,6 +32,7 @@ import {
 import { request } from "./api.js";
 import { notifySessionChanged } from "./auth.js";
 import AuthGate from "./AuthGate.jsx";
+import AccountCard from "./AccountCard.jsx";
 import { AccountContext } from "./AccountContext.jsx";
 import Admin from "./Admin.jsx";
 import LegacyClaim, {
@@ -395,26 +396,12 @@ export default function App() {
                           {text.settingsPageTitle}
                         </h1>
                       </header>
-                      <section className="settings-card">
-                        <h2>{text.account}</h2>
-                        <p>{session.data.account?.display_name}</p>
-                        <p>{text.accountPrivate}</p>
-                        <button
-                          className="secondary"
-                          disabled={logoutAll.isPending}
-                          onClick={() => logoutAll.mutate()}
-                        >
-                          {text.logoutAll}
-                        </button>
-                        {logoutAll.isError && (
-                          <p role="alert">{text.actionFailed}</p>
-                        )}
-                        {session.data.account?.role === "admin" && (
-                          <p>
-                            <Link to="/admin">{text.admin}</Link>
-                          </p>
-                        )}
-                      </section>
+                      <AccountCard
+                        text={text}
+                        account={session.data.account}
+                        logoutAll={logoutAll}
+                        onLocked={lockNotebook}
+                      />
                       <Profiles
                         text={text}
                         csrf={session.data.csrf_token}

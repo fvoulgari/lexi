@@ -2296,3 +2296,27 @@ button:disabled {
   outline: 3px solid #98b38e;
   outline-offset: 3px;
 }
+
+/* Account identity and credential controls stay within the settings card. */
+.settings-page .account-card .account-identity { display: grid; gap: 6px; margin: 14px 0 0; line-height: 1.5; }
+.settings-page .account-card .account-name { font-size: 16px; font-weight: 600; }
+.settings-page .account-card .account-email { overflow-wrap: anywhere; font-size: 14px; }
+.settings-page .account-card .account-method { color: #697761; font-size: 13px; }
+.settings-page .account-card .account-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.settings-page .account-card .account-actions .secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; text-decoration: none; text-align: center; }
+.settings-page .account-card .account-password-form { display: grid; gap: 14px; border-top: 1px solid #dce3d4; margin-top: 22px; padding-top: 20px; max-width: 440px; }
+.settings-page .account-card .account-password-form h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.settings-page .account-card .account-password-form p { margin: 0; line-height: 1.5; }
+.settings-page .account-card .account-password-input label { display: block; margin: 0 0 8px; font-size: 13px; }
+.settings-page .account-card .account-password-control { position: relative; }
+.settings-page .account-card .account-password-control input { width: 100%; min-height: 48px; padding: 10px 52px 10px 12px; background: #fffdf8; color: #304f3a; border: 1px solid #cad9c6; border-radius: 10px; }
+.settings-page .account-card .account-password-eye { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: #53745b; }
+.settings-page .account-card button:focus-visible { outline: 3px solid #98b38e; outline-offset: 3px; }
+.gate-card .auth-reset-description { margin: 18px 0 0; color: #53745b; font-size: 14px; line-height: 1.6; }
+.gate-card .auth-confirmation { margin-top: 20px; font-size: 14px; line-height: 1.6; }
+.gate-card .auth-confirmation p { margin: 0 0 12px; }
+.gate-card .auth-submitted-email { overflow-wrap: anywhere; font-weight: 600; }
+@media (max-width: 520px) {
+  .settings-page .account-card .account-actions { flex-direction: column; align-items: stretch; }
+  .settings-page .account-card .account-actions button, .settings-page .account-card .account-actions a { width: 100%; }
+}

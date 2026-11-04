@@ -109,13 +109,12 @@ test("registration supports password managers, visibility and generic confirmati
   expect(await screen.findByRole("status")).toHaveTextContent(
     copy.en.authRegistered,
   );
-  expect(screen.getByLabelText(copy.en.authPassword)).toHaveValue("");
-  expect(screen.getByLabelText(copy.en.authPassword)).toHaveAttribute(
-    "autocomplete",
-    "current-password",
+  expect(screen.queryByLabelText(copy.en.authPassword)).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
+    copy.en.authAction_signup,
   );
 });
-test("forgot password confirms without disclosing existence and throttles resend", async () => {
+test("forgot password confirms without disclosing existence or keeping a resend form", async () => {
   const user = open();
   await user.click(screen.getByRole("button", { name: copy.en.authForgot }));
   await user.type(
@@ -130,8 +129,8 @@ test("forgot password confirms without disclosing existence and throttles resend
     copy.en.authRecoverySent,
   );
   expect(
-    screen.getByRole("button", { name: copy.en.authAction_forgot }),
-  ).toBeDisabled();
+    screen.queryByRole("button", { name: copy.en.authAction_forgot }),
+  ).not.toBeInTheDocument();
 });
 test("reset link requires explicit new password submission", async () => {
   window.history.replaceState(null, "", "/auth/reset-password?token=one-use");
@@ -337,3 +336,108 @@ test.each([
     expect(screen.getByRole("button", { name: label })).toBeEnabled();
   },
 );
+
+test("registration confirmation stays in registration instead of leaking into sign-in", async () => {
+  registerPassword.mockResolvedValueOnce();
+  const user = open();
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signup }),
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authEmail),
+    "synthetic@example.invalid",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "synthetic password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signup }),
+  );
+  await screen.findByRole("status");
+  expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent(
+    copy.en.authAction_signup,
+  );
+  expect(screen.queryByLabelText(copy.en.authPassword)).not.toBeInTheDocument();
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authSignIn, exact: true }),
+  );
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+test("accepted recovery replaces the form with the submitted email", async () => {
+  requestPasswordReset.mockResolvedValueOnce();
+  const authenticated = vi.fn();
+  const user = open({ onAuthenticated: authenticated });
+  await user.click(screen.getByRole("button", { name: copy.en.authForgot }));
+  await user.type(
+    screen.getByLabelText(copy.en.authEmail),
+    "synthetic@example.invalid",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_forgot }),
+  );
+  await screen.findByRole("status");
+  expect(screen.queryByLabelText(copy.en.authEmail)).not.toBeInTheDocument();
+  expect(screen.getByText("synthetic@example.invalid")).toBeVisible();
+  expect(authenticated).not.toHaveBeenCalled();
+});
+
+test("late registration cannot insert verification feedback into sign-in", async () => {
+  let finish;
+  registerPassword.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const user = open();
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signup }),
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authEmail),
+    "synthetic@example.invalid",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "synthetic password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signup }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authSignIn, exact: true }),
+  );
+  await act(async () => finish());
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  ).toBeEnabled();
+});
+
+test("accepted recovery feedback follows interface-language changes", async () => {
+  requestPasswordReset.mockResolvedValueOnce();
+  const hydrated = vi.fn();
+  const view = (text) => (
+    <MemoryRouter>
+      <AuthGate text={text} onAuthenticated={hydrated} />
+    </MemoryRouter>
+  );
+  const { rerender } = render(view(copy.en));
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: copy.en.authForgot }));
+  await user.type(
+    screen.getByLabelText(copy.en.authEmail),
+    "synthetic@example.invalid",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_forgot }),
+  );
+  await screen.findByRole("status");
+  rerender(view(copy.el));
+  expect(screen.getByRole("status")).toHaveTextContent(
+    copy.el.authRecoverySent,
+  );
+  expect(screen.queryByText(copy.en.authRecoverySent)).not.toBeInTheDocument();
+});

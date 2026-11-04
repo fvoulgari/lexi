@@ -239,6 +239,51 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
                 method.recipe_id == "thirdparty"
                 for method in asyncio.run(get_user(google_only.user.id)).login_methods
             )
+            # Change-password uses the real provider credential and current password.
+            credentials = a.get("/api/account/credentials").json()
+            assert credentials["email"] == email
+            assert credentials["can_change_password"] is True
+            assert credentials["sign_in_methods"] == ["password"]
+            assert (
+                b.post("/api/auth/signin", json=fields(new_password)).json()["status"]
+                == "OK"
+            )
+            change = {
+                "current_password": "incorrect synthetic current password",
+                "new_password": "changed synthetic password",
+                "confirmation": "changed synthetic password",
+            }
+            wrong = a.post(
+                "/api/account/password", json=change, headers={"rid": "session"}
+            )
+            assert wrong.status_code == 400
+            assert wrong.json()["error"]["code"] == "current_password_incorrect"
+            change["current_password"] = new_password
+            changed = a.post(
+                "/api/account/password", json=change, headers={"rid": "session"}
+            )
+            assert changed.status_code == 200
+            assert changed.json()["reauthentication_required"] is True
+            assert b.get("/api/vocabulary").status_code == 401
+            assert a.get("/api/vocabulary").status_code == 401
+            assert (
+                a.post("/api/auth/signin", json=fields(new_password)).json()["status"]
+                == "WRONG_CREDENTIALS_ERROR"
+            )
+            assert (
+                a.post("/api/auth/signin", json=fields(change["new_password"])).json()[
+                    "status"
+                ]
+                == "OK"
+            )
+            assert (
+                a.get("/api/auth/session").json()["account"]["id"]
+                == identity["account"]["id"]
+            )
+            assert all(
+                method.recipe_id == "thirdparty"
+                for method in asyncio.run(get_user(google.user.id)).login_methods
+            )
             assert (
                 a.post("/api/auth/signout", headers={"rid": "session"}).json()["status"]
                 == "OK"

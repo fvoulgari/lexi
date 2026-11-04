@@ -42,6 +42,7 @@ export default function AuthGate({
     [],
   );
   const [notice, setNotice] = useState("");
+  const [completed, setCompleted] = useState(false);
   const [error, setError] = useState("");
   const [remaining, setRemaining] = useState(0);
   const [callbackFailed, setCallbackFailed] = useState(false);
@@ -74,12 +75,12 @@ export default function AuthGate({
         if (!active) return;
         window.history.replaceState(null, "", path);
         setCallbackFailed(true);
-        setError(text.authExpired);
+        setError("authExpired");
       });
     return () => {
       active = false;
     };
-  }, [callback, navigate, onAuthenticated, path, text.authExpired]);
+  }, [callback, navigate, onAuthenticated, path]);
   function switchMode(next) {
     generation.current += 1;
     setPending("");
@@ -88,6 +89,7 @@ export default function AuthGate({
     setPassword("");
     setError("");
     setNotice("");
+    setCompleted(false);
     setShow(false);
   }
   async function act(action) {
@@ -97,6 +99,7 @@ export default function AuthGate({
     setPending(action);
     setError("");
     setNotice("");
+    setCompleted(false);
     setFields({});
     if (!path.startsWith("/auth"))
       rememberReturn(path + window.location.search);
@@ -123,19 +126,20 @@ export default function AuthGate({
         await registerPassword(email.trim(), password);
         if (!current()) return;
         setPassword("");
-        setNotice(text.authRegistered);
-        setMode("signin");
+        setNotice("authRegistered");
+        setCompleted(true);
       } else if (action === "forgot") {
         await requestPasswordReset(email.trim());
         if (!current()) return;
-        setNotice(text.authRecoverySent);
+        setNotice("authRecoverySent");
+        setCompleted(true);
         setRemaining(60);
       } else if (action === "reset") {
         await resetPassword(password);
         if (!current()) return;
         setPassword("");
-        setMode("signin");
-        setNotice(text.authResetDone);
+        setNotice("authResetDone");
+        setCompleted(true);
       } else if (action === "verify") {
         await verifyEmail();
         if (!current()) return;
@@ -143,13 +147,13 @@ export default function AuthGate({
         if (!current()) return;
         if (state?.authenticated) navigate(takeReturn(), { replace: true });
         else {
-          setMode("signin");
-          setNotice(text.authVerified);
+          setNotice("authVerified");
+          setCompleted(true);
         }
       } else if (action === "resend") {
         await sendVerification();
         if (!current()) return;
-        setNotice(text.authVerificationSent);
+        setNotice("authVerificationSent");
         setRemaining(60);
       } else if (action === "logout") {
         await signOutUnverified();
@@ -166,22 +170,22 @@ export default function AuthGate({
           Object.fromEntries(
             failure.fields.map(({ id }) => [
               id,
-              id === "email" ? text.authEmailInvalid : text.authPasswordPolicy,
+              id === "email" ? "authEmailInvalid" : "authPasswordPolicy",
             ]),
           ),
         );
       }
       setError(
         failure.code === "WRONG_CREDENTIALS_ERROR"
-          ? text.authCredentials
+          ? "authCredentials"
           : [
                 "RESET_PASSWORD_INVALID_TOKEN_ERROR",
                 "EMAIL_VERIFICATION_INVALID_TOKEN_ERROR",
               ].includes(failure.code)
-            ? text.authExpired
+            ? "authExpired"
             : failure.code === "FIELD_ERROR"
-              ? text.authCheckFields
-              : text.authUnavailable,
+              ? "authCheckFields"
+              : "authUnavailable",
       );
     } finally {
       if (current()) setPending("");
@@ -229,11 +233,18 @@ export default function AuthGate({
           <>
             {error && (
               <p role="alert" className="error">
-                {error}
+                {text[error]}
               </p>
             )}
-            {notice && <p role="status">{notice}</p>}
-            {mode === "verify" ? (
+            {notice && !completed && <p role="status">{text[notice]}</p>}
+            {completed ? (
+              <div className="auth-confirmation">
+                <p role="status">{text[notice]}</p>
+                {mode === "forgot" && (
+                  <p className="auth-submitted-email">{email.trim()}</p>
+                )}
+              </div>
+            ) : mode === "verify" ? (
               <>
                 <p>{text.authVerifyHint}</p>
                 {new URLSearchParams(window.location.search).has("token") && (
@@ -266,6 +277,11 @@ export default function AuthGate({
               </>
             ) : (
               <>
+                {mode === "forgot" && (
+                  <p className="auth-reset-description">
+                    {text.authResetDescription}
+                  </p>
+                )}
                 <form
                   noValidate
                   onSubmit={(event) => {
@@ -275,7 +291,7 @@ export default function AuthGate({
                       mode !== "reset" &&
                       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
                     )
-                      invalid.email = text.authEmailInvalid;
+                      invalid.email = "authEmailInvalid";
                     if (
                       passwordMode &&
                       (!password ||
@@ -283,8 +299,8 @@ export default function AuthGate({
                           (password.length < 15 || password.length > 128)))
                     )
                       invalid.password = newPassword
-                        ? text.authPasswordPolicy
-                        : text.authPasswordRequired;
+                        ? "authPasswordPolicy"
+                        : "authPasswordRequired";
                     setFields(invalid);
                     if (!Object.keys(invalid).length) act(mode);
                   }}
@@ -309,7 +325,7 @@ export default function AuthGate({
                       />
                       {fields.email && (
                         <p id="auth-email-error" className="error">
-                          {fields.email}
+                          {text[fields.email]}
                         </p>
                       )}
                     </>
@@ -359,7 +375,7 @@ export default function AuthGate({
                       </div>
                       {fields.password && (
                         <p id="auth-password-error" className="error">
-                          {fields.password}
+                          {text[fields.password]}
                         </p>
                       )}
                       {mode === "signin" && (
@@ -447,9 +463,6 @@ export default function AuthGate({
                   {mode === "signup" ? text.authSignIn : text.authBack}
                 </button>
               </p>
-            )}
-            {mode === "forgot" && notice && (
-              <p className="settings-helper">{text.authMethods}</p>
             )}
           </>
         )}

@@ -3,13 +3,20 @@
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.access import current_account, require_admin, require_write
 from app.models import Account, Profile, VocabularyEntry
+
+
+class PasswordChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    current_password: SecretStr = Field(min_length=1, max_length=128)
+    new_password: SecretStr = Field(min_length=15, max_length=128)
+    confirmation: SecretStr = Field(min_length=15, max_length=128)
 
 
 class AccountUpdate(BaseModel):
@@ -49,6 +56,38 @@ def account_router(sessions, gate):
         with sessions() as db:
             profile = db.get(Profile, account.profile_id)
             return account_output(account, profile.display_name)
+
+    @router.get("/account/credentials")
+    async def read_credentials(request: Request):
+        from app.account_credentials import credentials, identity_output
+
+        session = request.state.auth_session
+        _, methods = await credentials(session)
+        with sessions() as db:
+            profile = db.get(Profile, current_account().profile_id)
+            return {
+                "display_name": profile.display_name,
+                **identity_output(session, methods),
+            }
+
+    @router.post("/account/password", dependencies=writes)
+    async def update_password(body: PasswordChange, request: Request):
+        from starlette.concurrency import run_in_threadpool
+
+        from app.account_credentials import change_password, reject
+
+        if not await run_in_threadpool(
+            gate.throttle, "password-change:" + str(current_account().id)
+        ):
+            reject(429, "login_throttled")
+        if body.new_password.get_secret_value() != body.confirmation.get_secret_value():
+            reject(422, "password_confirmation_mismatch")
+        await change_password(
+            request.state.auth_session,
+            body.current_password.get_secret_value(),
+            body.new_password.get_secret_value(),
+        )
+        return {"changed": True, "reauthentication_required": True}
 
     @router.patch("/account", dependencies=writes)
     def update_account(body: AccountUpdate):
