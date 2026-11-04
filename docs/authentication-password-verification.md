@@ -21,8 +21,10 @@ hash-only links, continuations, permissions and conflict handling.
   reset revokes that password identity's existing sessions. Matching Google and
   password emails never merge or confer access to the other account.
 - Registration/reset enforce 15–128 characters, allowing Unicode, spaces and
-  password-manager paste. Core must be configured with supported ARGON2 hashing
-  before launch. Autofill uses username/current-password/new-password fields;
+  password-manager paste. Production non-truncation must be verified separately;
+  the development Core's locked bcrypt setting permits only constrained
+  synthetic functional tests. See the [hashing investigation](authentication-hashing.md).
+  Autofill uses username/current-password/new-password fields;
   password visibility buttons are accessible and do not submit forms.
 - Resend HTTPS delivery replaces SMTP, using only `RESEND_API_KEY` and
   `EMAIL_FROM`. No Resend service, billing or Railway upgrade was activated.

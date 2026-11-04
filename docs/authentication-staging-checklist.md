@@ -2,13 +2,21 @@
 
 Run only after [provider setup](authentication-setup.md), with disposable synthetic learners, vocabulary and legacy profiles. Keep separate staging Core, Google client and database; stay within verified free quotas. This checklist is **pending**, not a claim of end-to-end success. Local mocked-provider tests and migration rehearsals do not verify Google, delivered email, cookies or live Core.
 
+Managed development Core currently exposes hashing configuration as read-only.
+Its bcrypt setting does not block restricted synthetic functional tests using
+15–64 ASCII-character passwords. Record that constraint and actual read-only
+lifetimes; keep long-password/Unicode non-truncation and production hashing checks
+separate and pending. See [hashing investigation](authentication-hashing.md).
+Do not open this constrained test deployment to real-user registration.
+
 Record each result as PASS / FAIL / NOT RUN with date, tested commit/image, browser, non-secret environment identifier and sanitised evidence. Never attach link tokens, callback queries, cookies, credentials, personal emails or unredacted traces. A failed or inaccessible CI run is not a pass.
 
 ## Real authentication and callback recovery
 
 - [ ] Google registration creates one owned profile with learner role and no legacy/editor permissions. Password registration returns a generic acknowledgement without an identity/session; sign-in before email verification exposes no application profile, vocabulary, progress, collections, admin or claim data. After verification, sign-in provisions exactly one owned profile.
 - [ ] Google denial, state mismatch, interrupted callbacks and a transient hydration failure recover safely without duplicate accounts/profiles; a pending `/claim` destination survives retries. Reused OAuth codes require fresh sign-in.
-- [ ] Registration, sign-in and reset validate passwords appropriately. Check 14/15/128/129-character boundaries, spaces, Unicode, paste, password managers, current/new-password autofill and accessible show/hide controls. Confirm Core ARGON2 hashing and reject a wrong long password differing only beyond byte 72.
+- [ ] Registration, sign-in and reset validate passwords appropriately. Check lower length boundaries, spaces, paste, password managers, current/new-password autofill and accessible show/hide controls with short synthetic passwords on development bcrypt. Record this limited result separately from full-policy acceptance.
+- [ ] Production hashing gate: with the unchanged Unicode policy, confirm supported ARGON2 configuration and test 128/129-character boundaries, Unicode UTF-8 byte boundaries and rejection of a wrong password differing only beyond byte 72. Development bcrypt does not pass this gate; any bcrypt-compatible production policy requires a separately reviewed decision.
 - [ ] Verification and reset mail arrives from the verified HTTPS sender with tracking disabled. Check inbox/spam, rejected recipient, quota exhaustion, timeout and provider outage. Generic acknowledgement is not evidence of delivery.
 - [ ] Verification/reset links require explicit confirmation/submission, work once, and fail after configured expiry or reuse. Invalid/foreign tokens cannot change identity or password. URL parameters are cleared after submission and never logged or persisted. Test verification in another browser, without a session, and while a different account is signed in.
 - [ ] Password sign-in fails generically for wrong credentials, missing identities and Google-only identities. Registration/recovery responses and cookies do not disclose existence, including duplicate registration and delivery outage. Rate limiting covers signup, signin, recovery, reset and verification, including public-tenant aliases.

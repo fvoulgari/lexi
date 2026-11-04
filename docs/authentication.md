@@ -6,6 +6,11 @@ Public registration grants a fresh learner profile. It grants no editor role or 
 
 Current launch implementation and local evidence: [email/password verification](authentication-password-verification.md).
 
+The managed development Core's bcrypt setting is read-only. Short-password,
+synthetic staging tests may proceed; production hashing and the advertised full
+Unicode password policy have separate gates. See [hashing investigation and
+production requirements](authentication-hashing.md). No custom hashing is added.
+
 ## Provider and cost boundary
 
 The integration candidate is SuperTokens managed Core. The official [pricing page](https://supertokens.com/pricing) advertised the core methods as free below 5,000 monthly active users during this implementation's research. The threshold is not an unlimited free plan: usage outside it is billable. Account linking is a paid add-on, so automatic linking and client-requested linking are disabled. No billing account, paid feature, or hosted resource was activated by this change. Confirm current limits, applicable terms, and cost controls before provisioning; obtain explicit approval before any paid upgrade or recurring charge.
