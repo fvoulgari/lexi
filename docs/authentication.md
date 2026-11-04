@@ -12,6 +12,15 @@ Different sign-in methods can create different accounts even when email strings 
 
 Email delivery uses an explicitly configured SMTP sender rather than the provider's shared default sender. A sender/domain and SMTP credentials are required; provider free-tier quotas, delivery reliability, and possible email-service charges must be checked by the operator. See [SuperTokens email delivery](https://supertokens.com/docs/platform-configuration/email-delivery). No email service was purchased or configured here.
 
+## Operator handoff
+
+- [Exact provider, Google, SMTP, environment and cost setup](authentication-setup.md)
+- [Pending staging end-to-end acceptance checklist](authentication-staging-checklist.md)
+- [Production backup, migration and rollback runbook](authentication-migration-runbook.md)
+- [Executed checks and verification limits](authentication-verification.md)
+
+PR #63 remains a draft. These instructions authorise no merge, deployment, paid service, real claim, or production migration.
+
 ## External setup before rollout
 
 1. Provision an approved free-tier Core instance or use a separately managed development Core. Record its HTTPS connection URI and backend-only API key. Do not enable paid account linking, MFA, or tenancy features. Confirm free-tier usage controls and review costs before any upgrade.

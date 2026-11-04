@@ -15,6 +15,7 @@ export default function AuthGate({ text, onAuthenticated }) {
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState(null);
+  const [callbackFailed, setCallbackFailed] = useState(false);
   const [remaining, setRemaining] = useState(0);
   const completion = useRef(null);
   const callback =
@@ -39,7 +40,10 @@ export default function AuthGate({ text, onAuthenticated }) {
         navigate(takeReturn(), { replace: true });
       })
       .catch(() => {
-        if (active) setError(text.authExpired);
+        if (!active) return;
+        window.history.replaceState(null, "", window.location.pathname);
+        setCallbackFailed(true);
+        setError(text.authExpired);
       });
     return () => {
       active = false;
@@ -49,11 +53,9 @@ export default function AuthGate({ text, onAuthenticated }) {
     if (pending) return;
     setError(null);
     setPending(true);
-    rememberReturn(
-      window.location.pathname.startsWith("/auth")
-        ? "/"
-        : window.location.pathname + window.location.search,
-    );
+    // Retrying from an auth callback must preserve the original internal destination.
+    if (!window.location.pathname.startsWith("/auth"))
+      rememberReturn(window.location.pathname + window.location.search);
     try {
       if (action === "google") await startGoogle();
       else {
@@ -90,7 +92,7 @@ export default function AuthGate({ text, onAuthenticated }) {
           <BookOpen aria-hidden="true" />
           <h2>{text.authSignIn}</h2>
         </div>
-        {callback && !error ? (
+        {callback && !callbackFailed ? (
           <p role="status">{text.authCompleting}</p>
         ) : (
           <>

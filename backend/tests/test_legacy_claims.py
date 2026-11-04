@@ -421,3 +421,58 @@ def test_claimed_legacy_profile_cannot_be_abandoned_to_claim_another(
     history = client.get("/api/admin/claim-links").json()
     assert {row["status"] for row in history} == {"used", "pending"}
     assert all("token_hash" not in row for row in history)
+
+
+@pytest.mark.parametrize("admin_action", ["revoke", "regenerate"])
+def test_waiting_claim_observes_committed_revocation(
+    client, account_client, admin_action
+):
+    from threading import Event
+
+    from sqlalchemy import event
+
+    legacy, token = issue(client)
+    account = account_client("waiting-claimant")
+    capture(client, token)
+    sessions = client.app.state.sessions
+    engine = sessions.kw["bind"]
+    waiting = Event()
+
+    def observe(_connection, _cursor, statement, _parameters, _context, _many):
+        if "FOR UPDATE" in statement and "accounts" in statement:
+            waiting.set()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        try:
+            with sessions.begin() as holder:
+                holder.get(Account, UUID(account["id"]), with_for_update=True)
+                event.listen(engine, "before_cursor_execute", observe)
+                future = pool.submit(
+                    lambda: client.post("/api/legacy-claims/redeem", headers=HEADERS)
+                )
+                # Redemption has already loaded the link, but cannot yet lock
+                # the account. Revocation must win once it commits here.
+                assert waiting.wait(timeout=10)
+                with TestClient(client.app) as administrator:
+                    signin(administrator)
+                    path = f"/api/admin/legacy-profiles/{legacy['id']}/claim-links"
+                    if admin_action == "revoke":
+                        changed = administrator.delete(path, headers=HEADERS)
+                    else:
+                        changed = administrator.post(
+                            path, json={"acknowledge": True}, headers=HEADERS
+                        )
+                    assert changed.status_code == 200
+            response = future.result(timeout=10)
+            assert response.status_code == 400
+            assert response.json()["error"]["code"] == "claim_revoked"
+            assert (
+                client.get("/api/account").json()["profile_id"] == account["profile_id"]
+            )
+            with sessions() as db:
+                link = db.get(ClaimLink, digest(token))
+                assert link.revoked_at is not None
+                assert link.consumed_at is None
+                assert count(db, Account, Account.profile_id == UUID(legacy["id"])) == 0
+        finally:
+            event.remove(engine, "before_cursor_execute", observe)

@@ -167,7 +167,10 @@ def legacy_router(sessions, gate, settings):
     def valid_link(db, token_hash, lock=False):
         query = select(ClaimLink).where(ClaimLink.token_hash == token_hash)
         if lock:
-            query = query.with_for_update()
+            # A prior read may already be in this transaction's identity map.
+            # Reload attributes after acquiring the lock so committed revocation
+            # or replacement cannot be hidden by that earlier ORM object.
+            query = query.with_for_update().execution_options(populate_existing=True)
         link = db.scalar(query)
         if link is None:
             fail("claim_invalid")
