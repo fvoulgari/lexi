@@ -11,6 +11,45 @@ Do not open this constrained test deployment to real-user registration.
 
 Record each result as PASS / FAIL / NOT RUN with date, tested commit/image, browser, non-secret environment identifier and sanitised evidence. Never attach link tokens, callback queries, cookies, credentials, personal emails or unredacted traces. A failed or inaccessible CI run is not a pass.
 
+## Hosted retry — 4 November 2026
+
+After the user deployed the provider variables, staging deployment
+`031116af-fb62-408d-b4d9-2085cda1cd66` reached SUCCESS. Programmatic HTTPS
+checks confirmed the following; no browser credentials or email tokens were read.
+
+| Check | Result |
+| --- | --- |
+| Health / frontend | PASS: HTTP 200 |
+| Session configuration | PASS: auth available, unauthenticated |
+| Logged-out profiles and vocabulary | PASS: HTTP 401 |
+| Password sign-in against managed Core with nonexistent synthetic identity | PASS: generic WRONG_CREDENTIALS_ERROR, no-store |
+| Google authorization initiation | PASS: HTTP 200 / OK; actual Google login NOT RUN |
+| Removed code-create and public code-consume endpoints | PASS: HTTP 404 |
+| Sign-in with foreign Origin | PASS: HTTP 403 |
+| Registration, delivered email, Google callback and authenticated data tests | NOT RUN: requires human test inbox / Google interaction |
+
+Proxy trust, distinct-client throttling and all remaining acceptance items below
+remain pending. Initiating OAuth does not prove that Google accepts the client
+or that its callback completes.
+
+## Initial hosted execution record — 4 November 2026
+
+Commit `3fe9a4f473a3d4a7002ff9f6afe95aa2c1154cdd`, Railway deployment
+`7286448e-4a5b-46d6-83a9-719236016867`, image
+`sha256:e96b606793c779de96ea756c7a4dbb066f3591e7bb136e2918bb28deb7a3b536`.
+Programmatic HTTPS checks against `staging.lexi.fotiniv.com`:
+
+| Check | Result |
+| --- | --- |
+| Container deployment | PASS: Railway SUCCESS |
+| Frontend and database health | PASS: HTTP 200; database health `ok` |
+| Session state before configuration | PASS: unauthenticated; auth unavailable |
+| Protected profiles/vocabulary before configuration | PASS: fail closed with HTTP 503 |
+| Real authentication, sessions, claims and isolation | NOT RUN: five provider variables absent in staging metadata |
+
+No secret values were requested or logged. The entries below remain pending;
+health checks do not establish provider or account-isolation acceptance.
+
 ## Real authentication and callback recovery
 
 - [ ] Google registration creates one owned profile with learner role and no legacy/editor permissions. Password registration returns a generic acknowledgement without an identity/session; sign-in before email verification exposes no application profile, vocabulary, progress, collections, admin or claim data. After verification, sign-in provisions exactly one owned profile.
