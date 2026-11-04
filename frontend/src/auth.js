@@ -59,12 +59,17 @@ export function takeReturn() {
   }
 }
 function requireOK(result) {
-  if (result.status !== "OK") throw new Error("authentication_failed");
+  if (result.status !== "OK") {
+    const error = new Error("authentication_failed");
+    error.code = result.status;
+    if (result.status === "FIELD_ERROR") error.fields = result.formFields;
+    throw error;
+  }
   return result;
 }
 export async function passwordSignIn(email, password) {
   initializeAuth();
-  requireOK(
+  return requireOK(
     await EmailPassword.signIn({
       formFields: [
         { id: "email", value: email },
@@ -127,14 +132,14 @@ export async function signOutUnverified() {
   initializeAuth();
   await Session.signOut();
 }
-export async function startGoogle() {
+export async function startGoogle(isCurrent = () => true) {
   initializeAuth();
   const url = await ThirdParty.getAuthorisationURLWithQueryParamsAndSetState({
     thirdPartyId: "google",
     frontendRedirectURI: window.location.origin + "/auth/callback/google",
     shouldTryLinkingWithSessionUser: false,
   });
-  window.location.assign(url);
+  if (isCurrent()) window.location.assign(url);
 }
 export async function finishAuthentication() {
   initializeAuth();

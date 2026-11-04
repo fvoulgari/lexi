@@ -1,19 +1,36 @@
 import { afterEach, expect, test, vi } from "vitest";
-const provider = vi.hoisted(() => ({ reset: vi.fn(), verify: vi.fn() }));
+const provider = vi.hoisted(() => ({
+  reset: vi.fn(),
+  verify: vi.fn(),
+  signin: vi.fn(),
+  google: vi.fn(),
+}));
 vi.mock("supertokens-web-js", () => ({ default: { init: vi.fn() } }));
 vi.mock("supertokens-web-js/recipe/session", () => ({
   default: { init: vi.fn() },
 }));
 vi.mock("supertokens-web-js/recipe/thirdparty", () => ({
-  default: { init: vi.fn() },
+  default: {
+    init: vi.fn(),
+    getAuthorisationURLWithQueryParamsAndSetState: provider.google,
+  },
 }));
 vi.mock("supertokens-web-js/recipe/emailpassword", () => ({
-  default: { init: vi.fn(), submitNewPassword: provider.reset },
+  default: {
+    init: vi.fn(),
+    signIn: provider.signin,
+    submitNewPassword: provider.reset,
+  },
 }));
 vi.mock("supertokens-web-js/recipe/emailverification", () => ({
   default: { init: vi.fn(), verifyEmail: provider.verify },
 }));
-import { resetPassword, verifyEmail } from "./auth.js";
+import {
+  passwordSignIn,
+  resetPassword,
+  verifyEmail,
+  startGoogle,
+} from "./auth.js";
 afterEach(() => {
   vi.clearAllMocks();
   window.history.replaceState(null, "", "/");
@@ -67,3 +84,23 @@ test.each([
     expect(window.location.search).toBe("");
   },
 );
+
+test.each(["WRONG_CREDENTIALS_ERROR", "GENERAL_ERROR", "FIELD_ERROR"])(
+  "sign-in preserves provider failure %s for visible UI feedback",
+  async (status) => {
+    provider.signin.mockResolvedValueOnce({ status });
+    await expect(
+      passwordSignIn("synthetic@example.invalid", "synthetic test password"),
+    ).rejects.toMatchObject({ code: status });
+  },
+);
+
+test("a stale Google initiation cannot redirect a newly selected form", async () => {
+  provider.google.mockResolvedValueOnce(
+    "https://accounts.google.com/test-only",
+  );
+  const before = window.location.href;
+  await startGoogle(() => false);
+  expect(provider.google).toHaveBeenCalledOnce();
+  expect(window.location.href).toBe(before);
+});

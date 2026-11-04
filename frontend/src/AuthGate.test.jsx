@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, test, vi } from "vitest";
@@ -11,6 +11,7 @@ import {
   resetPassword,
   verifyEmail,
   sendVerification,
+  startGoogle,
   takeReturn,
 } from "./auth.js";
 import { copy } from "./copy.js";
@@ -73,7 +74,7 @@ test("failed Google callback permits password retry and retains pending claim", 
     "long password for testing",
   );
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    copy.en.authCredentials,
+    copy.en.authUnavailable,
   );
   expect(screen.queryByText(copy.en.authCompleting)).not.toBeInTheDocument();
   expect(takeReturn()).toBe("/claim");
@@ -180,3 +181,159 @@ test("old magic-link callback is inert and removes stale URL credentials", () =>
   expect(verifyEmail).not.toHaveBeenCalled();
   expect(screen.getByLabelText(copy.en.authPassword)).toBeVisible();
 });
+
+test("network failure has retryable feedback and restores sign-in controls", async () => {
+  passwordSignIn.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+  const user = open();
+  await user.type(
+    screen.getByLabelText(copy.en.authEmail),
+    "learner@example.com",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "wrong password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    copy.en.authUnavailable,
+  );
+  expect(screen.getByLabelText(copy.en.authEmail)).toHaveValue(
+    "learner@example.com",
+  );
+  expect(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  ).toBeEnabled();
+});
+
+test("landing preserves original hero copy", () => {
+  open();
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+    copy.en.gateTitle,
+  );
+  expect(screen.getByText("ITALIAN NOTEBOOK")).toBeVisible();
+});
+
+test.each(["unknown email", "wrong password"])(
+  "%s uses the same non-enumerating banner",
+  async () => {
+    passwordSignIn.mockResolvedValueOnce({ status: "WRONG_CREDENTIALS_ERROR" });
+    const user = open();
+    await user.type(
+      screen.getByLabelText(copy.en.authEmail),
+      "learner@example.com",
+    );
+    await user.type(
+      screen.getByLabelText(copy.en.authPassword),
+      "wrong password example",
+    );
+    await user.click(
+      screen.getByRole("button", { name: copy.en.authAction_signin }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Incorrect email or password.",
+    );
+    expect(
+      screen.getByRole("button", { name: copy.en.authAction_signin }),
+    ).toBeEnabled();
+  },
+);
+
+test("required fields show inline errors without contacting the provider", async () => {
+  const user = open();
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  expect(screen.getByText(copy.en.authEmailInvalid)).toBeVisible();
+  expect(screen.getByText(copy.en.authPasswordRequired)).toBeVisible();
+  expect(passwordSignIn).not.toHaveBeenCalled();
+});
+
+test("late recovery completion cannot update a different form", async () => {
+  let complete;
+  requestPasswordReset.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        complete = resolve;
+      }),
+  );
+  const user = open();
+  await user.click(screen.getByRole("button", { name: copy.en.authForgot }));
+  await user.type(
+    screen.getByLabelText(copy.en.authEmail),
+    "learner@example.com",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_forgot }),
+  );
+  expect(
+    screen.getByRole("button", { name: copy.en.authLoading_forgot }),
+  ).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: copy.en.authBack }));
+  await act(async () => complete());
+  expect(screen.queryByText(copy.en.authRecoverySent)).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  ).toBeEnabled();
+});
+
+test.each([
+  ["signin", passwordSignIn],
+  ["signup", registerPassword],
+  ["forgot", requestPasswordReset],
+  ["reset", resetPassword],
+  ["resend", sendVerification],
+  ["google", startGoogle],
+])(
+  "%s has operation-specific loading and recovers on failure",
+  async (action, provider) => {
+    let reject;
+    provider.mockImplementationOnce(
+      () =>
+        new Promise((_, fail) => {
+          reject = fail;
+        }),
+    );
+    if (action === "reset")
+      window.history.replaceState(
+        null,
+        "",
+        "/auth/reset-password?token=test-only",
+      );
+    const user = open({ verificationRequired: action === "resend" });
+    if (action === "signup")
+      await user.click(
+        screen.getByRole("button", { name: copy.en.authAction_signup }),
+      );
+    if (action === "forgot")
+      await user.click(
+        screen.getByRole("button", { name: copy.en.authForgot }),
+      );
+    if (!["resend", "google", "reset"].includes(action))
+      await user.type(
+        screen.getByLabelText(copy.en.authEmail),
+        "learner@example.com",
+      );
+    if (["signin", "signup", "reset"].includes(action))
+      await user.type(
+        screen.getByLabelText(copy.en.authPassword),
+        "long password for testing",
+      );
+    const label =
+      action === "resend"
+        ? copy.en.authResendVerification
+        : action === "google"
+          ? copy.en.authGoogle
+          : copy.en["authAction_" + action];
+    await user.click(screen.getByRole("button", { name: label }));
+    expect(
+      screen.getByRole("button", { name: copy.en["authLoading_" + action] }),
+    ).toBeDisabled();
+    await act(async () => reject(new TypeError("Failed to fetch")));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      copy.en.authUnavailable,
+    );
+    expect(screen.getByRole("button", { name: label })).toBeEnabled();
+  },
+);

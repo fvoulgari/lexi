@@ -437,3 +437,13 @@ test("stale local selection cannot expose another learner", async () => {
   ).not.toBeInTheDocument();
   expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
 });
+
+test("compact learner identity renders the name once without a menu indicator", async () => {
+  open();
+  await screen.findByText("Learner profile");
+  const pill = screen.getByText("Learner profile").closest(".profile-picker");
+  expect(pill.querySelectorAll(".profile-picker-name")).toHaveLength(1);
+  const name = pill.querySelector(".profile-picker-name").textContent;
+  expect(within(pill).getAllByText(name, { exact: true })).toHaveLength(1);
+  expect(within(pill).queryByRole("combobox")).not.toBeInTheDocument();
+});

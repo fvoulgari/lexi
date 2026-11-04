@@ -102,14 +102,10 @@ export default function Progress({ text, onLocked, detailed = false }) {
           )}
 
           <div className="profile-picker-field">
-            <label htmlFor="progress-profile">{text.profile}</label>
-
-            {!detailed && (
-              <span className="profile-picker-name" aria-hidden="true">
-                {profile?.display_name || text.chooseProfile}
-              </span>
-            )}
-            <span>{profile?.display_name}</span>
+            <span className="profile-picker-label">{text.profile}</span>
+            <span className={!detailed ? "profile-picker-name" : undefined}>
+              {profile?.display_name || text.chooseProfile}
+            </span>
           </div>
         </div>
       </div>

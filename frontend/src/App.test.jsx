@@ -118,7 +118,7 @@ test("provider failure remains recoverable and does not reveal the library", asy
     screen.getByRole("button", { name: copy.en.authAction_signin }),
   );
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    copy.en.authCredentials,
+    copy.en.authUnavailable,
   );
   expect(
     screen.getByRole("button", { name: copy.en.authAction_signin }),

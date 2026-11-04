@@ -1356,7 +1356,7 @@ button:disabled {
   gap: 12px;
   width: fit-content;
   max-width: 100%;
-  padding: 10px 40px 10px 12px;
+  padding: 10px 12px;
   border: 1px solid #dce3d4;
   border-radius: 16px;
   background: #fffef8;
@@ -1392,7 +1392,7 @@ button:disabled {
   min-width: 0;
 }
 
-.lexi-home .profile-picker label {
+.lexi-home .profile-picker-label {
   display: block;
   margin: 0 0 2px;
   color: #727d68;
@@ -1422,19 +1422,6 @@ button:disabled {
   margin: 0;
   opacity: 0;
   cursor: pointer;
-}
-
-.lexi-home .profile-picker::after {
-  content: "";
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid #687b5d;
-  border-bottom: 1.5px solid #687b5d;
-  transform: translateY(-70%) rotate(45deg);
-  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2111,15 +2098,6 @@ button:disabled {
 }
 
 /* Account and private-library controls share the notebook's existing form language. */
-.gate-card > .primary {
-  width: 100%;
-  margin-bottom: 1.25rem;
-  justify-content: center;
-}
-.gate-card form {
-  display: grid;
-  gap: 0.75rem;
-}
 .admin-account {
   padding: 1.25rem 0;
   border-top: 1px solid var(--border, #d9dfd4);
@@ -2206,4 +2184,115 @@ button:disabled {
   text-align: start;
   border-bottom: 1px solid #d9dfd4;
   overflow-wrap: anywhere;
+}
+
+/* Keep the original hero position as the authentication card grows. */
+.gate-intro { align-self: start; }
+
+/* Authentication changes stay inside the original notebook card. */
+.gate-card form {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+}
+.gate-card form label {
+  margin: 4px 0 0;
+}
+.gate-card .auth-password-field {
+  position: relative;
+}
+.gate-card .auth-password-field input {
+  padding-right: 52px;
+}
+.gate-card .auth-eye {
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #53745b;
+}
+.gate-card .auth-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: #304f3a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font: inherit;
+}
+.gate-card .auth-forgot {
+  justify-self: end;
+  margin: -4px 0 -8px;
+  font-size: 13px;
+}
+.gate-card .auth-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 8px;
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.gate-card .auth-separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #727d68;
+  font-size: 13px;
+}
+.gate-card .auth-separator::before,
+.gate-card .auth-separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #dce3d4;
+}
+.gate-card .auth-google {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 50px;
+  margin: 0;
+  border: 1px solid #cad9c6;
+  border-radius: 10px;
+  background: #fffdf8;
+  color: #304f3a;
+  font-size: 14px;
+  font-weight: 600;
+}
+.gate-card .auth-google svg {
+  flex-shrink: 0;
+}
+.gate-card .error {
+  color: #8f352c;
+  margin: 4px 0;
+}
+.gate-card > .error {
+  padding: 10px 12px;
+  border: 1px solid #e8c9c3;
+  border-radius: 10px;
+  background: #fff2ef;
+}
+.gate-card .settings-helper {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.gate-card button:focus-visible {
+  outline: 3px solid #98b38e;
+  outline-offset: 3px;
 }

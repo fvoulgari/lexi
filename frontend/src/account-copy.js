@@ -1,5 +1,20 @@
 export const accountCopy = {
   en: {
+    authLoading_logout: "Signing out…",
+    authLoading_verify: "Verifying email…",
+    authLoading_google: "Connecting to Google…",
+    authLoading_resend: "Sending verification email…",
+    authLoading_reset: "Updating password…",
+    authLoading_forgot: "Sending reset link…",
+    authLoading_signup: "Creating account…",
+    authLoading_signin: "Signing in…",
+    authCheckFields: "Please check the highlighted fields.",
+    authPasswordRequired: "Enter your password.",
+    authEmailInvalid: "Enter a valid email address.",
+    authAlready: "Already have an account?",
+    authNewHere: "New here?",
+    authOr: "or",
+    authResetTitle: "Reset password",
     authPassword: "Password",
     authShowPassword: "Show password",
     authHidePassword: "Hide password",
@@ -7,14 +22,14 @@ export const accountCopy = {
       "Use 15–128 characters. Spaces and password managers are welcome.",
     authAction_signin: "Sign in",
     authAction_signup: "Create account",
-    authAction_forgot: "Send password reset email",
+    authAction_forgot: "Send reset link",
     authAction_reset: "Set new password",
     authForgot: "Forgot password?",
     authBack: "Back to sign in",
     authRegistered:
       "If registration is available for this address, a verification email is on its way. Sign in with your password to continue. If you already have an account, use your original sign-in method or reset your password.",
     authRecoverySent:
-      "If an eligible password account exists, a reset email is on its way. Check your inbox and spam folder.",
+      "If an account can use password reset for this email, you’ll receive a reset link shortly.",
     authResetDone: "Password updated. Sign in with your new password.",
     authVerified: "Email verified. Sign in to continue.",
     authVerifyHint:
@@ -23,8 +38,7 @@ export const accountCopy = {
     authResendVerification: "Send verification email again",
     authVerificationSent:
       "Verification requested. Check your inbox and spam folder.",
-    authCredentials:
-      "Unable to sign in. Check your email and password, or use your original Google sign-in method.",
+    authCredentials: "Incorrect email or password.",
     authExpired:
       "This authentication attempt or link is invalid, expired, already used, or could not be completed. Start again.",
     authMethods:
@@ -65,7 +79,7 @@ export const accountCopy = {
     authTitle: "Your words. Your progress.",
     authIntro:
       "Learn Italian and Greek with your own vocabulary and learning history.",
-    authSignIn: "Sign in or create an account",
+    authSignIn: "Sign in",
     authGoogle: "Continue with Google",
     authEmail: "Email address",
     authPrivacy:
@@ -157,6 +171,21 @@ export const accountCopy = {
     noResults: "Nothing to show.",
   },
   el: {
+    authLoading_logout: "Αποσύνδεση…",
+    authLoading_verify: "Επιβεβαίωση email…",
+    authLoading_google: "Σύνδεση με Google…",
+    authLoading_resend: "Αποστολή email επιβεβαίωσης…",
+    authLoading_reset: "Ενημέρωση κωδικού…",
+    authLoading_forgot: "Αποστολή συνδέσμου επαναφοράς…",
+    authLoading_signup: "Δημιουργία λογαριασμού…",
+    authLoading_signin: "Σύνδεση…",
+    authCheckFields: "Ελέγξτε τα επισημασμένα πεδία.",
+    authPasswordRequired: "Πληκτρολογήστε τον κωδικό σας.",
+    authEmailInvalid: "Πληκτρολογήστε έγκυρη διεύθυνση email.",
+    authAlready: "Έχετε ήδη λογαριασμό;",
+    authNewHere: "Πρώτη φορά εδώ;",
+    authOr: "ή",
+    authResetTitle: "Επαναφορά κωδικού",
     authPassword: "Κωδικός πρόσβασης",
     authShowPassword: "Εμφάνιση κωδικού",
     authHidePassword: "Απόκρυψη κωδικού",
@@ -164,14 +193,14 @@ export const accountCopy = {
       "Χρησιμοποιήστε 15–128 χαρακτήρες. Επιτρέπονται κενά και διαχειριστές κωδικών.",
     authAction_signin: "Σύνδεση",
     authAction_signup: "Δημιουργία λογαριασμού",
-    authAction_forgot: "Αποστολή email επαναφοράς",
+    authAction_forgot: "Αποστολή συνδέσμου επαναφοράς",
     authAction_reset: "Ορισμός νέου κωδικού",
     authForgot: "Ξεχάσατε τον κωδικό;",
     authBack: "Επιστροφή στη σύνδεση",
     authRegistered:
       "Αν μπορεί να δημιουργηθεί λογαριασμός με αυτή τη διεύθυνση, θα λάβετε email επιβεβαίωσης. Συνδεθείτε με τον κωδικό σας. Αν έχετε ήδη λογαριασμό, χρησιμοποιήστε την αρχική μέθοδο σύνδεσης ή επαναφέρετε τον κωδικό.",
     authRecoverySent:
-      "Αν υπάρχει κατάλληλος λογαριασμός με κωδικό, θα λάβετε email επαναφοράς. Ελέγξτε και τα ανεπιθύμητα.",
+      "Αν ο λογαριασμός μπορεί να χρησιμοποιήσει επαναφορά κωδικού για αυτό το email, θα λάβετε σύντομα σύνδεσμο επαναφοράς.",
     authResetDone: "Ο κωδικός ενημερώθηκε. Συνδεθείτε με τον νέο κωδικό.",
     authVerified: "Το email επιβεβαιώθηκε. Συνδεθείτε για συνέχεια.",
     authVerifyHint:
@@ -180,8 +209,7 @@ export const accountCopy = {
     authResendVerification: "Νέα αποστολή email επιβεβαίωσης",
     authVerificationSent:
       "Ζητήθηκε επιβεβαίωση. Ελέγξτε τα εισερχόμενα και τα ανεπιθύμητα.",
-    authCredentials:
-      "Δεν ήταν δυνατή η σύνδεση. Ελέγξτε email και κωδικό ή χρησιμοποιήστε την αρχική σύνδεση Google.",
+    authCredentials: "Το email ή ο κωδικός δεν είναι σωστά.",
     authExpired:
       "Η προσπάθεια ή ο σύνδεσμος δεν είναι έγκυρος, έχει λήξει, έχει χρησιμοποιηθεί ή δεν ολοκληρώθηκε. Ξεκινήστε ξανά.",
     authMethods:
@@ -222,7 +250,7 @@ export const accountCopy = {
     authTitle: "Οι λέξεις σου. Η πρόοδός σου.",
     authIntro:
       "Μάθε ιταλικά και ελληνικά με το δικό σου λεξιλόγιο και ιστορικό μάθησης.",
-    authSignIn: "Σύνδεση ή δημιουργία λογαριασμού",
+    authSignIn: "Σύνδεση",
     authGoogle: "Συνέχεια με Google",
     authEmail: "Διεύθυνση email",
     authPrivacy:
@@ -313,6 +341,21 @@ export const accountCopy = {
     noResults: "Δεν υπάρχουν στοιχεία.",
   },
   it: {
+    authLoading_logout: "Disconnessione…",
+    authLoading_verify: "Verifica email…",
+    authLoading_google: "Connessione a Google…",
+    authLoading_resend: "Invio email di verifica…",
+    authLoading_reset: "Aggiornamento password…",
+    authLoading_forgot: "Invio link di recupero…",
+    authLoading_signup: "Creazione account…",
+    authLoading_signin: "Accesso…",
+    authCheckFields: "Controlla i campi evidenziati.",
+    authPasswordRequired: "Inserisci la password.",
+    authEmailInvalid: "Inserisci un indirizzo email valido.",
+    authAlready: "Hai già un account?",
+    authNewHere: "Prima volta qui?",
+    authOr: "oppure",
+    authResetTitle: "Reimposta password",
     authPassword: "Password",
     authShowPassword: "Mostra password",
     authHidePassword: "Nascondi password",
@@ -320,14 +363,14 @@ export const accountCopy = {
       "Usa 15–128 caratteri. Sono consentiti spazi e gestori di password.",
     authAction_signin: "Accedi",
     authAction_signup: "Crea account",
-    authAction_forgot: "Invia email di recupero",
+    authAction_forgot: "Invia link di recupero",
     authAction_reset: "Imposta nuova password",
     authForgot: "Password dimenticata?",
     authBack: "Torna all’accesso",
     authRegistered:
       "Se è possibile registrare questo indirizzo, riceverai un’email di verifica. Accedi con la password per continuare. Se hai già un account, usa il metodo originale o reimposta la password.",
     authRecoverySent:
-      "Se esiste un account con password idoneo, riceverai un’email di recupero. Controlla anche lo spam.",
+      "Se un account può reimpostare la password per questa email, riceverai presto un link.",
     authResetDone: "Password aggiornata. Accedi con la nuova password.",
     authVerified: "Email verificata. Accedi per continuare.",
     authVerifyHint:
@@ -335,8 +378,7 @@ export const accountCopy = {
     authVerify: "Verifica email",
     authResendVerification: "Invia di nuovo l’email di verifica",
     authVerificationSent: "Verifica richiesta. Controlla la posta e lo spam.",
-    authCredentials:
-      "Accesso non riuscito. Controlla email e password oppure usa l’accesso Google originale.",
+    authCredentials: "Email o password non corretti.",
     authExpired:
       "Il tentativo o il link non è valido, è scaduto, è già stato usato o non è stato completato. Ricomincia.",
     authMethods:
@@ -377,7 +419,7 @@ export const accountCopy = {
     authTitle: "Le tue parole. I tuoi progressi.",
     authIntro:
       "Impara italiano e greco con il tuo vocabolario e la tua cronologia.",
-    authSignIn: "Accedi o crea un account",
+    authSignIn: "Accedi",
     authGoogle: "Continua con Google",
     authEmail: "Indirizzo email",
     authPrivacy:
