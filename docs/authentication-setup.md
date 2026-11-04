@@ -4,6 +4,12 @@ Prepared 4 November 2026. These are operator instructions, not evidence of provi
 
 ## Decisions and costs before provisioning
 
+Railway account inspection confirmed Hobby on 4 November 2026. Railway blocks
+outbound SMTP on Hobby; the current SMTP transport therefore cannot complete
+hosted email sign-in on that plan. See the [staging preparation and cost
+estimate](authentication-staging-preparation.md) before provisioning. No Pro
+upgrade or alternative email transport has been approved.
+
 SuperTokens managed Core is the implementation candidate. Its current [pricing](https://supertokens.com/pricing) advertises free service **under 5,000 monthly active users** and $0.02/MAU outside the free offer. MAUs are unique logged-in users per month, including registrations. Confirm whether billing at the threshold covers all MAUs or only excess usage, available hard spending limits, and separate staging usage with the provider; do not assume incremental billing or that alerts prevent charges. No paid plan, billable upgrade, or recurring charge is authorised. If free-only operation cannot be assured, stop for approval.
 
 Account linking is disabled by the application; leave paid add-ons disabled. The pricing page lists account linking at $0.005/MAU with a $100 minimum. No email provider has been selected: SMTP quotas, sandbox restrictions, domain costs and recurring delivery charges remain unknown and separate. Ordinary Google OAuth client configuration is used, not Google Cloud Identity Platform; no paid Google service is required by this code. Confirm the selected projects incur no unrelated charges.
