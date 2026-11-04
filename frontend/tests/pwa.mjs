@@ -12,15 +12,29 @@ const server = createServer(async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   if (path.startsWith("/api/")) {
     res.setHeader("Content-Type", "application/json");
-    if (path === "/api/auth/login") authenticated = true;
     if (path === "/api/auth/logout") authenticated = false;
     const body = path.startsWith("/api/auth/")
-      ? { authenticated, csrf_token: "test" }
+      ? {
+          authenticated,
+          csrf_token: "test",
+          account: authenticated
+            ? {
+                id: "account",
+                role: "learner",
+                legacy_access: false,
+                interface_language: "en",
+                profile_id: "1",
+                display_name: "Learner",
+              }
+            : null,
+        }
       : path === "/api/vocabulary"
         ? {
             items: [
               {
                 id: "1",
+                can_edit: true,
+                visibility: "private",
                 italian: "PRIVATE CASA",
                 greek: "σπίτι",
                 word_type: "noun",
@@ -140,12 +154,15 @@ try {
       ),
     );
   await noOverflow();
-  await page.getByLabel("Shared password").fill("password");
-  await page.getByRole("button", { name: "Open my notebook" }).click();
+  await page.getByLabel("Email address").waitFor();
+  await page.getByRole("button", { name: "Continue with Google" }).waitFor();
+  // Establish a simulated verified-provider session; provider behavior is covered separately.
+  authenticated = true;
+  await page.reload();
   await page.getByRole("link", { name: "Words", exact: true }).click();
   await page.getByText("PRIVATE CASA").waitFor();
   await page.getByRole("link", { name: "Practice", exact: true }).click();
-  await page.getByLabel("Learner profile", { exact: true }).selectOption("1");
+  await page.getByText("Learner", { exact: true }).waitFor();
   await noOverflow();
   await page.getByRole("button", { name: "Start practice", exact: true }).tap();
   const reveal = page.getByRole("button", { name: "Reveal answer" });
@@ -191,8 +208,8 @@ try {
   await page.keyboard.press("Space");
   await page.getByRole("heading", { name: "Session summary" }).waitFor();
   await noOverflow();
-  await page.getByRole("button", { name: "Lock notebook" }).click();
-  await page.getByLabel("Shared password").waitFor();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByLabel("Email address").waitFor();
   const cached = await page.evaluate(async () => {
     const cache = await caches.open((await caches.keys())[0]);
     return Promise.all(
@@ -212,7 +229,7 @@ try {
   await context.setOffline(true);
   await page.goto(`${origin}/practice`);
   await page.getByRole("heading", { name: "You’re offline" }).waitFor();
-  assert.equal(await page.getByLabel("Shared password").count(), 0);
+  assert.equal(await page.getByLabel("Email address").count(), 0);
   assert.equal(await page.getByText("PRIVATE CASA").count(), 0);
   assert.ok(
     await page.evaluate(async () => {
@@ -226,7 +243,7 @@ try {
   );
   await context.setOffline(false);
   await page.getByRole("button", { name: "Try again" }).click();
-  await page.getByLabel("Shared password").waitFor();
+  await page.getByLabel("Email address").waitFor();
   updated = true;
   await page.evaluate(async () =>
     (await navigator.serviceWorker.ready).update(),

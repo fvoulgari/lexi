@@ -20,8 +20,17 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql+psycopg://notebook:${POSTGRES_PASSWORD}@postgres:5432/notebook
-      SHARED_PASSWORD: ${SHARED_PASSWORD:?Set SHARED_PASSWORD in .env}
-      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      SUPERTOKENS_CONNECTION_URI: ${SUPERTOKENS_CONNECTION_URI:-}
+      SUPERTOKENS_API_KEY: ${SUPERTOKENS_API_KEY:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      CLAIM_HOURS: ${CLAIM_HOURS:-48}
       COOKIE_SECURE: "false"
       PUBLIC_ORIGIN: http://localhost:5173
     ports:

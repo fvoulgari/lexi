@@ -11,6 +11,7 @@ def headers(client):
 
 def test_meaning_can_be_added_and_edited_across_devices(logged_in):
     body = {
+        "visibility": "legacy",
         "unit_id": logged_in.get("/api/units").json()[0]["id"],
         "italian": "  il perché  ",
         "greek": "το γιατί",
@@ -31,11 +32,9 @@ def test_meaning_can_be_added_and_edited_across_devices(logged_in):
     for field in body.keys() - {"italian", "unit_id"}:
         assert entry[field] == body[field]
     with TestClient(create_app()) as device:
-        device.post(
-            "/api/auth/login",
-            json={"password": "test-notebook-password"},
-            headers=headers(device),
-        )
+        from conftest import signin
+
+        signin(device)
         assert device.get(f"/api/vocabulary/{entry['id']}").json() == entry
     updated = logged_in.patch(
         f"/api/vocabulary/{entry['id']}",
@@ -56,6 +55,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
     first = logged_in.post(
         "/api/vocabulary",
         json={
+            "visibility": "legacy",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
@@ -69,6 +69,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
     duplicate = logged_in.post(
         "/api/vocabulary",
         json={
+            "visibility": "legacy",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
@@ -95,6 +96,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
         saved = logged_in.post(
             "/api/vocabulary",
             json={
+                "visibility": "legacy",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
                 "unit_id": logged_in.get("/api/units").json()[0]["id"],

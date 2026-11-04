@@ -5,11 +5,19 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.auth import SharedGate
+from app.access import (
+    apply_scope,
+    lock_owned_profile,
+    require_same_scope,
+    require_write,
+)
+from app.accounts import account_router
+from app.auth import initialize_auth
+from app.collections import collection_router
 from app.config import Settings
 from app.csv_export import export_library
 from app.database import database
@@ -17,12 +25,12 @@ from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
 from app.grammar import clean_grammar, missing_gender_fields
 from app.imports import import_router
+from app.legacy_claims import legacy_router
 from app.models import (
+    Collection,
+    CollectionEntry,
     LearningProgress,
-    PracticeSession,
     Profile,
-    ReviewEvent,
-    SessionCard,
     Tag,
     Unit,
     VocabularyEntry,
@@ -31,7 +39,6 @@ from app.practice import difficult_progress, practice_router
 from app.progress import progress_router
 from app.schemas import (
     Direction,
-    ProfileCreate,
     ProfileOutput,
     ProfileUpdate,
     TagCreate,
@@ -52,7 +59,6 @@ from app.vocabulary_deletion import delete_entries
 def create_app():
     settings = Settings()
     engine, sessions = database(settings.database_url)
-    gate = SharedGate(settings, sessions)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -67,12 +73,16 @@ def create_app():
         openapi_url=None,
     )
 
+    gate = initialize_auth(app, settings, sessions)
+    app.state.gate = gate
+    app.state.sessions = sessions
+
     @app.middleware("http")
     async def response_security(request, call_next):
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Referrer-Policy"] = "same-origin"
+        response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; style-src 'self'; font-src 'self'; "
             "img-src 'self' data:; frame-ancestors 'none'; "
@@ -143,14 +153,17 @@ def create_app():
             connection.execute(text("SELECT 1"))
         return {"status": "ok"}
 
+    app.include_router(account_router(sessions, gate))
+    app.include_router(legacy_router(sessions, gate, settings))
+    app.include_router(collection_router(sessions, gate))
     app.include_router(practice_router(sessions, gate))
     app.include_router(progress_router(sessions, gate))
     app.include_router(import_router(sessions, gate))
     app.include_router(vocabulary_bulk_router(sessions, gate))
 
     app.get("/api/auth/session")(gate.state)
-    app.post("/api/auth/login")(gate.login)
     app.post("/api/auth/logout")(gate.logout)
+    app.post("/api/auth/logout-all")(gate.logout_all)
 
     @app.get(
         "/api/vocabulary",
@@ -165,15 +178,33 @@ def create_app():
         no_unit: bool = False,
         word_types: list[WordType] = Query(default=[]),
         tag_ids: list[UUID] = Query(default=[]),
+        collection_id: UUID | None = None,
+        archived: bool = False,
     ):
         conditions = vocabulary_conditions(q, unit_ids, no_unit, word_types, tag_ids)
         with sessions() as db:
+            if collection_id is not None:
+                if db.get(Collection, collection_id) is None:
+                    raise HTTPException(404, "Collection not found.")
+                conditions.append(
+                    VocabularyEntry.id.in_(
+                        select(CollectionEntry.entry_id).where(
+                            CollectionEntry.collection_id == collection_id
+                        )
+                    )
+                )
+            if archived:
+                conditions.append(VocabularyEntry.archived_at.is_not(None))
             total = db.scalar(
-                select(func.count()).select_from(VocabularyEntry).where(*conditions)
+                select(func.count())
+                .select_from(VocabularyEntry)
+                .where(*conditions)
+                .execution_options(include_archived=archived)
             )
             entries = db.scalars(
                 select(VocabularyEntry)
                 .where(*conditions)
+                .execution_options(include_archived=archived)
                 .order_by(VocabularyEntry.italian, VocabularyEntry.id)
                 .offset((page - 1) * page_size)
                 .limit(page_size)
@@ -220,6 +251,7 @@ def create_app():
     def save_entry(body, entry_id=None):
         with sessions.begin() as db:
             values = body.model_dump(exclude_unset=True)
+            visibility = values.pop("visibility", "private")
             if (
                 values.get("unit_id") is not None
                 and db.get(Unit, values["unit_id"]) is None
@@ -246,12 +278,13 @@ def create_app():
                     )
             if entry_id is None:
                 values = clean_grammar(values, values["word_type"])
-                entry = VocabularyEntry(**values)
+                entry = apply_scope(VocabularyEntry(**values), visibility=visibility)
                 db.add(entry)
             else:
                 entry = db.get(VocabularyEntry, entry_id)
                 if entry is None:
                     raise HTTPException(404, detail="Vocabulary entry not found.")
+                require_write(entry)
                 values = clean_grammar(values, values.get("word_type", entry.word_type))
                 missing = missing_gender_fields(
                     {
@@ -283,7 +316,10 @@ def create_app():
                     )
                 for field, value in values.items():
                     setattr(entry, field, value)
+            require_same_scope(entry, db.get(Unit, entry.unit_id))
             if tag_ids is not None:
+                for tag in tags:
+                    require_same_scope(entry, tag)
                 entry.tags = tags
             db.flush()
             db.refresh(entry)
@@ -328,6 +364,7 @@ def create_app():
             )
             if entry is None:
                 raise HTTPException(404, "Vocabulary entry not found.")
+            require_write(entry)
             delete_entries(db, [entry_id])
             return {"deleted": str(entry_id)}
 
@@ -349,19 +386,6 @@ def create_app():
             return db.scalars(
                 select(Profile).order_by(Profile.created_at, Profile.id)
             ).all()
-
-    @app.post(
-        "/api/profiles",
-        response_model=ProfileOutput,
-        status_code=201,
-        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
-    )
-    def create_profile(body: ProfileCreate):
-        with sessions.begin() as db:
-            profile = Profile(**body.model_dump())
-            db.add(profile)
-            db.flush()
-            return ProfileOutput.model_validate(profile)
 
     @app.get(
         "/api/profiles/{profile_id}/difficult-entries",
@@ -386,6 +410,7 @@ def create_app():
                     "reviews": record.reviews,
                 }
                 for record in records
+                if db.get(VocabularyEntry, record.entry_id) is not None
             ]
 
     @app.get(
@@ -432,46 +457,13 @@ def create_app():
     )
     def update_profile(profile_id: UUID, body: ProfileUpdate):
         with sessions.begin() as db:
-            profile = db.scalar(
-                select(Profile).where(Profile.id == profile_id).with_for_update()
-            )
+            profile = lock_owned_profile(db, profile_id)
             if profile is None:
                 raise HTTPException(404, detail="Learner profile not found.")
             for field, value in body.model_dump(exclude_unset=True).items():
                 setattr(profile, field, value)
             db.flush()
             return ProfileOutput.model_validate(profile)
-
-    @app.delete(
-        "/api/profiles/{profile_id}",
-        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
-    )
-    def delete_profile(profile_id: UUID):
-        with sessions.begin() as db:
-            # Match practice writes' profile-first lock order. No new session or
-            # review can be created for this learner while history is removed.
-            profile = db.scalar(
-                select(Profile).where(Profile.id == profile_id).with_for_update()
-            )
-            if profile is None:
-                raise HTTPException(404, "Learner profile not found.")
-            session_ids = select(PracticeSession.id).where(
-                PracticeSession.profile_id == profile_id
-            )
-            db.execute(
-                delete(LearningProgress).where(
-                    LearningProgress.profile_id == profile_id
-                )
-            )
-            db.execute(delete(ReviewEvent).where(ReviewEvent.profile_id == profile_id))
-            db.execute(
-                delete(SessionCard).where(SessionCard.session_id.in_(session_ids))
-            )
-            db.execute(
-                delete(PracticeSession).where(PracticeSession.profile_id == profile_id)
-            )
-            db.delete(profile)
-        return {"deleted": True}
 
     @app.get(
         "/api/units",
@@ -509,7 +501,9 @@ def create_app():
     def create_tag(body: TagCreate):
         try:
             with sessions.begin() as db:
-                tag = Tag(**body.model_dump())
+                values = body.model_dump()
+                visibility = values.pop("visibility", "private")
+                tag = apply_scope(Tag(**values), visibility=visibility)
                 db.add(tag)
                 db.flush()
                 return TagOutput.model_validate(tag)
@@ -532,7 +526,9 @@ def create_app():
     def create_unit(body: UnitCreate):
         try:
             with sessions.begin() as db:
-                unit = Unit(**body.model_dump())
+                values = body.model_dump()
+                visibility = values.pop("visibility", "private")
+                unit = apply_scope(Unit(**values), visibility=visibility)
                 db.add(unit)
                 db.flush()
                 return UnitOutput.model_validate(unit)

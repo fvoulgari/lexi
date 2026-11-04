@@ -36,15 +36,14 @@ def test_difficult_entries_follow_review_history_and_direction(logged_in):
         assert len(items) == (1 if expected >= 0.5 else 0)
     assert items[0]["entry"]["id"] == entry
     assert client.get(path, params={"direction": "italian_to_greek"}).json() == []
-    other = next(
-        p["id"] for p in client.get("/api/profiles").json() if p["id"] != profile
-    )
+    from uuid import uuid4
+
     assert (
         client.get(
-            f"/api/profiles/{other}/difficult-entries",
+            f"/api/profiles/{uuid4()}/difficult-entries",
             params={"direction": "greek_to_italian"},
-        ).json()
-        == []
+        ).status_code
+        == 404
     )
     response = client.post(
         "/api/sessions",
@@ -105,14 +104,9 @@ def test_hard_cutoff_inactivity_and_difficult_review_summary(logged_in, monkeypa
 
     monkeypatch.setattr(app.auth, "datetime", Later)
     client.cookies.clear()
-    assert (
-        client.post(
-            "/api/auth/login",
-            json={"password": "test-notebook-password"},
-            headers=headers(client),
-        ).status_code
-        == 200
-    )
+    from conftest import signin
+
+    signin(client)
     assert client.get(path).json() == before
     practice = client.post(
         "/api/sessions",

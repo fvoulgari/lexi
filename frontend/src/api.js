@@ -1,7 +1,9 @@
 export async function request(path, options = {}) {
   const { responseType, ...fetchOptions } = options;
   if (!navigator.onLine) {
-    throw Object.assign(new Error("Connection unavailable"), { code: "connection_error" });
+    throw Object.assign(new Error("Connection unavailable"), {
+      code: "connection_error",
+    });
   }
   let response;
   try {
@@ -9,21 +11,29 @@ export async function request(path, options = {}) {
       credentials: "same-origin",
       cache: "no-store",
       ...fetchOptions,
-      headers: { "Content-Type": "application/json", ...options.headers },
+      headers: {
+        "Content-Type": "application/json",
+        rid: "session",
+        ...options.headers,
+      },
     });
   } catch {
     throw Object.assign(new Error("Connection unavailable"), {
       code: "connection_error",
     });
   }
+  if (response.status === 204) return null;
   if (response.ok && responseType === "blob") return response.blob();
   const body = await response.json();
   if (!response.ok) {
+    if (response.status === 401)
+      window.dispatchEvent(new Event("lexi:unauthorized"));
     throw Object.assign(new Error(body.error?.message || "Request failed"), {
       code: body.error?.code || "request_failed",
       status: response.status,
       fields: body.error?.fields,
       entry_ids: body.error?.entry_ids,
+      report: body.error?.report,
     });
   }
   return body;

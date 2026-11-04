@@ -1,3 +1,5 @@
+> Authentication update: the shared-password, profile-selection, and old session-secret procedures below describe the previous release. For this branch, follow [authentication configuration, migration, and legacy claims](authentication.md). Do not deploy this change before its provider and migration gates are verified. Existing image-release and backup mechanics still apply.
+
 # Railway release runbook
 
 One application service serves the React build and FastAPI API on the same origin. A separate PostgreSQL service owns all durable vocabulary, learner preferences, gate sessions, review events and learning records. See [ADR 0001](adr/0001-railway-application-and-private-postgresql.md). Local Compose and the separate frontend/backend development builds remain supported.

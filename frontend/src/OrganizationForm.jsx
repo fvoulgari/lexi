@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import PropTypes from "prop-types";
 import { Info } from "lucide-react";
+import AudiencePicker from "./AudiencePicker.jsx";
 import { request } from "./api.js";
 export default function OrganizationForm({
   kind,
@@ -10,10 +11,12 @@ export default function OrganizationForm({
   onLocked,
   onClose,
   onCreated,
+  initialVisibility = "private",
 }) {
   const [values, setValues] = useState(
     kind === "units" ? { code: "", title: "" } : { name: "" },
   );
+  const [visibility, setVisibility] = useState(initialVisibility);
   const first = useRef(null);
   useEffect(() => {
     first.current?.focus();
@@ -25,7 +28,9 @@ export default function OrganizationForm({
         method: "POST",
         headers: { "X-CSRF-Token": csrf },
         body: JSON.stringify(
-          kind === "units" ? { ...values, sort_order: 0 } : values,
+          kind === "units"
+            ? { ...values, sort_order: 0, visibility }
+            : { ...values, visibility },
         ),
       }),
     onSuccess: async (result) => {
@@ -61,6 +66,11 @@ export default function OrganizationForm({
         disabled={save.isPending}
         aria-describedby={kind === "units" ? "unit-creation-hint" : undefined}
       >
+        <AudiencePicker
+          value={visibility}
+          onChange={setVisibility}
+          text={text}
+        />
         <div className="entry-fields">
           {Object.entries(values).map(([key, value], index) => (
             <label key={key}>

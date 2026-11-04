@@ -28,9 +28,11 @@ Session recall counts **Hard + Easy** responses as a proportion of submitted rev
 
 ## Scope and access
 
-Lexi is built for a **small, trusted learning group**. A shared password controls access. Everyone admitted can edit the shared vocabulary library and select any learner profile. Profiles separate learning records; they are not private user accounts.
+Lexi supports public registration through Google or verified email magic links. Each account owns exactly one learner profile, private vocabulary, collections, settings, and progress. Registered learners can practise published shared vocabulary. Existing content stays in a restricted legacy library until explicitly reviewed and published; administrators separately assign legacy access and editing roles.
 
-In **Profiles and settings**, select a learner and choose **Delete profile**. The confirmation names the learner and explains that deletion permanently removes their preferences, practice sessions, reviews and progress. Cancel leaves the profile unchanged. Shared vocabulary and other learners are preserved. Anyone admitted to the shared notebook can delete a profile; there is no separate administrator role.
+Administrators can issue secure single-use links to associate verified learners with their legacy progress. Existing activity blocks automatic reassignment and produces a resolution report; no automatic merging or name-based claiming occurs. Ordinary card deletion archives content while preserving reviews and completed-session history. Profile switching and permanent profile-deletion controls are unavailable.
+
+See [authentication setup and administrator guide](docs/authentication.md) for provider requirements, free-tier limitations, legacy claims, backups, and rollout gates. Required external configuration and real-provider verification must be completed before production readiness.
 
 Interface language is independent of the languages on the cards. The current vocabulary model supports Italian and Greek, not arbitrary language pairs. Pronunciation is entered as text; automatic translation and generated speech are not included.
 
@@ -63,14 +65,13 @@ Set these values in the untracked `.env` file:
 | Variable | Value |
 | --- | --- |
 | `POSTGRES_PASSWORD` | A unique, URL-safe database password |
-| `SHARED_PASSWORD` | Your application password, 12–256 characters |
-| `SESSION_SECRET` | An independently generated random secret, 32–256 characters |
+| `SUPERTOKENS_CONNECTION_URI`, `SUPERTOKENS_API_KEY` | Approved development Core connection and backend API key |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google web client with the exact local callback |
+| `SMTP_HOST`, `SMTP_FROM_EMAIL`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Explicit development email sender |
+| `SMTP_PORT`, `SMTP_SECURE` | Sender TLS settings; production uses implicit TLS |
 
-Use a password manager or a cryptographically secure generator. If Python is installed, generate a session secret with:
 
-```sh
-python3 -c "import secrets; print(secrets.token_urlsafe(48))"
-```
+Use unique protected credentials and follow [provider setup](docs/authentication.md). Missing authentication configuration fails closed; there is no shared-password fallback.
 
 **Local database networking:** Compose publishes PostgreSQL only on `127.0.0.1:5432`, making it available to native development at `localhost:5432`. Application containers connect through the Compose service name, `postgres:5432`.
 
@@ -81,7 +82,7 @@ docker compose up --build -d --wait
 docker compose exec backend python -m app.seed
 ```
 
-Open [localhost:5173](http://localhost:5173), enter your shared password, and choose or create a learner profile.
+Open [localhost:5173](http://localhost:5173) and sign in with Google or an email magic link. Registration creates your own learner profile; no profile selection is required.
 
 Startup applies database migrations. Seeding is an explicit first-time action, not a reset command. `docker compose down` retains the named database volume; removing that volume deletes local data.
 
@@ -125,7 +126,7 @@ Use Python **3.14**, Node **24**, and PostgreSQL **18**, matching Compose, the t
 make setup PYTHON=python3.14
 ```
 
-Configure `backend/.env` with `DATABASE_URL`, `SHARED_PASSWORD`, `SESSION_SECRET`, `PUBLIC_ORIGIN=http://localhost:5173`, and `COOKIE_SECURE=false` for local HTTP. If using the Compose database, configure the root `.env` too and run `make db-up`.
+Configure `backend/.env` with `DATABASE_URL`, the provider/SMTP variables above, `PUBLIC_ORIGIN=http://localhost:5173`, and `COOKIE_SECURE=false` for local HTTP. If using the Compose database, configure the root `.env` too and run `make db-up`.
 
 ```sh
 make migrate-local

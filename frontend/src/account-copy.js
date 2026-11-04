@@ -1,0 +1,407 @@
+export const accountCopy = {
+  en: {
+    requestStatuses: {
+      pending: "Pending",
+      resolved: "Resolved",
+      rejected: "Rejected",
+    },
+    resolutionCases: "Legacy association reports",
+    resolutionHint:
+      "These accounts already have activity. Both profiles are preserved. Reassignment requires a separately reviewed migration; this report does not merge or overwrite anything.",
+    currentProfile: "Current profile",
+    previousProfile: "Previous profile",
+    reportMetric: "Records",
+    caseStatuses: { pending: "Pending review", resolved: "Reviewed" },
+    reportMetrics: {
+      reviews: "Reviews",
+      sessions: "Sessions",
+      progress_records: "Progress records",
+      private_cards: "Private cards",
+      private_units: "Private units",
+      private_tags: "Private tags",
+      collections: "Collections",
+    },
+    claimHistory: "Claim-link history",
+    claimExpires: "Expires",
+    claimStatuses: {
+      pending: "Pending",
+      used: "Used",
+      revoked: "Revoked",
+      expired: "Expired",
+    },
+    sharedMetadata: "Review shared units and tags",
+    metadataHint:
+      "Publish reviewed units and tags before publishing their cards. Publishing a unit or tag does not publish its cards.",
+    legacySubmit: "Request help",
+    authMethods:
+      "Use the same sign-in method each time. Google and email accounts are not automatically linked.",
+    authTitle: "Your words. Your progress.",
+    authIntro:
+      "Learn Italian and Greek with your own vocabulary and learning history.",
+    authSignIn: "Sign in or create an account",
+    authGoogle: "Continue with Google",
+    authEmail: "Email address",
+    authSend: "Send a sign-in link",
+    authResend: "Send another link",
+    authSent:
+      "If email delivery is available, a sign-in link is on its way. Check your inbox and spam folder.",
+    authPrivacy:
+      "Your progress and private vocabulary belong to your account. Signing up does not grant shared-library editing rights.",
+    authCompleting: "Completing secure sign-in…",
+    authExpired:
+      "This sign-in link has expired, was already used, or could not be verified. Request a new link or try Google.",
+    authUnavailable:
+      "Sign-in is temporarily unavailable. Please try again shortly.",
+    logout: "Sign out",
+    logoutAll: "Sign out on all devices",
+    account: "Your account",
+    accountPrivate:
+      "Your learner profile, preferences and learning history are private.",
+    legacyRequest: "Find my previous progress",
+    legacyRequestHint:
+      "Ask an administrator to help find your previous learner profile. No profile names are shown to other learners.",
+    legacyName: "Previous profile name",
+    legacyNote: "Additional information (optional)",
+    requestSent:
+      "Your request has been received. An administrator will review it privately.",
+    claimTitle: "Connect previous progress",
+    claimConfirm: "Connect this profile",
+    claimHint:
+      "Check that this is your previous profile. Connecting it does not grant editing permissions. Profiles with new activity require administrator review.",
+    claimConflict:
+      "Your current profile has activity. Nothing has been overwritten or reassigned. An administrator must review a separate migration.",
+    claimDone: "Your previous learner profile is connected.",
+    claimExpired:
+      "This claim link has expired. Ask an administrator for a new one.",
+    claimRevoked:
+      "This claim link has been revoked. Ask an administrator for help.",
+    claimUsed: "This claim link has already been used.",
+    profileClaimed: "This learner profile is already connected to an account.",
+    claimInvalid:
+      "This claim link is unavailable, expired, revoked, or already used. Ask an administrator for help.",
+    admin: "Administration",
+    adminAccounts: "Accounts and permissions",
+    role: "Role",
+    learner: "Learner",
+    editor: "Library editor",
+    adminRole: "Administrator",
+    legacyAccess: "Restricted legacy library access",
+    adminLegacy: "Unclaimed legacy profiles",
+    claimWarning:
+      "A claim link grants control of this learner profile to its recipient. Verify the recipient privately and share the link only with them.",
+    claimAcknowledge:
+      "I have verified the intended recipient and understand that this is a bearer link.",
+    generateClaim: "Generate claim link",
+    revokeClaim: "Revoke claim link",
+    claimLink: "Private claim link — share only with the verified learner",
+    adminRequests: "Previous-progress requests",
+    reject: "Reject request",
+    resolve: "Mark resolved",
+    visibility: "Audience",
+    private: "Private",
+    legacy: "Restricted legacy library",
+    published: "Published shared library",
+    publish: "Publish for all registered learners",
+    publishConfirm:
+      "Publish this reviewed card and its unit and tags for every registered learner? Other cards in the unit remain restricted.",
+    archived: "Archived",
+    archive: "Archive card",
+    restore: "Restore card",
+    archiveFilter: "Show archived cards",
+    personalVariant: "Create a private variant",
+    confirmDelete: "Archive",
+    bulkDelete: "Archive selected",
+    bulkDeleteWarning:
+      "Archive the selected cards? They will leave future practice queues. Reviews and completed-session history are preserved.",
+    deleteCollection: "Delete collection",
+    collections: "My collections",
+    collectionName: "Collection name",
+    createCollection: "Create collection",
+    addToCollection: "Add to collection",
+    removeFromCollection: "Remove from collection",
+    allCollections: "All accessible cards",
+    collectionPrivate:
+      "Collections are private. Membership never grants access to a restricted card.",
+    deleteEntry: "Archive card",
+    deleteWarning:
+      "Archive this card? It will leave future practice queues. Existing reviews and completed sessions are preserved.",
+    deleted: "Card archived.",
+    settingsPrivacy: "Only you can access your profile and personal progress.",
+    requestProfile:
+      "Learner profile unavailable. Please refresh or contact an administrator.",
+    saved: "Saved.",
+    actionFailed: "The action could not be completed. Refresh and try again.",
+    reviewCount: "Reviews",
+    sessionCount: "Sessions",
+    noResults: "Nothing to show.",
+  },
+  el: {
+    requestStatuses: {
+      pending: "Σε αναμονή",
+      resolved: "Επιλύθηκε",
+      rejected: "Απορρίφθηκε",
+    },
+    resolutionCases: "Αναφορές σύνδεσης προηγούμενου προφίλ",
+    resolutionHint:
+      "Οι λογαριασμοί έχουν ήδη δραστηριότητα. Διατηρούνται και τα δύο προφίλ. Η μεταφορά απαιτεί ξεχωριστά ελεγμένη μετεγκατάσταση. Η αναφορά δεν συγχωνεύει ή αντικαθιστά δεδομένα.",
+    currentProfile: "Τρέχον προφίλ",
+    previousProfile: "Προηγούμενο προφίλ",
+    reportMetric: "Εγγραφές",
+    caseStatuses: { pending: "Αναμονή ελέγχου", resolved: "Ελέγχθηκε" },
+    reportMetrics: {
+      reviews: "Αξιολογήσεις",
+      sessions: "Συνεδρίες",
+      progress_records: "Εγγραφές προόδου",
+      private_cards: "Ιδιωτικές κάρτες",
+      private_units: "Ιδιωτικές ενότητες",
+      private_tags: "Ιδιωτικές ετικέτες",
+      collections: "Συλλογές",
+    },
+    claimHistory: "Ιστορικό συνδέσμων σύνδεσης προφίλ",
+    claimExpires: "Λήξη",
+    claimStatuses: {
+      pending: "Σε αναμονή",
+      used: "Χρησιμοποιήθηκε",
+      revoked: "Ανακλήθηκε",
+      expired: "Έληξε",
+    },
+    sharedMetadata: "Έλεγχος κοινών ενοτήτων και ετικετών",
+    metadataHint:
+      "Δημοσίευσε τις ελεγμένες ενότητες και ετικέτες πριν από τις κάρτες τους. Η δημοσίευσή τους δεν δημοσιεύει τις κάρτες.",
+    legacySubmit: "Αίτημα βοήθειας",
+    authMethods:
+      "Χρησιμοποίησε την ίδια μέθοδο σύνδεσης κάθε φορά. Οι λογαριασμοί Google και email δεν συνδέονται αυτόματα.",
+    authTitle: "Οι λέξεις σου. Η πρόοδός σου.",
+    authIntro:
+      "Μάθε ιταλικά και ελληνικά με το δικό σου λεξιλόγιο και ιστορικό μάθησης.",
+    authSignIn: "Σύνδεση ή δημιουργία λογαριασμού",
+    authGoogle: "Συνέχεια με Google",
+    authEmail: "Διεύθυνση email",
+    authSend: "Αποστολή συνδέσμου σύνδεσης",
+    authResend: "Αποστολή νέου συνδέσμου",
+    authSent:
+      "Αν η αποστολή email είναι διαθέσιμη, θα λάβεις σύνδεσμο σύνδεσης. Έλεγξε τα εισερχόμενα και την ανεπιθύμητη αλληλογραφία.",
+    authPrivacy:
+      "Η πρόοδος και το ιδιωτικό λεξιλόγιο ανήκουν στον λογαριασμό σου. Η εγγραφή δεν δίνει δικαιώματα επεξεργασίας της κοινής βιβλιοθήκης.",
+    authCompleting: "Ολοκλήρωση ασφαλούς σύνδεσης…",
+    authExpired:
+      "Ο σύνδεσμος έληξε, χρησιμοποιήθηκε ήδη ή δεν επαληθεύτηκε. Ζήτησε νέο σύνδεσμο ή δοκίμασε Google.",
+    authUnavailable:
+      "Η σύνδεση δεν είναι διαθέσιμη προσωρινά. Δοκίμασε ξανά σε λίγο.",
+    logout: "Αποσύνδεση",
+    logoutAll: "Αποσύνδεση από όλες τις συσκευές",
+    account: "Ο λογαριασμός σου",
+    accountPrivate:
+      "Το προφίλ, οι προτιμήσεις και η πρόοδός σου είναι ιδιωτικά.",
+    legacyRequest:
+      "Έχεις ήδη χρησιμοποιήσει το Lexi; Σύνδεσε την προηγούμενη πρόοδό σου.",
+    legacyRequestHint:
+      "Ζήτησε βοήθεια από διαχειριστή για το προηγούμενο προφίλ σου. Τα ονόματα προφίλ δεν εμφανίζονται σε άλλους χρήστες.",
+    legacyName: "Προηγούμενο όνομα προφίλ",
+    legacyNote: "Πρόσθετες πληροφορίες (προαιρετικά)",
+    requestSent:
+      "Το αίτημα καταχωρίστηκε. Ένας διαχειριστής θα το εξετάσει ιδιωτικά.",
+    claimTitle: "Σύνδεση προηγούμενης προόδου",
+    claimConfirm: "Σύνδεση προφίλ",
+    claimHint:
+      "Επιβεβαίωσε ότι πρόκειται για το προηγούμενο προφίλ σου. Δεν αποκτάς δικαιώματα επεξεργασίας. Η υπάρχουσα δραστηριότητα απαιτεί έλεγχο διαχειριστή.",
+    claimConflict:
+      "Το τρέχον προφίλ έχει δραστηριότητα. Δεν αντικαταστάθηκε ή μεταφέρθηκε τίποτα. Απαιτείται ξεχωριστός έλεγχος μετεγκατάστασης.",
+    claimDone: "Το προηγούμενο προφίλ συνδέθηκε.",
+    claimExpired: "Ο σύνδεσμος έληξε. Ζήτησε νέο από διαχειριστή.",
+    claimRevoked: "Ο σύνδεσμος ανακλήθηκε. Ζήτησε βοήθεια από διαχειριστή.",
+    claimUsed: "Ο σύνδεσμος χρησιμοποιήθηκε ήδη.",
+    profileClaimed: "Το προφίλ είναι ήδη συνδεδεμένο με λογαριασμό.",
+    claimInvalid:
+      "Ο σύνδεσμος δεν είναι διαθέσιμος, έληξε, ανακλήθηκε ή χρησιμοποιήθηκε. Ζήτησε βοήθεια από διαχειριστή.",
+    admin: "Διαχείριση",
+    adminAccounts: "Λογαριασμοί και δικαιώματα",
+    role: "Ρόλος",
+    learner: "Μαθητής",
+    editor: "Επιμελητής βιβλιοθήκης",
+    adminRole: "Διαχειριστής",
+    legacyAccess: "Πρόσβαση στην περιορισμένη παλιά βιβλιοθήκη",
+    adminLegacy: "Παλιά προφίλ χωρίς αντιστοίχιση",
+    claimWarning:
+      "Ο σύνδεσμος δίνει έλεγχο του προφίλ στον παραλήπτη. Επαλήθευσε ιδιωτικά την ταυτότητά του και μοιράσου τον μόνο μαζί του.",
+    claimAcknowledge:
+      "Έχω επαληθεύσει τον παραλήπτη και κατανοώ ότι ο σύνδεσμος παρέχει πρόσβαση.",
+    generateClaim: "Δημιουργία συνδέσμου",
+    revokeClaim: "Ανάκληση συνδέσμου",
+    claimLink: "Ιδιωτικός σύνδεσμος — μόνο για τον επαληθευμένο μαθητή",
+    adminRequests: "Αιτήματα προηγούμενης προόδου",
+    reject: "Απόρριψη αιτήματος",
+    resolve: "Σήμανση ως επιλυμένο",
+    visibility: "Πρόσβαση",
+    private: "Ιδιωτικό",
+    legacy: "Περιορισμένη παλιά βιβλιοθήκη",
+    published: "Δημοσιευμένη κοινή βιβλιοθήκη",
+    publish: "Δημοσίευση για όλους τους εγγεγραμμένους",
+    publishConfirm:
+      "Να δημοσιευτεί αυτή η ελεγμένη κάρτα μαζί με την ενότητα και τις ετικέτες της για όλους τους εγγεγραμμένους μαθητές; Οι άλλες κάρτες της ενότητας παραμένουν περιορισμένες.",
+    archived: "Αρχειοθετημένο",
+    archive: "Αρχειοθέτηση κάρτας",
+    restore: "Επαναφορά κάρτας",
+    archiveFilter: "Εμφάνιση αρχειοθετημένων καρτών",
+    personalVariant: "Δημιουργία ιδιωτικής παραλλαγής",
+    confirmDelete: "Αρχειοθέτηση",
+    bulkDelete: "Αρχειοθέτηση επιλεγμένων",
+    bulkDeleteWarning:
+      "Να αρχειοθετηθούν οι επιλεγμένες κάρτες; Δεν θα εμφανίζονται σε νέα εξάσκηση. Οι αξιολογήσεις και οι ολοκληρωμένες συνεδρίες διατηρούνται.",
+    deleteCollection: "Διαγραφή συλλογής",
+    collections: "Οι συλλογές μου",
+    collectionName: "Όνομα συλλογής",
+    createCollection: "Δημιουργία συλλογής",
+    addToCollection: "Προσθήκη σε συλλογή",
+    removeFromCollection: "Αφαίρεση από συλλογή",
+    allCollections: "Όλες οι προσβάσιμες κάρτες",
+    collectionPrivate:
+      "Οι συλλογές είναι ιδιωτικές. Η συμμετοχή δεν παρέχει πρόσβαση σε περιορισμένες κάρτες.",
+    deleteEntry: "Αρχειοθέτηση κάρτας",
+    deleteWarning:
+      "Να αρχειοθετηθεί η κάρτα; Δεν θα εμφανίζεται σε νέα εξάσκηση. Οι αξιολογήσεις και οι ολοκληρωμένες συνεδρίες διατηρούνται.",
+    deleted: "Η κάρτα αρχειοθετήθηκε.",
+    settingsPrivacy: "Μόνο εσύ έχεις πρόσβαση στο προφίλ και την πρόοδό σου.",
+    requestProfile:
+      "Το προφίλ δεν είναι διαθέσιμο. Ανανέωσε ή επικοινώνησε με διαχειριστή.",
+    saved: "Αποθηκεύτηκε.",
+    actionFailed: "Η ενέργεια δεν ολοκληρώθηκε. Ανανέωσε και δοκίμασε ξανά.",
+    reviewCount: "Αξιολογήσεις",
+    sessionCount: "Συνεδρίες",
+    noResults: "Δεν υπάρχουν στοιχεία.",
+  },
+  it: {
+    requestStatuses: {
+      pending: "In attesa",
+      resolved: "Risolta",
+      rejected: "Rifiutata",
+    },
+    resolutionCases: "Rapporti di collegamento dei profili precedenti",
+    resolutionHint:
+      "Questi account hanno già attività. Entrambi i profili sono conservati. La riassegnazione richiede una migrazione esaminata separatamente. Il rapporto non unisce o sovrascrive dati.",
+    currentProfile: "Profilo attuale",
+    previousProfile: "Profilo precedente",
+    reportMetric: "Registrazioni",
+    caseStatuses: { pending: "In attesa di verifica", resolved: "Esaminato" },
+    reportMetrics: {
+      reviews: "Valutazioni",
+      sessions: "Sessioni",
+      progress_records: "Registrazioni dei progressi",
+      private_cards: "Schede private",
+      private_units: "Unità private",
+      private_tags: "Tag privati",
+      collections: "Raccolte",
+    },
+    claimHistory: "Cronologia dei link di collegamento",
+    claimExpires: "Scadenza",
+    claimStatuses: {
+      pending: "In attesa",
+      used: "Usato",
+      revoked: "Revocato",
+      expired: "Scaduto",
+    },
+    sharedMetadata: "Revisiona unità e tag condivisi",
+    metadataHint:
+      "Pubblica unità e tag revisionati prima delle relative schede. Pubblicarli non pubblica le schede.",
+    legacySubmit: "Chiedi aiuto",
+    authMethods:
+      "Usa sempre lo stesso metodo di accesso. Gli account Google ed email non vengono collegati automaticamente.",
+    authTitle: "Le tue parole. I tuoi progressi.",
+    authIntro:
+      "Impara italiano e greco con il tuo vocabolario e la tua cronologia.",
+    authSignIn: "Accedi o crea un account",
+    authGoogle: "Continua con Google",
+    authEmail: "Indirizzo email",
+    authSend: "Invia un link di accesso",
+    authResend: "Invia un altro link",
+    authSent:
+      "Se l’invio email è disponibile, riceverai un link di accesso. Controlla la posta e lo spam.",
+    authPrivacy:
+      "I progressi e il vocabolario privato appartengono al tuo account. La registrazione non concede diritti di modifica della biblioteca condivisa.",
+    authCompleting: "Completamento dell’accesso sicuro…",
+    authExpired:
+      "Il link è scaduto, già usato o non verificabile. Richiedi un nuovo link o prova Google.",
+    authUnavailable:
+      "L’accesso non è temporaneamente disponibile. Riprova tra poco.",
+    logout: "Esci",
+    logoutAll: "Esci da tutti i dispositivi",
+    account: "Il tuo account",
+    accountPrivate: "Il profilo, le preferenze e i progressi sono privati.",
+    legacyRequest: "Trova i miei progressi precedenti",
+    legacyRequestHint:
+      "Chiedi a un amministratore di trovare il tuo profilo precedente. I nomi dei profili non sono visibili agli altri studenti.",
+    legacyName: "Nome del profilo precedente",
+    legacyNote: "Altre informazioni (facoltative)",
+    requestSent:
+      "Richiesta ricevuta. Un amministratore la esaminerà privatamente.",
+    claimTitle: "Collega i progressi precedenti",
+    claimConfirm: "Collega questo profilo",
+    claimHint:
+      "Verifica che sia il tuo profilo precedente. Il collegamento non concede permessi di modifica. Un profilo con attività richiede una verifica amministrativa.",
+    claimConflict:
+      "Il profilo attuale contiene attività. Nulla è stato sovrascritto o riassegnato. Serve una migrazione esaminata separatamente.",
+    claimDone: "Il profilo precedente è collegato.",
+    claimExpired: "Il link è scaduto. Chiedine uno nuovo a un amministratore.",
+    claimRevoked: "Il link è stato revocato. Chiedi aiuto a un amministratore.",
+    claimUsed: "Il link è già stato usato.",
+    profileClaimed: "Il profilo è già collegato a un account.",
+    claimInvalid:
+      "Il link non è disponibile, è scaduto, revocato o già usato. Chiedi aiuto a un amministratore.",
+    admin: "Amministrazione",
+    adminAccounts: "Account e permessi",
+    role: "Ruolo",
+    learner: "Studente",
+    editor: "Redattore della biblioteca",
+    adminRole: "Amministratore",
+    legacyAccess: "Accesso alla biblioteca precedente riservata",
+    adminLegacy: "Profili precedenti non collegati",
+    claimWarning:
+      "Il link dà il controllo del profilo al destinatario. Verificane l’identità privatamente e condividilo solo con lui.",
+    claimAcknowledge:
+      "Ho verificato il destinatario e comprendo che il link concede accesso.",
+    generateClaim: "Genera link",
+    revokeClaim: "Revoca link",
+    claimLink: "Link privato — solo per lo studente verificato",
+    adminRequests: "Richieste di progressi precedenti",
+    reject: "Rifiuta richiesta",
+    resolve: "Segna come risolta",
+    visibility: "Pubblico",
+    private: "Privato",
+    legacy: "Biblioteca precedente riservata",
+    published: "Biblioteca condivisa pubblicata",
+    publish: "Pubblica per tutti gli studenti registrati",
+    publishConfirm:
+      "Pubblicare questa scheda revisionata con la sua unità e i tag per tutti gli studenti registrati? Le altre schede dell’unità restano riservate.",
+    archived: "Archiviato",
+    archive: "Archivia scheda",
+    restore: "Ripristina scheda",
+    archiveFilter: "Mostra schede archiviate",
+    personalVariant: "Crea una variante privata",
+    confirmDelete: "Archivia",
+    bulkDelete: "Archivia selezionate",
+    bulkDeleteWarning:
+      "Archiviare le schede selezionate? Saranno escluse dalle nuove esercitazioni. Le valutazioni e le sessioni completate restano disponibili.",
+    deleteCollection: "Elimina raccolta",
+    collections: "Le mie raccolte",
+    collectionName: "Nome della raccolta",
+    createCollection: "Crea raccolta",
+    addToCollection: "Aggiungi alla raccolta",
+    removeFromCollection: "Rimuovi dalla raccolta",
+    allCollections: "Tutte le schede accessibili",
+    collectionPrivate:
+      "Le raccolte sono private. Non concedono accesso alle schede riservate.",
+    deleteEntry: "Archivia scheda",
+    deleteWarning:
+      "Archiviare la scheda? Sarà esclusa dalle nuove esercitazioni. Le valutazioni e le sessioni completate restano disponibili.",
+    deleted: "Scheda archiviata.",
+    settingsPrivacy:
+      "Solo tu puoi accedere al profilo e ai progressi personali.",
+    requestProfile:
+      "Profilo non disponibile. Aggiorna o contatta un amministratore.",
+    saved: "Salvato.",
+    actionFailed: "Impossibile completare l’operazione. Aggiorna e riprova.",
+    reviewCount: "Valutazioni",
+    sessionCount: "Sessioni",
+    noResults: "Nessun elemento.",
+  },
+};

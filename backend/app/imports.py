@@ -11,6 +11,7 @@ from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy import select, text
 
+from app.access import current_account, require_write
 from app.csv_format import FORMAT_VERSION, restore_text
 from app.duplicates import normalized_pair
 from app.grammar import clean_grammar
@@ -97,10 +98,26 @@ async def read_csv(request):
 
 
 def evaluate(db, rows, confirm, destination):
-    tags = {t.name: t for t in db.scalars(select(Tag))}
+    require_write(destination)
+    tags = {
+        t.name: t
+        for t in db.scalars(
+            select(Tag).where(
+                Tag.owner_account_id == destination.owner_account_id,
+                Tag.visibility == destination.visibility,
+            )
+        )
+    }
     # Keep a simulated library during preview too, so later rows see earlier changes.
     pairs = {}
-    for existing in db.scalars(select(VocabularyEntry).order_by(VocabularyEntry.id)):
+    for existing in db.scalars(
+        select(VocabularyEntry)
+        .where(
+            VocabularyEntry.owner_account_id == destination.owner_account_id,
+            VocabularyEntry.visibility == destination.visibility,
+        )
+        .order_by(VocabularyEntry.id)
+    ):
         pair = normalized_pair(existing.italian, existing.greek)
         pairs.setdefault(pair, []).append(
             {
@@ -108,7 +125,7 @@ def evaluate(db, rows, confirm, destination):
                 "values": {
                     field: getattr(existing, field)
                     for field in VocabularyCreate.model_fields
-                    if field not in {"unit_id", "tag_ids"}
+                    if field not in {"unit_id", "tag_ids", "visibility"}
                 },
                 "unit_id": existing.unit_id,
                 "tags": {tag.name for tag in existing.tags},
@@ -193,11 +210,25 @@ def evaluate(db, rows, confirm, destination):
             ]
         except (ValueError, TypeError) as exc:
             errors = [str(exc)]
+        publication_forbidden = (
+            not errors
+            and destination.visibility == "published"
+            and current_account().role != "admin"
+            and (
+                not pairs.get(normalized_pair(entry.italian, entry.greek))
+                or any(name not in tags for name in names)
+            )
+        )
+        if publication_forbidden:
+            errors = [
+                "forbidden_new_publication: Ask an administrator to publish "
+                "new shared cards or tags; import drafts into the legacy library."
+            ]
         status = "error" if errors else "valid"
         if not errors:
             pair = normalized_pair(entry.italian, entry.greek)
             matches = pairs.get(pair, [])
-            values = entry.model_dump(exclude={"unit_id", "tag_ids"})
+            values = entry.model_dump(exclude={"unit_id", "tag_ids", "visibility"})
             # An omitted column is not an instruction to erase stored content.
             supplied = clean_grammar(
                 {key: value for key, value in values.items() if key in row},
@@ -240,7 +271,10 @@ def evaluate(db, rows, confirm, destination):
                         stored = current["entry"]
                         if stored is None:
                             stored = VocabularyEntry(
-                                **current["values"], unit=destination
+                                **current["values"],
+                                unit=destination,
+                                owner_account_id=destination.owner_account_id,
+                                visibility=destination.visibility,
                             )
                             db.add(stored)
                             current["entry"] = stored
@@ -255,7 +289,11 @@ def evaluate(db, rows, confirm, destination):
                             assigned_tags = []
                             for name in names:
                                 if name not in tags:
-                                    tags[name] = Tag(name=name)
+                                    tags[name] = Tag(
+                                        name=name,
+                                        owner_account_id=destination.owner_account_id,
+                                        visibility=destination.visibility,
+                                    )
                                     db.add(tags[name])
                                 assigned_tags.append(tags[name])
                             stored.tags = assigned_tags
@@ -273,7 +311,10 @@ def evaluate(db, rows, confirm, destination):
                 "status": status,
                 "changed_fields": changed_fields,
                 "errors": errors,
-                "entry": entry.model_dump(exclude={"unit_id", "tag_ids"})
+                "error_code": "forbidden_new_publication"
+                if publication_forbidden
+                else None,
+                "entry": entry.model_dump(exclude={"unit_id", "tag_ids", "visibility"})
                 if entry
                 else None,
                 "unit": unit_spec.model_dump() if unit_spec else None,

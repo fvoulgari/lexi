@@ -21,35 +21,14 @@ export default function Practice({ text, csrf, onLocked }) {
     queryFn: () => request("/api/profiles"),
     retry: false,
   });
-  const [profileId, setProfileId] = useState(() => {
-    try {
-      return localStorage.getItem("notebook-profile") || "";
-    } catch {
-      return "";
-    }
-  });
   const [session, setSession] = useState(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
   const [unavailableId, setUnavailableId] = useState(null);
   const starting = useRef(false);
   const profile =
-    profiles.isSuccess && profileId !== unavailableId
-      ? profiles.data.find((p) => p.id === profileId)
-      : undefined;
-
-  function selectProfile(id) {
-    setProfileId(id);
-    setUnavailableId(null);
-    setSession(null);
-    setError(null);
-    try {
-      if (id) localStorage.setItem("notebook-profile", id);
-      else localStorage.removeItem("notebook-profile");
-    } catch {
-      /* Selection also works without device storage. */
-    }
-  }
+    profiles.data?.[0]?.id !== unavailableId ? profiles.data?.[0] : undefined;
+  const profileId = profile?.id;
 
   function profileUnavailable() {
     setUnavailableId(profileId);
@@ -98,11 +77,6 @@ export default function Practice({ text, csrf, onLocked }) {
         ...(["difficult", "mixed"].includes(type) ? { mode: type } : {}),
       });
       setSession({ ...result, profile_id: profile.id, direction, type });
-      try {
-        localStorage.setItem("notebook-profile", profile.id);
-      } catch {
-        /* Device storage is optional. */
-      }
     } catch (error) {
       showError(error);
     } finally {
@@ -122,40 +96,10 @@ export default function Practice({ text, csrf, onLocked }) {
     );
   if (!profile)
     return (
-      <section
-        className="progress-page lexi-home home-welcome"
-        aria-labelledby="practice-profile-title"
-      >
-        <h1 id="practice-profile-title">{text.practice}</h1>
-        {profileId && <p role="status">{text.missingProfile}</p>}
-        <p className="home-welcome-hint">{text.practiceChooseProfile}</p>
-        {profiles.data.length > 0 ? (
-          <div className="home-welcome-picker">
-            <label htmlFor="practice-profile">{text.profile}</label>
-            <select
-              id="practice-profile"
-              value=""
-              onChange={(event) => selectProfile(event.target.value)}
-            >
-              <option value="">{text.chooseProfile}</option>
-              {profiles.data
-                .filter((item) => item.id !== unavailableId)
-                .map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.display_name}
-                  </option>
-                ))}
-            </select>
-          </div>
-        ) : (
-          <p className="home-welcome-hint">{text.homeCreateProfileHint}</p>
-        )}
-        <Link
-          className={profiles.data.length ? "home-text-link" : "primary"}
-          to="/settings"
-        >
-          {profiles.data.length ? text.settingsNewProfile : text.createProfile}
-        </Link>
+      <section className="status">
+        <h1>{text.practice}</h1>
+        <p role="alert">{text.requestProfile}</p>
+        <button onClick={() => profiles.refetch()}>{text.retry}</button>
       </section>
     );
   if (session && session.profile_id === profile.id)
@@ -186,20 +130,7 @@ export default function Practice({ text, csrf, onLocked }) {
             </span>
           )}
           <div>
-            <label htmlFor="practice-profile">{text.profile}</label>
-            <select
-              id="practice-profile"
-              value={profile?.id || ""}
-              disabled={pending}
-              onChange={(e) => selectProfile(e.target.value)}
-            >
-              <option value="">{text.chooseProfile}</option>
-              {profiles.data.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.display_name}
-                </option>
-              ))}
-            </select>
+            <span>{profile.display_name}</span>
           </div>
         </div>
       </header>

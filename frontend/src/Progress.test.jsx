@@ -13,6 +13,7 @@ import {
   expect,
 } from "vitest";
 import App from "./App.jsx";
+import { copy } from "./copy.js";
 
 const history = {
   vocabulary_count: 10,
@@ -64,6 +65,10 @@ const history = {
   },
 };
 const server = setupServer(
+  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.patch("*/api/account", async ({ request }) =>
+    HttpResponse.json(await request.json()),
+  ),
   http.get("*/api/auth/session", () =>
     HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
   ),
@@ -137,24 +142,36 @@ test("Home greets the selected learner, shows recent recall and opens difficult 
   const summary = screen.getByText("Vocabulary cards").closest("dl");
   expect(summary.children).toHaveLength(3);
   expect(within(summary).queryByText("Card reviews")).not.toBeInTheDocument();
-  expect(within(summary).getByText("Cards practised").nextElementSibling).toHaveTextContent("1");
+  expect(
+    within(summary).getByText("Cards practised").nextElementSibling,
+  ).toHaveTextContent("1");
   const recent = screen.getByRole("region", { name: "Recent practice" });
   expect(within(recent).getByText("Card reviews")).toBeInTheDocument();
-  expect(within(recent).queryByText("Percentage of responses rated ‘Easy’ or ‘Hard’ in the latest session.")).not.toBeInTheDocument();
+  expect(
+    within(recent).queryByText(
+      "Percentage of responses rated ‘Easy’ or ‘Hard’ in the latest session.",
+    ),
+  ).not.toBeInTheDocument();
 
   await userEvent.click(
     screen.getByRole("link", { name: "Practise difficult cards" }),
   );
-  expect(await screen.findByRole("radio", {name: "Difficult cards", exact: true})).toBeChecked();
-  expect(screen.getByLabelText("Learner profile")).toHaveValue("f");
+  expect(
+    await screen.findByRole("radio", { name: "Difficult cards", exact: true }),
+  ).toBeChecked();
+  expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
 });
-test("Progress shows separate direction counts and switches to an empty learner without stale history", async () => {
+test("Progress shows owned learner direction counts without a profile switcher", async () => {
   open("/progress");
   await screen.findByText("Vocabulary cards");
   const summary = screen.getByText("Vocabulary cards").closest("dl");
   expect(summary.children).toHaveLength(4);
-  expect(within(summary).getByText("Card reviews").nextElementSibling).toHaveTextContent("3");
-  expect(within(summary).getByText("Cards practised").nextElementSibling).toHaveTextContent("1");
+  expect(
+    within(summary).getByText("Card reviews").nextElementSibling,
+  ).toHaveTextContent("3");
+  expect(
+    within(summary).getByText("Cards practised").nextElementSibling,
+  ).toHaveTextContent("1");
   const directions = await screen.findByRole("region", {
     name: "By direction",
   });
@@ -173,22 +190,10 @@ test("Progress shows separate direction counts and switches to an empty learner 
   expect(
     screen.getByRole("region", { name: "Your responses" }),
   ).toHaveTextContent("Memory blank");
-  const user = userEvent.setup();
-  await user.selectOptions(screen.getByLabelText("Learner profile"), "a");
-  expect(
-    await screen.findByText(
-      "No reviews for this learner yet. Start practice to build a history.",
-    ),
-  ).toBeInTheDocument();
-  expect(screen.queryByText("100%")).not.toBeInTheDocument();
-  expect(screen.queryByText("00 · Benvenuti")).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("link", { name: "Practise difficult cards" }),
-  ).not.toBeInTheDocument();
-  expect(localStorage.getItem("notebook-profile")).toBe("a");
+  expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
 });
 
-test("progress failure offers retry and revoked access returns to the gate", async () => {
+test("progress request failure offers retry", async () => {
   let fail = true;
   server.use(
     http.get("*/api/profiles/:id/progress", () =>
@@ -205,29 +210,14 @@ test("progress failure offers retry and revoked access returns to the gate", asy
   fail = false;
   await userEvent.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByText("100%")).toBeInTheDocument();
-  server.use(
-    http.get("*/api/profiles/:id/progress", () =>
-      HttpResponse.json(
-        { error: { code: "unauthenticated" } },
-        { status: 401 },
-      ),
-    ),
-  );
-  await userEvent.selectOptions(screen.getByLabelText("Learner profile"), "a");
-  expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
-  expect(screen.queryByText("100%")).not.toBeInTheDocument();
 });
 
-test("missing remembered learner prompts selection and does not expose a different history", async () => {
+test("a stale remembered learner never overrides the owned profile", async () => {
   localStorage.setItem("notebook-profile", "removed");
   open("/progress");
-  expect(
-    await screen.findByText(
-      "The remembered learner is no longer available. Choose a profile.",
-    ),
-  ).toBeInTheDocument();
-  expect(screen.getByLabelText("Learner profile")).toHaveValue("");
-  expect(screen.queryByText("100%")).not.toBeInTheDocument();
+  expect(await screen.findByText("100%")).toBeInTheDocument();
+  expect(screen.getByText("Foteini")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
 });
 
 test("Greek home uses friendly card labels and explains session recall", async () => {
@@ -238,7 +228,11 @@ test("Greek home uses friendly card labels and explains session recall", async (
   const recent = screen.getByRole("region", { name: "Πρόσφατη εξάσκηση" });
   expect(within(recent).getByText("Επαναλήψεις καρτών")).toBeInTheDocument();
   expect(within(recent).getByText("Θυμήθηκες")).toBeInTheDocument();
-  expect(within(recent).queryByText("Ποσοστό απαντήσεων “Εύκολο” ή “Δύσκολο” στην τελευταία συνεδρία.")).not.toBeInTheDocument();
+  expect(
+    within(recent).queryByText(
+      "Ποσοστό απαντήσεων “Εύκολο” ή “Δύσκολο” στην τελευταία συνεδρία.",
+    ),
+  ).not.toBeInTheDocument();
 });
 
 test("Italian home uses card terminology and explains session recall", async () => {
@@ -249,113 +243,146 @@ test("Italian home uses card terminology and explains session recall", async () 
   const recent = screen.getByRole("region", { name: "Esercizio recente" });
   expect(within(recent).getByText("Ripassi delle schede")).toBeInTheDocument();
   expect(within(recent).getByText("Hai ricordato")).toBeInTheDocument();
-  expect(within(recent).queryByText("Percentuale di risposte valutate “Facile” o “Difficile” nell’ultima sessione.")).not.toBeInTheDocument();
+  expect(
+    within(recent).queryByText(
+      "Percentuale di risposte valutate “Facile” o “Difficile” nell’ultima sessione.",
+    ),
+  ).not.toBeInTheDocument();
 });
 
 test.each([
-  [0, {again:0,hard:0,easy:0}, "—"],
-  [2, {again:2,hard:0,easy:0}, "0%"],
-])("detailed responses and recent recall handle %s reviews", async (reviews, counts, recall) => {
-  server.use(http.get("*/api/profiles/:id/progress", () => HttpResponse.json({
-    ...history, total_reviews:reviews, counts,
-    recent_session:{total_reviews:reviews, remembered:0},
-  })));
-  open("/progress");
-  const recent = await screen.findByRole("region", {name:"Latest practice"});
-  expect(within(recent).getByText(recall)).toBeInTheDocument();
-  const responses = screen.getByRole("region", {name:"Your responses"});
-  const bar=within(responses).getByRole("img");
-  expect(bar).toHaveAccessibleName(`Across all practice sessions. Memory blank: ${counts.again}, Hard: 0, Easy: 0`);
-  expect([...bar.children].map(segment=>segment.style.width)).toEqual(reviews ? ["100%","0%","0%"] : ["0%","0%","0%"]);
-  expect(within(responses).getByText("Hard")).toBeInTheDocument();
-  expect(within(responses).getByText("Easy")).toBeInTheDocument();
-  expect(screen.queryByRole("link",{name:"Start practice",exact:true})).not.toBeInTheDocument();
-});
+  [0, { again: 0, hard: 0, easy: 0 }, "—"],
+  [2, { again: 2, hard: 0, easy: 0 }, "0%"],
+])(
+  "detailed responses and recent recall handle %s reviews",
+  async (reviews, counts, recall) => {
+    server.use(
+      http.get("*/api/profiles/:id/progress", () =>
+        HttpResponse.json({
+          ...history,
+          total_reviews: reviews,
+          counts,
+          recent_session: { total_reviews: reviews, remembered: 0 },
+        }),
+      ),
+    );
+    open("/progress");
+    const recent = await screen.findByRole("region", {
+      name: "Latest practice",
+    });
+    expect(within(recent).getByText(recall)).toBeInTheDocument();
+    const responses = screen.getByRole("region", { name: "Your responses" });
+    const bar = within(responses).getByRole("img");
+    expect(bar).toHaveAccessibleName(
+      `Across all practice sessions. Memory blank: ${counts.again}, Hard: 0, Easy: 0`,
+    );
+    expect([...bar.children].map((segment) => segment.style.width)).toEqual(
+      reviews ? ["100%", "0%", "0%"] : ["0%", "0%", "0%"],
+    );
+    expect(within(responses).getByText("Hard")).toBeInTheDocument();
+    expect(within(responses).getByText("Easy")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Start practice", exact: true }),
+    ).not.toBeInTheDocument();
+  },
+);
 
 test("breakdown tables preserve overlapping counts and missing difficult values", async () => {
-  server.use(http.get("*/api/profiles/:id/progress", () => HttpResponse.json({
-    ...history,
-    units:[
-      {...history.units[0],difficult_entries:1},
-      {...history.units[0], key:"01",title:"Historical classification"},
-    ],
-  })));
+  server.use(
+    http.get("*/api/profiles/:id/progress", () =>
+      HttpResponse.json({
+        ...history,
+        units: [
+          { ...history.units[0], difficult_entries: 1 },
+          {
+            ...history.units[0],
+            key: "01",
+            title: "Historical classification",
+          },
+        ],
+      }),
+    ),
+  );
   open("/progress");
-  const table = await screen.findByRole("table", {name:"By unit"});
-  const rows=within(table).getAllByRole("row");
-  expect(within(rows[1]).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["3","1","1","1","1","1"]);
-  expect(within(rows[2]).getAllByRole("cell").map(cell=>cell.textContent)).toEqual(["3","1","—","1","1","1"]);
-  const summary=screen.getByText("Vocabulary cards").closest("dl");
-  expect(within(summary).getByText("Cards practised").nextElementSibling).toHaveTextContent("1");
-  expect(screen.getByText("How is this calculated?").closest("details")).not.toHaveAttribute("open");
+  const table = await screen.findByRole("table", { name: "By unit" });
+  const rows = within(table).getAllByRole("row");
+  expect(
+    within(rows[1])
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent),
+  ).toEqual(["3", "1", "1", "1", "1", "1"]);
+  expect(
+    within(rows[2])
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent),
+  ).toEqual(["3", "1", "—", "1", "1", "1"]);
+  const summary = screen.getByText("Vocabulary cards").closest("dl");
+  expect(
+    within(summary).getByText("Cards practised").nextElementSibling,
+  ).toHaveTextContent("1");
+  expect(
+    screen.getByText("How is this calculated?").closest("details"),
+  ).not.toHaveAttribute("open");
 });
 
-test("detailed difficult-card retry, language pairs, direction link and revoked access", async () => {
-  let fail=true;
-  let revoked=false;
-  server.use(http.get("*/api/profiles/:id/difficult-entries", () =>
-    revoked ? HttpResponse.json({error:{code:"unauthenticated"}},{status:401}) : fail ?
-    HttpResponse.json({error:{code:"service_unavailable"}},{status:503}) :
-    HttpResponse.json([{entry:{id:"e",italian:"la casa",greek:"το σπίτι"}}])
-  ));
+test("detailed difficult-card retry preserves language pairs and direction link", async () => {
+  let fail = true;
+  let revoked = false;
+  server.use(
+    http.get("*/api/profiles/:id/difficult-entries", () =>
+      revoked
+        ? HttpResponse.json(
+            { error: { code: "unauthenticated" } },
+            { status: 401 },
+          )
+        : fail
+          ? HttpResponse.json(
+              { error: { code: "service_unavailable" } },
+              { status: 503 },
+            )
+          : HttpResponse.json([
+              { entry: { id: "e", italian: "la casa", greek: "το σπίτι" } },
+            ]),
+    ),
+  );
   open("/progress");
   await screen.findByRole("alert");
-  fail=false;
-  await userEvent.click(screen.getByRole("button", {name:"Try again"}));
-  expect(await screen.findByText("la casa")).toHaveAttribute("lang","it");
-  expect(screen.getByText("το σπίτι")).toHaveAttribute("lang","el");
-  const link=screen.getByRole("link",{name:"Practise difficult cards"});
-  expect(link).toHaveAttribute("href","/practice?mode=difficult&direction=italian_to_greek");
-  expect(screen.getAllByRole("link",{name:"Practise difficult cards"})).toHaveLength(1);
-  revoked=true;
-  // Remount this direction's query by switching learner and back.
-  await userEvent.selectOptions(screen.getByLabelText("Learner profile"),"a");
-  await screen.findByText("No reviews for this learner yet. Start practice to build a history.");
-  await userEvent.selectOptions(screen.getByLabelText("Learner profile"),"f");
-  expect(await screen.findByLabelText("Shared password")).toBeInTheDocument();
-});
-
-test("home offers profile selection without auto-selecting or practice", async () => {
-  localStorage.removeItem("notebook-profile");
-  open();
-  expect(
-    await screen.findByText("Choose your profile to continue."),
-  ).toBeInTheDocument();
-  expect(screen.getByLabelText("Learner profile")).toHaveValue("");
-  expect(localStorage.getItem("notebook-profile")).toBeNull();
-  expect(screen.getByRole("link", { name: "New profile" })).toHaveAttribute(
+  fail = false;
+  await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+  expect(await screen.findByText("la casa")).toHaveAttribute("lang", "it");
+  expect(screen.getByText("το σπίτι")).toHaveAttribute("lang", "el");
+  const link = screen.getByRole("link", { name: "Practise difficult cards" });
+  expect(link).toHaveAttribute(
     "href",
-    "/settings",
+    "/practice?mode=difficult&direction=italian_to_greek",
   );
   expect(
-    screen.queryByRole("link", { name: /Start practice/ }),
-  ).not.toBeInTheDocument();
-  await userEvent.selectOptions(screen.getByLabelText("Learner profile"), "f");
+    screen.getAllByRole("link", { name: "Practise difficult cards" }),
+  ).toHaveLength(1);
+});
+
+test("home selects the owned learner automatically without storing a profile selection", async () => {
+  localStorage.removeItem("notebook-profile");
+  open();
   expect(
     await screen.findByRole("heading", { name: "Welcome, Foteini" }),
   ).toBeInTheDocument();
-  expect(localStorage.getItem("notebook-profile")).toBe("f");
+  expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
+  expect(localStorage.getItem("notebook-profile")).toBeNull();
 });
 
-test("home with no profiles offers creation through settings", async () => {
-  localStorage.removeItem("notebook-profile");
+test("home with no owned profile reports an account problem without offering creation", async () => {
   server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
   open();
-  expect(
-    await screen.findByText("Create your profile to get started."),
-  ).toBeInTheDocument();
-  expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("link", { name: /Start practice/ }),
-  ).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole("link", { name: "Create profile" }));
-  await userEvent.click(
-    await screen.findByRole("button", { name: "New profile" }),
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    copy.en.requestProfile,
   );
-  expect(screen.getByLabelText("Name")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: copy.en.createProfile }),
+  ).not.toBeInTheDocument();
 });
 
-test("home waits for profiles before offering creation", async () => {
+test("home waits for the owned profile before displaying an account problem", async () => {
   let finish;
   const response = new Promise((resolve) => {
     finish = resolve;
@@ -376,9 +403,7 @@ test("home waits for profiles before offering creation", async () => {
     screen.queryByRole("link", { name: "Create profile" }),
   ).not.toBeInTheDocument();
   finish();
-  expect(
-    await screen.findByText("Create your profile to get started."),
-  ).toBeInTheDocument();
+  expect(await screen.findByText(copy.en.requestProfile)).toBeInTheDocument();
 });
 
 test("home profile request error offers retry without empty-state guidance", async () => {
@@ -398,21 +423,17 @@ test("home profile request error offers retry without empty-state guidance", asy
   expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
   server.use(http.get("*/api/profiles", () => HttpResponse.json([])));
   await userEvent.click(screen.getByRole("button", { name: "Try again" }));
-  expect(
-    await screen.findByText("Create your profile to get started."),
-  ).toBeInTheDocument();
+  expect(await screen.findByText(copy.en.requestProfile)).toBeInTheDocument();
 });
 
-test("home preserves a missing learner message and allows choosing another", async () => {
-  localStorage.setItem("notebook-profile", "removed");
+test("stale local selection cannot expose another learner", async () => {
+  localStorage.setItem("notebook-profile", "a");
   open();
   expect(
-    await screen.findByText(
-      "The remembered learner is no longer available. Choose a profile.",
-    ),
+    await screen.findByRole("heading", { name: "Welcome, Foteini" }),
   ).toBeInTheDocument();
-  await userEvent.selectOptions(screen.getByLabelText("Learner profile"), "a");
   expect(
-    await screen.findByRole("heading", { name: "Welcome, Alex" }),
-  ).toBeInTheDocument();
+    screen.queryByRole("heading", { name: "Welcome, Alex" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
 });

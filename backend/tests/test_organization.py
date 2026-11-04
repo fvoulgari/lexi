@@ -6,6 +6,7 @@ def test_units_keep_codes_and_explicit_order_across_requests(logged_in):
     response = client.post(
         "/api/units",
         json={
+            "visibility": "legacy",
             "code": "003",
             "title": "A later chapter",
             "sort_order": -1,
@@ -19,6 +20,7 @@ def test_units_keep_codes_and_explicit_order_across_requests(logged_in):
     duplicate = client.post(
         "/api/units",
         json={
+            "visibility": "legacy",
             "code": "003",
             "title": "Duplicate",
             "sort_order": 9,
@@ -30,6 +32,7 @@ def test_units_keep_codes_and_explicit_order_across_requests(logged_in):
         client.post(
             "/api/units",
             json={
+                "visibility": "legacy",
                 "code": "004",
                 "title": "Protected",
                 "sort_order": 2,
@@ -44,7 +47,9 @@ def test_tags_and_unit_assignments_persist_and_can_be_cleared(logged_in):
     tags = []
     for name in ["Travel", "Food"]:
         response = client.post(
-            "/api/tags", json={"name": name}, headers=headers(client)
+            "/api/tags",
+            json={"visibility": "legacy", "name": name},
+            headers=headers(client),
         )
         assert response.status_code == 201
         tags.append(response.json())
@@ -53,6 +58,7 @@ def test_tags_and_unit_assignments_persist_and_can_be_cleared(logged_in):
     response = client.post(
         "/api/vocabulary",
         json={
+            "visibility": "legacy",
             "italian": "viaggiare",
             "greek": "ταξιδεύω",
             "word_type": "verb",
@@ -82,7 +88,11 @@ def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
     client = logged_in
     unit = client.get("/api/units").json()[0]
     tags = [
-        client.post("/api/tags", json={"name": name}, headers=headers(client)).json()
+        client.post(
+            "/api/tags",
+            json={"visibility": "legacy", "name": name},
+            headers=headers(client),
+        ).json()
         for name in ["Home", "Everyday"]
     ]
     ids = []
@@ -96,6 +106,7 @@ def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
             client.post(
                 "/api/vocabulary",
                 json={
+                    "visibility": "legacy",
                     "italian_gender": "masculine",
                     "greek_gender": "neuter",
                     "italian_adjective_gender": "masculine",
@@ -144,15 +155,24 @@ def test_metadata_and_assignments_validate_without_partial_writes(logged_in):
             == 422
         )
     tag = client.post(
-        "/api/tags", json={"name": "Theme"}, headers=headers(client)
+        "/api/tags",
+        json={"visibility": "legacy", "name": "Theme"},
+        headers=headers(client),
     ).json()
     assert (
         client.post(
-            "/api/tags", json={"name": "Theme"}, headers=headers(client)
+            "/api/tags",
+            json={"visibility": "legacy", "name": "Theme"},
+            headers=headers(client),
         ).status_code
         == 409
     )
-    assert client.post("/api/tags", json={"name": "Protected"}).status_code == 403
+    assert (
+        client.post(
+            "/api/tags", json={"visibility": "legacy", "name": "Protected"}
+        ).status_code
+        == 403
+    )
     entry = client.get("/api/vocabulary").json()["items"][0]
     for value in [None, [str(uuid4())]]:
         response = client.patch(
@@ -181,7 +201,13 @@ def test_metadata_and_assignments_validate_without_partial_writes(logged_in):
     assert client.get("/api/tags").status_code == 401
     assert (
         client.post(
-            "/api/units", json={"code": "9", "title": "Nine", "sort_order": 9}
+            "/api/units",
+            json={
+                "visibility": "legacy",
+                "code": "9",
+                "title": "Nine",
+                "sort_order": 9,
+            },
         ).status_code
         == 401
     )
