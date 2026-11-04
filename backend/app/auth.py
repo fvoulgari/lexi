@@ -43,7 +43,19 @@ class AuthGate:
             session_required=required,
             check_database=True,
             anti_csrf_check=request.method not in {"GET", "HEAD", "OPTIONS"},
+            **(
+                {"override_global_claim_validators": lambda _v, _s, _c: []}
+                if not required
+                else {}
+            ),
         )
+
+    async def _verified(self, session):
+        from supertokens_python.recipe.emailverification.asyncio import (
+            is_email_verified,
+        )
+
+        return await is_email_verified(session.get_recipe_user_id())
 
     def _account(self, subject):
         with self.sessions.begin() as db:
@@ -84,6 +96,8 @@ class AuthGate:
         session = await self._session(request)
         if session is None:
             fail(401, "authentication_required", "Sign in first.")
+        if not await self._verified(session):
+            fail(403, "email_verification_required", "Verify your email first.")
         account = await run_in_threadpool(self._account, session.get_user_id())
         request.state.account = account
         request.state.auth_session = session
@@ -109,6 +123,9 @@ class AuthGate:
             "csrf_token": "supertokens",
         }
         if session is None:
+            return result
+        if not await self._verified(session):
+            result["verification_required"] = True
             return result
         account = await self.require(request)
         with self.sessions() as db:
@@ -186,9 +203,19 @@ def initialize_auth(app, settings, sessions):
                 return await self.app(scope, receive, send)
             token = account_context.set(None)
             try:
-                path = scope.get("path", "")
+                path = scope.get("path", "").replace(
+                    "/api/auth/public/", "/api/auth/", 1
+                )
                 headers = dict(scope.get("headers", []))
                 if path.startswith("/api/auth/"):
+                    # Removed launch methods must never reach any recipe, even
+                    # when an old client still has a passwordless attempt.
+                    if path.startswith(
+                        ("/api/auth/signinup/code", "/api/auth/passwordless")
+                    ):
+                        return await JSONResponse(
+                            {"error": {"code": "not_found"}}, status_code=404
+                        )(scope, receive, send)
                     origin = headers.get(b"origin", b"").decode()
                     cross_site = headers.get(b"sec-fetch-site") == b"cross-site"
                     if scope["method"] not in {"GET", "HEAD", "OPTIONS"} and (
@@ -204,9 +231,12 @@ def initialize_auth(app, settings, sessions):
                             status_code=503,
                         )(scope, receive, send)
                     if path in {
-                        "/api/auth/signinup/code",
-                        "/api/auth/signinup/code/resend",
-                        "/api/auth/signinup/code/consume",
+                        "/api/auth/signup",
+                        "/api/auth/signin",
+                        "/api/auth/user/password/reset/token",
+                        "/api/auth/user/password/reset",
+                        "/api/auth/user/email/verify/token",
+                        "/api/auth/user/email/verify",
                         "/api/auth/signinup",
                         "/api/auth/authorisationurl",
                     }:
@@ -223,6 +253,15 @@ def initialize_auth(app, settings, sessions):
 
                 async def security_event(message):
                     if message["type"] == "http.response.start":
+                        if path.startswith("/api/auth/"):
+                            response_headers = [
+                                (key, value)
+                                for key, value in message.get("headers", [])
+                                if key.lower() != b"cache-control"
+                            ]
+                            message["headers"] = response_headers + [
+                                (b"cache-control", b"no-store")
+                            ]
                         status = message["status"]
                         if status in {401, 403}:
                             log.info("authentication_rejected")

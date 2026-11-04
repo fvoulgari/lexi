@@ -1,17 +1,20 @@
 # Authentication staging acceptance checklist
 
-Run only after [provider setup](authentication-setup.md), with disposable synthetic learners, vocabulary and legacy profiles. Keep separate staging Core, Google client and database; stay within verified free quotas. This checklist is **pending**, not a claim of end-to-end success. Local mocked-provider tests and migration rehearsals do not verify Google, SMTP, cookies or live Core.
+Run only after [provider setup](authentication-setup.md), with disposable synthetic learners, vocabulary and legacy profiles. Keep separate staging Core, Google client and database; stay within verified free quotas. This checklist is **pending**, not a claim of end-to-end success. Local mocked-provider tests and migration rehearsals do not verify Google, delivered email, cookies or live Core.
 
 Record each result as PASS / FAIL / NOT RUN with date, tested commit/image, browser, non-secret environment identifier and sanitised evidence. Never attach link tokens, callback queries, cookies, credentials, personal emails or unredacted traces. A failed or inaccessible CI run is not a pass.
 
 ## Real authentication and callback recovery
 
-- [ ] Both public Google registration and a delivered email magic link create one owned profile with learner role, no legacy access and no editor permissions. Repeat sign-in with the same method returns that account.
-- [ ] Google denial, invalid/mismatched state and interrupted callbacks fail safely. Simulate one transient callback/session-hydration failure and retry without an infinite loop or duplicate account/profile. A completed callback reload returns to the application safely; unrecoverable/reused OAuth codes lead to fresh sign-in.
-- [ ] Email sender/domain authentication passes; test inbox and spam delivery, rejected recipient and SMTP outage. UI errors are safe and signing in cannot silently succeed without proof of email possession.
-- [ ] A fresh magic link works once. Reuse fails; a link held beyond configured 10 minutes fails. Resend/cross-tab behavior produces clear recovery. Wrong-origin links never redirect to attacker-controlled hosts.
-- [ ] Signing in with Google and magic link using the same address does not silently link accounts; explain to testers to return with the original method.
-- [ ] Unconfigured/unreachable Core fails closed; a health response alone never bypasses sign-in. All logged-out direct API calls and stale old shared-gate sessions lack protected access.
+- [ ] Google registration creates one owned profile with learner role and no legacy/editor permissions. Password registration returns a generic acknowledgement without an identity/session; sign-in before email verification exposes no application profile, vocabulary, progress, collections, admin or claim data. After verification, sign-in provisions exactly one owned profile.
+- [ ] Google denial, state mismatch, interrupted callbacks and a transient hydration failure recover safely without duplicate accounts/profiles; a pending `/claim` destination survives retries. Reused OAuth codes require fresh sign-in.
+- [ ] Registration, sign-in and reset validate passwords appropriately. Check 14/15/128/129-character boundaries, spaces, Unicode, paste, password managers, current/new-password autofill and accessible show/hide controls.
+- [ ] Verification and reset mail arrives from the verified HTTPS sender with tracking disabled. Check inbox/spam, rejected recipient, quota exhaustion, timeout and provider outage. Generic acknowledgement is not evidence of delivery.
+- [ ] Verification/reset links require explicit confirmation/submission, work once, and fail after configured expiry or reuse. Invalid/foreign tokens cannot change identity or password. URL parameters are cleared after submission and never logged or persisted. Test verification in another browser, without a session, and while a different account is signed in.
+- [ ] Password sign-in fails generically for wrong credentials, missing identities and Google-only identities. Registration/recovery responses and cookies do not disclose existence, including duplicate registration and delivery outage. Rate limiting covers signup, signin, recovery, reset and verification, including public-tenant aliases.
+- [ ] Google and password identities with the same email remain separate; their account IDs and learning data differ. Recovery for a Google-only email does not create a password account. Explicit linking flags are rejected. UI explains original-method recovery without exposing identity existence.
+- [ ] Successful reset revokes existing sessions for that password identity; other users and a separate Google identity remain unaffected. Return to password sign-in after reset. Verify provider-required email status before protected access.
+- [ ] Old passwordless code/create/resend/consume and email/phone existence endpoints return 404, including public aliases; old `/auth/verify` URLs cannot create sessions. Unreachable Core fails closed; logged-out direct APIs and old shared-gate sessions lack access.
 
 ## Sessions and request security
 

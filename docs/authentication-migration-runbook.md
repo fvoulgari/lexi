@@ -44,7 +44,7 @@ python -m app.admin_tools bootstrap-admin --subject "$LEXI_VERIFIED_SUBJECT" --a
 The first command is a dry run. The tool refuses a different bootstrap once an administrator exists and records application of the role. It grants no restricted-library access. Use authenticated admin controls thereafter; assign legacy access and editors explicitly and separately.
 
 4. Map known legacy users via identity verification and individual claim links before broader rollout where practical. Manually deliver links only through the verified channel; no bulk email/name inference. If a new profile has any learning activity or owned content, stop automatic association and retain both profiles and histories; use the dry-run conflict report for a separately reviewed migration. Do not force mappings or retire profiles.
-5. Reopen writes only after acceptance; monitor auth failures, SMTP delivery, permissions and provider quotas with secret-free telemetry. Keep original database and verified backups until the rollback window and reconciliation obligations are satisfied.
+5. Reopen writes only after acceptance; monitor auth failures, HTTPS email delivery, permissions and provider quotas with secret-free telemetry. Keep original database and verified backups until the rollback window and reconciliation obligations are satisfied.
 
 ## Rollback decision and recovery
 

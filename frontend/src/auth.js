@@ -1,6 +1,7 @@
 import SuperTokens from "supertokens-web-js";
 import Session from "supertokens-web-js/recipe/session";
-import Passwordless from "supertokens-web-js/recipe/passwordless";
+import EmailPassword from "supertokens-web-js/recipe/emailpassword";
+import EmailVerification from "supertokens-web-js/recipe/emailverification";
 import ThirdParty from "supertokens-web-js/recipe/thirdparty";
 
 let initialized = false;
@@ -20,7 +21,8 @@ export function initializeAuth() {
             window.dispatchEvent(new Event("lexi:unauthorized"));
         },
       }),
-      Passwordless.init(),
+      EmailPassword.init(),
+      EmailVerification.init(),
       ThirdParty.init(),
     ],
   });
@@ -56,21 +58,78 @@ export function takeReturn() {
     return "/";
   }
 }
-export async function sendMagicLink(email) {
-  initializeAuth();
-  const result = await Passwordless.createCode({
-    email,
-    shouldTryLinkingWithSessionUser: false,
-  });
+function requireOK(result) {
   if (result.status !== "OK") throw new Error("authentication_failed");
-  // This stores a login attempt identifier, never a session token or password.
-  await Passwordless.setLoginAttemptInfo({
-    attemptInfo: {
-      deviceId: result.deviceId,
-      preAuthSessionId: result.preAuthSessionId,
-      flowType: result.flowType,
-    },
+  return result;
+}
+export async function passwordSignIn(email, password) {
+  initializeAuth();
+  requireOK(
+    await EmailPassword.signIn({
+      formFields: [
+        { id: "email", value: email },
+        { id: "password", value: password },
+      ],
+      shouldTryLinkingWithSessionUser: false,
+    }),
+  );
+}
+export async function registerPassword(email, password) {
+  initializeAuth();
+  // Registration intentionally returns no identity/session, including for an
+  // existing address. Password validation and storage remain SDK/Core-owned.
+  const response = await fetch("/api/auth/signup", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", rid: "emailpassword" },
+    body: JSON.stringify({
+      formFields: [
+        { id: "email", value: email },
+        { id: "password", value: password },
+      ],
+      shouldTryLinkingWithSessionUser: false,
+    }),
   });
+  if (!response.ok) throw new Error("authentication_failed");
+  requireOK(await response.json());
+}
+export async function requestPasswordReset(email) {
+  initializeAuth();
+  requireOK(
+    await EmailPassword.sendPasswordResetEmail({
+      formFields: [{ id: "email", value: email }],
+    }),
+  );
+}
+export async function resetPassword(password) {
+  initializeAuth();
+  try {
+    requireOK(
+      await EmailPassword.submitNewPassword({
+        formFields: [{ id: "password", value: password }],
+      }),
+    );
+  } finally {
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+}
+export async function sendVerification() {
+  initializeAuth();
+  const result = await EmailVerification.sendVerificationEmail();
+  if (!["OK", "EMAIL_ALREADY_VERIFIED_ERROR"].includes(result.status))
+    throw new Error("authentication_failed");
+}
+export async function verifyEmail() {
+  initializeAuth();
+  try {
+    requireOK(await EmailVerification.verifyEmail());
+  } finally {
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+}
+export async function signOutUnverified() {
+  initializeAuth();
+  await Session.signOut();
 }
 export async function startGoogle() {
   initializeAuth();
@@ -81,18 +140,13 @@ export async function startGoogle() {
   });
   window.location.assign(url);
 }
-export async function finishAuthentication(kind) {
+export async function finishAuthentication() {
   initializeAuth();
-  const result =
-    kind === "google"
-      ? await ThirdParty.signInAndUp()
-      : await Passwordless.consumeCode();
-  if (result.status !== "OK")
-    throw Object.assign(new Error("authentication_failed"), {
-      code: "link_expired",
-    });
-  if (kind !== "google") await Passwordless.clearLoginAttemptInfo();
-  window.history.replaceState(null, "", window.location.pathname);
+  try {
+    requireOK(await ThirdParty.signInAndUp());
+  } finally {
+    window.history.replaceState(null, "", window.location.pathname);
+  }
 }
 
 export function notifySessionChanged() {

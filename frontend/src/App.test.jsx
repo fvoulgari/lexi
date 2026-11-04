@@ -14,9 +14,15 @@ import {
   vi,
 } from "vitest";
 import App from "./App.jsx";
-import { sendMagicLink, startGoogle, finishAuthentication } from "./auth.js";
+import { passwordSignIn, startGoogle, finishAuthentication } from "./auth.js";
 vi.mock("./auth.js", () => ({
-  sendMagicLink: vi.fn(),
+  passwordSignIn: vi.fn(),
+  registerPassword: vi.fn(),
+  requestPasswordReset: vi.fn(),
+  resetPassword: vi.fn(),
+  sendVerification: vi.fn(),
+  verifyEmail: vi.fn(),
+  signOutUnverified: vi.fn(),
   startGoogle: vi.fn(),
   finishAuthentication: vi.fn(),
   rememberReturn: vi.fn(),
@@ -69,7 +75,7 @@ function renderApp(
   );
 }
 
-test("public sign-in offers Google and verified email without revealing private content", async () => {
+test("public sign-in offers Google and email/password without revealing private content", async () => {
   renderApp();
   const user = userEvent.setup();
   await user.click(
@@ -83,27 +89,40 @@ test("public sign-in offers Google and verified email without revealing private 
     screen.getByLabelText(copy.en.authEmail),
     "learner@example.com",
   );
-  await user.click(screen.getByRole("button", { name: copy.en.authSend }));
-  expect(sendMagicLink).toHaveBeenCalledWith("learner@example.com");
-  expect(await screen.findByRole("status")).toHaveTextContent(copy.en.authSent);
-  expect(
-    screen.getByRole("button", { name: /Send another link/ }),
-  ).toBeDisabled();
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "a safe password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  expect(passwordSignIn).toHaveBeenCalledWith(
+    "learner@example.com",
+    "a safe password example",
+  );
 });
 
 test("provider failure remains recoverable and does not reveal the library", async () => {
-  sendMagicLink.mockRejectedValueOnce(new Error("unavailable"));
+  passwordSignIn.mockRejectedValueOnce(new Error("unavailable"));
   renderApp();
   const user = userEvent.setup();
   await user.type(
     await screen.findByLabelText(copy.en.authEmail),
     "learner@example.com",
   );
-  await user.click(screen.getByRole("button", { name: copy.en.authSend }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    copy.en.authUnavailable,
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "a safe password example",
   );
-  expect(screen.getByRole("button", { name: copy.en.authSend })).toBeEnabled();
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    copy.en.authCredentials,
+  );
+  expect(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  ).toBeEnabled();
   expect(
     screen.queryByRole("heading", { name: "Your vocabulary" }),
   ).not.toBeInTheDocument();
@@ -583,7 +602,7 @@ test("Google callback completes even when an earlier account session already exi
     expect(
       await screen.findByRole("heading", { name: copy.en.homeWelcomeTitle }),
     ).toBeVisible();
-    expect(finishAuthentication).toHaveBeenCalledWith("google");
+    expect(finishAuthentication).toHaveBeenCalledOnce();
   } finally {
     window.history.replaceState(null, "", "/");
   }

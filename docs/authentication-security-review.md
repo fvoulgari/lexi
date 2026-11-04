@@ -1,5 +1,11 @@
 # Authentication and account-isolation review
 
+> Scope update: the historical magic-link/SMTP results below describe earlier commits.
+> Launch authentication is now email/password with required verification plus Google,
+> with Resend HTTPS delivery. See [current setup](authentication-setup.md) and the
+> [updated staging checklist](authentication-staging-checklist.md). Historical review
+> does not establish correctness of the password-auth changes.
+
 Independent source review of the integrated authentication release, 4 November 2026. This is an application review, not a penetration test or certification of a configured production deployment.
 
 Final source pass found no remaining identified application security blockers within the reviewed scope. External configuration checks below remain release gates.

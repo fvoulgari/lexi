@@ -1,6 +1,6 @@
 # Authentication, ownership, and legacy progress
 
-Lexi uses SuperTokens Core with the Python and browser SDKs for Google sign-in, email magic links, and cookie sessions. PostgreSQL stores application accounts, one uniquely owned learner profile per account, content permissions, claim hashes, and private recovery requests. Identity uses the stable SuperTokens user identifier, never an email or display-name match.
+Lexi uses SuperTokens Core with the Python and browser SDKs for Google sign-in, email/password with mandatory email verification, secure password reset, and cookie sessions. PostgreSQL stores application accounts, one uniquely owned learner profile per account, content permissions, claim hashes, and private recovery requests. Identity uses the stable SuperTokens user identifier, never an email or display-name match.
 
 Public registration grants a fresh learner profile. It grants no editor role or restricted legacy-library access. Ordinary learners manage their private cards and collections and practise explicitly published shared content. Only admins assign roles or publish reviewed shared content. Editors manage authorised shared content without access to anyone else's private profiles or collections. Claiming old progress does not change these permissions.
 
@@ -10,11 +10,11 @@ The integration candidate is SuperTokens managed Core. The official [pricing pag
 
 Different sign-in methods can create different accounts even when email strings match. There is no account-linking or account-transfer UI. Use the same method to return to an existing account. Do not try to repair this by changing provider subjects or merging email matches.
 
-Email delivery uses an explicitly configured SMTP sender rather than the provider's shared default sender. A sender/domain and SMTP credentials are required; provider free-tier quotas, delivery reliability, and possible email-service charges must be checked by the operator. See [SuperTokens email delivery](https://supertokens.com/docs/platform-configuration/email-delivery). No email service was purchased or configured here.
+Email delivery uses Resend's HTTPS API through a SuperTokens email-delivery adapter. `RESEND_API_KEY` and a domain-verified `EMAIL_FROM` are required. No email service was activated or purchased. SMTP is not used, so Railway Hobby can remain unchanged. Passwords and authentication tokens are handled by SuperTokens; Lexi application tables contain neither password hashes nor passwords. Registration and recovery responses do not disclose whether an address exists. Magic-link sign-in is removed and old passwordless endpoints return 404. Legacy claim links remain available and distinct from authentication.
 
 ## Operator handoff
 
-- [Exact provider, Google, SMTP, environment and cost setup](authentication-setup.md)
+- [Exact provider, Google, HTTPS email, environment and cost setup](authentication-setup.md)
 - [Pending staging end-to-end acceptance checklist](authentication-staging-checklist.md)
 - [Production backup, migration and rollback runbook](authentication-migration-runbook.md)
 - [Executed checks and verification limits](authentication-verification.md)
@@ -25,17 +25,17 @@ PR #63 remains a draft. These instructions authorise no merge, deployment, paid 
 
 1. Provision an approved free-tier Core instance or use a separately managed development Core. Record its HTTPS connection URI and backend-only API key. Do not enable paid account linking, MFA, or tenancy features. Confirm free-tier usage controls and review costs before any upgrade.
 2. Configure a Google OAuth web client. Authorise the exact frontend origin and callback `https://YOUR_LEXI_HOST/auth/callback/google`. Use `http://localhost:5173/auth/callback/google` for the supported local origin. Put Google client credentials only in backend variables. Follow Google's consent-screen and production publishing requirements for the actual audience.
-3. Configure a verified SMTP sender/domain with your email provider, including its SPF/DKIM/DMARC and free-tier limits. Set `SMTP_HOST`, `SMTP_PORT=465`, `SMTP_FROM_EMAIL`, `SMTP_USERNAME`, `SMTP_PASSWORD`, and `SMTP_SECURE=true`. Production deliberately requires implicit TLS because the SDK's nonsecure SMTP fallback can permit plaintext delivery. The shared default email service is not a production fallback.
+3. Verify a sender domain in Resend with its SPF/DKIM records and a suitable DMARC policy. Confirm free-plan quotas and billing before activating delivery. Put `RESEND_API_KEY` and `EMAIL_FROM` directly into the backend's protected variables.
 4. Set `SUPERTOKENS_CONNECTION_URI`, `SUPERTOKENS_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, exact `PUBLIC_ORIGIN`, and `COOKIE_SECURE=true` in backend runtime variables. Keep all privileged values out of frontend bundles, build arguments, logs, and Git. The environment example contains placeholders only.
-5. Configure Core magic-link expiry and session access/refresh lifetimes deliberately using its supported configuration. Verify passwordless links land at the same origin's `/auth/verify`. The SDK generates and consumes single-use expiring links. `CLAIM_HOURS` controls legacy claim links only, not authentication magic links.
+5. Enable supported email/password and required email verification recipes, configure Core verification/reset token and access/refresh session lifetimes, and verify the `/auth/verify-email` and `/auth/reset-password` flows. These links are provider-managed and single-use. `CLAIM_HOURS` controls only legacy claims. Account linking stays disabled; Google and password identities with the same email remain separate, and password recovery does not add a password to Google-only identities.
 6. Keep the existing single application service and privately connected PostgreSQL. Production browser requests stay same-origin. Configure only verified proxy addresses in `FORWARDED_ALLOW_IPS`; never use `*` as a shortcut. Until proxy trust is verified, throttling may group users behind the same proxy. Do not add permissive CORS.
 7. Complete the backup/migration procedure below, bootstrap one verified administrator, assign legacy-library access and editor roles explicitly, and verify both real-provider sign-in methods in staging. A working health endpoint does not imply authentication has been configured: `/api/auth/session` reports `auth_available=false` and authentication fails closed when required settings are absent.
 
-Production Google, Core, SMTP, real browser callbacks, link delivery/single-use/expiry, renewal, and revocation require configuration-dependent end-to-end verification. Local provider substitutes in tests prove application behavior only. This change must not be called production-ready until these checks and the production migration are completed by an authorised operator.
+Production Google, Core, HTTPS email, real browser callbacks, link delivery/single-use/expiry, renewal, and revocation require configuration-dependent end-to-end verification. Local provider substitutes in tests prove application behavior only. This change must not be called production-ready until these checks and the production migration are completed by an authorised operator.
 
 ## Local development
 
-Use the existing frontend/backend development setup and a disposable local database. Set `PUBLIC_ORIGIN=http://localhost:5173` and `COOKIE_SECURE=false`; the Vite `/api` proxy retains the browser's same-origin requests. Configure an actual development Core, Google localhost web callback, and development SMTP sender. Explicit HTTP Core is allowed only in insecure local-cookie mode. No shared-password or mock-login fallback exists.
+Use the existing frontend/backend development setup and a disposable local database. Set `PUBLIC_ORIGIN=http://localhost:5173` and `COOKIE_SECURE=false`; the Vite `/api` proxy retains the browser's same-origin requests. Configure an actual development Core, Google localhost web callback, and development HTTPS email sender. Explicit HTTP Core is allowed only in insecure local-cookie mode. No shared-password or mock-login fallback exists.
 
 The browser SDK handles access-token refresh. Application cookies are HttpOnly, Secure in production, and SameSite=Lax for OAuth callbacks. Session credentials are not stored in localStorage. The SDK's `rid: session` header and same-origin checks protect writes; claim capture separately requires an exact Origin. Backend verification checks Core on each request so revocation stops application access immediately. Logout revokes the current session; logout-all revokes that provider user's application sessions, not the Google browser login itself.
 

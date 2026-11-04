@@ -1,5 +1,11 @@
 # Authentication release verification
 
+> Scope update: the historical magic-link/SMTP results below describe earlier commits.
+> Launch authentication is now email/password with required verification plus Google,
+> with Resend HTTPS delivery. See [current setup](authentication-setup.md) and the
+> [updated staging checklist](authentication-staging-checklist.md). Historical review
+> does not establish correctness of the password-auth changes.
+
 Verified locally on 4 November 2026. This is implementation evidence, not a claim that production authentication is configured or ready to deploy.
 
 ## Original implementation evidence — commit 83a8dc0

@@ -14,12 +14,8 @@ class Settings(BaseSettings):
     supertokens_api_key: SecretStr = SecretStr("")
     google_client_id: str = ""
     google_client_secret: SecretStr = SecretStr("")
-    smtp_host: str = ""
-    smtp_port: int = Field(default=465, ge=1, le=65535)
-    smtp_from_email: str = ""
-    smtp_username: str = ""
-    smtp_password: SecretStr = SecretStr("")
-    smtp_secure: bool = True
+    resend_api_key: SecretStr = SecretStr("")
+    email_from: str = ""
     cookie_secure: bool = True
     public_origin: str = "http://localhost:8000"
     claim_hours: int = Field(default=48, ge=1, le=168)

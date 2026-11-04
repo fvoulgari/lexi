@@ -8,23 +8,22 @@ def configure_provider(app, settings):
     from supertokens_python.framework.fastapi import get_middleware
     from supertokens_python.ingredients.emaildelivery.types import (
         EmailDeliveryConfig,
-        SMTPSettings,
-        SMTPSettingsFrom,
     )
     from supertokens_python.recipe import (
         accountlinking,
-        passwordless,
+        emailpassword,
+        emailverification,
         session,
         thirdparty,
     )
     from supertokens_python.recipe.accountlinking.types import (
         ShouldNotAutomaticallyLink,
     )
-    from supertokens_python.recipe.passwordless import ContactEmailOnlyConfig
-    from supertokens_python.recipe.passwordless.emaildelivery.services.smtp import (
-        SMTPService,
+    from supertokens_python.recipe.emailpassword import (
+        EmailPasswordOverrideConfig,
+        InputFormField,
+        InputSignUpFeature,
     )
-    from supertokens_python.recipe.passwordless.utils import PasswordlessOverrideConfig
     from supertokens_python.recipe.thirdparty import SignInAndUpFeature
     from supertokens_python.recipe.thirdparty.provider import (
         ProviderClientConfig,
@@ -32,6 +31,8 @@ def configure_provider(app, settings):
         ProviderInput,
     )
     from supertokens_python.recipe.thirdparty.utils import ThirdPartyOverrideConfig
+
+    from app.auth_email import AuthEmailDelivery
 
     async def never_link(*_args):
         return ShouldNotAutomaticallyLink()
@@ -88,24 +89,18 @@ def configure_provider(app, settings):
                     apis=lambda apis: restrict_thirdparty(apis, settings.public_origin)
                 ),
             ),
-            passwordless.init(
-                override=PasswordlessOverrideConfig(apis=restrict_passwordless),
-                flow_type="MAGIC_LINK",
-                contact_config=ContactEmailOnlyConfig(),
-                email_delivery=EmailDeliveryConfig(
-                    service=SMTPService(
-                        SMTPSettings(
-                            host=settings.smtp_host,
-                            port=settings.smtp_port,
-                            from_=SMTPSettingsFrom(
-                                name="Lexi", email=settings.smtp_from_email
-                            ),
-                            username=settings.smtp_username or None,
-                            password=settings.smtp_password.get_secret_value() or None,
-                            secure=settings.smtp_secure,
-                        )
-                    )
+            emailpassword.init(
+                sign_up_feature=InputSignUpFeature(
+                    form_fields=[
+                        InputFormField(id="password", validate=validate_password),
+                    ]
                 ),
+                override=EmailPasswordOverrideConfig(apis=restrict_emailpassword),
+                email_delivery=EmailDeliveryConfig(service=AuthEmailDelivery(settings)),
+            ),
+            emailverification.init(
+                mode="REQUIRED",
+                email_delivery=EmailDeliveryConfig(service=AuthEmailDelivery(settings)),
             ),
         ],
     )
@@ -118,17 +113,15 @@ def configuration_ready(settings):
         settings.supertokens_api_key.get_secret_value(),
         settings.google_client_id,
         settings.google_client_secret.get_secret_value(),
-        settings.smtp_host,
-        settings.smtp_from_email,
+        settings.resend_api_key.get_secret_value(),
+        settings.email_from,
     )
     if not all(required):
         return False
     core = urlsplit(settings.supertokens_connection_uri)
     origin = urlsplit(settings.public_origin)
     if settings.cookie_secure:
-        return (
-            core.scheme == "https" and origin.scheme == "https" and settings.smtp_secure
-        )
+        return core.scheme == "https" and origin.scheme == "https"
     return (
         core.scheme in {"http", "https"}
         and origin.scheme == "http"
@@ -170,16 +163,128 @@ def restrict_thirdparty(apis, public_origin):
     return apis
 
 
-def restrict_passwordless(apis):
-    # The standard recipe exposes unauthenticated email/phone existence APIs.
-    # Neutral UI copy alone would not protect account existence.
+async def validate_password(value, _tenant_id):
+    # One policy is shared by SDK registration and reset validation. Allow paste,
+    # spaces, Unicode and password managers; avoid arbitrary composition rules.
+    if not isinstance(value, str) or not 15 <= len(value) <= 128:
+        return "Use between 15 and 128 characters."
+    return None
+
+
+def restrict_emailpassword(apis):
+    from supertokens_python.recipe.emailpassword.interfaces import (
+        GeneratePasswordResetTokenPostOkResult,
+        SignInPostOkResult,
+        SignUpOkResult,
+        WrongCredentialsError,
+    )
+    from supertokens_python.recipe.emailverification.asyncio import (
+        send_email_verification_email,
+    )
+
     apis.disable_email_exists_get = True
-    apis.disable_phone_number_exists_get = True
-    original_consume = apis.consume_code_post
+    original_signin = apis.sign_in_post
+    original_recovery = apis.generate_password_reset_token_post
+    original_reset = apis.password_reset_post
 
-    async def consume_code_post(**arguments):
+    async def sign_up_post(
+        form_fields,
+        tenant_id,
+        session,
+        should_try_linking_with_session_user,
+        api_options,
+        user_context,
+    ):
+        arguments = locals()
         reject_linking(arguments)
-        return await original_consume(**arguments)
+        fields = {f.id: f.value for f in arguments["form_fields"]}
+        from supertokens_python.auth_utils import is_fake_email
 
-    apis.consume_code_post = consume_code_post
+        if is_fake_email(fields["email"]):
+            return GeneratePasswordResetTokenPostOkResult()
+        # Use the provider's password handling without creating a session or
+        # exposing a new/duplicate account distinction through response/cookies.
+        result = await arguments["api_options"].recipe_implementation.sign_up(
+            email=fields["email"],
+            password=fields["password"],
+            tenant_id=arguments["tenant_id"],
+            session=None,
+            should_try_linking_with_session_user=False,
+            user_context=arguments["user_context"],
+        )
+        if isinstance(result, SignUpOkResult):
+            from app.auth_email import EmailDeliveryUnavailable
+
+            try:
+                await send_email_verification_email(
+                    arguments["tenant_id"],
+                    result.user.id,
+                    result.recipe_user_id,
+                    fields["email"],
+                    arguments["user_context"],
+                )
+            except EmailDeliveryUnavailable:
+                pass  # Same public registration response during delivery outages.
+        return GeneratePasswordResetTokenPostOkResult()
+
+    async def sign_in_post(*args, **arguments):
+        if args:
+            arguments = (
+                dict(
+                    zip(
+                        (
+                            "form_fields",
+                            "tenant_id",
+                            "session",
+                            "should_try_linking_with_session_user",
+                            "api_options",
+                            "user_context",
+                        ),
+                        args,
+                    )
+                )
+                | arguments
+            )
+        reject_linking(arguments)
+        result = await original_signin(**arguments)
+        return (
+            result
+            if isinstance(result, SignInPostOkResult)
+            else WrongCredentialsError()
+        )
+
+    async def generate_password_reset_token_post(*args, **arguments):
+        if args:
+            arguments = (
+                dict(
+                    zip(
+                        ("form_fields", "tenant_id", "api_options", "user_context"),
+                        args,
+                    )
+                )
+                | arguments
+            )
+        # The SDK only resets the email/password identity when linking is off.
+        from app.auth_email import EmailDeliveryUnavailable
+
+        try:
+            await original_recovery(**arguments)
+        except EmailDeliveryUnavailable:
+            pass  # Avoid distinguishing a known recipient during an outage.
+        return GeneratePasswordResetTokenPostOkResult()
+
+    async def password_reset_post(*args, **arguments):
+        result = await original_reset(*args, **arguments)
+        if result.status == "OK":
+            from supertokens_python.recipe.session.asyncio import (
+                revoke_all_sessions_for_user,
+            )
+
+            await revoke_all_sessions_for_user(result.user.id)
+        return result
+
+    apis.sign_up_post = sign_up_post
+    apis.sign_in_post = sign_in_post
+    apis.generate_password_reset_token_post = generate_password_reset_token_post
+    apis.password_reset_post = password_reset_post
     return apis

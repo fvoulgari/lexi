@@ -99,6 +99,7 @@ export default function App() {
     const fresh = await request("/api/auth/session");
     queryClient.setQueryData(["session"], fresh);
     notifySessionChanged();
+    return fresh;
   }, [queryClient]);
   const preferences = useMutation({
     mutationFn: ({ value }) =>
@@ -331,7 +332,11 @@ export default function App() {
                 {text.claimInvalid}
               </p>
             ) : (
-              <AuthGate text={text} onAuthenticated={onAuthenticated} />
+              <AuthGate
+                text={text}
+                onAuthenticated={onAuthenticated}
+                verificationRequired={session.data?.verification_required}
+              />
             )
           ) : (
             <PrivateAccountBoundary

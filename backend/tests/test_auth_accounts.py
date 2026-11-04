@@ -53,11 +53,11 @@ def test_production_configuration_requires_tls_and_explicit_email_service():
         supertokens_api_key="core-key",
         google_client_id="google-id",
         google_client_secret="google-secret",
-        smtp_host="smtp.example",
-        smtp_from_email="lexi@example.com",
+        resend_api_key="test-mail-key",
+        email_from="lexi@example.com",
     )
     assert configuration_ready(settings(**complete))
-    assert not configuration_ready(settings(**(complete | {"smtp_host": ""})))
+    assert not configuration_ready(settings(**(complete | {"resend_api_key": ""})))
     assert not configuration_ready(
         settings(**(complete | {"supertokens_connection_uri": "http://core.example"}))
     )
@@ -161,11 +161,17 @@ def test_google_callback_allowlist_rejects_external_and_native_token_flows():
 def test_explicit_linking_flags_rejected_for_both_signin_methods():
     from supertokens_python.exceptions import BadInputError
 
-    from app.auth_provider import restrict_passwordless, restrict_thirdparty
+    from app.auth_provider import restrict_emailpassword, restrict_thirdparty
 
-    apis = restrict_passwordless(SimpleNamespace(consume_code_post=AsyncMock()))
+    apis = restrict_emailpassword(
+        SimpleNamespace(
+            sign_in_post=AsyncMock(),
+            generate_password_reset_token_post=AsyncMock(),
+            password_reset_post=AsyncMock(),
+        )
+    )
     with pytest.raises(BadInputError):
-        asyncio.run(apis.consume_code_post(should_try_linking_with_session_user=True))
+        asyncio.run(apis.sign_in_post(should_try_linking_with_session_user=True))
     apis = restrict_thirdparty(
         SimpleNamespace(authorisation_url_get=AsyncMock(), sign_in_up_post=AsyncMock()),
         "https://lexi.example",
@@ -174,12 +180,17 @@ def test_explicit_linking_flags_rejected_for_both_signin_methods():
         asyncio.run(apis.sign_in_up_post(should_try_linking_with_session_user=True))
 
 
-def test_passwordless_recipe_disables_identity_enumeration():
-    from app.auth_provider import restrict_passwordless
+def test_password_recipe_disables_identity_enumeration():
+    from app.auth_provider import restrict_emailpassword
 
-    apis = restrict_passwordless(SimpleNamespace(consume_code_post=AsyncMock()))
+    apis = restrict_emailpassword(
+        SimpleNamespace(
+            sign_in_post=AsyncMock(),
+            generate_password_reset_token_post=AsyncMock(),
+            password_reset_post=AsyncMock(),
+        )
+    )
     assert apis.disable_email_exists_get is True
-    assert apis.disable_phone_number_exists_get is True
 
 
 def test_insecure_cookies_are_only_allowed_for_loopback_development():
@@ -190,8 +201,8 @@ def test_insecure_cookies_are_only_allowed_for_loopback_development():
         supertokens_api_key="core-key",
         google_client_id="google-id",
         google_client_secret="google-secret",
-        smtp_host="smtp.example",
-        smtp_from_email="lexi@example.com",
+        resend_api_key="test-mail-key",
+        email_from="lexi@example.com",
     )
     assert not configuration_ready(settings(**complete))
     assert configuration_ready(
@@ -209,8 +220,8 @@ def test_configured_provider_does_not_expose_identity_existence_endpoints():
             supertokens_api_key="test-key-not-a-live-secret",
             google_client_id="test-google-id",
             google_client_secret="test-google-secret",
-            smtp_host="smtp.example.invalid",
-            smtp_from_email="test@example.invalid",
+            resend_api_key="test-mail-key",
+            email_from="test@example.invalid",
         ),
         None,
     )

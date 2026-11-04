@@ -1,5 +1,34 @@
 export const accountCopy = {
   en: {
+    authPassword: "Password",
+    authShowPassword: "Show password",
+    authHidePassword: "Hide password",
+    authPasswordPolicy:
+      "Use 15–128 characters. Spaces and password managers are welcome.",
+    authAction_signin: "Sign in",
+    authAction_signup: "Create account",
+    authAction_forgot: "Send password reset email",
+    authAction_reset: "Set new password",
+    authForgot: "Forgot password?",
+    authBack: "Back to sign in",
+    authRegistered:
+      "If registration is available for this address, a verification email is on its way. Sign in with your password to continue. If you already have an account, use your original sign-in method or reset your password.",
+    authRecoverySent:
+      "If an eligible password account exists, a reset email is on its way. Check your inbox and spam folder.",
+    authResetDone: "Password updated. Sign in with your new password.",
+    authVerified: "Email verified. Sign in to continue.",
+    authVerifyHint:
+      "Verify your email before opening your notebook. Open the verification email and confirm here.",
+    authVerify: "Verify email",
+    authResendVerification: "Send verification email again",
+    authVerificationSent:
+      "Verification requested. Check your inbox and spam folder.",
+    authCredentials:
+      "Unable to sign in. Check your email and password, or use your original Google sign-in method.",
+    authExpired:
+      "This authentication attempt or link is invalid, expired, already used, or could not be completed. Start again.",
+    authMethods:
+      "Google and password sign-ins remain separate accounts, even with the same email. Use your original method to reach its progress. Resetting a password does not add a password to a Google account.",
     requestStatuses: {
       pending: "Pending",
       resolved: "Resolved",
@@ -33,23 +62,15 @@ export const accountCopy = {
     metadataHint:
       "Publish reviewed units and tags before publishing their cards. Publishing a unit or tag does not publish its cards.",
     legacySubmit: "Request help",
-    authMethods:
-      "Use the same sign-in method each time. Google and email accounts are not automatically linked.",
     authTitle: "Your words. Your progress.",
     authIntro:
       "Learn Italian and Greek with your own vocabulary and learning history.",
     authSignIn: "Sign in or create an account",
     authGoogle: "Continue with Google",
     authEmail: "Email address",
-    authSend: "Send a sign-in link",
-    authResend: "Send another link",
-    authSent:
-      "If email delivery is available, a sign-in link is on its way. Check your inbox and spam folder.",
     authPrivacy:
       "Your progress and private vocabulary belong to your account. Signing up does not grant shared-library editing rights.",
     authCompleting: "Completing secure sign-in…",
-    authExpired:
-      "This sign-in link has expired, was already used, or could not be verified. Request a new link or try Google.",
     authUnavailable:
       "Sign-in is temporarily unavailable. Please try again shortly.",
     logout: "Sign out",
@@ -136,6 +157,35 @@ export const accountCopy = {
     noResults: "Nothing to show.",
   },
   el: {
+    authPassword: "Κωδικός πρόσβασης",
+    authShowPassword: "Εμφάνιση κωδικού",
+    authHidePassword: "Απόκρυψη κωδικού",
+    authPasswordPolicy:
+      "Χρησιμοποιήστε 15–128 χαρακτήρες. Επιτρέπονται κενά και διαχειριστές κωδικών.",
+    authAction_signin: "Σύνδεση",
+    authAction_signup: "Δημιουργία λογαριασμού",
+    authAction_forgot: "Αποστολή email επαναφοράς",
+    authAction_reset: "Ορισμός νέου κωδικού",
+    authForgot: "Ξεχάσατε τον κωδικό;",
+    authBack: "Επιστροφή στη σύνδεση",
+    authRegistered:
+      "Αν μπορεί να δημιουργηθεί λογαριασμός με αυτή τη διεύθυνση, θα λάβετε email επιβεβαίωσης. Συνδεθείτε με τον κωδικό σας. Αν έχετε ήδη λογαριασμό, χρησιμοποιήστε την αρχική μέθοδο σύνδεσης ή επαναφέρετε τον κωδικό.",
+    authRecoverySent:
+      "Αν υπάρχει κατάλληλος λογαριασμός με κωδικό, θα λάβετε email επαναφοράς. Ελέγξτε και τα ανεπιθύμητα.",
+    authResetDone: "Ο κωδικός ενημερώθηκε. Συνδεθείτε με τον νέο κωδικό.",
+    authVerified: "Το email επιβεβαιώθηκε. Συνδεθείτε για συνέχεια.",
+    authVerifyHint:
+      "Επιβεβαιώστε το email πριν ανοίξετε το τετράδιό σας. Ανοίξτε το email επιβεβαίωσης και επιβεβαιώστε εδώ.",
+    authVerify: "Επιβεβαίωση email",
+    authResendVerification: "Νέα αποστολή email επιβεβαίωσης",
+    authVerificationSent:
+      "Ζητήθηκε επιβεβαίωση. Ελέγξτε τα εισερχόμενα και τα ανεπιθύμητα.",
+    authCredentials:
+      "Δεν ήταν δυνατή η σύνδεση. Ελέγξτε email και κωδικό ή χρησιμοποιήστε την αρχική σύνδεση Google.",
+    authExpired:
+      "Η προσπάθεια ή ο σύνδεσμος δεν είναι έγκυρος, έχει λήξει, έχει χρησιμοποιηθεί ή δεν ολοκληρώθηκε. Ξεκινήστε ξανά.",
+    authMethods:
+      "Η σύνδεση Google και η σύνδεση με κωδικό είναι ξεχωριστοί λογαριασμοί, ακόμη και με το ίδιο email. Χρησιμοποιήστε την αρχική μέθοδο για το ιστορικό σας. Η επαναφορά δεν προσθέτει κωδικό σε λογαριασμό Google.",
     requestStatuses: {
       pending: "Σε αναμονή",
       resolved: "Επιλύθηκε",
@@ -169,23 +219,15 @@ export const accountCopy = {
     metadataHint:
       "Δημοσίευσε τις ελεγμένες ενότητες και ετικέτες πριν από τις κάρτες τους. Η δημοσίευσή τους δεν δημοσιεύει τις κάρτες.",
     legacySubmit: "Αίτημα βοήθειας",
-    authMethods:
-      "Χρησιμοποίησε την ίδια μέθοδο σύνδεσης κάθε φορά. Οι λογαριασμοί Google και email δεν συνδέονται αυτόματα.",
     authTitle: "Οι λέξεις σου. Η πρόοδός σου.",
     authIntro:
       "Μάθε ιταλικά και ελληνικά με το δικό σου λεξιλόγιο και ιστορικό μάθησης.",
     authSignIn: "Σύνδεση ή δημιουργία λογαριασμού",
     authGoogle: "Συνέχεια με Google",
     authEmail: "Διεύθυνση email",
-    authSend: "Αποστολή συνδέσμου σύνδεσης",
-    authResend: "Αποστολή νέου συνδέσμου",
-    authSent:
-      "Αν η αποστολή email είναι διαθέσιμη, θα λάβεις σύνδεσμο σύνδεσης. Έλεγξε τα εισερχόμενα και την ανεπιθύμητη αλληλογραφία.",
     authPrivacy:
       "Η πρόοδος και το ιδιωτικό λεξιλόγιο ανήκουν στον λογαριασμό σου. Η εγγραφή δεν δίνει δικαιώματα επεξεργασίας της κοινής βιβλιοθήκης.",
     authCompleting: "Ολοκλήρωση ασφαλούς σύνδεσης…",
-    authExpired:
-      "Ο σύνδεσμος έληξε, χρησιμοποιήθηκε ήδη ή δεν επαληθεύτηκε. Ζήτησε νέο σύνδεσμο ή δοκίμασε Google.",
     authUnavailable:
       "Η σύνδεση δεν είναι διαθέσιμη προσωρινά. Δοκίμασε ξανά σε λίγο.",
     logout: "Αποσύνδεση",
@@ -271,6 +313,34 @@ export const accountCopy = {
     noResults: "Δεν υπάρχουν στοιχεία.",
   },
   it: {
+    authPassword: "Password",
+    authShowPassword: "Mostra password",
+    authHidePassword: "Nascondi password",
+    authPasswordPolicy:
+      "Usa 15–128 caratteri. Sono consentiti spazi e gestori di password.",
+    authAction_signin: "Accedi",
+    authAction_signup: "Crea account",
+    authAction_forgot: "Invia email di recupero",
+    authAction_reset: "Imposta nuova password",
+    authForgot: "Password dimenticata?",
+    authBack: "Torna all’accesso",
+    authRegistered:
+      "Se è possibile registrare questo indirizzo, riceverai un’email di verifica. Accedi con la password per continuare. Se hai già un account, usa il metodo originale o reimposta la password.",
+    authRecoverySent:
+      "Se esiste un account con password idoneo, riceverai un’email di recupero. Controlla anche lo spam.",
+    authResetDone: "Password aggiornata. Accedi con la nuova password.",
+    authVerified: "Email verificata. Accedi per continuare.",
+    authVerifyHint:
+      "Verifica l’email prima di aprire il quaderno. Apri l’email di verifica e conferma qui.",
+    authVerify: "Verifica email",
+    authResendVerification: "Invia di nuovo l’email di verifica",
+    authVerificationSent: "Verifica richiesta. Controlla la posta e lo spam.",
+    authCredentials:
+      "Accesso non riuscito. Controlla email e password oppure usa l’accesso Google originale.",
+    authExpired:
+      "Il tentativo o il link non è valido, è scaduto, è già stato usato o non è stato completato. Ricomincia.",
+    authMethods:
+      "Google e password restano account separati, anche con la stessa email. Usa il metodo originale per trovare i tuoi progressi. Il recupero password non aggiunge una password a un account Google.",
     requestStatuses: {
       pending: "In attesa",
       resolved: "Risolta",
@@ -304,23 +374,15 @@ export const accountCopy = {
     metadataHint:
       "Pubblica unità e tag revisionati prima delle relative schede. Pubblicarli non pubblica le schede.",
     legacySubmit: "Chiedi aiuto",
-    authMethods:
-      "Usa sempre lo stesso metodo di accesso. Gli account Google ed email non vengono collegati automaticamente.",
     authTitle: "Le tue parole. I tuoi progressi.",
     authIntro:
       "Impara italiano e greco con il tuo vocabolario e la tua cronologia.",
     authSignIn: "Accedi o crea un account",
     authGoogle: "Continua con Google",
     authEmail: "Indirizzo email",
-    authSend: "Invia un link di accesso",
-    authResend: "Invia un altro link",
-    authSent:
-      "Se l’invio email è disponibile, riceverai un link di accesso. Controlla la posta e lo spam.",
     authPrivacy:
       "I progressi e il vocabolario privato appartengono al tuo account. La registrazione non concede diritti di modifica della biblioteca condivisa.",
     authCompleting: "Completamento dell’accesso sicuro…",
-    authExpired:
-      "Il link è scaduto, già usato o non verificabile. Richiedi un nuovo link o prova Google.",
     authUnavailable:
       "L’accesso non è temporaneamente disponibile. Riprova tra poco.",
     logout: "Esci",

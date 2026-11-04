@@ -28,7 +28,7 @@ Session recall counts **Hard + Easy** responses as a proportion of submitted rev
 
 ## Scope and access
 
-Lexi supports public registration through Google or verified email magic links. Each account owns exactly one learner profile, private vocabulary, collections, settings, and progress. Registered learners can practise published shared vocabulary. Existing content stays in a restricted legacy library until explicitly reviewed and published; administrators separately assign legacy access and editing roles.
+Lexi supports public registration through Google or email/password with mandatory email verification. Each account owns exactly one learner profile, private vocabulary, collections, settings, and progress. Registered learners can practise published shared vocabulary. Existing content stays in a restricted legacy library until explicitly reviewed and published; administrators separately assign legacy access and editing roles.
 
 Administrators can issue secure single-use links to associate verified learners with their legacy progress. Existing activity blocks automatic reassignment and produces a resolution report; no automatic merging or name-based claiming occurs. Ordinary card deletion archives content while preserving reviews and completed-session history. Profile switching and permanent profile-deletion controls are unavailable.
 
@@ -67,8 +67,7 @@ Set these values in the untracked `.env` file:
 | `POSTGRES_PASSWORD` | A unique, URL-safe database password |
 | `SUPERTOKENS_CONNECTION_URI`, `SUPERTOKENS_API_KEY` | Approved development Core connection and backend API key |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google web client with the exact local callback |
-| `SMTP_HOST`, `SMTP_FROM_EMAIL`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Explicit development email sender |
-| `SMTP_PORT`, `SMTP_SECURE` | Sender TLS settings; production uses implicit TLS |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Protected HTTPS email API credential and verified sender for verification/reset emails |
 
 
 Use unique protected credentials and follow [provider setup](docs/authentication.md). Missing authentication configuration fails closed; there is no shared-password fallback.
@@ -82,7 +81,7 @@ docker compose up --build -d --wait
 docker compose exec backend python -m app.seed
 ```
 
-Open [localhost:5173](http://localhost:5173) and sign in with Google or an email magic link. Registration creates your own learner profile; no profile selection is required.
+Open [localhost:5173](http://localhost:5173) and sign in with Google or email/password. Registration creates your own learner profile; no profile selection is required.
 
 Startup applies database migrations. Seeding is an explicit first-time action, not a reset command. `docker compose down` retains the named database volume; removing that volume deletes local data.
 
@@ -126,7 +125,7 @@ Use Python **3.14**, Node **24**, and PostgreSQL **18**, matching Compose, the t
 make setup PYTHON=python3.14
 ```
 
-Configure `backend/.env` with `DATABASE_URL`, the provider/SMTP variables above, `PUBLIC_ORIGIN=http://localhost:5173`, and `COOKIE_SECURE=false` for local HTTP. If using the Compose database, configure the root `.env` too and run `make db-up`.
+Configure `backend/.env` with `DATABASE_URL`, the provider/email variables above, `PUBLIC_ORIGIN=http://localhost:5173`, and `COOKIE_SECURE=false` for local HTTP. If using the Compose database, configure the root `.env` too and run `make db-up`.
 
 ```sh
 make migrate-local

@@ -144,7 +144,7 @@ test.each(["el", "en", "it"])(
       await screen.findByLabelText(copy[language].authEmail),
     ).toBeVisible();
     expect(
-      screen.getByRole("button", { name: copy[language].authSend }),
+      screen.getByRole("button", { name: copy[language].authAction_signin }),
     ).toBeVisible();
   },
 );

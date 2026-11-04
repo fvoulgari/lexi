@@ -94,6 +94,10 @@ def client(test_database, monkeypatch):
             raise HTTPException(403, "CSRF token required.")
         await self.require(request)
 
+    async def verified_email(self, session):
+        return True
+
+    monkeypatch.setattr(AuthGate, "_verified", verified_email)
     monkeypatch.setattr(AuthGate, "_session", verified_session)
     monkeypatch.setattr(AuthGate, "check_csrf", csrf)
     app = create_app()

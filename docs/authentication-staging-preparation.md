@@ -11,7 +11,8 @@ Use the existing single-container topology: React and FastAPI share
 `https://staging.lexi.fotiniv.com`, with API routes at `/api`. This is a proposed
 hostname, not an allocated or verified domain. Google callback:
 `https://staging.lexi.fotiniv.com/auth/callback/google`; email link:
-`https://staging.lexi.fotiniv.com/auth/verify`.
+`https://staging.lexi.fotiniv.com/auth/verify-email`; password reset:
+`https://staging.lexi.fotiniv.com/auth/reset-password`.
 
 Prepare an empty staging environment, one application replica and a new private
 PostgreSQL service/volume. Do not duplicate production secrets, restore real
@@ -51,22 +52,20 @@ they are assumptions, not measurements or enforced spending limits.
 Allow 1 GB egress ($0.05) for a short test, or 5 GB ($0.25) per month:
 approximately $0.42–$0.86 for 48 hours, $5.80–$12.40 monthly. A $2 short-test
 allowance provides contingency but is not a cap. Higher actual memory/CPU,
-traffic or storage increases charges. No SuperTokens, SMTP-provider or taxes
+traffic or storage increases charges. No SuperTokens, email-provider or taxes
 are included. On current forecasts, the short run fits existing included credit;
 a full month adds roughly $5.80–$12.40 in resource usage and consumes the same
 shared credit. There is no second subscription fee just for another environment.
 Stopping compute does not remove retained volume storage charges.
 
-## Email transport blocker
+## HTTPS email transport
 
-The implementation currently uses implicit-TLS SMTP. Railway
-[outbound networking policy](https://docs.railway.com/networking/outbound-networking)
-blocks SMTP on Hobby, Free and Trial; SMTP requires Pro and a redeploy. Therefore
-the proposed Hobby environment cannot complete delivered magic-link acceptance
-with the current transport. An HTTPS transactional-email adapter is an
-alternative requiring implementation and provider evaluation. Pro costs
-$20/month including $20 usage, versus Hobby's $5 including $5; no upgrade,
-proration assumption or email-provider selection is approved here.
+Launch scope changed to email/password plus Google. Resend HTTPS delivery is
+implemented for provider-generated verification and password-reset messages;
+SMTP and magic-link login have been removed. Railway Hobby can remain in use.
+No Resend account or billing was activated. Confirm the verified sender, API-key
+scope, quotas and billing through [operator setup](authentication-setup.md).
+SuperTokens automatic billing and Railway staging budget remain separate gates.
 
 ## Checks independent of managed-provider billing
 
