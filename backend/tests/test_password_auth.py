@@ -212,6 +212,7 @@ def test_auth_rate_limit_covers_password_recovery_and_public_aliases():
                 "user/email/verify/token",
                 "user/email/verify",
             ):
-                result = client.post("/api/auth/" + prefix + suffix)
-                assert result.status_code == 429
-                assert result.headers["retry-after"] == "60"
+                for ending in ("", "/", "//"):
+                    result = client.post("/api/auth/" + prefix + suffix + ending)
+                    assert result.status_code == 429
+                    assert result.headers["retry-after"] == "60"

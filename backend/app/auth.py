@@ -203,8 +203,11 @@ def initialize_auth(app, settings, sessions):
                 return await self.app(scope, receive, send)
             token = account_context.set(None)
             try:
-                path = scope.get("path", "").replace(
-                    "/api/auth/public/", "/api/auth/", 1
+                path = (
+                    scope.get("path", "")
+                    .strip()
+                    .rstrip("/")
+                    .replace("/api/auth/public/", "/api/auth/", 1)
                 )
                 headers = dict(scope.get("headers", []))
                 if path.startswith("/api/auth/"):

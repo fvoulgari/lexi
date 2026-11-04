@@ -103,15 +103,12 @@ export async function requestPasswordReset(email) {
 }
 export async function resetPassword(password) {
   initializeAuth();
-  try {
-    requireOK(
-      await EmailPassword.submitNewPassword({
-        formFields: [{ id: "password", value: password }],
-      }),
-    );
-  } finally {
+  const result = await EmailPassword.submitNewPassword({
+    formFields: [{ id: "password", value: password }],
+  });
+  if (["OK", "RESET_PASSWORD_INVALID_TOKEN_ERROR"].includes(result.status))
     window.history.replaceState(null, "", window.location.pathname);
-  }
+  requireOK(result);
 }
 export async function sendVerification() {
   initializeAuth();
@@ -121,11 +118,10 @@ export async function sendVerification() {
 }
 export async function verifyEmail() {
   initializeAuth();
-  try {
-    requireOK(await EmailVerification.verifyEmail());
-  } finally {
+  const result = await EmailVerification.verifyEmail();
+  if (["OK", "EMAIL_VERIFICATION_INVALID_TOKEN_ERROR"].includes(result.status))
     window.history.replaceState(null, "", window.location.pathname);
-  }
+  requireOK(result);
 }
 export async function signOutUnverified() {
   initializeAuth();

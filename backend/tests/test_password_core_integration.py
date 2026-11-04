@@ -18,6 +18,35 @@ from app.auth_email import AuthEmailDelivery
 from app.main import create_app
 
 
+def reset_provider():
+    # Each recipe has its own process singleton as well as the root SDK.
+    from supertokens_python.recipe.accountlinking.recipe import AccountLinkingRecipe
+    from supertokens_python.recipe.emailpassword.recipe import EmailPasswordRecipe
+    from supertokens_python.recipe.emailverification.recipe import (
+        EmailVerificationRecipe,
+    )
+    from supertokens_python.recipe.jwt.recipe import JWTRecipe
+    from supertokens_python.recipe.multitenancy.recipe import MultitenancyRecipe
+    from supertokens_python.recipe.oauth2provider.recipe import OAuth2ProviderRecipe
+    from supertokens_python.recipe.openid.recipe import OpenIdRecipe
+    from supertokens_python.recipe.session.recipe import SessionRecipe
+    from supertokens_python.recipe.thirdparty.recipe import ThirdPartyRecipe
+
+    for recipe in (
+        SessionRecipe,
+        AccountLinkingRecipe,
+        EmailPasswordRecipe,
+        EmailVerificationRecipe,
+        ThirdPartyRecipe,
+        JWTRecipe,
+        OpenIdRecipe,
+        MultitenancyRecipe,
+        OAuth2ProviderRecipe,
+    ):
+        recipe.reset()
+    Supertokens.reset()
+
+
 @pytest.mark.skipif(
     not os.environ.get("LEXI_TEST_CORE_URI"), reason="isolated local Core not requested"
 )
@@ -25,7 +54,7 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
     uri = os.environ["LEXI_TEST_CORE_URI"]
     assert urlsplit(uri).hostname in {"localhost", "127.0.0.1", "::1"}
     monkeypatch.setenv("SUPERTOKENS_ENV", "testing")
-    Supertokens.reset()
+    reset_provider()
     for key, value in {
         "SUPERTOKENS_CONNECTION_URI": uri,
         "SUPERTOKENS_API_KEY": os.environ.get(
@@ -153,7 +182,7 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
                 },
             )
             assert known.json() == unknown.json() == {"status": "OK"}
-            new_password = "a different synthetic password"
+            new_password = "α" * 100 + "correct suffix"
             body = {
                 "token": reset,
                 "formFields": [{"id": "password", "value": new_password}],
@@ -178,6 +207,14 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
             assert (
                 a.get("/api/auth/session").json()["account"]["id"]
                 == identity["account"]["id"]
+            )
+            # Core must use ARGON2: differences beyond bcrypt's 72-byte
+            # boundary must never authenticate as the same password.
+            assert (
+                a.post(
+                    "/api/auth/signin", json=fields("α" * 100 + "wrong suffix")
+                ).json()["status"]
+                == "WRONG_CREDENTIALS_ERROR"
             )
             # This disposable Core is configured with a two-second reset lifetime.
             a.post(
@@ -208,4 +245,4 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
             )
             assert a.get("/api/auth/session").json()["authenticated"] is False
     finally:
-        Supertokens.reset()
+        reset_provider()

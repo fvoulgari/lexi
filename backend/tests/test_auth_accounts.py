@@ -235,3 +235,16 @@ def test_configured_provider_does_not_expose_identity_existence_endpoints():
             response = client.get(path)
             assert response.status_code == 404
             assert "exists" not in response.json()
+        gate.throttle = lambda _: False
+        for path in (
+            "signin",
+            "signup",
+            "user/password/reset/token",
+            "user/password/reset",
+            "user/email/verify/token",
+            "user/email/verify",
+        ):
+            for prefix in ("", "public/"):
+                assert (
+                    client.post("/api/auth/" + prefix + path + "/").status_code == 429
+                )
