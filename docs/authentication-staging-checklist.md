@@ -11,6 +11,17 @@ Do not open this constrained test deployment to real-user registration.
 
 Record each result as PASS / FAIL / NOT RUN with date, tested commit/image, browser, non-secret environment identifier and sanitised evidence. Never attach link tokens, callback queries, cookies, credentials, personal emails or unredacted traces. A failed or inaccessible CI run is not a pass.
 
+## Account settings staging follow-up — 4 November 2026
+
+Commit `7ad367955312c42fe6c4cdc66d2aa9240fa09415` deployed successfully as
+`47e33666-ecb8-4039-9f70-c53d1b254c73` after explicit user approval. Health and
+session readiness passed; unauthenticated credential access returned 401. A real
+Chromium browser verified reset acceptance for an unknown synthetic address:
+conditional message, plain submitted email, removed form and no notebook
+navigation. No delivery was verified. Managed-Core password changes and signed-in
+account-card checks remain pending. Its CI passed; production jobs were skipped.
+See [account verification](account-settings-verification.md).
+
 ## UI follow-up — 4 November 2026
 
 UI commit `53d1d8bb6cbe26153a7561d3ffcde134ee61be07` deployed successfully as

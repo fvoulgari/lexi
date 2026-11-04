@@ -83,13 +83,25 @@ are in `after/el/` and `after/it/`, including 320-pixel views.
 
 ## Limits and release state
 
-This revision was **not deployed** to staging or production. Live managed-Core
-password change, delivered verification/reset mail and provider/browser session
-behaviour remain to be checked after separately authorised deployment. Existing
-production hashing and hosted acceptance gates remain open; a local Argon2 pass
-does not certify the development managed Core's bcrypt policy. Existing progress,
-permissions, isolation, legacy claims and migration behaviour are unchanged.
-Keep PR #63 draft; no merge or deployment is authorised for this revision.
+The user subsequently authorised staging deployment. Commit
+`7ad367955312c42fe6c4cdc66d2aa9240fa09415` reached Railway SUCCESS as deployment
+`47e33666-ecb8-4039-9f70-c53d1b254c73` on 4 November 2026. Health and session
+readiness returned HTTP 200; the credentials endpoint returned HTTP 401 without
+a session. A real Chromium session against staging confirmed the dedicated reset
+request and accepted state for a nonexistent synthetic identity: the form was
+replaced, the submitted email was visible, and no notebook navigation occurred.
+Screenshots are in `.scratch/account-ui/staging/`. This does not prove delivery.
+
+[CI for the deployed commit](https://github.com/fvoulgari/lexi/actions/runs/41913171043)
+passed frontend, backend, image validation and the aggregate gate. Production
+publication/promotion/deployment jobs were skipped.
+
+Authenticated account-card rendering and password changes against the managed
+Core still require a signed-in staging test; local Core tests do not establish
+hosted acceptance. Live delivered mail and provider/browser session behaviour
+remain pending. Production hashing and migration gates remain open. Existing
+progress, permissions, isolation, legacy claims and migration behaviour are
+unchanged. PR #63 remains draft; no merge or production deployment occurred.
 
 Provider APIs were checked against the installed SDK and the
 [official SuperTokens Python API](https://supertokens.com/docs/python/recipe/emailpassword/syncio/index.html).
