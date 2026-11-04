@@ -43,9 +43,23 @@ variants in `greek/` and the Git-history baseline in `original/`. They contain n
 real learner data, credentials, verification links or provider tokens. The
 screenshot script uses intercepted API responses and is not a live provider test.
 
-These UI changes were not deployed. Live email delivery, Google callbacks,
-password reset, session renewal and legacy claims must still be tested against
-staging after deploying this revision. Accepted-request copy is not proof of mail
+## Staging deployment follow-up
+
+The user approved continuing staging tests. Deployment
+`0a46404a-d6e2-444a-b34b-238543680168` of commit
+`53d1d8bb6cbe26153a7561d3ffcde134ee61be07` reached Railway SUCCESS.
+An actual headless Chromium session against `https://staging.lexi.fotiniv.com`
+confirmed the new mobile screens, generic wrong-credential banner from the live
+managed Core, retained email, restored controls, and registration/recovery view
+navigation. No registration, reset request or email delivery was initiated.
+Sanitized screenshots are in `.scratch/auth-ui/staging/`.
+
+[CI for that deployed commit](https://github.com/fvoulgari/lexi/actions/runs/41906807759)
+passed frontend, backend, image validation and aggregate checks. Release/image
+promotion and production deployment jobs were skipped.
+
+Live email delivery, Google callbacks, password reset, session renewal and legacy
+claims remain pending; these UI smoke checks do not establish those behaviours. Accepted-request copy is not proof of mail
 delivery: backend registration/recovery intentionally remain non-enumerating,
 including delivery outages. No change to that security policy was made.
 PR #63 remains draft. Production is unchanged.

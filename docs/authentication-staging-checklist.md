@@ -11,6 +11,16 @@ Do not open this constrained test deployment to real-user registration.
 
 Record each result as PASS / FAIL / NOT RUN with date, tested commit/image, browser, non-secret environment identifier and sanitised evidence. Never attach link tokens, callback queries, cookies, credentials, personal emails or unredacted traces. A failed or inaccessible CI run is not a pass.
 
+## UI follow-up — 4 November 2026
+
+UI commit `53d1d8bb6cbe26153a7561d3ffcde134ee61be07` deployed successfully as
+`0a46404a-d6e2-444a-b34b-238543680168`. A real Chromium browser at mobile width
+verified sign-in, the live generic wrong-credential banner, retained email,
+re-enabled controls and registration/recovery navigation. No delivery or account
+creation was initiated. Its CI passed; production jobs were skipped. See
+[UI verification](authentication-ui-verification.md). All untested acceptance
+items below remain pending.
+
 ## Hosted retry — 4 November 2026
 
 After the user deployed the provider variables, staging deployment
