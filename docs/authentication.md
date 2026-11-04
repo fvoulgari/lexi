@@ -4,6 +4,8 @@ Lexi uses SuperTokens Core with the Python and browser SDKs for Google sign-in, 
 
 Public registration grants a fresh learner profile. It grants no editor role or restricted legacy-library access. Ordinary learners manage their private cards and collections and practise explicitly published shared content. Only admins assign roles or publish reviewed shared content. Editors manage authorised shared content without access to anyone else's private profiles or collections. Claiming old progress does not change these permissions.
 
+Current launch implementation and local evidence: [email/password verification](authentication-password-verification.md).
+
 ## Provider and cost boundary
 
 The integration candidate is SuperTokens managed Core. The official [pricing page](https://supertokens.com/pricing) advertised the core methods as free below 5,000 monthly active users during this implementation's research. The threshold is not an unlimited free plan: usage outside it is billable. Account linking is a paid add-on, so automatic linking and client-requested linking are disabled. No billing account, paid feature, or hosted resource was activated by this change. Confirm current limits, applicable terms, and cost controls before provisioning; obtain explicit approval before any paid upgrade or recurring charge.
