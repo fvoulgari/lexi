@@ -32,6 +32,7 @@ def visible(model, account=None):
     account = account or current_account()
     return or_(
         model.owner_account_id == account.id,
+        model.visibility == "published",
         and_(
             model.owner_account_id.is_(None),
             or_(
@@ -139,7 +140,12 @@ def scope_reads(state):
         )
     statement = statement.options(
         with_loader_criteria(
-            Collection, Collection.owner_account_id == account.id, include_aliases=True
+            Collection,
+            or_(
+                Collection.owner_account_id == account.id,
+                Collection.visibility == "published",
+            ),
+            include_aliases=True,
         )
     )
     if not state.execution_options.get("include_archived"):

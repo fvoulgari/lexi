@@ -41,6 +41,7 @@ import LegacyClaim, {
 } from "./LegacyClaim.jsx";
 import { copy, languages } from "./copy.js";
 import Library from "./Library.jsx";
+import SharedCollections from "./SharedCollections.jsx";
 import Profiles from "./Profiles.jsx";
 import Practice from "./Practice.jsx";
 import Progress from "./Progress.jsx";
@@ -344,6 +345,15 @@ export default function App() {
               key={`${accountId}:${session.data.account?.role}:${session.data.account?.legacy_access}:${session.data.account?.profile_id}`}
             >
               <Routes>
+                <Route
+                  path="/collections"
+                  element={
+                    <SharedCollections
+                      language={language}
+                      csrf={session.data.csrf_token}
+                    />
+                  }
+                />
                 <Route
                   path="/claim"
                   element={

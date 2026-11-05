@@ -182,6 +182,12 @@ def create_app():
         archived: bool = False,
     ):
         conditions = vocabulary_conditions(q, unit_ids, no_unit, word_types, tag_ids)
+        conditions.extend(
+            [
+                VocabularyEntry.source_language == "it",
+                VocabularyEntry.target_language == "el",
+            ]
+        )
         with sessions() as db:
             if collection_id is not None:
                 if db.get(Collection, collection_id) is None:
@@ -224,9 +230,12 @@ def create_app():
     def export_vocabulary():
         with sessions() as db:
             entries = db.scalars(
-                select(VocabularyEntry).order_by(
-                    VocabularyEntry.italian, VocabularyEntry.id
+                select(VocabularyEntry)
+                .where(
+                    VocabularyEntry.source_language == "it",
+                    VocabularyEntry.target_language == "el",
                 )
+                .order_by(VocabularyEntry.italian, VocabularyEntry.id)
             ).all()
             return Response(
                 export_library(entries),

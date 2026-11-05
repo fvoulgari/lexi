@@ -12,7 +12,7 @@ A learner's display identity, learning preferences, and personal learning record
 _Avoid_: User account, authenticated user
 
 **Vocabulary card**:
-One meaning expressed by an Italian word or phrase and its Greek equivalent. The same text may appear on separate cards with different meanings; “vocabulary entry” names the same concept.
+One meaning expressed by a word or phrase and its equivalent in another language. The same text may appear on separate cards with different meanings; “vocabulary entry” names the same concept.
 _Avoid_: Word, translation pair without a meaning
 
 **Vocabulary library**:
@@ -21,8 +21,17 @@ The shared vocabulary cards available to their permitted audience. Publication m
 **Private vocabulary**:
 Vocabulary cards owned and managed by one learner account, accessible only to that learner.
 
+**Collection**:
+A learner-owned, ordered list of references to vocabulary cards in one language pair. A card can belong to several collections while retaining its creator and the learner's existing progress.
+
 **Private collection**:
-A learner-owned grouping of vocabulary for personal use, accessible only to that learner.
+A collection accessible only to its creator.
+
+**Published collection**:
+A collection its creator has made discoverable and available for signed-in learners to practise. Its references never confer access to an otherwise inaccessible card.
+
+**Language pair**:
+The two languages a collection's cards express, independent of which language is used as the prompt during practice.
 
 **Published shared vocabulary**:
 Shared vocabulary explicitly made available to all registered learners for reading and practice. Existing shared vocabulary retains its current audience until explicitly classified.
@@ -46,7 +55,7 @@ A private request from an authenticated learner for help associating previous pr
 A pending administrator review of a legacy association blocked by existing learner data. Both profiles and their learning records remain intact pending a separately reviewed migration procedure.
 
 **Learning direction**:
-The language shown as the prompt and the language recalled as the answer: Italian to Greek or Greek to Italian. A learner's performance in each direction is independent.
+The language shown as the prompt and the language recalled as the answer within a language pair. A learner's performance in each direction is independent.
 _Avoid_: Interface language
 
 **Interface language**:

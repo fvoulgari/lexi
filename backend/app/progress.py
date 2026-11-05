@@ -5,11 +5,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import distinct, func, select
 
+from app.languages import DIRECTION_PAIRS
 from app.models import LearningProgress, Profile, ReviewEvent, VocabularyEntry
 from app.practice import difficult_progress
 
 RATINGS = ("again", "hard", "easy")
-DIRECTIONS = ("greek_to_italian", "italian_to_greek")
+
+DIRECTIONS = tuple(DIRECTION_PAIRS)
 
 
 def progress_router(sessions, gate):
@@ -58,18 +60,16 @@ def progress_router(sessions, gate):
                 ).all()
                 return [{"key": row.key, **output(row)} for row in rows]
 
-            difficult = (
-                difficult_progress(profile_id, DIRECTIONS[0])
-                .with_only_columns(
-                    LearningProgress.entry_id, LearningProgress.direction
-                )
-                .union_all(
-                    difficult_progress(profile_id, DIRECTIONS[1]).with_only_columns(
+            from sqlalchemy import union_all
+
+            difficult = union_all(
+                *[
+                    difficult_progress(profile_id, direction).with_only_columns(
                         LearningProgress.entry_id, LearningProgress.direction
                     )
-                )
-                .subquery()
-            )
+                    for direction in DIRECTIONS
+                ]
+            ).subquery()
             directions = [
                 {
                     "key": direction,
@@ -81,6 +81,12 @@ def progress_router(sessions, gate):
                     ),
                 }
                 for direction in DIRECTIONS
+                if direction in ("greek_to_italian", "italian_to_greek")
+                or db.scalar(
+                    select(func.count())
+                    .select_from(ReviewEvent)
+                    .where(history, ReviewEvent.direction == direction)
+                )
             ]
             recent = db.execute(
                 select(

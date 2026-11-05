@@ -13,6 +13,7 @@ from pydantic import (
 )
 
 from app.grammar import clean_grammar, missing_gender_fields
+from app.languages import DIRECTION_PAIRS
 
 
 class UnitOutput(BaseModel):
@@ -41,7 +42,8 @@ class UnitCreate(BaseModel):
 ProfileName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
 ]
-Direction = Literal["greek_to_italian", "italian_to_greek"]
+
+Direction = Annotated[str, Field(pattern="^(" + "|".join(DIRECTION_PAIRS) + ")$")]
 SessionSize = Literal[10, 25, 50] | None
 
 
@@ -289,6 +291,7 @@ class VocabularySaved(BaseModel):
 
 class SessionCreate(BaseModel):
     collection_id: UUID | None = None
+    collection_ids: list[UUID] = Field(default_factory=list, max_length=100)
     mode: Literal["random", "difficult", "mixed"] = "random"
     model_config = ConfigDict(extra="forbid")
     profile_id: UUID
