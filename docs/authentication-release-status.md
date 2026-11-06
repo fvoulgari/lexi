@@ -119,3 +119,31 @@ private IPv4 path is now verified reachable and shares the public listener's loc
 destination. No safe header-provenance fix has been deployed; public gate remains
 FAIL. No two-source/spoof retest, Cloudflare change or production operation followed.
 Approved temporary diagnostic access was fully removed after use.
+
+## Public signup blocker and ingress recommendation
+
+Public signup remains **BLOCKED for release** until the complete A/B/spoof/bypass
+acceptance test passes. The current limit remains 5/60 for reproduction. Rechecked
+Railway edge-rule/WAF documentation supplies no configurable route/IP counter;
+platform-wide limits and browser challenges are not substitutes and do not close
+private ingress. Staging Under Attack Mode is available but disabled.
+
+The [updated proposal](authentication-tunnel-proposal.md) uses an outbound named
+Tunnel, connector in the existing container, loopback-only app, removal of every
+Railway public route/TCP proxy and rejection of unknown ingress. Existing DB rate
+accounting and separate identifier backoff remain. No infrastructure was created.
+Costs, fail-closed rollback and separate proposed production thresholds are recorded
+there. A rollback must not automatically reopen the old unprotected public path.
+
+Parallel local follow-up on source `6711733`: **53 backend tests passed**, exercising
+Google redirect/linking contracts, email/reset handling, credential availability,
+failed-password backoff and real HTTP/PostgreSQL two-account boundaries; **43
+frontend tests passed** across AuthGate, AccountAccess and AccountCard. These use
+substituted provider/browser requests and are not new managed-provider end-to-end
+passes. Existing user-reported Google/email passes remain historical. Two staging
+test accounts are available; the user was asked to create a unique synthetic private
+card in A and verify B cannot find it. The result is pending, not marked PASS.
+
+CI on `6711733625aa784ebb79daa71d4b8a0ef8f63768` passed backend, frontend,
+image-validation and aggregate checks; publishing and production jobs were skipped.
+This does not establish hosted rate limiting or apply to later documentation heads.

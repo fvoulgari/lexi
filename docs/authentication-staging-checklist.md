@@ -147,3 +147,19 @@ Do not repeat two-network/spoof bucket assertions until the public baseline pass
 - [ ] Repeat [backup/restore and upgrade checks](authentication-migration-runbook.md) on synthetic legacy fixtures; compare IDs, counts, timestamps, snapshots and constraints. Record independent security review findings and closure of material findings.
 - [ ] Record actual local test and GitHub CI outcomes for this exact commit. Mark inaccessible CI as NOT VERIFIED with its reason. Resolve failures before proposing promotion.
 - [ ] Keep PR #63 draft; no merge, tag, deploy, real claims or production migrations are authorised by completing this checklist.
+
+## Independent checks continuing while ingress is blocked
+
+- [x] Local focused backend contracts/isolation: 53 passed on source `6711733`.
+- [x] Local AuthGate/AccountAccess/AccountCard UI regressions: 43 passed.
+- [ ] Hosted A/B private vocabulary test: accounts confirmed available; unique
+  synthetic private-card search requested, awaiting actual result. This is only
+  one isolation check and does not establish all direct-ID/export/write boundaries.
+- [ ] Fresh managed-provider Google and delivered verification/reset checks on a
+  future Tunnel image. Preserve earlier user-reported passes for the unchanged
+  deployed image; do not relabel local mocks as new live-provider evidence.
+
+Public signup stays blocked for release independently of progress on these checks.
+The complete A/B/forged-header/no-bypass acceptance sequence, production threshold
+recommendations, expected costs and fail-closed rollback are in the
+[unprovisioned ingress proposal](authentication-tunnel-proposal.md).
