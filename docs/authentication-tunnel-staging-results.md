@@ -38,7 +38,7 @@ are included here.
 | Other-service private access | PASS: probes from staging database service to app private IPv4 AND IPv6, ports 8000 and 2000, all blocked |
 | Provider readiness | PASS: session endpoint auth_available=true, authenticated=false |
 | Logged-out data access | PASS: profiles and vocabulary returned 401 |
-| Real Google callback on new hostname | NOT RUN; configured URLs confirmed by user, which is not a completed login |
+| Real Google callback on new hostname | PASS, manual user report: returned to Lexi; settings identified Google sign-in and hid Change password. Browser/version not recorded |
 | Delivered verification/reset on new hostname | NOT RUN; earlier manual results remain historical evidence |
 | Two authenticated users' private data | NOT RUN on this deployment; logged-out 401 does not establish cross-account isolation |
 
@@ -85,7 +85,7 @@ Temporary diagnostic account SSH key was deleted successfully after the read-onl
 checks; local key, public-key and known-host files were removed. Tunnel token
 remains sealed in staging; never put it in source, logs, PRs or chat.
 
-Next: complete Google login, verification/reset delivery and reuse/expiry,
+Next: complete verification/reset delivery and reuse/expiry,
 session behavior and two-account isolation on the new origin. Historical manual
 checks do not substitute for those runs. Keep public-signup readiness gated and
 PR draft until remaining release checks are satisfied.
