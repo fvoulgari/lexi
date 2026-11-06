@@ -1,5 +1,10 @@
 # PR #63 release evidence — 6 November 2026
 
+Latest staging ingress evidence: [Tunnel POC results](authentication-tunnel-staging-results.md).
+The active staging origin is `https://staging-lexi.fotiniv.com`; historical records
+below retain their original deployment/origin. Google/email and signed-in two-user
+checks on the new deployment remain pending.
+
 PR #63 remains draft. This record authorises no merge, deployment, production
 migration, paid Core or extension of staging spending. Collections remain in #65.
 

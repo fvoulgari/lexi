@@ -82,3 +82,15 @@ credentials are not locked out. This supplements rather than replaces IP limits.
 The current Railway hosted IP limit has failed its one-source check; see
 [staging evidence](authentication-hosted-rate-limits.md). No guessed forwarding
 trust or unprovisioned Tunnel behavior is enabled.
+
+## Staging Tunnel POC configuration
+
+The active staging origin is `https://staging-lexi.fotiniv.com`. Set
+`AUTH_INGRESS_MODE=cloudflare_tunnel` and sealed `CLOUDFLARE_TUNNEL_TOKEN` only in
+the existing staging backend. The runtime enforces the staging environment ID,
+binds app and connector metrics to loopback, and disables Uvicorn proxy-header
+trust. `FORWARDED_ALLOW_IPS` is not used in this mode. Set the Cloudflare published
+route to `http://127.0.0.1:8000`; retain no Railway app public domains/TCP proxies.
+Google redirect: `https://staging-lexi.fotiniv.com/auth/callback/google`.
+Railway public healthcheck is empty; local health/readiness must be verified.
+See [tested results and rollback](authentication-tunnel-staging-results.md).

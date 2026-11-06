@@ -14,7 +14,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, choices=range(1, 11), default=5)
     args = parser.parse_args()
-    connection = http.client.HTTPSConnection("staging.lexi.fotiniv.com", timeout=20)
+    connection = http.client.HTTPSConnection("staging-lexi.fotiniv.com", timeout=20)
     started = time.monotonic()
     rows = []
     try:
@@ -24,7 +24,7 @@ def main():
                 "/api/auth/authorisationurl",
                 headers={
                     "Cache-Control": "no-cache",
-                    "User-Agent": "Lexi-rate-trace-identical",
+                    "User-Agent": "Mozilla/5.0 Lexi-staging-rate-check",
                 },
             )
             response = connection.getresponse()

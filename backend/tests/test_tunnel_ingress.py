@@ -97,3 +97,36 @@ def test_tunnel_identity_drives_real_database_limit(client):
             ).status_code
             == 403
         )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/auth/signin",
+        "/api/auth/signup",
+        "/api/auth/user/password/reset/token",
+        "/api/auth/user/password/reset",
+    ],
+)
+@pytest.mark.parametrize("alias", [False, True])
+def test_password_routes_and_public_aliases_use_tunnel_limit(client, path, alias):
+    app = FastAPI()
+    gate = initialize_auth(
+        app,
+        Settings(_env_file=None, auth_ingress_mode="cloudflare_tunnel", login_limit=5),
+        client.app.state.sessions,
+    )
+    gate.ready = True
+    route = path.replace("/api/auth/", "/api/auth/public/", 1) if alias else path
+
+    @app.post(route)
+    def inert():
+        return {"ok": True}
+
+    with TestClient(app, client=("127.0.0.1", 1234)) as caller:
+        assert [
+            caller.post(
+                route, headers={"CF-Connecting-IP": "198.51.100.80"}, json={}
+            ).status_code
+            for _ in range(6)
+        ] == [200] * 5 + [429]

@@ -1,7 +1,7 @@
-# Authenticated origin proposal — not provisioned
+# Authenticated origin design and staging proof of concept
 
 Prepared 6 November 2026 after [Railway inventory and staging probes](authentication-hosted-rate-limits.md).
-No tunnel, connector, DNS edit, service or paid plan has been activated.
+The proposal below records the original design. A staging-only Tunnel was subsequently activated with explicit approval; see [actual results](authentication-tunnel-staging-results.md). Production is unchanged. No paid plan was activated.
 
 ## Why the current Railway configuration is insufficient
 
@@ -87,8 +87,9 @@ Required implementation before cutover:
 Bypass closure at cutover:
 
 1. Remove the staging custom domain from Railway public ingress and switch its
-   Cloudflare DNS record to the named Tunnel. Preserve the frontend origin and
-   Google callback URL; no new OAuth origin is required.
+   Cloudflare DNS record to the named Tunnel. The actual free-plan cutover uses `staging-lexi.fotiniv.com`; the operator
+   updated the staging Google origin/callback. The old multi-level hostname
+   required a paid certificate feature and was not retained.
 2. Confirm no Railway-generated domain exists; remove any found during final
    inventory. Confirm no public TCP proxy exists. Keep these absent afterward.
 3. Retain private PostgreSQL access but prove app HTTP port is unreachable from the

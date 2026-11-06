@@ -1,5 +1,10 @@
 # Authentication staging acceptance checklist
 
+Latest staging ingress evidence: [Tunnel POC results](authentication-tunnel-staging-results.md).
+The active staging origin is `https://staging-lexi.fotiniv.com`; historical records
+below retain their original deployment/origin. Google/email and signed-in two-user
+checks on the new deployment remain pending.
+
 Run only after [provider setup](authentication-setup.md), with disposable synthetic learners, vocabulary and legacy profiles. Keep separate staging Core, Google client and database; stay within verified free quotas. This checklist is **pending**, not a claim of end-to-end success. Local mocked-provider tests and migration rehearsals do not verify Google, delivered email, cookies or live Core.
 
 Managed development Core currently exposes hashing configuration as read-only.
