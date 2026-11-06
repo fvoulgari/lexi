@@ -2,7 +2,8 @@
 
 Latest staging ingress evidence: [Tunnel POC results](authentication-tunnel-staging-results.md).
 The active staging origin is `https://staging-lexi.fotiniv.com`; historical records
-below retain their original deployment/origin. Google login/settings passed by manual user report on the new hostname. Email
+below retain their original deployment/origin. Google login/settings passed by manual user report on the new hostname. Reset email delivery, the new-hostname reset link, and new-password sign-in
+also passed by manual user report. Verification, reset reuse/expiry, sessions
 and signed-in two-user checks on this deployment remain pending.
 
 PR #63 remains draft. This record authorises no merge, deployment, production
