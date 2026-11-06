@@ -93,6 +93,16 @@ health checks do not establish provider or account-isolation acceptance.
 - [ ] Successful reset revokes existing sessions for that password identity; other users and a separate Google identity remain unaffected. Return to password sign-in after reset. Verify provider-required email status before protected access.
 - [ ] Old passwordless code/create/resend/consume and email/phone existence endpoints return 404, including public aliases; old `/auth/verify` URLs cannot create sessions. Unreachable Core fails closed; logged-out direct APIs and old shared-gate sessions lack access.
 
+## Hosted rate-limit investigation — 6 November 2026
+
+See [exact inventory and result table](authentication-hosted-rate-limits.md).
+Two independent external sources reached staging (PASS), but one produced 15
+requests within 60 seconds with no 429 despite LOGIN_LIMIT=5 (FAIL). Separate
+application buckets and spoof resistance are NOT VERIFIED; the private-path probe
+is NOT RUN because operator SSH is unavailable. No forwarding-header trust was
+weakened. The [Tunnel proposal](authentication-tunnel-proposal.md) includes bypass
+closure, expected costs and rollback; it has not been provisioned.
+
 ## Sessions and request security
 
 - [ ] Browser access/refresh credentials are HttpOnly, Secure and SameSite=Lax on HTTPS; no credentials or claim tokens in localStorage. Refresh access after expiry and confirm expected Core refresh window; revoke the session and verify the next protected request fails immediately.

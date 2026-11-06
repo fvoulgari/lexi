@@ -3,7 +3,7 @@
 from urllib.parse import urlsplit
 
 
-def configure_provider(app, settings):
+def configure_provider(app, settings, sessions=None):
     from supertokens_python import InputAppInfo, SupertokensConfig, init
     from supertokens_python.framework.fastapi import get_middleware
     from supertokens_python.ingredients.emaildelivery.types import (
@@ -33,6 +33,13 @@ def configure_provider(app, settings):
     from supertokens_python.recipe.thirdparty.utils import ThirdPartyOverrideConfig
 
     from app.auth_email import AuthEmailDelivery
+    from app.password_attempts import PasswordAttempts
+
+    attempts = (
+        PasswordAttempts(sessions, settings.supertokens_api_key.get_secret_value())
+        if sessions is not None
+        else None
+    )
 
     async def never_link(*_args):
         return ShouldNotAutomaticallyLink()
@@ -95,7 +102,9 @@ def configure_provider(app, settings):
                         InputFormField(id="password", validate=validate_password),
                     ]
                 ),
-                override=EmailPasswordOverrideConfig(apis=restrict_emailpassword),
+                override=EmailPasswordOverrideConfig(
+                    apis=lambda apis: restrict_emailpassword(apis, attempts)
+                ),
                 email_delivery=EmailDeliveryConfig(service=AuthEmailDelivery(settings)),
             ),
             emailverification.init(
@@ -171,7 +180,7 @@ async def validate_password(value, _tenant_id):
     return None
 
 
-def restrict_emailpassword(apis):
+def restrict_emailpassword(apis, attempts=None):
     from supertokens_python.recipe.emailpassword.interfaces import (
         GeneratePasswordResetTokenPostOkResult,
         SignInPostOkResult,
@@ -247,11 +256,12 @@ def restrict_emailpassword(apis):
             )
         reject_linking(arguments)
         result = await original_signin(**arguments)
-        return (
-            result
-            if isinstance(result, SignInPostOkResult)
-            else WrongCredentialsError()
-        )
+        if isinstance(result, SignInPostOkResult):
+            return result
+        if attempts is not None:
+            fields = {field.id: field.value for field in arguments["form_fields"]}
+            await attempts.failed(arguments["tenant_id"], fields["email"])
+        return WrongCredentialsError()
 
     async def generate_password_reset_token_post(*args, **arguments):
         if args:

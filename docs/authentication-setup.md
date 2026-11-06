@@ -66,8 +66,19 @@ Set these in the selected environment's protected runtime configuration, never f
 | `EMAIL_FROM` | Verified sender, optionally `Lexi <address@verified-domain>`. |
 | `FORWARDED_ALLOW_IPS` | Verified trusted proxy IPs/CIDRs; never `*`. Default `127.0.0.1` is not proof the actual edge proxy is trusted. |
 | `CLAIM_HOURS` | `48`; allowed 1–168, controls legacy claims only. |
-| `LOGIN_LIMIT` | `5`; application authentication, verification and recovery limit per client-address hash in a 60-second window. |
+| `LOGIN_LIMIT` | `5`; application authentication, verification and recovery limit per client-address hash in a 60-second window. Hosted ingress provenance must be verified separately. |
 
 `SESSION_HOURS` is parsed for compatibility but unused: it does **not** configure provider sessions. `SHARED_PASSWORD` and `SESSION_SECRET` do not restore old gate authentication. `POSTGRES_PASSWORD` belongs only to local database provisioning, not an extra production application setting.
 
 Keep frontend and API same-origin; no permissive CORS. Validate proxy trust before interpreting per-client throttling. Configure edge logs to omit auth callback query strings, cookies, bodies, Authorization headers and claim secrets. The application start command disables raw access logs; check upstream logs independently. `/api/health` proves neither provider connectivity nor delivered email. `/api/auth/session` must report `auth_available=true`, followed by the complete [real-provider checklist](authentication-staging-checklist.md).
+
+
+## Password-attempt and hosted IP-limit status
+
+Password sign-in also applies persistent tenant/identifier failure backoff: up to
+one second on failed responses after repeated failures in five minutes. It stores
+HMAC identifiers using the sealed Core API key, never raw emails/passwords; valid
+credentials are not locked out. This supplements rather than replaces IP limits.
+The current Railway hosted IP limit has failed its one-source check; see
+[staging evidence](authentication-hosted-rate-limits.md). No guessed forwarding
+trust or unprovisioned Tunnel behavior is enabled.

@@ -190,7 +190,7 @@ class AuthGate:
 def initialize_auth(app, settings, sessions):
     gate = AuthGate(settings, sessions, ready=configuration_ready(settings))
     if gate.ready:
-        configure_provider(app, settings)
+        configure_provider(app, settings, sessions)
 
     # Outer middleware also covers SDK-owned routes. Do not trust forwarded
     # headers here; uvicorn must apply its configured trusted-proxy policy.

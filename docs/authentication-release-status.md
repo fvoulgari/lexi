@@ -92,3 +92,18 @@ explicitly trusted synthetic proxies distinguish clients, and an untrusted share
 proxy collapses them. The hosted gate stays open. See the
 [provider constraints and proposed authenticated-origin boundary](authentication-proxy-verification.md).
 No proxy trust or infrastructure configuration was weakened or changed.
+
+
+## Hosted rate-limit follow-up
+
+[Actual staging inventory and results](authentication-hosted-rate-limits.md):
+15 inert auth-initiation requests from one external source within 60 seconds
+returned 400 despite reported LOGIN_LIMIT=5 (FAIL). A mobile-data connection was
+confirmed as a second source, but separate application buckets and spoof isolation
+remain NOT VERIFIED. Private-path execution is blocked by absent operator SSH.
+
+The candidate adds persistent HMAC identifier backoff for failed password results,
+without lockout or new password storage. Full backend run: 190 passed, one opt-in
+local-Core test skipped; Ruff/format passed. No candidate deployment occurred.
+The [Tunnel proposal](authentication-tunnel-proposal.md) closes public and private
+bypasses, specifies expected costs and rollback, and remains unprovisioned.
