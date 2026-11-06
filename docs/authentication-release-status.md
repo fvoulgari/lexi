@@ -83,3 +83,12 @@ sign in with an empty synthetic learner, inspect preview before confirmation,
 and verify successful association preserves the original profile ID/history and
 grants neither editor/admin nor restricted-library access. Subsequent cases need
 separate synthetic profiles/accounts for revocation and activity conflicts.
+
+## Proxy boundary focused checks
+
+Three new local PostgreSQL/Uvicorn regressions passed; Ruff passed. They prove
+untrusted forwarding-header rotation does not bypass the current limiter,
+explicitly trusted synthetic proxies distinguish clients, and an untrusted shared
+proxy collapses them. The hosted gate stays open. See the
+[provider constraints and proposed authenticated-origin boundary](authentication-proxy-verification.md).
+No proxy trust or infrastructure configuration was weakened or changed.
