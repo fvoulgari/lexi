@@ -476,3 +476,35 @@ def test_waiting_claim_observes_committed_revocation(
                 assert count(db, Account, Account.profile_id == UUID(legacy["id"])) == 0
         finally:
             event.remove(engine, "before_cursor_execute", observe)
+
+
+def test_expired_continuation_can_resume_from_valid_original_link(
+    client, account_client
+):
+    legacy, token = issue(client)
+    client.cookies.clear()
+    capture(client, token)
+    secret = client.cookies.get(COOKIE)
+    assert client.get("/api/legacy-claims/preview").status_code == 401
+    account = account_client("continuation-claimant")
+    assert client.get("/api/legacy-claims/preview").status_code == 200
+    with client.app.state.sessions.begin() as db:
+        db.get(ClaimContinuation, digest(secret)).expires_at = datetime.now(
+            UTC
+        ) - timedelta(seconds=1)
+    for response in (
+        client.get("/api/legacy-claims/preview"),
+        client.post("/api/legacy-claims/redeem", headers=HEADERS),
+    ):
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "claim_expired"
+    assert client.get("/api/account").json()["profile_id"] == account["profile_id"]
+    with client.app.state.sessions() as db:
+        assert db.get(ClaimLink, digest(token)).consumed_at is None
+    capture(client, token)
+    assert client.cookies.get(COOKIE) != secret
+    assert (
+        client.get("/api/legacy-claims/preview").json()["profile"]["id"] == legacy["id"]
+    )
+    assert client.post("/api/legacy-claims/redeem", headers=HEADERS).status_code == 200
+    assert client.get("/api/account").json()["profile_id"] == legacy["id"]

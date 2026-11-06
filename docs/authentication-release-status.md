@@ -62,3 +62,24 @@ is required to close those observations.
 
 Do not recommend marking ready until these gates are satisfied. No credentials,
 claim tokens or private user data belong in evidence or the PR.
+
+## Legacy-claim focused verification — 6 November 2026
+
+17 backend claim tests passed against disposable PostgreSQL; 40 frontend tests
+passed across AccountAccess, claim-capture and AuthGate. Ruff passed. These cover
+explicit redemption, no privilege grant, preserved profile/history, revoked,
+expired, regenerated and consumed links, private recovery requests, conflicts,
+transaction rollback and concurrency including revocation while waiting for locks.
+The added continuation regression captures while logged out, signs in, expires
+only the continuation, verifies preview/redemption rejection without reassignment
+or token consumption, then reopens the still-valid original link and redeems.
+Provider authentication is replaced by the test fixture; this does not certify a
+real Google/password sign-in redirect and continuation on hosted staging.
+
+Next hosted step: use a staging administrator and a clearly synthetic unclaimed
+legacy profile. Never issue a test link for a real person's profile. Keep the link
+out of chat, screenshots and logs. Open it in a separate signed-out browser,
+sign in with an empty synthetic learner, inspect preview before confirmation,
+and verify successful association preserves the original profile ID/history and
+grants neither editor/admin nor restricted-library access. Subsequent cases need
+separate synthetic profiles/accounts for revocation and activity conflicts.
