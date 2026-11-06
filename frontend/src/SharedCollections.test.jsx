@@ -198,3 +198,133 @@ test("a failed publication remains visible and can be retried without closing th
     screen.getByRole("region", { name: "Confirm publication" }),
   ).toBeInTheDocument();
 });
+
+for (const reverse of [false, true]) {
+  test(`collection practice maps normalized Italian–Greek storage in ${reverse ? "Italian → Greek" : "Greek → Italian"}`, async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post("*/api/sessions", () =>
+        HttpResponse.json({
+          id: "s",
+          cards: [
+            {
+              position: 0,
+              snapshot: {
+                italian: "ciao",
+                greek: "γεια",
+                source_language: "it",
+                target_language: "el",
+              },
+            },
+          ],
+        }),
+      ),
+      http.post("*/api/sessions/s/cards/0/reveal", () =>
+        HttpResponse.json({ revealed: true }),
+      ),
+    );
+    open();
+    await user.click(
+      await screen.findByLabelText("Select for practice: Greetings"),
+    );
+    if (reverse)
+      await user.selectOptions(
+        screen.getByRole("combobox", { name: /^Practice direction/ }),
+        "reverse",
+      );
+    await user.click(
+      screen.getByRole("button", {
+        name: "Practise selected collections",
+        exact: true,
+      }),
+    );
+    expect(
+      await screen.findByRole("heading", {
+        name: reverse ? "ciao" : "γεια",
+        exact: true,
+      }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Show answer", exact: true }),
+    );
+    expect(
+      await screen.findByText(reverse ? "γεια" : "ciao", {
+        selector: ".collection-answer",
+      }),
+    ).toBeInTheDocument();
+  });
+}
+
+test("creating an Italian–Greek card sends the language IDs matching the form labels", async () => {
+  const user = userEvent.setup();
+  let submitted;
+  server.use(
+    http.post("*/api/collections/one/cards", async ({ request }) => {
+      submitted = await request.json();
+      return HttpResponse.json(card);
+    }),
+  );
+  open();
+  await user.click(
+    await screen.findByRole("button", { name: "Open", exact: true }),
+  );
+  await user.click(
+    await screen.findByRole("button", { name: "Create card", exact: true }),
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Italian", exact: true }),
+    "ciao",
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Greek", exact: true }),
+    "γεια",
+  );
+  await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+  await waitFor(() =>
+    expect(submitted).toMatchObject({
+      source_language: "it",
+      target_language: "el",
+      source_text: "ciao",
+      target_text: "γεια",
+    }),
+  );
+});
+
+test("unpublish preview distinguishes lost access from another valid owner publication", async () => {
+  const user = userEvent.setup();
+  let unpublished = false;
+  server.use(
+    http.get("*/api/collections/one/unpublish-preview", () =>
+      HttpResponse.json({
+        ...own,
+        private_cards: [card],
+        still_shared_cards: [
+          { ...card, id: "another", source_text: "casa", target_text: "σπίτι" },
+        ],
+      }),
+    ),
+    http.post("*/api/collections/one/unpublish", () => {
+      unpublished = true;
+      return HttpResponse.json({ ...own, visibility: "private" });
+    }),
+  );
+  open("en", { ...own, visibility: "published" });
+  await user.click(
+    await screen.findByRole("button", { name: "Open", exact: true }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Unpublish collection", exact: true }),
+  );
+  const preview = await screen.findByRole("region", {
+    name: "Confirm unpublishing",
+  });
+  expect(preview).toHaveTextContent("will be hidden from other learners");
+  expect(preview).toHaveTextContent(
+    "remain accessible through another published collection",
+  );
+  expect(unpublished).toBe(false);
+  await user.click(
+    screen.getByRole("button", { name: "Confirm unpublishing", exact: true }),
+  );
+  await waitFor(() => expect(unpublished).toBe(true));
+});

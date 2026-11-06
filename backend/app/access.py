@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, with_loader_criteria
 from app.models import (
     Account,
     Collection,
+    CollectionEntry,
     LearningProgress,
     PracticeSession,
     Profile,
@@ -28,20 +29,39 @@ def current_account():
     return account
 
 
+def collection_grant(model=VocabularyEntry, excluding=None):
+    # Core tables avoid applying unrelated ORM collection/user scopes inside the
+    # grant predicate. Only the card creator's explicitly confirmed publication
+    # counts; foreign references cannot extend access.
+    refs = CollectionEntry.__table__
+    collections = Collection.__table__
+    return (
+        select(refs.c.entry_id)
+        .join(collections, refs.c.collection_id == collections.c.id)
+        .where(
+            refs.c.entry_id == model.id,
+            refs.c.publication_confirmed.is_(True),
+            collections.c.visibility == "published",
+            collections.c.owner_account_id == model.owner_account_id,
+            collections.c.id != excluding if excluding is not None else True,
+        )
+        .correlate(model)
+        .exists()
+    )
+
+
 def visible(model, account=None):
     account = account or current_account()
+    shared = [model.visibility == "published"]
+    if model is VocabularyEntry:
+        shared.append(and_(model.visibility == "private", collection_grant(model)))
     return or_(
         model.owner_account_id == account.id,
-        model.visibility == "published",
+        *shared,
         and_(
             model.owner_account_id.is_(None),
-            or_(
-                model.visibility == "published",
-                and_(
-                    model.visibility == "legacy",
-                    account.legacy_access or account.role == "admin",
-                ),
-            ),
+            model.visibility == "legacy",
+            account.legacy_access or account.role == "admin",
         ),
     )
 

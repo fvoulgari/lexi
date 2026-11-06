@@ -274,3 +274,35 @@ test("adjective details stay hidden before reveal, including the selected gender
   expect(container.querySelector(".adjective-metadata")).toBeNull();
   expect(screen.queryByText("alte")).not.toBeInTheDocument();
 });
+
+for (const reversed of [false, true]) {
+  for (const direction of ["greek_to_italian", "italian_to_greek"]) {
+    test(`primary text uses language IDs for ${direction}, reversed snapshot=${reversed}`, () => {
+      const snapshot = {
+        ...entry,
+        source_language: reversed ? "el" : "it",
+        target_language: reversed ? "it" : "el",
+        italian: reversed ? "γεια" : "ciao",
+        greek: reversed ? "ciao" : "γεια",
+      };
+      const { container } = render(
+        <PracticeCardView
+          entry={snapshot}
+          text={copy.en}
+          direction={direction}
+          revealed
+        />,
+      );
+      expect(container.querySelector(".card-prompt")).toHaveTextContent(
+        direction === "greek_to_italian" ? "γεια" : "ciao",
+      );
+      expect(container.querySelector(".card-answer h2")).toHaveTextContent(
+        direction === "greek_to_italian" ? "ciao" : "γεια",
+      );
+      expect(container.querySelector(".card-prompt")).toHaveAttribute(
+        "lang",
+        direction === "greek_to_italian" ? "el" : "it",
+      );
+    });
+  }
+}

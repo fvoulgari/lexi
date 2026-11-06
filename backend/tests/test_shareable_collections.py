@@ -152,7 +152,7 @@ def test_ciao_shared_difficulty_combined_queue_unique_totals_and_two_users(
     assert client.get(f"/api/collections/{greetings['id']}/entries").status_code == 404
     assert (
         session(client, b, [mine]).status_code == 201
-    )  # Explicitly published card remains public.
+    )  # Unit 1 still has a confirmed creator-owned publication.
     account_client("collection-a")
     assert (
         client.patch(
@@ -302,7 +302,8 @@ def test_published_collection_new_cards_need_explicit_exposure_and_csrf(
     assert client.post(path, headers=H, json=body).status_code == 409
     assert client.post(path, json={**body, "confirm_exposure": True}).status_code == 403
     r = client.post(path, headers=H, json={**body, "confirm_exposure": True})
-    assert r.status_code == 201 and r.json()["visibility"] == "published"
+    assert r.status_code == 201 and r.json()["visibility"] == "private"
+    assert r.json()["shared_via_collection"] is True
     account_client("reader")
     assert (
         client.get(f"/api/collections/{c['id']}/entries").json()[0]["can_edit"] is False

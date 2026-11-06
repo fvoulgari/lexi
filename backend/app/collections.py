@@ -6,9 +6,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 
-from app.access import current_account, require_write
+from app.access import collection_grant, current_account, require_write
 from app.languages import pair
 from app.models import (
     Collection,
@@ -66,7 +66,15 @@ class CardBody(BaseModel):
             raise ValueError("Text contains invalid Unicode.")
         return value
 
+    source_language: str | None = None
+    target_language: str | None = None
     confirm_exposure: bool = False
+
+    @model_validator(mode="after")
+    def valid_languages(self):
+        if self.source_language is not None or self.target_language is not None:
+            pair(self.source_language, self.target_language)
+        return self
 
 
 class CardUpdate(CardBody):
@@ -106,7 +114,16 @@ def collection_router(sessions, gate):
             ).encode()
         ).hexdigest()
 
-    def card_output(card):
+    def shared_elsewhere(db, card, excluding=None):
+        return bool(
+            db.scalar(
+                select(collection_grant(excluding=excluding))
+                .select_from(VocabularyEntry)
+                .where(VocabularyEntry.id == card.id)
+            )
+        )
+
+    def card_output(db, card):
         return {
             "id": str(card.id),
             "source_language": card.source_language,
@@ -114,6 +131,9 @@ def collection_router(sessions, gate):
             "source_text": card.source_text,
             "target_text": card.target_text,
             "visibility": card.visibility,
+            "shared_via_collection": shared_elsewhere(db, card),
+            "requires_confirmation": card.owner_account_id == current_account().id
+            and card.visibility == "private",
             "can_edit": card.owner_account_id == current_account().id,
             "exposure_token": card_token(card),
         }
@@ -172,22 +192,25 @@ def collection_router(sessions, gate):
         if len(entries) != len(ids):
             raise HTTPException(409, "Remove unavailable cards before publishing.")
         for entry in entries:
-            if entry.visibility != "published" and not (
-                entry.owner_account_id == current_account().id
-                and entry.visibility == "private"
-            ):
+            if entry.visibility not in {"private", "published"}:
                 raise HTTPException(
                     409, "Restricted cards cannot be published in a collection."
                 )
-        return [e for e in entries if e.visibility == "private"]
+        return [
+            e
+            for e in entries
+            if e.visibility == "private"
+            and e.owner_account_id == collection.owner_account_id
+        ]
 
-    def expose(entries, confirmed):
+    def confirm_publication(db, collection, entries, confirmed):
         if {e.id for e in entries} != set(confirmed):
             raise HTTPException(
                 409, "Review and confirm the current private cards before publishing."
             )
         for entry in entries:
-            entry.visibility = "published"  # Keep creator ownership and editing rights.
+            reference = db.get(CollectionEntry, (collection.id, entry.id))
+            reference.publication_confirmed = True
 
     @router.get("")
     def listing(
@@ -245,7 +268,7 @@ def collection_router(sessions, gate):
     @router.get("/{collection_id}/entries")
     def entries(collection_id: UUID):
         with sessions() as db:
-            return [card_output(c) for c in cards(db, find(db, collection_id))]
+            return [card_output(db, c) for c in cards(db, find(db, collection_id))]
 
     @router.get("/{collection_id}/search")
     def search(collection_id: UUID, q: str = ""):
@@ -265,7 +288,7 @@ def collection_router(sessions, gate):
                 *vocabulary_conditions(q, [], False, [], []),
             )
             return [
-                card_output(e)
+                card_output(db, e)
                 for e in db.scalars(
                     query.order_by(VocabularyEntry.italian, VocabularyEntry.id).limit(
                         50
@@ -280,7 +303,7 @@ def collection_router(sessions, gate):
             private = exposures(db, c)
             return {
                 **output(db, c),
-                "private_cards": [card_output(e) for e in private],
+                "private_cards": [card_output(db, e) for e in private],
                 "preview_token": preview_token(db, c, private),
             }
 
@@ -293,16 +316,51 @@ def collection_router(sessions, gate):
                 raise HTTPException(
                     409, "Collection changed; review publication again."
                 )
-            expose(private, body.confirm_private_ids)
+            confirm_publication(db, c, private, body.confirm_private_ids)
             c.visibility = "published"
             db.flush()
             return output(db, c)
+
+    @router.get("/{collection_id}/unpublish-preview")
+    def unpublish_preview(collection_id: UUID):
+        with sessions() as db:
+            c = find(db, collection_id, True)
+            confirmed = set(
+                db.scalars(
+                    select(CollectionEntry.entry_id).where(
+                        CollectionEntry.collection_id == c.id,
+                        CollectionEntry.publication_confirmed.is_(True),
+                    )
+                )
+            )
+            private = [
+                entry
+                for entry in cards(db, c)
+                if entry.id in confirmed
+                and entry.owner_account_id == c.owner_account_id
+                and entry.visibility == "private"
+            ]
+            hidden, remaining = [], []
+            for entry in private:
+                (
+                    remaining if shared_elsewhere(db, entry, excluding=c.id) else hidden
+                ).append(card_output(db, entry))
+            return {
+                **output(db, c),
+                "private_cards": hidden,
+                "still_shared_cards": remaining,
+            }
 
     @router.post("/{collection_id}/unpublish", dependencies=writes)
     def unpublish(collection_id: UUID):
         with sessions.begin() as db:
             c = find(db, collection_id, True)
             c.visibility = "private"
+            db.execute(
+                update(CollectionEntry)
+                .where(CollectionEntry.collection_id == c.id)
+                .values(publication_confirmed=False)
+            )
             db.flush()
             return output(db, c)
 
@@ -319,16 +377,21 @@ def collection_router(sessions, gate):
             c.target_language,
         ):
             raise HTTPException(422, "Card language pair differs from collection.")
+        own_private = (
+            entry.visibility == "private"
+            and entry.owner_account_id == c.owner_account_id
+        )
         if c.visibility == "published":
-            if entry.visibility != "published" and not (
-                entry.owner_account_id == current_account().id
-                and entry.visibility == "private"
-            ):
+            if entry.visibility not in {"private", "published"}:
                 raise HTTPException(409, "Restricted cards cannot be published.")
-            if entry.visibility == "private" and expected_token != card_token(entry):
+            if own_private and expected_token != card_token(entry):
                 raise HTTPException(409, "Card changed; review publication again.")
-            expose([entry] if entry.visibility == "private" else [], confirmed)
-        if db.get(CollectionEntry, (c.id, entry_id)) is None:
+            if set(confirmed) != ({entry.id} if own_private else set()):
+                raise HTTPException(
+                    409, "Confirm this collection's private card exposure."
+                )
+        reference = db.get(CollectionEntry, (c.id, entry_id))
+        if reference is None:
             position = (
                 db.scalar(
                     select(func.coalesce(func.max(CollectionEntry.position), -1)).where(
@@ -337,11 +400,12 @@ def collection_router(sessions, gate):
                 )
                 + 1
             )
-            db.add(
-                CollectionEntry(
-                    collection_id=c.id, entry_id=entry_id, position=position
-                )
+            reference = CollectionEntry(
+                collection_id=c.id, entry_id=entry_id, position=position
             )
+            db.add(reference)
+        if c.visibility == "published" and own_private:
+            reference.publication_confirmed = True
 
     @router.post("/{collection_id}/entries", status_code=204, dependencies=writes)
     def add_body(collection_id: UUID, body: MembershipBody):
@@ -421,11 +485,25 @@ def collection_router(sessions, gate):
                 )
                 db.add(unit)
                 db.flush()
+            source, target = (
+                body.source_language or c.source_language,
+                body.target_language or c.target_language,
+            )
+            if pair(source, target) != (c.source_language, c.target_language):
+                raise HTTPException(422, "Card language pair differs from collection.")
+            source_text, target_text = body.source_text, body.target_text
+            if (source, target) == ("el", "it"):
+                source, target, source_text, target_text = (
+                    "it",
+                    "el",
+                    target_text,
+                    source_text,
+                )
             entry = VocabularyEntry(
-                source_language=c.source_language,
-                target_language=c.target_language,
-                source_text=body.source_text,
-                target_text=body.target_text,
+                source_language=source,
+                target_language=target,
+                source_text=source_text,
+                target_text=target_text,
                 word_type="expression",
                 unit_id=unit.id,
                 owner_account_id=current_account().id,
@@ -440,7 +518,7 @@ def collection_router(sessions, gate):
                 [entry.id] if c.visibility == "published" else [],
                 card_token(entry),
             )
-            return card_output(entry)
+            return card_output(db, entry)
 
     @router.patch("/cards/{entry_id}", dependencies=writes)
     def update_card(entry_id: UUID, body: CardUpdate):
@@ -454,11 +532,20 @@ def collection_router(sessions, gate):
             # Shared legacy editorial permission remains governed by existing API.
             if entry.owner_account_id != current_account().id:
                 raise HTTPException(403, "Only the card creator can change it here.")
+            if body.source_language is not None and (
+                body.source_language,
+                body.target_language,
+            ) != (entry.source_language, entry.target_language):
+                raise HTTPException(422, "Card language order cannot be changed.")
             entry.source_text, entry.target_text = body.source_text, body.target_text
             if body.withdraw:
-                entry.visibility = "private"
+                db.execute(
+                    update(CollectionEntry)
+                    .where(CollectionEntry.entry_id == entry.id)
+                    .values(publication_confirmed=False)
+                )
             db.flush()
-            return card_output(entry)
+            return card_output(db, entry)
 
     @router.get("/{collection_id}/progress")
     def collection_progress(collection_id: UUID, direction: Direction):

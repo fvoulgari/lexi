@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { request } from "./api.js";
 import { useAccount } from "./AccountContext.jsx";
+import { practiceSides, cardLanguages } from "./card-sides.js";
 import { collectionCopy } from "./collection-copy.js";
 
 const LANGUAGES = ["el", "it", "en", "da"];
@@ -97,13 +98,24 @@ export default function SharedCollections({ language = "en", csrf }) {
     try {
       const result = await write.mutateAsync(action);
       after?.(result);
-    } catch {
-      /* Mutation renders a localised error. */
+    } catch (error) {
+      if (session && error.code === "entry_deleted") {
+        try {
+          const fresh = await request(`/api/sessions/${session.id}`);
+          setSession(fresh);
+          setRevealed(false);
+        } catch {
+          /* Keep the failed mutation visible and allow leaving practice. */
+        }
+      }
     }
   }
   const base = `/api/collections/${selected}`;
   const pairLabel = pair.map((code) => names.of(code)).join(" – ");
   const queueCard = session?.cards[position];
+  const sides = queueCard?.snapshot
+    ? practiceSides(queueCard.snapshot, direction)
+    : null;
   async function start() {
     await act(
       {
@@ -174,20 +186,10 @@ export default function SharedCollections({ language = "en", csrf }) {
                 <p>
                   {position + 1} / {session.cards.length}
                 </p>
-                <h3>
-                  {(queueCard.snapshot.source_language || "it") ===
-                  (reverse ? pair[1] : pair[0])
-                    ? queueCard.snapshot.italian
-                    : queueCard.snapshot.greek}
-                </h3>
+                <h3>{sides.prompt}</h3>
                 {revealed ? (
                   <>
-                    <p className="collection-answer">
-                      {(queueCard.snapshot.source_language || "it") ===
-                      (reverse ? pair[1] : pair[0])
-                        ? queueCard.snapshot.greek
-                        : queueCard.snapshot.italian}
-                    </p>
+                    <p className="collection-answer">{sides.answer}</p>
                     <div className="collection-actions">
                       {["again", "hard", "easy"].map((rating) => (
                         <button
@@ -231,7 +233,7 @@ export default function SharedCollections({ language = "en", csrf }) {
               </>
             ) : (
               <button onClick={() => setPosition((p) => p + 1)}>
-                {t.unavailable}
+                {t.skipUnavailable}
               </button>
             )
           ) : (
@@ -430,9 +432,28 @@ export default function SharedCollections({ language = "en", csrf }) {
                   ) : (
                     <button
                       disabled={busy}
-                      onClick={() => act({ path: `${base}/unpublish` })}
+                      onClick={() =>
+                        act(
+                          { path: `${base}/unpublish-preview`, method: "GET" },
+                          (value) =>
+                            setPreview({ ...value, unpublishing: true }),
+                        )
+                      }
                     >
                       {t.unpublish}
+                    </button>
+                  )}
+                  {current.visibility === "published" && (
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        act(
+                          { path: `${base}/publish-preview`, method: "GET" },
+                          setPreview,
+                        )
+                      }
+                    >
+                      {t.reviewSharing}
                     </button>
                   )}
                   <button
@@ -459,13 +480,25 @@ export default function SharedCollections({ language = "en", csrf }) {
                 <div
                   className="publication-preview"
                   role="region"
-                  aria-label={t.confirm}
+                  aria-label={
+                    preview.unpublishing ? t.confirmUnpublish : t.confirm
+                  }
                 >
                   <h3>{preview.name}</h3>
                   <p>
                     {pairLabel} · {preview.card_count} {t.cards}
                   </p>
-                  <p>{preview.private_cards.length ? t.exposure : t.none}</p>
+                  <p>
+                    {preview.unpublishing
+                      ? t.unpublishExposure
+                      : preview.private_cards.length
+                        ? t.exposure
+                        : t.none}
+                  </p>
+                  {preview.unpublishing &&
+                    preview.private_cards.length === 0 && (
+                      <p>{t.unpublishNone}</p>
+                    )}
                   <ul>
                     {preview.private_cards.map((c) => (
                       <li key={c.id}>
@@ -473,26 +506,40 @@ export default function SharedCollections({ language = "en", csrf }) {
                       </li>
                     ))}
                   </ul>
+                  {preview.unpublishing &&
+                    preview.still_shared_cards?.length > 0 && (
+                      <>
+                        <p>{t.stillShared}</p>
+                        <ul>
+                          {preview.still_shared_cards.map((c) => (
+                            <li key={c.id}>
+                              {c.source_text} — {c.target_text}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
                   <div className="collection-actions">
                     <button
                       className="primary"
                       disabled={busy}
                       onClick={() =>
                         act(
-                          {
-                            path: `${base}/publish`,
-                            body: {
-                              preview_token: preview.preview_token,
-                              confirm_private_ids: preview.private_cards.map(
-                                (c) => c.id,
-                              ),
-                            },
-                          },
+                          preview.unpublishing
+                            ? { path: `${base}/unpublish` }
+                            : {
+                                path: `${base}/publish`,
+                                body: {
+                                  preview_token: preview.preview_token,
+                                  confirm_private_ids:
+                                    preview.private_cards.map((c) => c.id),
+                                },
+                              },
                           () => setPreview(null),
                         )
                       }
                     >
-                      {t.confirm}
+                      {preview.unpublishing ? t.confirmUnpublish : t.confirm}
                     </button>
                     <button onClick={() => setPreview(null)}>{t.cancel}</button>
                   </div>
@@ -522,6 +569,12 @@ export default function SharedCollections({ language = "en", csrf }) {
                             body: {
                               source_text: editor.source_text,
                               target_text: editor.target_text,
+                              source_language:
+                                editor.source_language ||
+                                cardLanguages(pair)[0],
+                              target_language:
+                                editor.target_language ||
+                                cardLanguages(pair)[1],
                               confirm_exposure:
                                 editor.confirm_exposure || false,
                             },
@@ -554,7 +607,8 @@ export default function SharedCollections({ language = "en", csrf }) {
                       {["source", "target"].map((side, i) => (
                         <label key={side}>
                           {names.of(
-                            editor[`${side}_language`] || [...pair].sort()[i],
+                            editor[`${side}_language`] ||
+                              cardLanguages(pair)[i],
                           )}
                           <input
                             required
@@ -649,7 +703,7 @@ export default function SharedCollections({ language = "en", csrf }) {
                       {c.can_edit && (
                         <>
                           <button onClick={() => setEditor(c)}>{t.edit}</button>
-                          {c.visibility === "published" && (
+                          {c.shared_via_collection && (
                             <button
                               disabled={busy}
                               onClick={() =>
@@ -723,13 +777,15 @@ export default function SharedCollections({ language = "en", csrf }) {
                         <li key={c.id}>
                           <span>
                             {c.source_text} — {c.target_text} ·{" "}
-                            {t[c.visibility] || c.visibility}
+                            {c.shared_via_collection
+                              ? t.sharedCard
+                              : t[c.visibility] || c.visibility}
                           </span>
                           <button
                             disabled={busy}
                             onClick={() =>
                               current.visibility === "published" &&
-                              c.visibility === "private"
+                              c.requires_confirmation
                                 ? setPendingAdd(c)
                                 : act({
                                     path: `${base}/entries`,

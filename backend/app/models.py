@@ -284,6 +284,9 @@ class Collection(Base):
 class CollectionEntry(Base):
     __tablename__ = "collection_entries"
     position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    publication_confirmed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     collection_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True
     )

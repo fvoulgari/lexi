@@ -183,6 +183,84 @@ def test_collection_backfill_preserves_rows_or_reports_ambiguity(
                             )
                         )
                     ) == [0, 1]
+                    # Rehearse the follow-up from the already-applied draft:
+                    # owned publication is collection-derived; unowned published
+                    # library cards must remain independently published.
+                    db.execute(
+                        text(
+                            "UPDATE vocabulary_entries SET visibility='published', "
+                            "owner_account_id=:owner,source_language='el', "
+                            "target_language='it', "
+                            "italian='γεια',greek='ciao', "
+                            "italian_gender='masculine',greek_gender='neuter' "
+                            "WHERE id=:id"
+                        ),
+                        {"id": card, "owner": account},
+                    )
+                    db.execute(
+                        text(
+                            "UPDATE vocabulary_entries SET visibility='published' "
+                            "WHERE id=:id"
+                        ),
+                        {"id": other},
+                    )
+                    snapshots = list(
+                        db.execute(text("SELECT snapshot FROM session_cards")).scalars()
+                    )
+                    history = list(
+                        db.execute(text("SELECT * FROM learning_progress")).mappings()
+                    )
+                    scripts.get_revision("d68f99c1f011").module.upgrade()
+                    normalized = db.execute(
+                        text(
+                            "SELECT italian,greek,source_language,target_language, "
+                            "italian_gender,greek_gender,visibility,owner_account_id "
+                            "FROM vocabulary_entries WHERE id=:id"
+                        ),
+                        {"id": card},
+                    ).one()
+                    assert tuple(normalized) == (
+                        "ciao",
+                        "γεια",
+                        "it",
+                        "el",
+                        "masculine",
+                        "neuter",
+                        "private",
+                        account,
+                    )
+                    assert (
+                        db.scalar(
+                            text(
+                                "SELECT visibility FROM vocabulary_entries WHERE id=:id"
+                            ),
+                            {"id": other},
+                        )
+                        == "published"
+                    )
+                    assert (
+                        list(
+                            db.execute(
+                                text("SELECT snapshot FROM session_cards")
+                            ).scalars()
+                        )
+                        == snapshots
+                    )
+                    assert canonical(
+                        db.execute(text("SELECT * FROM learning_progress")).mappings()
+                    ) == canonical(history)
+                    assert (
+                        db.scalar(
+                            text(
+                                "SELECT count(*) FROM collection_entries "
+                                "WHERE publication_confirmed"
+                            )
+                        )
+                        == 0
+                    )
+                    assert (
+                        db.scalar(text("SELECT count(*) FROM collection_entries")) == 2
+                    )
                     db.execute(
                         text("DELETE FROM collection_entries WHERE entry_id=:id"),
                         {"id": other},

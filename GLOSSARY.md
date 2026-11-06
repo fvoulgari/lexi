@@ -19,7 +19,7 @@ _Avoid_: Word, translation pair without a meaning
 The shared vocabulary cards available to their permitted audience. Publication makes shared cards available for registered learners to read and practise; it does not grant editing permission.
 
 **Private vocabulary**:
-Vocabulary cards owned and managed by one learner account, accessible only to that learner.
+Vocabulary cards owned and managed by one learner account. Other learners can read them only while the creator has explicitly confirmed sharing through one of their published collections.
 
 **Collection**:
 A learner-owned, ordered list of references to vocabulary cards in one language pair. A card can belong to several collections while retaining its creator and the learner's existing progress.
@@ -28,7 +28,10 @@ A learner-owned, ordered list of references to vocabulary cards in one language 
 A collection accessible only to its creator.
 
 **Published collection**:
-A collection its creator has made discoverable and available for signed-in learners to practise. Its references never confer access to an otherwise inaccessible card.
+A collection its creator has made discoverable and available for signed-in learners to practise. Readers see cards they can already access or cards explicitly shared through this collection by the card creator.
+
+**Collection publication grant**:
+A card creator's confirmation that one of their published collections may share a private card. Access lasts while at least one such grant remains; another learner's reference cannot extend it.
 
 **Language pair**:
 The two languages a collection's cards express, independent of which language is used as the prompt during practice.

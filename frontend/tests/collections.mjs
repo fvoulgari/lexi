@@ -60,7 +60,9 @@ try {
       .getByRole("textbox", { name: "Italian", exact: true })
       .fill("ciao");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.getByText("γεια", { exact: true }).first().waitFor();
+    await page
+      .getByRole("button", { name: "Remove reference", exact: true })
+      .waitFor();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: resolve(output, `create-${width}.png`),

@@ -1,5 +1,14 @@
 export const collectionCopy = {
   en: {
+    reviewSharing: "Review card sharing",
+    skipUnavailable: "Skip unavailable card",
+    confirmUnpublish: "Confirm unpublishing",
+    unpublishExposure:
+      "This collection will become private. Cards without another confirmed publication by their creator will be hidden from other learners. References and personal progress are kept. Independently published library cards are unchanged.",
+    unpublishNone: "No cards lose their last creator-authorized publication.",
+    stillShared:
+      "These cards remain accessible through another published collection owned by their creator:",
+    sharedCard: "Shared through collections",
     noDifficult: "No difficult cards match this direction and selection.",
     title: "Collections",
     mine: "My collections",
@@ -25,8 +34,8 @@ export const collectionCopy = {
     unpublish: "Unpublish collection",
     confirm: "Confirm publication",
     exposure:
-      "These private cards will become visible to all signed-in learners. Their creator keeps editing rights. Published cards stay public when this collection is unpublished; their creator can withdraw them separately.",
-    none: "No private cards will become public.",
+      "These private cards will become visible to all signed-in learners. Their creator keeps editing rights. This confirms sharing through this collection only. Access ends when its last confirmed publication in a collection owned by the card creator is removed.",
+    none: "No additional private cards will be shared by this collection.",
     practise: "Practise selected collections",
     difficult: "Difficult cards only",
     direction: "Practice direction",
@@ -40,7 +49,7 @@ export const collectionCopy = {
     empty: "No accessible cards yet.",
     choose:
       "Select collections with the same language pair to practise together.",
-    withdraw: "Withdraw card from shared library",
+    withdraw: "Stop sharing this card through all my collections",
     archive: "Archive card",
     exposureNew: "Make this new card visible to all signed-in learners",
     count: "Practised",
@@ -54,6 +63,16 @@ export const collectionCopy = {
     loading: "Loading…",
   },
   el: {
+    reviewSharing: "Έλεγχος κοινής χρήσης καρτών",
+    skipUnavailable: "Παράλειψη μη διαθέσιμης κάρτας",
+    confirmUnpublish: "Επιβεβαίωση απόσυρσης",
+    unpublishExposure:
+      "Η συλλογή θα γίνει ιδιωτική. Κάρτες χωρίς άλλη επιβεβαιωμένη δημοσίευση του δημιουργού τους θα κρυφτούν από άλλους μαθητές. Οι αναφορές και η προσωπική πρόοδος διατηρούνται. Οι ανεξάρτητα δημοσιευμένες κάρτες της βιβλιοθήκης δεν αλλάζουν.",
+    unpublishNone:
+      "Καμία κάρτα δεν χάνει την τελευταία δημοσίευση που ενέκρινε ο δημιουργός της.",
+    stillShared:
+      "Αυτές οι κάρτες παραμένουν προσβάσιμες μέσω άλλης δημοσιευμένης συλλογής του δημιουργού τους:",
+    sharedCard: "Κοινή χρήση μέσω συλλογών",
     noDifficult:
       "Δεν υπάρχουν δύσκολες κάρτες για αυτή την κατεύθυνση και επιλογή.",
     title: "Συλλογές",
@@ -80,8 +99,8 @@ export const collectionCopy = {
     unpublish: "Απόσυρση συλλογής",
     confirm: "Επιβεβαίωση δημοσίευσης",
     exposure:
-      "Αυτές οι ιδιωτικές κάρτες θα είναι ορατές σε όλους τους συνδεδεμένους μαθητές. Ο δημιουργός διατηρεί την επεξεργασία. Οι κάρτες παραμένουν δημόσιες μετά την απόσυρση της συλλογής· ο δημιουργός μπορεί να τις αποσύρει χωριστά.",
-    none: "Δεν θα δημοσιευτούν ιδιωτικές κάρτες.",
+      "Αυτές οι ιδιωτικές κάρτες θα είναι ορατές σε όλους τους συνδεδεμένους μαθητές. Ο δημιουργός διατηρεί την επεξεργασία. Η επιβεβαίωση ισχύει μόνο για αυτή τη συλλογή. Η πρόσβαση λήγει όταν αφαιρεθεί η τελευταία επιβεβαιωμένη δημοσίευση σε συλλογή του δημιουργού της κάρτας.",
+    none: "Δεν θα κοινοποιηθούν επιπλέον ιδιωτικές κάρτες μέσω αυτής της συλλογής.",
     practise: "Εξάσκηση στις επιλεγμένες συλλογές",
     difficult: "Μόνο δύσκολες κάρτες",
     direction: "Κατεύθυνση εξάσκησης",
@@ -94,7 +113,7 @@ export const collectionCopy = {
       "Η ενέργεια απέτυχε. Ελέγξτε πρόσβαση, ζεύγος γλωσσών και επιβεβαίωση δημοσίευσης και δοκιμάστε ξανά.",
     empty: "Δεν υπάρχουν ακόμη προσβάσιμες κάρτες.",
     choose: "Επιλέξτε συλλογές με το ίδιο ζεύγος γλωσσών για κοινή εξάσκηση.",
-    withdraw: "Απόσυρση κάρτας από την κοινή βιβλιοθήκη",
+    withdraw: "Διακοπή κοινής χρήσης της κάρτας σε όλες τις συλλογές μου",
     archive: "Αρχειοθέτηση κάρτας",
     exposureNew:
       "Να γίνει η νέα κάρτα ορατή σε όλους τους συνδεδεμένους μαθητές",
@@ -109,6 +128,16 @@ export const collectionCopy = {
     loading: "Φόρτωση…",
   },
   it: {
+    reviewSharing: "Rivedi condivisione delle schede",
+    skipUnavailable: "Salta scheda non disponibile",
+    confirmUnpublish: "Conferma ritiro",
+    unpublishExposure:
+      "La raccolta diventerà privata. Le schede senza un’altra pubblicazione confermata dal creatore saranno nascoste agli altri studenti. Riferimenti e progressi personali vengono conservati. Le schede pubblicate indipendentemente nella biblioteca non cambiano.",
+    unpublishNone:
+      "Nessuna scheda perde l’ultima pubblicazione autorizzata dal creatore.",
+    stillShared:
+      "Queste schede restano accessibili tramite un’altra raccolta pubblicata dal creatore:",
+    sharedCard: "Condivisa tramite raccolte",
     noDifficult: "Nessuna scheda difficile per questa direzione e selezione.",
     title: "Raccolte",
     mine: "Le mie raccolte",
@@ -134,8 +163,8 @@ export const collectionCopy = {
     unpublish: "Ritira raccolta",
     confirm: "Conferma pubblicazione",
     exposure:
-      "Queste schede private saranno visibili a tutti gli studenti autenticati. Il creatore mantiene il diritto di modifica. Le schede restano pubbliche quando la raccolta viene ritirata; il creatore può ritirarle separatamente.",
-    none: "Nessuna scheda privata diventerà pubblica.",
+      "Queste schede private saranno visibili a tutti gli studenti autenticati. Il creatore mantiene il diritto di modifica. La conferma vale solo per questa raccolta. L’accesso termina quando viene rimossa l’ultima pubblicazione confermata in una raccolta del creatore della scheda.",
+    none: "Nessuna ulteriore scheda privata sarà condivisa da questa raccolta.",
     practise: "Esercitati con le raccolte selezionate",
     difficult: "Solo schede difficili",
     direction: "Direzione di esercitazione",
@@ -149,7 +178,8 @@ export const collectionCopy = {
     empty: "Nessuna scheda accessibile.",
     choose:
       "Seleziona raccolte con la stessa coppia di lingue per esercitarti insieme.",
-    withdraw: "Ritira scheda dalla biblioteca condivisa",
+    withdraw:
+      "Interrompi la condivisione della scheda in tutte le mie raccolte",
     archive: "Archivia scheda",
     exposureNew:
       "Rendi questa nuova scheda visibile a tutti gli studenti autenticati",

@@ -1,17 +1,17 @@
-# Collection verification — 5 November 2026
+# Collection verification — 6 November 2026
 
 ## Results
 
 | Check | Result |
 | --- | --- |
-| Full backend suite | PASS: 187 tests; one opt-in real authentication Core test skipped |
-| Frontend suite | PASS: 267 tests in 21 files |
+| Full backend suite | PASS: 193 tests; one opt-in real authentication Core test skipped |
+| Frontend suite | PASS: 275 tests in 21 files |
 | Ruff lint and format | PASS |
 | ESLint | PASS |
 | Production frontend build | PASS; existing >500 kB chunk warning remains |
 | Real local API + PostgreSQL browser acceptance | PASS at 1280, 390 and 320 px; no horizontal overflow |
 | Managed-provider / staging / production checks for this feature | NOT RUN; no deployment requested or performed |
-| Hosted CI | NOT RUN at preparation time; report actual PR checks separately |
+| Hosted CI | NOT RUN: workflow targets PRs against main; this draft targets the authentication branch |
 
 Backend tests use the separate disposable PostgreSQL 17.11 database
 `lexi_collections_test`. Browser tests use `lexi_collections_browser_test`,
@@ -50,6 +50,27 @@ explicitly skipped because no local Core was started for this collection change.
   and wrong-direction reveal/review fail. Identical text on two cards retains
   two independent IDs. Duplicate reference adds remain idempotent.
 
+## Review regression evidence
+
+The three review findings were reproduced before fixing them with
+`pytest backend/tests/test_collection_review_regressions.py -q`: last-grant
+withdrawal returned HTTP 200 instead of 404, a workspace card was missing from
+Vocabulary, and editing a shared card with its private unit returned 422.
+All six expanded tests now pass. They cover unpublish/delete/reference removal,
+B's published reference failing to extend access, direct reads/search/CSV/queues,
+existing session and summary redaction, republishing with B's existing difficulty,
+combined queue deduplication, unique totals, and private unit/tag isolation.
+
+Frontend regressions exercise both practice renderers in both directions,
+including old reversed snapshots, plus correctly labelled create-card language
+IDs and the distinction between lost and retained access in unpublish preview.
+Real Chromium acceptance (`frontend/tests/collection-review.mjs`) passed at
+1280 and 390 px using the actual local API/database: create a card in the
+workspace, find the same card in Vocabulary/CSV, save it in the existing editor
+while shared, practise in both screens/directions, remove creator grants despite
+B's published reference, and restore B's difficulty by republishing. The original
+collection browser flow also passes at 1280, 390 and 320 px.
+
 ## Actual migration tests
 
 `test_collections_migration.py` builds the full pre-feature schema through
@@ -63,6 +84,14 @@ remain private and card audience/ownership are unchanged. Pair backfill becomes
 cross-pair membership is rejected by the new database trigger. A second fixture
 contains mixed pairs; migration raises with the collection ID before adding
 publication columns. Both schemas are cleaned up.
+
+The same real-migration test also advances the prior draft through
+`d68f99c1f011`. It verifies that draft-owned permanent publication becomes
+private with no inferred grants, an independent unowned published library card
+stays published, and both references remain. Reversed text slots normalize in
+place; IDs, ownership, Italian/Greek grammar, session snapshots and learner/card/
+direction progress stay intact. See the migration notes for the explicit
+pre-feature unowned-library provenance assumption and out-of-band data review.
 
 No production backup was inspected or migrated. A real-environment migration and
 restore rehearsal is still required before any future deployment; follow the
@@ -82,6 +111,8 @@ navigation and notebook palette. Each step is captured after its API action.
 | Explicit publication preview | [1280 px](images/collections/publish-preview-1280.png) | [390 px](images/collections/publish-preview-390.png) |
 | Discover published collection | [1280 px](images/collections/discover-1280.png) | [390 px](images/collections/discover-390.png) |
 | Practise shared card | [1280 px](images/collections/practice-1280.png) | [390 px](images/collections/practice-390.png) |
+| Unpublish impact preview | [1280 px](images/collections/unpublish-preview-1280.png) | [390 px](images/collections/unpublish-preview-390.png) |
+| Existing Practice screen | [1280 px](images/collections/legacy-practice-1280.png) | [390 px](images/collections/legacy-practice-390.png) |
 
 ## Reproduction
 
@@ -97,6 +128,7 @@ PYTHONPATH=backend:backend/tests backend/.venv/bin/uvicorn \
 collection_browser_app:factory --factory --host 127.0.0.1 --port 8137 --no-access-log
 ```
 
-In a second terminal: `cd frontend && node tests/collections.mjs`.
+In a second terminal: `cd frontend && node tests/collections.mjs`, then
+`node tests/collection-review.mjs` for the review-specific acceptance flow.
 This uses synthetic cookie identities only. Stop the fixture and remove its
 separate disposable database afterward. Never expose this test server publicly.
