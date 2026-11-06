@@ -30,7 +30,14 @@ The application image binds `0.0.0.0`. This is not proof that a dual-stack priva
 route is excluded. Private DNS/transport access must be tested from inside the
 environment; public Host/Origin values are never evidence of ingress provenance.
 
-## Staging results
+## Initial staging results
+
+The later [runtime trace](authentication-rate-limit-runtime-trace.md) supersedes
+uncertainty about cause, effective configuration and private IPv4 reachability:
+rotating transport peers produce six buckets for seven identical requests;
+private IPv4 is reachable, and stable private calls correctly return the sixth 429.
+The initial table below records what was known before approved diagnostic access.
+
 
 | Check | Result | Sanitized evidence |
 | --- | --- | --- |
@@ -107,7 +114,16 @@ Unauthenticated hosted checks also returned 401 for vocabulary, account credenti
 and administrator accounts. A request to the nonexistent `/api/progress` returned
 404; it is not evidence about the profile-specific progress endpoint.
 
-## Decision
+## Decision after runtime trace
+
+[Sanitized runtime evidence](authentication-rate-limit-runtime-trace.md) now proves
+the counter and endpoint work while public proxy-peer rotation fragments the
+bucket. Public and private paths share the listener destination, so a simple
+address bind or unqualified X-Real-IP switch cannot safely fix provenance.
+The public one-connection gate remains FAIL; later two-source/spoof tests were
+not repeated. No Cloudflare change is authorised by this trace request.
+
+### Earlier proposed option (not activated)
 
 The current setup provides no established provenance predicate for trusting
 Railway X-Real-IP. We have not proved every possible Railway isolation mechanism

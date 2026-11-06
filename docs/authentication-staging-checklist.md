@@ -103,6 +103,17 @@ is NOT RUN because operator SSH is unavailable. No forwarding-header trust was
 weakened. The [Tunnel proposal](authentication-tunnel-proposal.md) includes bypass
 closure, expected costs and rollback; it has not been provisioned.
 
+## Runtime cause confirmed — 6 November 2026
+
+The [deployed runtime trace](authentication-rate-limit-runtime-trace.md) verifies
+29 source/startup files against `7ad3679`, effective limit 5 and window 60 seconds,
+and actual counter updates for the exact GET probe. Seven identical public
+requests used six anonymous buckets (FAIL). Stable private calls produced five
+400s then two 429s (PASS for the counter, not public IP limiting). Private IPv4
+reaches the same listener destination as public ingress; header trust remains
+unchanged. The approved temporary SSH key and local key files were removed.
+Do not repeat two-network/spoof bucket assertions until the public baseline passes.
+
 ## Sessions and request security
 
 - [ ] Browser access/refresh credentials are HttpOnly, Secure and SameSite=Lax on HTTPS; no credentials or claim tokens in localStorage. Refresh access after expiry and confirm expected Core refresh window; revoke the session and verify the next protected request fails immediately.

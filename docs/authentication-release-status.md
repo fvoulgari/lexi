@@ -107,3 +107,15 @@ without lockout or new password storage. Full backend run: 190 passed, one opt-i
 local-Core test skipped; Ruff/format passed. No candidate deployment occurred.
 The [Tunnel proposal](authentication-tunnel-proposal.md) closes public and private
 bypasses, specifies expected costs and rollback, and remains unprovisioned.
+
+
+## Runtime diagnosis of the missing public 429
+
+The [sanitized trace](authentication-rate-limit-runtime-trace.md) confirms deployed
+source, effective LOGIN_LIMIT=5 and a 60-second window. Seven identical public
+requests hit six buckets; the limiter uses changing proxy transport peers. Stable
+private requests correctly hit the sixth-request 429 and persist counter 7. The
+private IPv4 path is now verified reachable and shares the public listener's local
+destination. No safe header-provenance fix has been deployed; public gate remains
+FAIL. No two-source/spoof retest, Cloudflare change or production operation followed.
+Approved temporary diagnostic access was fully removed after use.
