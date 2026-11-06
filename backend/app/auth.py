@@ -14,6 +14,7 @@ from starlette.responses import JSONResponse
 
 from app.access import account_context
 from app.auth_provider import configuration_ready, configure_provider
+from app.ingress import loopback_peer, tunnel_client_ip
 from app.models import Account, LoginThrottle, Profile
 
 log = logging.getLogger("lexi.security")
@@ -209,6 +210,24 @@ def initialize_auth(app, settings, sessions):
                     .rstrip("/")
                     .replace("/api/auth/public/", "/api/auth/", 1)
                 )
+                if settings.auth_ingress_mode == "cloudflare_tunnel":
+                    try:
+                        if not loopback_peer(scope):
+                            raise ValueError("untrusted_ingress")
+                        if not (
+                            path == "/api/health"
+                            and scope["method"] in {"GET", "HEAD"}
+                        ):
+                            visitor = tunnel_client_ip(scope)
+                            scope["client"] = (visitor, 0)
+                            scope["scheme"] = "https"
+                    except ValueError as error:
+                        code = str(error)
+                        return await JSONResponse(
+                            {"error": {"code": code}},
+                            status_code=403 if code == "untrusted_ingress" else 400,
+                            headers={"Cache-Control": "no-store"},
+                        )(scope, receive, send)
                 headers = dict(scope.get("headers", []))
                 if path.startswith("/api/auth/"):
                     # Removed launch methods must never reach any recipe, even

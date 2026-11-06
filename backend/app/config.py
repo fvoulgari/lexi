@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,6 +22,7 @@ class Settings(BaseSettings):
     claim_hours: int = Field(default=48, ge=1, le=168)
     session_hours: int = Field(default=168, ge=1, le=720)
     login_limit: int = Field(default=5, ge=1, le=100)
+    auth_ingress_mode: Literal["direct", "cloudflare_tunnel"] = "direct"
     static_dir: Path = Path("../frontend/dist")
 
     @field_validator("database_url")

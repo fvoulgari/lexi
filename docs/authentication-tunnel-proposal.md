@@ -196,3 +196,41 @@ Return 429 plus Retry-After for IP exhaustion, monitor false positives and provi
 quotas, and adjust from evidence. IPs identify network exits, not people; shared
 networks and distributed attackers make the separate identifier/delivery controls
 necessary. Staging remains at 5/60, unchanged.
+
+### Staging implementation checkpoint — 6 November 2026
+
+The staging-only runtime pins `cloudflare/cloudflared:2026.10.7` by multi-platform
+image digest. `AUTH_INGRESS_MODE=cloudflare_tunnel` starts Uvicorn on
+`127.0.0.1:$PORT` with proxy-header middleware disabled. The connector's metrics
+listener also binds loopback. A supervisor stops both processes if either exits.
+The sealed `CLOUDFLARE_TUNNEL_TOKEN` is copied to a mode-0600 temporary file;
+neither child receives the credential in its environment or command line. Only
+the existing staging environment ID is permitted to use this proof-of-concept runtime.
+
+The HTTP boundary requires a loopback transport peer and one valid
+`CF-Connecting-IP`; missing/duplicate/invalid identity is rejected without a
+fallback. `X-Real-IP` and `X-Forwarded-For` do not select the bucket. The local
+health probe is exempt from the identity requirement. This is safe only together
+with the loopback binding and absence of other untrusted local proxy processes.
+Cloudflare Workers/header transforms must not be introduced on the staging route
+without reviewing their effect on client identity.
+
+Local verification: 28 tests passed across Tunnel identity/runtime, existing proxy
+throttling, and identifier-based password backoff. These tests do not establish
+Cloudflare's browser-side header replacement or hosted route closure. Hosted
+A/B, spoofing, public/private bypass and incremental-usage results remain NOT RUN
+until the token is applied, the connector is deployed, and the hostname is routed.
+
+Before-runtime billing baseline: Railway reports staging app cumulative
+$0.1141827189 and isolated staging database $0.0351939502 for the billing period
+18 October–18 November 2026. These are existing cumulative charges, not Tunnel
+cost. A later difference includes ordinary app/database operation and must not be
+attributed entirely to the connector. Measure connector CPU/RSS separately and
+report the observation interval.
+
+Additional local checks: full backend suite 207 passed, 1 skipped (managed Core
+integration not enabled); the subsequently added supervisor cleanup test also
+passed. Ruff and `git diff --check` passed. The Docker image built successfully
+and its installed binary reports cloudflared 2026.10.7. No staging deployment or
+hostname cutover has occurred at this checkpoint: the applied staging variable
+list does not yet contain `CLOUDFLARE_TUNNEL_TOKEN`.
