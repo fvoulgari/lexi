@@ -39,7 +39,7 @@ are included here.
 | Provider readiness | PASS: session endpoint auth_available=true, authenticated=false |
 | Logged-out data access | PASS: profiles and vocabulary returned 401 |
 | Real Google callback on new hostname | PASS, manual user report: returned to Lexi; settings identified Google sign-in and hid Change password. Browser/version not recorded |
-| Password-reset delivery and login on new hostname | PASS, manual user report: reset email received, link opened new staging hostname, password reset completed, new-password sign-in succeeded. Reuse/expiry and session revocation not established by this check |
+| Password-reset delivery and login on new hostname | PASS, manual user report: reset email received, link opened new staging hostname, password reset completed, new-password sign-in succeeded. Used reset link subsequently rejected (manual PASS). Expiry and session revocation not established by this check |
 | Registration/verification delivery on new hostname | NOT RUN; earlier manual results remain historical evidence |
 | Two authenticated users' private data | NOT RUN on this deployment; logged-out 401 does not establish cross-account isolation |
 
