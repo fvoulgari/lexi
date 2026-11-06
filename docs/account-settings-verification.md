@@ -96,10 +96,20 @@ Screenshots are in `.scratch/account-ui/staging/`. This does not prove delivery.
 passed frontend, backend, image validation and the aggregate gate. Production
 publication/promotion/deployment jobs were skipped.
 
-Authenticated account-card rendering and password changes against the managed
-Core still require a signed-in staging test; local Core tests do not establish
-hosted acceptance. Live delivered mail and provider/browser session behaviour
-remain pending. Production hashing and migration gates remain open. Existing
+On 4 November 2026 the user reported PASS for the deployed staging password-change
+flow: incorrect current password rejected, correct change signed out two browser
+sessions, old password rejected, and new password accepted. This is manual user
+evidence against the deployment above, rather than an independently observed run;
+browser/version was not recorded. It does not establish Google-only settings,
+email delivery, password-reset delivery, or unrelated-session isolation.
+
+The user also confirmed that Google sign-in had already been tested and that
+Change password is available only on the account registered with a password,
+not the Google-only account. Record credential-based action visibility as manual
+PASS; exact Google label wording was not separately confirmed.
+
+Other hosted account-card checks, delivered mail and session renewal remain
+pending. Production hashing and migration gates remain open. Existing
 progress, permissions, isolation, legacy claims and migration behaviour are
 unchanged. PR #63 remains draft; no merge or production deployment occurred.
 

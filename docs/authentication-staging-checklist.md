@@ -18,8 +18,17 @@ Commit `7ad367955312c42fe6c4cdc66d2aa9240fa09415` deployed successfully as
 session readiness passed; unauthenticated credential access returned 401. A real
 Chromium browser verified reset acceptance for an unknown synthetic address:
 conditional message, plain submitted email, removed form and no notebook
-navigation. No delivery was verified. Managed-Core password changes and signed-in
-account-card checks remain pending. Its CI passed; production jobs were skipped.
+navigation. No delivery was verified. The user subsequently reported PASS for
+incorrect-current-password rejection, a successful password change signing out
+two browser sessions, rejection of the old password and acceptance of the new
+password on this deployment. This is manual user evidence; browser/version was
+not recorded. The user also confirmed prior Google sign-in testing and that
+Change password appears only for their password-registered account, not the
+Google-only account (manual PASS). Exact label wording was not confirmed.
+Other signed-in account-card checks, unrelated-session isolation,
+renewal remain pending. The user subsequently confirmed verification and reset
+email receipt/use and rejection on link reuse (manual PASS); expiry timing was
+not established. See [release evidence](authentication-release-status.md). Its CI passed; production jobs were skipped.
 See [account verification](account-settings-verification.md).
 
 ## UI follow-up — 4 November 2026

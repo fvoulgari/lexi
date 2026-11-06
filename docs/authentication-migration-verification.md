@@ -72,7 +72,19 @@ passed on PostgreSQL 18.6.
 All checks passed in both rehearsals. Each rehearsal removed both databases it
 created and all temporary backup files. The temporary PostgreSQL 18 container
 and its anonymous data volume were also removed. Existing containers and the
-concurrently used test database were unchanged. Managed authentication remains
-unconfigured; this rehearsal does not verify a live Google callback, email
+concurrently used test database were unchanged. Managed authentication was
+unconfigured at the original rehearsal; it is now configured in staging. This
+rehearsal does not verify a live Google callback, email
 provider delivery or a production migration. Preserve and verify an actual
 production backup before applying the migration there.
+
+## Repeat during staging acceptance
+
+On 4 November 2026, repeated the PostgreSQL 17.11 backup/restore and upgrade
+rehearsal against the current checkout. All row counts above, original-column
+comparisons, four constraint checks, account defaults, legacy audience and
+archival-history checks passed again. The fresh fixture comparison SHA-256 was
+`1bae88f5b3250633ac8f99b7495198025af73838cc9539763960d32e2c3106c8`.
+Only the two newly created disposable databases and their dump were removed.
+This repeat did not rerun the cross-version check or rehearse restoration after
+post-cutover writes; those are separate from this result.

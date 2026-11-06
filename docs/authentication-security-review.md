@@ -46,3 +46,15 @@ The follow-up spec/security review inspected authorization and account isolation
 The integrator reproduced the vulnerability: both revoke and regenerate concurrency cases returned a successful redemption before the fix. The integrator reports both targeted PostgreSQL regressions passing after the fix. This reviewer independently inspected the change and regression: the test holds the claimant's account lock, waits for redemption to reach that lock after its initial link read, commits the real administrator operation, and verifies rejection, unchanged ownership, and an unconsumed token. The identified finding is resolved in the reviewed source. This reviewer did not rerun database tests concurrently with the integrator; updated full-suite results are recorded separately when available.
 
 The callback retry fix exposes recovery controls after failure, removes sensitive callback URL parameters, and preserves an existing internal `/claim` return destination. No additional concrete implementation blocker or scope expansion was established in this pass. Actual configured-provider Google/magic-link flows, email delivery, cookie renewal/revocation, and browser claim continuation remain unverified end to end and remain staging release gates.
+
+
+## Independent final follow-up — 6 November 2026
+
+Separate Standards and Spec reviewers inspected source through `95c40349` and
+found no new concrete security defect. Actual credential/tenant identity checks,
+current-password verification, all-session revocation, no email-only linking,
+claim locking and migration defaults were inspected. Hosted proxy throttling and
+production hashing remain release gates; this is not end-to-end certification.
+See [current release evidence](authentication-release-status.md) for exact local,
+CI and manual results and outstanding hosted checks. Earlier magic-link review
+wording above is historical; launch supports email/password and Google only.
