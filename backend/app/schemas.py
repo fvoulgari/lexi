@@ -258,6 +258,11 @@ class VocabularyCreate(VocabularyFields):
         return self
 
 
+class VocabularyCreateRequest(VocabularyCreate):
+    collection_id: UUID | None = None
+    confirm_collection_exposure: bool = False
+
+
 class VocabularyUpdate(VocabularyFields):
     italian: EntryText | None = None
     greek: EntryText | None = None

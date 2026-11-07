@@ -328,3 +328,106 @@ test("unpublish preview distinguishes lost access from another valid owner publi
   );
   await waitFor(() => expect(unpublished).toBe(true));
 });
+
+test("create defaults private and edit visibility requires publication confirmation", async () => {
+  const user = userEvent.setup();
+  let published = false;
+  server.use(
+    http.get("*/api/collections/one/publish-preview", () =>
+      HttpResponse.json({
+        ...own,
+        private_cards: [card],
+        preview_token: "review",
+      }),
+    ),
+    http.post("*/api/collections/one/publish", () => {
+      published = true;
+      return HttpResponse.json({ ...own, visibility: "published" });
+    }),
+  );
+  open();
+  expect(
+    screen.getByRole("switch", { name: "Collection visibility" }),
+  ).not.toBeChecked();
+  await user.click(
+    await screen.findByRole("button", { name: "Open", exact: true }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Edit collection", exact: true }),
+  );
+  const switches = screen.getAllByRole("switch", {
+    name: "Collection visibility",
+  });
+  expect(switches).toHaveLength(2);
+  await user.click(switches[1]);
+  const preview = await screen.findByRole("region", {
+    name: "Confirm publication",
+  });
+  expect(preview).toHaveTextContent("γεια");
+  expect(published).toBe(false);
+  await user.click(
+    screen.getByRole("button", { name: "Confirm publication", exact: true }),
+  );
+  await waitFor(() => expect(published).toBe(true));
+});
+
+test("nonowners have no collection edit or visibility action", async () => {
+  const user = userEvent.setup();
+  open("en", { ...own, can_edit: false, visibility: "published" });
+  await user.click(
+    screen.getByRole("button", { name: "Shared library", exact: true }),
+  );
+  await user.click(
+    await screen.findByRole("button", { name: "Open", exact: true }),
+  );
+  expect(
+    screen.queryByRole("button", { name: "Edit collection", exact: true }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getAllByRole("switch", { name: "Collection visibility" }),
+  ).toHaveLength(1);
+});
+
+test("requesting Public during creation still creates private and previews before publishing", async () => {
+  const user = userEvent.setup();
+  let createdBody;
+  let published = false;
+  server.use(
+    http.post("*/api/collections", async ({ request }) => {
+      createdBody = await request.json();
+      return HttpResponse.json(own);
+    }),
+    http.get("*/api/collections/one/publish-preview", () =>
+      HttpResponse.json({
+        ...own,
+        private_cards: [card],
+        preview_token: "created-preview",
+      }),
+    ),
+    http.post("*/api/collections/one/publish", () => {
+      published = true;
+      return HttpResponse.json({ ...own, visibility: "published" });
+    }),
+  );
+  open();
+  await user.type(
+    screen.getByRole("textbox", { name: "Collection name", exact: true }),
+    "New collection",
+  );
+  await user.click(
+    screen.getByRole("switch", { name: "Collection visibility" }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Create collection", exact: true }),
+  );
+  const preview = await screen.findByRole("region", {
+    name: "Confirm publication",
+  });
+  expect(preview).toHaveTextContent("γεια");
+  expect(createdBody).not.toHaveProperty("visibility");
+  expect(published).toBe(false);
+  await user.click(
+    screen.getByRole("button", { name: "Confirm publication", exact: true }),
+  );
+  await waitFor(() => expect(published).toBe(true));
+});

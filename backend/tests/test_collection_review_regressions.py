@@ -268,3 +268,71 @@ def test_owner_can_add_new_confirmed_grant_but_foreign_owner_cannot_extend_it(
     )
     account_client("adding-reader")
     assert client.get(f"/api/vocabulary/{entry['id']}").status_code == 404
+
+
+def test_vocabulary_create_selects_only_owned_compatible_collection_with_confirmation(
+    client, account_client
+):
+    account_client("create-a")
+    c = collection(client)
+    unit = client.post(
+        "/api/units",
+        headers=H,
+        json={"code": "UI", "title": "Private", "sort_order": 0},
+    ).json()
+    body = {
+        "italian": "ciao",
+        "greek": "γεια",
+        "word_type": "expression",
+        "unit_id": unit["id"],
+        "collection_id": c["id"],
+    }
+    created = client.post("/api/vocabulary", headers=H, json=body)
+    assert created.status_code == 201, created.text
+    entry = created.json()["entry"]
+    assert entry["visibility"] == "private"
+    assert [
+        e["id"] for e in client.get(f"/api/collections/{c['id']}/entries").json()
+    ] == [entry["id"]]
+    assert publish(client, c).status_code == 200
+    count = client.get("/api/vocabulary").json()["total"]
+    assert client.post("/api/vocabulary", headers=H, json=body).status_code == 409
+    assert client.get("/api/vocabulary").json()["total"] == count
+    shared = client.post(
+        "/api/vocabulary", headers=H, json={**body, "confirm_collection_exposure": True}
+    )
+    assert shared.status_code == 201, shared.text
+    shared_id = shared.json()["entry"]["id"]
+    account_client("create-b")
+    assert client.get(f"/api/vocabulary/{shared_id}").status_code == 200
+    foreign_unit = client.post(
+        "/api/units", headers=H, json={"code": "B", "title": "B", "sort_order": 0}
+    ).json()
+    assert (
+        client.post(
+            "/api/vocabulary",
+            headers=H,
+            json={
+                **body,
+                "unit_id": foreign_unit["id"],
+                "confirm_collection_exposure": True,
+            },
+        ).status_code
+        == 403
+    )
+    wrong = collection(client, "Wrong", "en", "da")
+    assert (
+        client.post(
+            "/api/vocabulary",
+            headers=H,
+            json={**body, "unit_id": foreign_unit["id"], "collection_id": wrong["id"]},
+        ).status_code
+        == 422
+    )
+    account_client("create-a")
+    assert (
+        client.post(f"/api/collections/{c['id']}/unpublish", headers=H).status_code
+        == 200
+    )
+    account_client("create-b")
+    assert client.get(f"/api/vocabulary/{shared_id}").status_code == 404

@@ -132,3 +132,44 @@ In a second terminal: `cd frontend && node tests/collections.mjs`, then
 `node tests/collection-review.mjs` for the review-specific acceptance flow.
 This uses synthetic cookie identities only. Stop the fixture and remove its
 separate disposable database afterward. Never expose this test server publicly.
+
+## Collection visibility controls — 7 November 2026
+
+- Removed Audience from the Vocabulary card form. New cards can select an owned,
+  compatible collection or remain unassigned/private. Published destinations show
+  the actual new card text and require explicit exposure confirmation. Changing
+  text clears that confirmation. Ordinary edits contain no visibility/ownership
+  instruction and do not change collection membership or progress.
+- Create collection defaults to Private. Public is a request to review publication:
+  the collection is created privately, its server-generated preview is shown, and
+  only explicit confirmation publishes it. Cancelling keeps it private.
+- Edit collection exposes the owner's Private/Public switch. Both publication and
+  withdrawal use the existing preview/confirmation endpoints; other learners
+  receive no edit action. Backend ownership checks remain authoritative.
+- Added atomic create-and-reference support to the vocabulary HTTP request. Owner,
+  language pair and confirmation checks happen in the same transaction; failed
+  checks create neither card nor reference. The HTTP command fields are deliberately
+  separate from the CSV content schema. No database migration added.
+- Existing last-owner-grant, republishing/difficulty, combined-queue, private metadata,
+  two-user and history regressions remain passing. Cards are not independently
+  published by these controls.
+
+Final checks: **194 backend passed, 1 opt-in Core test skipped; 280 frontend
+passed; Ruff, ESLint, frontend build and diff whitespace checks passed.** Existing
+Starlette/httpx deprecation and bundle-size warnings remain. The initial full suite
+caught CSV schema coupling; separating the HTTP request from CSV content resolved
+it before the final passing run. Provider identity remains synthetic, not hosted.
+
+Local real-browser checks at 1280×900 and 390×844 confirmed default Private,
+owner Edit collection, card exposure preview, completed Public→Private transition,
+no card Audience control and readable collection selection. Mobile document width
+was 390px for a 390px viewport. The loopback fixture and disposable database were
+removed after verification. Authentication infrastructure was not changed.
+
+| Final screen | Evidence |
+| --- | --- |
+| Create collection (Private default) | [Desktop](images/collections/visibility-create-desktop.png), [Mobile](images/collections/visibility-create-mobile.png) |
+| Edit collection owner toggle | [Desktop](images/collections/visibility-edit-desktop.png) |
+| Publication exposure | [Desktop](images/collections/visibility-public-preview-desktop.png) |
+| Withdrawal impact | [Mobile](images/collections/visibility-private-preview-mobile.png) |
+| Card collection choice, no Audience | [Desktop](images/collections/card-collection-desktop.png), [Mobile](images/collections/card-collection-mobile.png) |

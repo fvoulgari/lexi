@@ -32,6 +32,7 @@ export default function SharedCollections({ language = "en", csrf }) {
   const [selected, setSelected] = useState("");
   const [chosen, setChosen] = useState([]);
   const [name, setName] = useState("");
+  const [createPublic, setCreatePublic] = useState(false);
   const [search, setSearch] = useState("");
   const [preview, setPreview] = useState(null);
   const [pendingAdd, setPendingAdd] = useState(null);
@@ -157,6 +158,32 @@ export default function SharedCollections({ language = "en", csrf }) {
       method: "PUT",
       body: { entry_ids: order },
     });
+  }
+  async function reviewVisibility(collection, makePublic) {
+    await act(
+      {
+        path: `/api/collections/${collection.id}/${makePublic ? "publish-preview" : "unpublish-preview"}`,
+        method: "GET",
+      },
+      (value) => setPreview({ ...value, unpublishing: !makePublic }),
+    );
+  }
+  function visibilityControl(checked, onChange) {
+    return (
+      <label className="collection-visibility-control">
+        <span>{t.visibility}</span>
+        <span>{t.private}</span>
+        <input
+          type="checkbox"
+          role="switch"
+          aria-label={t.visibility}
+          checked={checked}
+          disabled={busy}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        <span>{t.published}</span>
+      </label>
+    );
   }
   const busy = write.isPending;
   return (
@@ -341,10 +368,12 @@ export default function SharedCollections({ language = "en", csrf }) {
                     target_language: pair[1],
                   },
                 },
-                (c) => {
+                async (c) => {
                   setName("");
                   setSelected(c.id);
                   setTab("mine");
+                  if (createPublic) await reviewVisibility(c, true);
+                  setCreatePublic(false);
                 },
               );
             }}
@@ -358,6 +387,7 @@ export default function SharedCollections({ language = "en", csrf }) {
                 maxLength={160}
               />
             </label>
+            {visibilityControl(createPublic, setCreatePublic)}
             <button className="primary" disabled={busy}>
               {t.create}
             </button>
@@ -415,7 +445,7 @@ export default function SharedCollections({ language = "en", csrf }) {
                       setEditor({ collection: true, name: current.name })
                     }
                   >
-                    {t.rename}
+                    {t.editCollection}
                   </button>
                   {current.visibility === "private" ? (
                     <button
@@ -585,23 +615,29 @@ export default function SharedCollections({ language = "en", csrf }) {
                 >
                   <h3>
                     {editor.collection
-                      ? t.rename
+                      ? t.editCollection
                       : editor.id
                         ? t.edit
                         : t.createCard}
                   </h3>
                   {editor.collection ? (
-                    <label>
-                      {t.name}
-                      <input
-                        required
-                        maxLength={160}
-                        value={editor.name}
-                        onChange={(e) =>
-                          setEditor({ ...editor, name: e.target.value })
-                        }
-                      />
-                    </label>
+                    <>
+                      {visibilityControl(
+                        current.visibility === "published",
+                        (value) => reviewVisibility(current, value),
+                      )}
+                      <label>
+                        {t.name}
+                        <input
+                          required
+                          maxLength={160}
+                          value={editor.name}
+                          onChange={(e) =>
+                            setEditor({ ...editor, name: e.target.value })
+                          }
+                        />
+                      </label>
+                    </>
                   ) : (
                     <>
                       {["source", "target"].map((side, i) => (

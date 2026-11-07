@@ -39,3 +39,20 @@ Rollback is restore-based, not automatic downgrade: stop writes, retain a post-c
 ## Verification
 
 Detailed execution evidence is in [collection verification](shareable-collections-verification.md). Browser fixtures replace only verified-provider identity, run on loopback against a disposable PostgreSQL database and are excluded from the production image. They do not establish managed-provider or hosted deployment acceptance.
+
+## Card creation and collection visibility controls
+
+The Vocabulary card form has no Audience control. New cards start owned/private;
+users may choose an owned Italian–Greek collection when saving, with membership
+created atomically. Other language-pair creation remains in the collection
+workspace. The API rejects foreign-owner and incompatible collections. A public
+collection requires explicit confirmation of this new card's exposure. An
+ordinary card edit does not change ownership, stored visibility or progress.
+
+Create collection and Edit collection expose Private/Public switches (stored
+`private`/`published`). Private is the create default. Selecting Public on create
+first saves a private collection, then opens the publication preview; explicit
+confirmation is still required. Cancel leaves it private. Only its owner may
+change visibility. Switching to Private reviews and withdraws that collection's
+grant; another valid public collection owned by the card creator can retain access.
+All cards, stable references and personal learning state remain preserved.

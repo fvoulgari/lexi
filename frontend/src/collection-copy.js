@@ -1,5 +1,7 @@
 export const collectionCopy = {
   en: {
+    visibility: "Collection visibility",
+    editCollection: "Edit collection",
     reviewSharing: "Review card sharing",
     skipUnavailable: "Skip unavailable card",
     confirmUnpublish: "Confirm unpublishing",
@@ -18,7 +20,7 @@ export const collectionCopy = {
     create: "Create collection",
     open: "Open",
     private: "Private",
-    published: "Published",
+    published: "Public",
     cards: "cards",
     createCard: "Create card",
     addExisting: "Add existing card",
@@ -63,6 +65,8 @@ export const collectionCopy = {
     loading: "Loading…",
   },
   el: {
+    visibility: "Πρόσβαση συλλογής",
+    editCollection: "Επεξεργασία συλλογής",
     reviewSharing: "Έλεγχος κοινής χρήσης καρτών",
     skipUnavailable: "Παράλειψη μη διαθέσιμης κάρτας",
     confirmUnpublish: "Επιβεβαίωση απόσυρσης",
@@ -83,7 +87,7 @@ export const collectionCopy = {
     create: "Δημιουργία συλλογής",
     open: "Άνοιγμα",
     private: "Ιδιωτική",
-    published: "Δημοσιευμένη",
+    published: "Δημόσια",
     cards: "κάρτες",
     createCard: "Δημιουργία κάρτας",
     addExisting: "Προσθήκη υπάρχουσας κάρτας",
@@ -128,6 +132,8 @@ export const collectionCopy = {
     loading: "Φόρτωση…",
   },
   it: {
+    visibility: "Visibilità della raccolta",
+    editCollection: "Modifica raccolta",
     reviewSharing: "Rivedi condivisione delle schede",
     skipUnavailable: "Salta scheda non disponibile",
     confirmUnpublish: "Conferma ritiro",
@@ -147,7 +153,7 @@ export const collectionCopy = {
     create: "Crea raccolta",
     open: "Apri",
     private: "Privata",
-    published: "Pubblicata",
+    published: "Pubblica",
     cards: "schede",
     createCard: "Crea scheda",
     addExisting: "Aggiungi scheda esistente",
