@@ -1,15 +1,22 @@
-"""Delete card history and aggregates while the caller holds entry row locks."""
+"""Ordinary deletion archives content without changing any learner history."""
 
-from sqlalchemy import delete
+from datetime import datetime, timezone
 
-from app.models import LearningProgress, ReviewEvent, VocabularyEntry
+from sqlalchemy import select
+
+from app.access import require_write
+from app.models import VocabularyEntry
 
 
 def delete_entries(db, ids):
-    # All learners and both directions: no deleted card may remain in statistics.
-    for model in (LearningProgress, ReviewEvent, VocabularyEntry):
-        db.execute(
-            delete(model).where(
-                (model.id if model is VocabularyEntry else model.entry_id).in_(ids)
-            )
+    entries = list(
+        db.scalars(
+            select(VocabularyEntry)
+            .where(VocabularyEntry.id.in_(ids))
+            .execution_options(include_archived=True)
         )
+    )
+    for entry in entries:
+        require_write(entry)
+    for entry in entries:
+        entry.archived_at = datetime.now(timezone.utc)

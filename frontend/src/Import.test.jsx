@@ -35,6 +35,10 @@ const report = {
   ],
 };
 const server = setupServer(
+  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.patch("*/api/account", async ({ request }) =>
+    HttpResponse.json(await request.json()),
+  ),
   http.get("*/api/profiles", () => HttpResponse.json([])),
   http.get("*/api/units", () =>
     HttpResponse.json([{ id: "u", code: "07", title: "Domande" }]),

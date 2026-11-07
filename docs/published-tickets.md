@@ -20,3 +20,20 @@ Published with the GitHub CLI to fvoulgari/lexi. All tickets carry ready-for-age
 | 14 | [Choose Greek, English, or Italian interface settings](https://github.com/fvoulgari/lexi/issues/14) | #2 |
 | 15 | [Install the PWA with safe static caching](https://github.com/fvoulgari/lexi/issues/15) | #6 |
 | 16 | [Verify and document the complete Railway release](https://github.com/fvoulgari/lexi/issues/16) | #7, #8, #10, #11, #12, #13, #14, #15 |
+
+## Authentication and account isolation
+
+Approved specification: [#52](https://github.com/fvoulgari/lexi/issues/52). These ten issues are its native sub-issues, all labelled `ready-for-agent`, with native blocking relationships. The parent remains open.
+
+| Slice | GitHub issue | Blocked by |
+| --- | --- | --- |
+| 1 | [Sign in to an isolated learner account](https://github.com/fvoulgari/lexi/issues/53) | None |
+| 2 | [Retain legacy learners and their restricted library safely](https://github.com/fvoulgari/lexi/issues/54) | #53 |
+| 3 | [Create and practise private vocabulary](https://github.com/fvoulgari/lexi/issues/55) | #53 |
+| 4 | [Publish and maintain shared vocabulary without erasing history](https://github.com/fvoulgari/lexi/issues/56) | #54, #55 |
+| 5 | [Import, export, and bulk-manage authorised vocabulary](https://github.com/fvoulgari/lexi/issues/57) | #55, #56 |
+| 6 | [Organise private collections and personal variants](https://github.com/fvoulgari/lexi/issues/58) | #55, #56 |
+| 7 | [Persist account preferences across devices](https://github.com/fvoulgari/lexi/issues/59) | #53 |
+| 8 | [Claim legacy progress through administrator-issued links](https://github.com/fvoulgari/lexi/issues/60) | #54, #57, #58 |
+| 9 | [Request help recovering legacy progress privately](https://github.com/fvoulgari/lexi/issues/61) | #60 |
+| 10 | [Verify and document the integrated authentication release](https://github.com/fvoulgari/lexi/issues/62) | #53, #54, #55, #56, #57, #58, #59, #60, #61 |

@@ -81,9 +81,7 @@ def test_reveal_review_retry_summary_and_isolation(logged_in):
     assert records[0]["reviews"] == 1
     assert records[0]["difficulty"] == 0.5
     assert records[0]["direction"] == "greek_to_italian"
-    others = logged_in.get("/api/profiles").json()
-    other = next(p["id"] for p in others if p["id"] != profile)
-    assert logged_in.get(f"/api/profiles/{other}/learning-records").json() == []
+    assert logged_in.get(f"/api/profiles/{uuid4()}/learning-records").status_code == 404
     # Switch the same queue's next card; only the revealed direction is accepted.
     logged_in.post(
         path + "/cards/1/reveal",
@@ -394,7 +392,9 @@ def test_category_queue_combines_library_filters_and_persists(logged_in):
     csrf = headers(client)
     units = client.get("/api/units").json()
     tag_ids = [
-        client.post("/api/tags", json={"name": name}, headers=csrf).json()["id"]
+        client.post(
+            "/api/tags", json={"visibility": "legacy", "name": name}, headers=csrf
+        ).json()["id"]
         for name in ("Home", "Reading")
     ]
     entries = client.get("/api/vocabulary?page_size=100").json()["items"]
@@ -475,13 +475,16 @@ def test_category_queue_size_all_and_filter_validation(logged_in):
     client = logged_in
     csrf = headers(client)
     profile = client.get("/api/profiles").json()[0]["id"]
-    tag = client.post("/api/tags", json={"name": "Focused"}, headers=csrf).json()["id"]
+    tag = client.post(
+        "/api/tags", json={"visibility": "legacy", "name": "Focused"}, headers=csrf
+    ).json()["id"]
     expected = set()
     for index in range(12):
         response = client.post(
             "/api/vocabulary",
             headers=csrf,
             json={
+                "visibility": "legacy",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
                 "italian_adjective_gender": "masculine",
@@ -587,6 +590,7 @@ def test_mixed_quotas_overlap_and_recent_boundary(
                 "/api/vocabulary",
                 headers=csrf,
                 json={
+                    "visibility": "legacy",
                     "italian_gender": "masculine",
                     "greek_gender": "neuter",
                     "unit_id": client.get("/api/units").json()[0]["id"],
@@ -678,6 +682,7 @@ def test_mixed_isolation_excluded_times_and_partial_backfill(
             "/api/vocabulary",
             headers=csrf,
             json={
+                "visibility": "legacy",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
                 "unit_id": client.get("/api/units").json()[0]["id"],
@@ -689,6 +694,9 @@ def test_mixed_isolation_excluded_times_and_partial_backfill(
         assert response.status_code == 201
         entries.append(response.json()["entry"])
     profiles = client.get("/api/profiles").json()
+    from app.seed import seed_id
+
+    profiles.append({"id": str(seed_id("profile/Spyros"))})
     profile = profiles[0]["id"]
     engine = create_engine(os.environ["DATABASE_URL"])
     with Session(engine) as db:

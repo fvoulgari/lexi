@@ -15,6 +15,10 @@ import {
 import App from "./App.jsx";
 let entries;
 const server = setupServer(
+  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.patch("*/api/account", async ({ request }) =>
+    HttpResponse.json(await request.json()),
+  ),
   http.get("*/api/profiles", () => HttpResponse.json([])),
   http.get("*/api/auth/session", () =>
     HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
@@ -22,7 +26,11 @@ const server = setupServer(
   http.get("*/api/tags", () => HttpResponse.json([])),
   http.get("*/api/vocabulary", () =>
     HttpResponse.json({
-      items: entries,
+      items: entries.map((entry) => ({
+        ...entry,
+        can_edit: true,
+        visibility: "private",
+      })),
       total: entries.length,
       page: 1,
       page_size: 6,
@@ -292,14 +300,14 @@ test("a pending save prevents switching to another card until completion", async
   expect(screen.getByLabelText("Italian *")).toHaveValue("nuovo");
 });
 
-test("delete confirms the meaning, explains review protection, and retries a failed deletion", async () => {
+test("archive confirms the meaning, preserves history copy, and retries a failed archive", async () => {
   let protectedEntry = true;
   server.use(
     http.delete("*/api/vocabulary/:id", ({ request, params }) => {
       expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
       if (protectedEntry)
         return HttpResponse.json(
-          { error: { code: "entry_reviewed" } },
+          { error: { code: "service_unavailable" } },
           { status: 409 },
         );
       entries = entries.filter((e) => e.id !== params.id);
@@ -308,25 +316,29 @@ test("delete confirms the meaning, explains review protection, and retries a fai
   );
   openLibrary();
   const user = userEvent.setup();
-  await user.click(await cardAction("Delete card: la casa"));
+  await user.click(await cardAction("Archive card: la casa"));
   expect(screen.getByRole("dialog")).toHaveTextContent("la casa");
   expect(screen.getByRole("dialog")).toHaveTextContent("το σπίτι");
-  await user.click(screen.getByRole("button", { name: "Permanently delete" }));
+  await user.click(screen.getByRole("button", { name: "Archive" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "This card has reviews and cannot be deleted.",
+    "The notebook is temporarily unavailable. Please try again.",
   );
   expect(screen.getByRole("heading", { name: "la casa" })).toBeInTheDocument();
   await user.selectOptions(screen.getByLabelText("Interface language"), "el");
-  expect(screen.getByRole("alert")).toHaveTextContent("έχει αξιολογήσεις");
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Το τετράδιο δεν είναι διαθέσιμο προσωρινά",
+  );
   await user.selectOptions(screen.getByLabelText("Γλώσσα εφαρμογής"), "it");
-  expect(screen.getByRole("alert")).toHaveTextContent("ha delle revisioni");
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Il quaderno non è disponibile",
+  );
   await user.selectOptions(
     screen.getByLabelText("Lingua dell’interfaccia"),
     "en",
   );
   protectedEntry = false;
-  await user.click(screen.getByRole("button", { name: "Permanently delete" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Card deleted.");
+  await user.click(screen.getByRole("button", { name: "Archive" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Card archived.");
   expect(
     screen.queryByRole("heading", { name: "la casa" }),
   ).not.toBeInTheDocument();
@@ -337,14 +349,14 @@ test("cancel and Escape restore delete focus; connection failures retain the con
   server.use(http.delete("*/api/vocabulary/:id", () => HttpResponse.error()));
   openLibrary();
   const user = userEvent.setup();
-  const action = await cardAction("Delete card: la casa");
+  const action = await cardAction("Archive card: la casa");
   await user.click(action);
   expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Card actions: la casa")).toHaveFocus();
-  await user.click(await cardAction("Delete card: la casa"));
-  await user.click(screen.getByRole("button", { name: "Permanently delete" }));
+  await user.click(await cardAction("Archive card: la casa"));
+  await user.click(screen.getByRole("button", { name: "Archive" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Check your connection",
   );
@@ -379,7 +391,9 @@ test("floating card actions support one open menu, keyboard navigation and dismi
   house.focus();
   await user.keyboard("{ArrowDown}");
   const edit = screen.getByRole("menuitem", { name: "Edit card: la casa" });
-  const remove = screen.getByRole("menuitem", { name: "Delete card: la casa" });
+  const remove = screen.getByRole("menuitem", {
+    name: "Archive card: la casa",
+  });
   expect(edit).toHaveFocus();
   expect(screen.getByRole("menu").parentElement).toBe(document.body);
   await user.keyboard("{ArrowDown}");
@@ -394,14 +408,14 @@ test("floating card actions support one open menu, keyboard navigation and dismi
   expect(remove).toHaveFocus();
   await user.keyboard("{Home}");
   expect(edit).toHaveFocus();
-  await user.keyboard("d");
+  await user.keyboard("a");
   expect(remove).toHaveFocus();
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(house).toHaveFocus();
   await user.keyboard("{ArrowUp}");
   expect(
-    screen.getByRole("menuitem", { name: "Delete card: la casa" }),
+    screen.getByRole("menuitem", { name: "Archive card: la casa" }),
   ).toHaveFocus();
   const book = screen.getByRole("button", { name: "Card actions: il libro" });
   await user.click(book);
@@ -416,7 +430,7 @@ test("floating card actions support one open menu, keyboard navigation and dismi
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   await user.click(house);
   await user.click(
-    screen.getByRole("menuitem", { name: "Delete card: la casa" }),
+    screen.getByRole("menuitem", { name: "Archive card: la casa" }),
   );
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(screen.getByRole("dialog")).toBeInTheDocument();

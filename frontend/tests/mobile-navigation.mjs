@@ -6,6 +6,8 @@ import { chromium } from "playwright";
 
 const card = {
   id: "card",
+  can_edit: true,
+  visibility: "private",
   italian: "abbinare",
   greek: "συνδυάζω",
   word_type: "verb",
@@ -34,7 +36,18 @@ const server = createServer(async (req, res) => {
   if (path.startsWith("/api/")) {
     let body = [];
     if (path === "/api/auth/session")
-      body = { authenticated: true, csrf_token: "test" };
+      body = {
+        authenticated: true,
+        csrf_token: "test",
+        account: {
+          id: "account",
+          role: "learner",
+          legacy_access: false,
+          interface_language: "el",
+          profile_id: "learner",
+          display_name: "Learner",
+        },
+      };
     if (path === "/api/units") body = [card.unit];
     if (path === "/api/vocabulary")
       body = { items: [card], total: 1, page: 1, page_size: 12 };

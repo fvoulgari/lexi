@@ -44,7 +44,15 @@ def progress_router(sessions, gate):
             def breakdown(key):
                 rows = db.execute(
                     select(key.label("key"), *metrics)
-                    .where(history)
+                    .where(
+                        history,
+                        ReviewEvent.entry_id.in_(
+                            select(VocabularyEntry.id).execution_options(
+                                include_archived=True
+                            )
+                        ),
+                    )
+                    .execution_options(include_archived=True)
                     .group_by(key)
                     .order_by(key)
                 ).all()
@@ -104,7 +112,8 @@ def progress_router(sessions, gate):
             unit_title = ReviewEvent.snapshot["unit"]["title"].as_string()
             unit_rows = db.execute(
                 select(unit.label("key"), unit_title.label("title"), *metrics)
-                .where(history)
+                .where(history, ReviewEvent.entry_id.in_(select(VocabularyEntry.id)))
+                .execution_options(include_archived=True)
                 .group_by(unit, unit_title)
                 .order_by(unit, unit_title)
             ).all()

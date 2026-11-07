@@ -22,9 +22,12 @@ class UnitOutput(BaseModel):
     title: str
     sort_order: int
     card_count: int = 0
+    visibility: str = "legacy"
+    can_edit: bool = False
 
 
 class UnitCreate(BaseModel):
+    visibility: Literal["private", "legacy", "published"] = "private"
     model_config = ConfigDict(extra="forbid")
     code: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=20)
@@ -75,6 +78,7 @@ class ProfileOutput(BaseModel):
 
 
 class TagCreate(BaseModel):
+    visibility: Literal["private", "legacy", "published"] = "private"
     model_config = ConfigDict(extra="forbid")
     name: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
@@ -82,11 +86,18 @@ class TagCreate(BaseModel):
 
 
 class TagOutput(TagCreate):
+    can_edit: bool = False
     model_config = ConfigDict(from_attributes=True)
     id: UUID
 
 
 class VocabularyOutput(BaseModel):
+    visibility: str = "legacy"
+    owner_account_id: UUID | None = None
+    archived_at: datetime | None = None
+    source_language: str = "it"
+    target_language: str = "el"
+    can_edit: bool = False
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     italian: str
@@ -211,6 +222,7 @@ class VocabularyFields(BaseModel):
 
 
 class VocabularyCreate(VocabularyFields):
+    visibility: Literal["private", "legacy", "published"] = "private"
     unit_id: UUID
     italian: EntryText
     greek: EntryText
@@ -276,6 +288,7 @@ class VocabularySaved(BaseModel):
 
 
 class SessionCreate(BaseModel):
+    collection_id: UUID | None = None
     mode: Literal["random", "difficult", "mixed"] = "random"
     model_config = ConfigDict(extra="forbid")
     profile_id: UUID

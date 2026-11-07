@@ -64,19 +64,6 @@ def test_progress_counts_history_and_deduplicates_directions(logged_in):
     assert data["recent_session"]["id"] == third["id"]
     assert data["recent_session"]["remembered"] == 100
     assert data["recent_session"]["total_reviews"] == 1
-    other = next(
-        p for p in client.get("/api/profiles").json() if p["id"] != first["profile_id"]
-    )
-    empty = client.get(f"/api/profiles/{other['id']}/progress").json()
-    assert (
-        empty["total_reviews"]
-        == empty["entries_practised"]
-        == empty["difficult_entries"]
-        == 0
-    )
-    assert empty["recent_session"] is None
-    assert empty["counts"] == {"again": 0, "hard": 0, "easy": 0}
-    assert empty["units"] == empty["word_types"] == []
     assert client.get(f"/api/profiles/{uuid4()}/progress").status_code == 404
     client.cookies.clear()
     assert (

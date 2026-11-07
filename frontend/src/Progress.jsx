@@ -1,25 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { request } from "./api.js";
 
 export default function Progress({ text, onLocked, detailed = false }) {
-  const [selected, setSelected] = useState(() => {
-    try {
-      return localStorage.getItem("notebook-profile") || "";
-    } catch {
-      return "";
-    }
-  });
-
   const profiles = useQuery({
     queryKey: ["profiles"],
     queryFn: () => request("/api/profiles"),
     retry: false,
   });
 
-  const profile = profiles.data?.find((p) => p.id === selected);
+  const profile = profiles.data?.[0];
 
   const history = useQuery({
     queryKey: ["progress", profile?.id],
@@ -49,20 +41,6 @@ export default function Progress({ text, onLocked, detailed = false }) {
     }
   }, [profiles.error, history.error, onLocked]);
 
-  function selectProfile(id) {
-    setSelected(id);
-
-    try {
-      if (id) {
-        localStorage.setItem("notebook-profile", id);
-      } else {
-        localStorage.removeItem("notebook-profile");
-      }
-    } catch {
-      /* Selection works without device storage. */
-    }
-  }
-
   if (detailed)
     return (
       <DetailedProgress
@@ -70,8 +48,6 @@ export default function Progress({ text, onLocked, detailed = false }) {
         profile={profile}
         profiles={profiles}
         history={history}
-        selected={selected}
-        selectProfile={selectProfile}
         onLocked={onLocked}
       />
     );
@@ -99,39 +75,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
             </button>
           </div>
         ) : profiles.isSuccess ? (
-          <>
-            {selected && <p role="status">{text.missingProfile}</p>}
-            <p className="home-welcome-hint">
-              {profiles.data.length
-                ? text.homeChooseProfileHint
-                : text.homeCreateProfileHint}
-            </p>
-            {profiles.data.length > 0 && (
-              <div className="home-welcome-picker">
-                <label htmlFor="progress-profile">{text.profile}</label>
-                <select
-                  id="progress-profile"
-                  value=""
-                  onChange={(event) => selectProfile(event.target.value)}
-                >
-                  <option value="">{text.chooseProfile}</option>
-                  {profiles.data.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.display_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <Link
-              className={profiles.data.length ? "home-text-link" : "primary"}
-              to="/settings"
-            >
-              {profiles.data.length
-                ? text.settingsNewProfile
-                : text.createProfile}
-            </Link>
-          </>
+          <p role="alert">{text.requestProfile}</p>
         ) : null}
       </section>
     );
@@ -158,37 +102,13 @@ export default function Progress({ text, onLocked, detailed = false }) {
           )}
 
           <div className="profile-picker-field">
-            <label htmlFor="progress-profile">{text.profile}</label>
-
-            {!detailed && (
-              <span className="profile-picker-name" aria-hidden="true">
-                {profile?.display_name || text.chooseProfile}
-              </span>
-            )}
-            <select
-              id="progress-profile"
-              value={profile?.id || ""}
-              onChange={(event) => selectProfile(event.target.value)}
-            >
-              <option value="">{text.chooseProfile}</option>
-
-              {profiles.data?.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.display_name}
-                </option>
-              ))}
-            </select>
+            <span className="profile-picker-label">{text.profile}</span>
+            <span className={!detailed ? "profile-picker-name" : undefined}>
+              {profile?.display_name || text.chooseProfile}
+            </span>
           </div>
         </div>
       </div>
-
-      {selected && profiles.isSuccess && !profile && (
-        <p>{text.missingProfile}</p>
-      )}
-
-      {profiles.isSuccess && !profiles.data.length && (
-        <Link to="/settings">{text.createProfile}</Link>
-      )}
 
       {(profiles.isPending || (profile && history.isPending)) && (
         <p role="status">{text.loading}</p>
@@ -333,15 +253,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
   );
 }
 
-function DetailedProgress({
-  text,
-  profile,
-  profiles,
-  history,
-  selected,
-  selectProfile,
-  onLocked,
-}) {
+function DetailedProgress({ text, profile, profiles, history, onLocked }) {
   const data = history.data;
   const error = profiles.error || history.error;
   const metrics = data
@@ -366,26 +278,12 @@ function DetailedProgress({
           )}
           <div>
             <label htmlFor="progress-profile">{text.profile}</label>
-            <select
-              id="progress-profile"
-              value={profile?.id || ""}
-              onChange={(event) => selectProfile(event.target.value)}
-            >
-              <option value="">{text.chooseProfile}</option>
-              {profiles.data?.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.display_name}
-                </option>
-              ))}
-            </select>
+            <span>{profile?.display_name}</span>
           </div>
         </div>
       </header>
-      {selected && profiles.isSuccess && !profile && (
-        <p>{text.missingProfile}</p>
-      )}
-      {profiles.isSuccess && !profiles.data.length && (
-        <Link to="/settings">{text.createProfile}</Link>
+      {profiles.isSuccess && !profile && (
+        <p role="alert">{text.requestProfile}</p>
       )}
       {(profiles.isPending || (profile && history.isPending)) && (
         <p role="status">{text.loading}</p>

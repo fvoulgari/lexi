@@ -7,11 +7,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 
+from app.access import lock_owned_profile
 from app.filters import category_conditions
 from app.models import (
+    Collection,
+    CollectionEntry,
     LearningProgress,
     PracticeSession,
-    Profile,
     ReviewEvent,
     SessionCard,
     VocabularyEntry,
@@ -75,18 +77,7 @@ def practice_router(sessions, gate):
     writes = [Depends(gate.check_csrf)]
 
     def require_profile(db, profile_id):
-        profile = db.scalar(
-            select(Profile).where(Profile.id == profile_id).with_for_update()
-        )
-        if profile is None:
-            raise HTTPException(
-                404,
-                detail={
-                    "code": "profile_not_found",
-                    "message": "Learner profile not found. Choose another profile.",
-                },
-            )
-        return profile
+        return lock_owned_profile(db, profile_id)
 
     def find_session(db, session_id):
         session = db.get(PracticeSession, session_id)
@@ -101,19 +92,35 @@ def practice_router(sessions, gate):
             .where(SessionCard.session_id == session.id)
             .order_by(SessionCard.position)
         ).all()
+        visible_ids = set(
+            db.scalars(
+                select(VocabularyEntry.id).where(
+                    VocabularyEntry.id.in_([c.entry_id for c in cards if c.entry_id])
+                )
+            ).all()
+        )
+        readable_ids = set(
+            db.scalars(
+                select(VocabularyEntry.id)
+                .where(
+                    VocabularyEntry.id.in_([c.entry_id for c in cards if c.entry_id])
+                )
+                .execution_options(include_archived=True)
+            ).all()
+        )
         return {
             "id": str(session.id),
             "profile_id": str(session.profile_id),
             "direction": session.direction,
             "requested_size": session.requested_size,
             "available": session.available,
-            "active_count": sum(c.entry_id is not None for c in cards),
+            "active_count": sum(c.entry_id in visible_ids for c in cards),
             "cards": [
                 {
                     "position": c.position,
-                    "entry_id": str(c.entry_id) if c.entry_id else None,
-                    "snapshot": c.snapshot,
-                    "skipped": c.entry_id is None,
+                    "entry_id": str(c.entry_id) if c.entry_id in visible_ids else None,
+                    "snapshot": c.snapshot if c.entry_id in readable_ids else None,
+                    "skipped": c.entry_id not in visible_ids,
                 }
                 for c in cards
             ],
@@ -128,6 +135,16 @@ def practice_router(sessions, gate):
                     body.unit_ids, body.no_unit, body.word_types, body.tag_ids
                 ),
             )
+            if body.collection_id is not None:
+                if db.get(Collection, body.collection_id) is None:
+                    raise HTTPException(404, "Collection not found.")
+                selection = selection.where(
+                    VocabularyEntry.id.in_(
+                        select(CollectionEntry.entry_id).where(
+                            CollectionEntry.collection_id == body.collection_id
+                        )
+                    )
+                )
             if body.mode == "difficult":
                 eligible = difficult_progress(body.profile_id, body.direction)
                 selection = selection.where(
@@ -222,6 +239,15 @@ def practice_router(sessions, gate):
             )
 
     def event_output(event):
+        with sessions() as db:
+            accessible = (
+                db.scalar(
+                    select(VocabularyEntry.id)
+                    .where(VocabularyEntry.id == event.entry_id)
+                    .execution_options(include_archived=True)
+                )
+                is not None
+            )
         return {
             "id": str(event.id),
             "session_id": str(event.session_id),
@@ -230,7 +256,7 @@ def practice_router(sessions, gate):
             "entry_id": str(event.entry_id),
             "direction": event.direction,
             "rating": event.rating,
-            "snapshot": event.snapshot,
+            "snapshot": event.snapshot if accessible else None,
             "created_at": event.created_at.isoformat(),
         }
 

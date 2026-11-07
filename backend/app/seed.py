@@ -26,6 +26,7 @@ def seed():
                 .values(
                     id=seed_id("profile/" + name),
                     display_name=name,
+                    is_legacy=True,
                     preferred_direction="greek_to_italian",
                 )
                 .on_conflict_do_nothing()

@@ -37,7 +37,9 @@ def test_required_units_for_manual_cards_and_csv(logged_in):
     for unit in ({}, {"unit_id": None}, {"unit_id": str(uuid4())}):
         assert (
             client.post(
-                "/api/vocabulary", json={**body, **unit}, headers=headers(client)
+                "/api/vocabulary",
+                json={"visibility": "legacy", **body, **unit},
+                headers=headers(client),
             ).status_code
             == 422
         )
@@ -72,6 +74,7 @@ def test_session_unit_choices_apply_without_profile_assignment(logged_in, mode):
         client.post(
             "/api/vocabulary",
             json={
+                "visibility": "legacy",
                 "italian_adjective_gender": "masculine",
                 "greek_adjective_gender": "masculine",
                 "italian": "nuovo",
@@ -118,12 +121,18 @@ def test_new_profile_can_practise_new_unit_immediately(logged_in, test_database)
     client = logged_in
     unit = client.post(
         "/api/units",
-        json={"code": "NEW", "title": "New shared unit", "sort_order": 0},
+        json={
+            "visibility": "legacy",
+            "code": "NEW",
+            "title": "New shared unit",
+            "sort_order": 0,
+        },
         headers=headers(client),
     ).json()
     card = client.post(
         "/api/vocabulary",
         json={
+            "visibility": "legacy",
             "italian_adjective_gender": "masculine",
             "greek_adjective_gender": "masculine",
             "italian": "nuovo",
@@ -133,9 +142,7 @@ def test_new_profile_can_practise_new_unit_immediately(logged_in, test_database)
         },
         headers=headers(client),
     ).json()["entry"]
-    profile = client.post(
-        "/api/profiles", json={"display_name": "New learner"}, headers=headers(client)
-    ).json()
+    profile = client.get("/api/profiles").json()[0]
     assert "practice_unit_ids" not in profile
     session = start(client, profile["id"], "mixed", unit_ids=[unit["id"]]).json()
     assert [c["entry_id"] for c in session["cards"]] == [card["id"]]
