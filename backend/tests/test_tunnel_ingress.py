@@ -20,6 +20,8 @@ def scope(headers, peer="127.0.0.1"):
         [b"0.0.0.0"],
         [b"::"],
         [b"224.0.0.1"],
+        [b"::ffff:0.0.0.0"],
+        [b"::ffff:224.0.0.1"],
         [b"fe80::1%eth0"],
         [b" 198.51.100.1"],
         [b"198.51.100.1,198.51.100.2"],
@@ -130,3 +132,31 @@ def test_password_routes_and_public_aliases_use_tunnel_limit(client, path, alias
             ).status_code
             for _ in range(6)
         ] == [200] * 5 + [429]
+
+
+@pytest.mark.parametrize("alias", [False, True])
+@pytest.mark.parametrize("failure,status", [("busy", 429), ("timeout", 503)])
+def test_password_slot_errors_have_safe_http_responses(client, alias, failure, status):
+    from app.password_attempts import (
+        PasswordAttemptBusy,
+        PasswordVerificationUnavailable,
+    )
+
+    app = FastAPI()
+    gate = initialize_auth(app, Settings(_env_file=None), client.app.state.sessions)
+    gate.ready = True
+    path = "/api/auth/public/signin" if alias else "/api/auth/signin"
+
+    @app.post(path)
+    def signin():
+        raise (
+            PasswordAttemptBusy()
+            if failure == "busy"
+            else PasswordVerificationUnavailable()
+        )
+
+    with TestClient(app) as caller:
+        response = caller.post(path, json={})
+        assert response.status_code == status
+        assert response.headers["cache-control"] == "no-store"
+        assert set(response.json()) == {"error"}

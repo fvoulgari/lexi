@@ -16,6 +16,7 @@ from app.access import account_context
 from app.auth_provider import configuration_ready, configure_provider
 from app.ingress import loopback_peer, tunnel_client_ip
 from app.models import Account, LoginThrottle, Profile
+from app.password_attempts import PasswordAttemptBusy, PasswordVerificationUnavailable
 
 log = logging.getLogger("lexi.security")
 
@@ -215,8 +216,7 @@ def initialize_auth(app, settings, sessions):
                         if not loopback_peer(scope):
                             raise ValueError("untrusted_ingress")
                         if not (
-                            path == "/api/health"
-                            and scope["method"] in {"GET", "HEAD"}
+                            path == "/api/health" and scope["method"] in {"GET", "HEAD"}
                         ):
                             visitor = tunnel_client_ip(scope)
                             scope["client"] = (visitor, 0)
@@ -297,6 +297,18 @@ def initialize_auth(app, settings, sessions):
                     await send(message)
 
                 return await self.app(scope, receive, security_event)
+            except PasswordAttemptBusy:
+                return await JSONResponse(
+                    {"error": {"code": "login_throttled"}},
+                    status_code=429,
+                    headers={"Retry-After": "1", "Cache-Control": "no-store"},
+                )(scope, receive, send)
+            except PasswordVerificationUnavailable:
+                return await JSONResponse(
+                    {"error": {"code": "authentication_unavailable"}},
+                    status_code=503,
+                    headers={"Cache-Control": "no-store"},
+                )(scope, receive, send)
             finally:
                 account_context.reset(token)
 

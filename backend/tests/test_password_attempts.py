@@ -104,7 +104,7 @@ def test_only_wrong_credentials_receive_backoff(client, monkeypatch, email):
 
 
 def test_provider_failure_does_not_record_wrong_password(client):
-    attempts = SimpleNamespace(failed=AsyncMock())
+    attempts = None
     api = restrict_emailpassword(
         SimpleNamespace(
             sign_in_post=AsyncMock(
@@ -117,4 +117,144 @@ def test_provider_failure_does_not_record_wrong_password(client):
     )
     with pytest.raises(RuntimeError, match="synthetic service failure"):
         asyncio.run(api.sign_in_post())
-    attempts.failed.assert_not_awaited()
+
+
+def test_identifier_slot_blocks_concurrent_guesses_but_not_other_identifiers(client):
+    from app.password_attempts import PasswordAttemptBusy
+
+    attempts = PasswordAttempts(client.app.state.sessions, "local-test-key")
+
+    async def scenario():
+        async with attempts.attempt("public", "Synthetic@example.invalid") as db:
+            with pytest.raises(PasswordAttemptBusy):
+                async with attempts.attempt("public", " synthetic@EXAMPLE.invalid "):
+                    pytest.fail("Concurrent provider verification was admitted")
+            async with attempts.attempt("public", "other@example.invalid"):
+                pass
+            await attempts.failed("public", "Synthetic@example.invalid", db)
+        async with attempts.attempt("public", "synthetic@example.invalid"):
+            pass
+
+    asyncio.run(scenario())
+    with client.app.state.sessions() as db:
+        assert db.scalars(select(LoginThrottle)).one().attempts == 1
+
+
+def test_cancelled_slot_acquisition_releases_lock_even_with_repeated_cancel(client):
+    import threading
+
+    attempts = PasswordAttempts(client.app.state.sessions, "local-test-key")
+    acquired, proceed, released = (
+        threading.Event(),
+        threading.Event(),
+        threading.Event(),
+    )
+    original_acquire, original_release = attempts.acquire, attempts.release
+
+    def acquire(identifier):
+        slot = original_acquire(identifier)
+        acquired.set()
+        assert proceed.wait(5)
+        return slot
+
+    def release(slot):
+        original_release(slot)
+        released.set()
+
+    attempts.acquire, attempts.release = acquire, release
+
+    async def operation():
+        async with attempts.attempt("public", "cancel@example.invalid"):
+            pytest.fail("Cancelled request must not verify credentials")
+
+    async def scenario():
+        task = asyncio.create_task(operation())
+        assert await asyncio.to_thread(acquired.wait, 5)
+        task.cancel()
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        proceed.set()
+        assert await asyncio.to_thread(released.wait, 5)
+
+    asyncio.run(scenario())
+    slot = original_acquire(attempts.identifier("public", "cancel@example.invalid"))
+    original_release(slot)
+
+
+def test_cancellation_finishes_failure_sql_before_releasing_session(client):
+    import threading
+
+    attempts = PasswordAttempts(client.app.state.sessions, "local-test-key")
+    started, proceed, finished = threading.Event(), threading.Event(), threading.Event()
+    original_record, original_release = attempts.record_failure, attempts.release
+
+    def record(*args):
+        started.set()
+        assert proceed.wait(5)
+        result = original_record(*args)
+        finished.set()
+        return result
+
+    def release(slot):
+        assert finished.is_set(), "Unlock must not race failure SQL on the same Session"
+        original_release(slot)
+
+    attempts.record_failure, attempts.release = record, release
+
+    async def operation():
+        async with attempts.attempt("public", "cancel-sql@example.invalid") as db:
+            await attempts.failed("public", "cancel-sql@example.invalid", db)
+
+    async def scenario():
+        task = asyncio.create_task(operation())
+        assert await asyncio.to_thread(started.wait, 5)
+        task.cancel()
+        await asyncio.sleep(0)
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+        proceed.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(scenario())
+    slot = attempts.acquire(attempts.identifier("public", "cancel-sql@example.invalid"))
+    original_release(slot)
+
+
+def test_provider_timeout_releases_slot_without_recording_password_failure(
+    client, monkeypatch
+):
+    from app.password_attempts import PasswordVerificationUnavailable
+
+    attempts = PasswordAttempts(client.app.state.sessions, "local-test-key")
+    timeout = asyncio.timeout
+    monkeypatch.setattr("app.auth_provider.asyncio.timeout", lambda _: timeout(0.01))
+
+    async def stalled(**kwargs):
+        await asyncio.Event().wait()
+
+    api = restrict_emailpassword(
+        SimpleNamespace(
+            sign_in_post=stalled,
+            generate_password_reset_token_post=AsyncMock(),
+            password_reset_post=AsyncMock(),
+        ),
+        attempts,
+    )
+    with pytest.raises(PasswordVerificationUnavailable):
+        asyncio.run(
+            api.sign_in_post(
+                form_fields=[
+                    FormField("email", "timeout@example.invalid"),
+                    FormField("password", "synthetic"),
+                ],
+                tenant_id="public",
+            )
+        )
+    slot = attempts.acquire(attempts.identifier("public", "timeout@example.invalid"))
+    attempts.release(slot)
+    with client.app.state.sessions() as db:
+        assert list(db.scalars(select(LoginThrottle))) == []

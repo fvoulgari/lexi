@@ -1,5 +1,6 @@
 """Maintained provider recipes without application token parsing."""
 
+import asyncio
 from urllib.parse import urlsplit
 
 
@@ -255,13 +256,26 @@ def restrict_emailpassword(apis, attempts=None):
                 | arguments
             )
         reject_linking(arguments)
-        result = await original_signin(**arguments)
-        if isinstance(result, SignInPostOkResult):
-            return result
-        if attempts is not None:
-            fields = {field.id: field.value for field in arguments["form_fields"]}
-            await attempts.failed(arguments["tenant_id"], fields["email"])
-        return WrongCredentialsError()
+
+        async def verify(slot=None):
+            try:
+                async with asyncio.timeout(10):
+                    result = await original_signin(**arguments)
+            except TimeoutError:
+                from app.password_attempts import PasswordVerificationUnavailable
+
+                raise PasswordVerificationUnavailable() from None
+            if isinstance(result, SignInPostOkResult):
+                return result
+            if attempts is not None:
+                await attempts.failed(arguments["tenant_id"], fields["email"], slot)
+            return WrongCredentialsError()
+
+        if attempts is None:
+            return await verify()
+        fields = {field.id: field.value for field in arguments["form_fields"]}
+        async with attempts.attempt(arguments["tenant_id"], fields["email"]) as slot:
+            return await verify(slot)
 
     async def generate_password_reset_token_post(*args, **arguments):
         if args:

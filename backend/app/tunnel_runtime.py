@@ -7,6 +7,8 @@ import sys
 import tempfile
 import time
 
+from app.runtime_health import healthy
+
 STAGING_ENVIRONMENT = "8bb27c88-f6a8-4074-b701-bcefb982ab2d"
 
 
@@ -77,8 +79,23 @@ def main():
                 if stopping:
                     break
                 children.append(subprocess.Popen(command, env=environment))
+            startup_deadline = time.monotonic() + 90
+            ever_ready = False
+            unready_since = None
             while not stopping and all(child.poll() is None for child in children):
-                time.sleep(0.2)
+                now = time.monotonic()
+                if healthy("cloudflare_tunnel", int(environment.get("PORT", "8000"))):
+                    ever_ready = True
+                    unready_since = None
+                else:
+                    if unready_since is None:
+                        unready_since = now
+                    if (not ever_ready and now >= startup_deadline) or (
+                        ever_ready and now - unready_since >= 30
+                    ):
+                        print("tunnel_runtime_unready", flush=True)
+                        break
+                time.sleep(2)
             status = 0 if stopping else 1
         finally:
             stop()

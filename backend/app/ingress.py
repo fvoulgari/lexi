@@ -28,11 +28,10 @@ def tunnel_client_ip(scope):
         if value != value.strip() or "%" in value:
             raise ValueError
         address = ip_address(value)
+        if address.version == 6 and address.ipv4_mapped:
+            address = address.ipv4_mapped
         if address.is_unspecified or address.is_multicast:
             raise ValueError
-    except (ValueError, UnicodeError):
+    except ValueError, UnicodeError:
         raise ValueError("invalid_client_ip") from None
-    # The same IPv4 identity must not gain a second bucket via mapped IPv6.
-    if address.version == 6 and address.ipv4_mapped:
-        address = address.ipv4_mapped
     return str(address)
