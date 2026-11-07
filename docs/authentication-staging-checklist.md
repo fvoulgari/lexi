@@ -5,8 +5,10 @@ The active staging origin is `https://staging-lexi.fotiniv.com`; historical reco
 below retain their original deployment/origin. Google login/settings passed by manual user report on the new hostname. Reset email delivery, the new-hostname reset link, and new-password sign-in
 also passed by manual user report. Used reset-link rejection also passed manually. Fresh registration, blocked
 unverified access, verification email/new-hostname link and subsequent access
-passed manually. Token expiry, verification-link reuse, sessions
-and signed-in two-user checks on this deployment remain pending.
+passed manually. Manual logout-all revoked both password sessions while Google stayed signed in;
+A's private card was absent from B's search. Broader isolation, expiry and renewal
+checks remain unverified. Hosted admin/claim tests were explicitly skipped by the
+user on 7 November. See the [current closeout](authentication-release-status.md).
 
 Run only after [provider setup](authentication-setup.md), with disposable synthetic learners, vocabulary and legacy profiles. Keep separate staging Core, Google client and database; stay within verified free quotas. This checklist is **pending**, not a claim of end-to-end success. Local mocked-provider tests and migration rehearsals do not verify Google, delivered email, cookies or live Core.
 
@@ -101,7 +103,9 @@ health checks do not establish provider or account-isolation acceptance.
 - [ ] Successful reset revokes existing sessions for that password identity; other users and a separate Google identity remain unaffected. Return to password sign-in after reset. Verify provider-required email status before protected access.
 - [ ] Old passwordless code/create/resend/consume and email/phone existence endpoints return 404, including public aliases; old `/auth/verify` URLs cannot create sessions. Unreachable Core fails closed; logged-out direct APIs and old shared-gate sessions lack access.
 
-## Hosted rate-limit investigation — 6 November 2026
+## Historical pre-Tunnel investigation — 6 November 2026
+
+Superseded for the active deployment by [Tunnel results](authentication-tunnel-staging-results.md).
 
 See [exact inventory and result table](authentication-hosted-rate-limits.md).
 Two independent external sources reached staging (PASS), but one produced 15
@@ -156,7 +160,11 @@ Do not repeat two-network/spoof bucket assertions until the public baseline pass
 - [ ] Record actual local test and GitHub CI outcomes for this exact commit. Mark inaccessible CI as NOT VERIFIED with its reason. Resolve failures before proposing promotion.
 - [ ] Keep PR #63 draft; no merge, tag, deploy, real claims or production migrations are authorised by completing this checklist.
 
-## Independent checks continuing while ingress is blocked
+## Historical checks before the Tunnel cutover
+
+The current results and user-approved admin-test deferral are in
+[release status](authentication-release-status.md); the pending entries below
+record what was outstanding before that cutover.
 
 - [x] Local focused backend contracts/isolation: 53 passed on source `6711733`.
 - [x] Local AuthGate/AccountAccess/AccountCard UI regressions: 43 passed.

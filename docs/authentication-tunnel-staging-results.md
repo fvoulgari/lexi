@@ -41,7 +41,8 @@ are included here.
 | Real Google callback on new hostname | PASS, manual user report: returned to Lexi; settings identified Google sign-in and hid Change password. Browser/version not recorded |
 | Password-reset delivery and login on new hostname | PASS, manual user report: reset email received, link opened new staging hostname, password reset completed, new-password sign-in succeeded. Used reset link subsequently rejected (manual PASS). Expiry and session revocation not established by this check |
 | Registration/verification delivery on new hostname | PASS, manual user report: fresh password account blocked from protected learning data before verification; verification email received, link used new staging hostname, access succeeded afterward. Verification-link reuse/expiry not yet tested |
-| Two authenticated users' private data | NOT RUN on this deployment; logged-out 401 does not establish cross-account isolation |
+| Private-card search isolation | PASS, manual user report: A created the synthetic private card and B could not find it. Direct-ID/export/write and progress isolation not established |
+| Logout-all / unrelated-user isolation | PASS, manual user report: two password sessions signed out; separate Google session stayed signed in |
 
 Cloudflare zone overview showed Free plan and no Workers connected. No security
 settings were weakened. Default Python user agent received Cloudflare 1010;
@@ -86,10 +87,10 @@ Temporary diagnostic account SSH key was deleted successfully after the read-onl
 checks; local key, public-key and known-host files were removed. Tunnel token
 remains sealed in staging; never put it in source, logs, PRs or chat.
 
-Next: complete verification/reset delivery and reuse/expiry,
-session behavior and two-account isolation on the new origin. Historical manual
-checks do not substitute for those runs. Keep public-signup readiness gated and
-PR draft until remaining release checks are satisfied.
+Current closeout and explicit skipped/unverified checks are recorded in
+[release status](authentication-release-status.md). Admin/hosted-claim testing was
+explicitly skipped by the user on 7 November; it is not a PASS. Keep production
+public-signup readiness gated and PR draft.
 
 ## Local checks and CI
 

@@ -88,3 +88,12 @@ archival-history checks passed again. The fresh fixture comparison SHA-256 was
 Only the two newly created disposable databases and their dump were removed.
 This repeat did not rerun the cross-version check or rehearse restoration after
 post-cutover writes; those are separate from this result.
+
+## Closeout repeat — 7 November 2026
+
+Fresh PostgreSQL 17.11 dump/restore and upgrade rehearsal passed on #63 source
+`320a0cb`. The same row counts, four constraints, learner/no-legacy defaults,
+legacy audiences and archival/history checks passed. Comparison SHA-256:
+`a6ac2693458e446befb5e22cfc58bc6cde2296a3bacdf869082d4bb51a605db9`.
+Both newly created test databases and their dump were removed. This is local
+synthetic evidence, not a production backup or production migration approval.
