@@ -157,3 +157,32 @@ def test_readiness_checks_both_loopback_services_without_environment_proxy(monke
     assert build.call_args.args[0].proxies == {}
     opener.open.side_effect = OSError("connector unavailable")
     assert not runtime_health.healthy("cloudflare_tunnel", 8000)
+
+
+def test_wrong_environment_rejects_tunnel_before_running_migrations(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    marker = tmp_path / "migration-was-called"
+    alembic = tmp_path / "alembic"
+    alembic.write_text(f'#!/bin/sh\ntouch "{marker}"\nexit 42\n')
+    alembic.chmod(0o700)
+    result = subprocess.run(
+        ["sh", str(root / "scripts/start.sh")],
+        cwd=root / "backend",
+        env={
+            **os.environ,
+            "AUTH_INGRESS_MODE": "cloudflare_tunnel",
+            "RAILWAY_ENVIRONMENT_ID": "production",
+            "PATH": f"{tmp_path}:{Path(sys.executable).parent}:{os.environ['PATH']}",
+        },
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert result.returncode != 0
+    assert "restricted to staging" in result.stderr
+    assert not marker.exists()

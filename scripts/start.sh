@@ -1,5 +1,9 @@
 #!/bin/sh
 set -eu
+# Reject a staging-only Tunnel configuration before any schema write.
+if [ "${AUTH_INGRESS_MODE:-direct}" = "cloudflare_tunnel" ]; then
+  python -c 'import os; from app.tunnel_runtime import commands; commands(os.environ, "unused")'
+fi
 alembic upgrade head
 if [ "${AUTH_INGRESS_MODE:-direct}" = "cloudflare_tunnel" ]; then
   exec python -m app.tunnel_runtime
