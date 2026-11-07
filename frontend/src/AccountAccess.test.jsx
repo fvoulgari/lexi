@@ -84,7 +84,7 @@ test("a personal variant starts a new private card and does not retain a shared 
   await user.click(
     await screen.findByRole("button", { name: text.personalVariant }),
   );
-  expect(screen.getByLabelText(text.visibility)).toHaveValue("private");
+  expect(screen.queryByLabelText(text.visibility)).not.toBeInTheDocument();
   expect(screen.getByLabelText("Italian *")).toHaveValue("casa");
   expect(screen.getByRole("combobox", { name: "Unit *" })).toHaveValue("");
   expect(screen.getByRole("button", { name: "Save card" })).toBeInTheDocument();

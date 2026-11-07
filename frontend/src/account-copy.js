@@ -144,6 +144,13 @@ export const accountCopy = {
     adminRequests: "Previous-progress requests",
     reject: "Reject request",
     resolve: "Mark resolved",
+    cardCollection: "Collection",
+    noCollection: "No collection yet",
+    collectionPair: "Italian – Greek",
+    collectionExposure:
+      "This card will be visible to signed-in learners through this public collection. Other private cards are unchanged.",
+    confirmCollectionExposure:
+      "Confirm sharing this new card through this collection",
     visibility: "Audience",
     private: "Private",
     legacy: "Restricted legacy library",
@@ -329,6 +336,13 @@ export const accountCopy = {
     adminRequests: "Αιτήματα προηγούμενης προόδου",
     reject: "Απόρριψη αιτήματος",
     resolve: "Σήμανση ως επιλυμένο",
+    cardCollection: "Συλλογή",
+    noCollection: "Χωρίς συλλογή ακόμη",
+    collectionPair: "Ιταλικά – Ελληνικά",
+    collectionExposure:
+      "Αυτή η κάρτα θα είναι ορατή στους συνδεδεμένους μαθητές μέσω της δημόσιας συλλογής. Οι άλλες ιδιωτικές κάρτες δεν αλλάζουν.",
+    confirmCollectionExposure:
+      "Επιβεβαίωση κοινής χρήσης της νέας κάρτας μέσω αυτής της συλλογής",
     visibility: "Πρόσβαση",
     private: "Ιδιωτικό",
     legacy: "Περιορισμένη παλιά βιβλιοθήκη",
@@ -509,6 +523,13 @@ export const accountCopy = {
     adminRequests: "Richieste di progressi precedenti",
     reject: "Rifiuta richiesta",
     resolve: "Segna come risolta",
+    cardCollection: "Raccolta",
+    noCollection: "Nessuna raccolta per ora",
+    collectionPair: "Italiano – Greco",
+    collectionExposure:
+      "Questa scheda sarà visibile agli studenti connessi tramite questa raccolta pubblica. Le altre schede private non cambiano.",
+    confirmCollectionExposure:
+      "Conferma la condivisione della nuova scheda tramite questa raccolta",
     visibility: "Pubblico",
     private: "Privato",
     legacy: "Biblioteca precedente riservata",

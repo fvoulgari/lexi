@@ -186,6 +186,9 @@ export default function Library({ text, csrf, onLocked }) {
 
   return (
     <section className="library-page">
+      <a className="collection-workspace-link" href="/collections">
+        {text.collections} →
+      </a>
       <Collections
         collections={collections}
         selected={collectionId}
