@@ -168,8 +168,12 @@ removed after verification. Authentication infrastructure was not changed.
 
 | Final screen | Evidence |
 | --- | --- |
-| Create collection (Private default) | [Desktop](images/collections/visibility-create-desktop.png), [Mobile](images/collections/visibility-create-mobile.png) |
-| Edit collection owner toggle | [Desktop](images/collections/visibility-edit-desktop.png) |
-| Publication exposure | [Desktop](images/collections/visibility-public-preview-desktop.png) |
-| Withdrawal impact | [Mobile](images/collections/visibility-private-preview-mobile.png) |
-| Card collection choice, no Audience | [Desktop](images/collections/card-collection-desktop.png), [Mobile](images/collections/card-collection-mobile.png) |
+| Create collection (Private default) | [Mobile](images/collections/visibility-create-mobile.jpg) |
+| Edit collection owner toggle | [Desktop](images/collections/visibility-edit-desktop.jpg) |
+| Publication exposure | [Desktop](images/collections/visibility-public-preview-desktop.jpg) |
+| Withdrawal impact | [Mobile](images/collections/visibility-private-preview-mobile.jpg) |
+| Card collection choice, no Audience | [Desktop](images/collections/card-collection-desktop.jpg) |
+
+Screenshot QA excluded two captures taken during viewport resize: their crop did
+not show the intended full controls. Retained captures have verified image sizes;
+file extensions match the JPEG data returned by the browser.
