@@ -46,3 +46,16 @@ initial investigation, not approval to change production.
    Coordinate a final write freeze and backup immediately before an approved
    cutover, accounting for concurrent writes as described in the authentication
    migration runbook.
+
+## Comparison tooling
+
+`python -m app.preservation_manifest capture PATH` captures the public schema's
+primary keys and per-column hashes under one PostgreSQL repeatable-read,
+read-only transaction, using `DATABASE_URL`. It fails if a table lacks a primary
+key, rather than silently excluding it. Output is created exclusively with mode
+0600 and must remain in protected storage. `python -m app.preservation_manifest
+compare BEFORE AFTER` reports table, key and column changes and exits nonzero
+when there are differences. Review expected changes individually; hashes do not
+prove authorization behavior or replace an encrypted backup, restore, and
+access tests. Record schema grants and non-public schemas separately. Do not
+compare a live source to a later restore without accounting for concurrent writes.
