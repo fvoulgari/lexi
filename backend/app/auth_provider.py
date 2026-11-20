@@ -4,7 +4,7 @@ import asyncio
 from urllib.parse import urlsplit
 
 
-def configure_provider(app, settings, sessions=None):
+def configure_provider(app, settings, sessions=None, provision_google=None):
     from supertokens_python import InputAppInfo, SupertokensConfig, init
     from supertokens_python.framework.fastapi import get_middleware
     from supertokens_python.ingredients.emaildelivery.types import (
@@ -94,7 +94,9 @@ def configure_provider(app, settings, sessions=None):
                 ),
                 is_valid_frontend_redirect_uri=trusted_callback,
                 override=ThirdPartyOverrideConfig(
-                    apis=lambda apis: restrict_thirdparty(apis, settings.public_origin)
+                    apis=lambda apis: restrict_thirdparty(
+                        apis, settings.public_origin, provision_google
+                    )
                 ),
             ),
             emailpassword.init(
@@ -146,7 +148,17 @@ def reject_linking(arguments):
         raise_bad_input_exception("Account linking is not enabled.")
 
 
-def restrict_thirdparty(apis, public_origin):
+def google_first_name(*sources):
+    for source in sources:
+        name = source.get("given_name") if isinstance(source, dict) else None
+        if isinstance(name, str):
+            name = name.strip()
+            if 1 <= len(name) <= 80:
+                return name
+    return "Learner"
+
+
+def restrict_thirdparty(apis, public_origin, provision_google=None):
     """Limit web OAuth to our one callback; native token login is not exposed."""
     from supertokens_python.exceptions import raise_bad_input_exception
 
@@ -166,7 +178,20 @@ def restrict_thirdparty(apis, public_origin):
             raise_bad_input_exception("Use the Google web sign-in flow.")
         if redirect.redirect_uri_on_provider_dashboard != callback:
             raise_bad_input_exception("Untrusted authentication callback.")
-        return await original_signin(**arguments)
+        result = await original_signin(**arguments)
+        from supertokens_python.recipe.thirdparty.interfaces import SignInUpPostOkResult
+
+        if (
+            provision_google is not None
+            and isinstance(result, SignInUpPostOkResult)
+            and arguments["provider"].id == "google"
+        ):
+            info = result.raw_user_info_from_provider
+            name = google_first_name(
+                info.from_user_info_api, info.from_id_token_payload
+            )
+            await provision_google(result.session, name)
+        return result
 
     apis.authorisation_url_get = authorisation_url_get
     apis.sign_in_up_post = sign_in_up_post
