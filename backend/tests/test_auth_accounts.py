@@ -248,3 +248,72 @@ def test_configured_provider_does_not_expose_identity_existence_endpoints():
                 assert (
                     client.post("/api/auth/" + prefix + path + "/").status_code == 429
                 )
+
+
+@pytest.mark.parametrize(
+    "userinfo,token,expected",
+    [
+        ({"given_name": "  Μαρία  "}, {}, "Μαρία"),
+        ({}, {"given_name": "Ada"}, "Ada"),
+        ({"given_name": "   "}, {}, "Learner"),
+        ({"given_name": "x" * 81}, {}, "Learner"),
+        ({"given_name": 12}, None, "Learner"),
+    ],
+)
+def test_google_first_name_fallbacks(userinfo, token, expected):
+    from app.auth_provider import google_first_name
+
+    assert google_first_name(userinfo, token) == expected
+
+
+def test_google_callback_provisions_once_and_preserves_renamed_profile(client):
+    from supertokens_python.recipe.thirdparty.interfaces import SignInUpPostOkResult
+    from supertokens_python.recipe.thirdparty.types import RawUserInfoFromProvider
+
+    from app.auth_provider import restrict_thirdparty
+    from app.models import Profile
+
+    gate = client.app.state.auth_gate
+    session = SimpleNamespace(get_user_id=lambda: "google-new")
+    result = SignInUpPostOkResult(
+        user=SimpleNamespace(),
+        created_new_recipe_user=True,
+        session=session,
+        oauth_tokens={},
+        raw_user_info_from_provider=RawUserInfoFromProvider(
+            {}, {"given_name": "  Sofia  "}
+        ),
+    )
+    apis = restrict_thirdparty(
+        SimpleNamespace(
+            authorisation_url_get=AsyncMock(),
+            sign_in_up_post=AsyncMock(return_value=result),
+        ),
+        "https://lexi.example",
+        gate.provision_google,
+    )
+    arguments = dict(
+        provider=SimpleNamespace(id="google"),
+        redirect_uri_info=SimpleNamespace(
+            redirect_uri_on_provider_dashboard="https://lexi.example/auth/callback/google"
+        ),
+    )
+    assert asyncio.run(apis.sign_in_up_post(**arguments)) is result
+    account = gate._account("google-new")
+    with gate.sessions.begin() as db:
+        profile = db.get(Profile, account.profile_id)
+        assert profile.display_name == "Sofia"
+        profile.display_name = "Chosen name"
+    result.raw_user_info_from_provider.from_user_info_api["given_name"] = (
+        "Changed at Google"
+    )
+    asyncio.run(apis.sign_in_up_post(**arguments))
+    with gate.sessions() as db:
+        assert db.get(Profile, account.profile_id).display_name == "Chosen name"
+
+
+def test_unverified_google_session_does_not_provision():
+    gate = AuthGate(settings(), None, ready=True)
+    gate._verified = AsyncMock(return_value=False)
+    gate._account = lambda *_args: pytest.fail("unverified account provisioned")
+    asyncio.run(gate.provision_google(SimpleNamespace(), "Sofia"))

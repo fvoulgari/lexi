@@ -59,7 +59,7 @@ class AuthGate:
 
         return await is_email_verified(session.get_recipe_user_id())
 
-    def _account(self, subject):
+    def _account(self, subject, display_name="Learner"):
         with self.sessions.begin() as db:
             account = db.scalar(
                 select(Account).where(Account.provider_subject == subject)
@@ -68,7 +68,7 @@ class AuthGate:
                 # Unique subject + transaction protects simultaneous first requests.
                 try:
                     with db.begin_nested():
-                        profile = Profile(id=uuid.uuid4(), display_name="Learner")
+                        profile = Profile(id=uuid.uuid4(), display_name=display_name)
                         db.add(profile)
                         db.flush()
                         account = Account(
@@ -90,6 +90,10 @@ class AuthGate:
             # Return usable identity after transaction/session closes.
             db.expunge(account)
             return account
+
+    async def provision_google(self, session, display_name):
+        if await self._verified(session):
+            await run_in_threadpool(self._account, session.get_user_id(), display_name)
 
     async def require(self, request: Request):
         existing = getattr(request.state, "account", None)
@@ -192,7 +196,7 @@ class AuthGate:
 def initialize_auth(app, settings, sessions):
     gate = AuthGate(settings, sessions, ready=configuration_ready(settings))
     if gate.ready:
-        configure_provider(app, settings, sessions)
+        configure_provider(app, settings, sessions, gate.provision_google)
 
     # Outer middleware also covers SDK-owned routes. Do not trust forwarded
     # headers here; uvicorn must apply its configured trusted-proxy policy.
