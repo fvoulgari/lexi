@@ -1,7 +1,7 @@
 # Legacy transition: audit and release gates
 
-Status: **blocked; not ready to merge or deploy**. This document records the
-initial investigation, not approval to change production.
+Status: **incomplete; not ready to merge or deploy**. This document records
+the investigation, not approval to change production.
 
 ## Observed on 20 November 2026
 
@@ -10,9 +10,9 @@ initial investigation, not approval to change production.
   `sha256:66b6de9af1ddbe3339e2f1f0c67fffcb8de5887a8cd5e07b341c072b58e60e73`.
   The existing production release report identifies that image as v1.2.1.
 - Production PostgreSQL is the `Postgres` service in the `lexi` project.
-  The attempted read-only SSH connection failed host-key verification before a
-  database query could run. No production data was changed. A temporary SSH key
-  was registered for the attempt and subsequently removed.
+  After the SSH host-key verification failure, read-only queries were run through
+  the authenticated Railway database browser. No production application data was
+  changed. A temporary SSH key from the earlier attempt was removed.
 - Draft PR #65 is unmerged and contains a separate collection access design. Its
   schema and behavior must not be assumed to exist in production.
 - The Admin screen controls account roles and legacy-library access as well as
@@ -24,16 +24,48 @@ initial investigation, not approval to change production.
   `PUBLIC` alone cannot restrict access if the application connects as its owner
   or another privileged role.
 
+
+## Production audit and restore evidence
+
+- Three accounts are linked to legacy profiles: Fofo is admin; Lollo and Spyros
+  are learners. All three currently have legacy access. The verified IDs are
+  held in the operator audit, not inferred from names or copied into migration
+  code. Three generated links and three redeemed-claim security events exist.
+- No collections or collection memberships exist. The four named groups are
+  unowned legacy Units. Lollo sees them through the legacy-access flag, not
+  collection ownership or publication. The 00, 30 and 50 Units contain 245, 8
+  and 9 unowned legacy cards, respectively; 610 has no cards. This is a snapshot,
+  not permission to overwrite later ownership changes.
+- Six profiles lack an account: one legacy profile (Elias) and five non-legacy
+  profiles, including Fofo and Spyros. All six have zero reviews, sessions and
+  progress rows at audit time. One Lollo recovery request remains pending; no
+  pending resolution case or unexpired active claim/continuation was found.
+  Preserve every profile and the request; review the exception separately.
+- On 20 November, `pg_dump -Fc` produced a protected archive on the existing
+  PostgreSQL volume (SHA-256 `7a480103c6db67290dde7aeda0b0acd696eb31430089f43e261341a13907990e`).
+  `pg_restore --no-owner --exit-on-error` succeeded into a new database on the
+  same server at revision `b46d77a9d009`. Public CONNECT on the copy was revoked.
+  Separate repeatable-read snapshots of the live and restored databases compared
+  sorted complete-row JSON hashes and counts for all 20 public tables; both
+  manifests matched (SHA-256
+  `04bca7600fd361131e5eed28ca124002aec0bf89ecd8d5ea7a6322985713066d`).
+  This comparison was taken after the backup without a write freeze; it establishes
+  matching rows at those observations, not a final cutover baseline. It does not
+  verify database grants, non-public schemas, migration behavior or recovery from
+  loss of the shared server/volume. The restored database is not the live database.
+- Railway's dashboard query runs as `postgres`, and live connections were also
+  observed as `postgres`. The application role must be established definitively
+  before promising that a view is operator-only: a superuser cannot be denied
+  access to a view by ordinary grants.
+
 ## Required before implementation and approval
 
-1. Establish a verified Railway SSH host key and inspect production in read-only
-   transactions. Verify each account/profile ID, unclaimed profile, pending
-   recovery and conflict; identify the precise source of access to each named
-   group and the agreed card ownership mapping. Never infer identity from a name.
-2. Take a protected fresh backup and restore it to a separate private database;
-   verify schema, privileges and row-level manifests. Keep personal data and
-   credentials out of the repository and PR. The prior authentication report
-   explicitly does not establish a production-copy restore rehearsal.
+1. Review the pending request and unlinked profiles without deleting or merging
+   them. Confirm the card ownership mapping and preserve explicit access for all
+   existing learners. Never infer identity from a name.
+2. Complete schema and privilege verification of the restored copy. Keep
+   personal data and credentials out of the repository and PR. The same-service
+   backup is not an independent recovery copy.
 3. Rehearse a transactional, rerunnable plan on the restored copy. Compare IDs,
    card contents, memberships, ownership, audiences, profiles, reviews, sessions,
    snapshots and learning progress, including intended differences. Stop on
