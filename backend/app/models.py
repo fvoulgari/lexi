@@ -271,3 +271,9 @@ class CollectionEntry(Base):
     entry_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("vocabulary_entries.id"), primary_key=True
     )
+
+
+class AccountDeletion(Base):
+    __tablename__ = "account_deletions"
+    subject_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    provider_subject: Mapped[str | None] = mapped_column(String(255))

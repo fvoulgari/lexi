@@ -36,6 +36,7 @@ function open() {
           account={{ display_name: "Synthetic learner", role: "learner" }}
           logoutAll={{ isPending: false, isError: false, mutate: vi.fn() }}
           onLocked={onLocked}
+          onDeleted={onLocked}
         />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -170,4 +171,25 @@ test("cancel discards password values before reopening", async () => {
     screen.getByLabelText(copy.en.newPassword, { exact: true }),
   ).toHaveValue("");
   expect(screen.getByLabelText(copy.en.confirmPassword)).toHaveValue("");
+});
+
+test("account deletion requires confirmation and locks after success", async () => {
+  const { user, onLocked } = open();
+  await user.click(
+    await screen.findByRole("button", { name: copy.en.deleteAccount }),
+  );
+  expect(screen.getByText(copy.en.deleteAccountConfirm)).toBeVisible();
+  expect(request).not.toHaveBeenCalledWith("/api/account", {
+    method: "DELETE",
+  });
+  await user.click(screen.getByRole("button", { name: copy.en.cancel }));
+  expect(
+    screen.queryByText(copy.en.deleteAccountConfirm),
+  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: copy.en.deleteAccount }));
+  await user.click(
+    screen.getByRole("button", { name: copy.en.deleteAccountConfirmAction }),
+  );
+  expect(request).toHaveBeenCalledWith("/api/account", { method: "DELETE" });
+  expect(onLocked).toHaveBeenCalledOnce();
 });

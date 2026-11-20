@@ -1,5 +1,14 @@
 export const accountCopy = {
   en: {
+    deleteAccount: "Delete account",
+    deleteAccountConfirm:
+      "Permanently delete your account, vocabulary, collections, and progress? This cannot be undone.",
+    deleteAccountConfirmAction: "Yes, delete my account",
+    deleteAccountPending: "Deleting account…",
+    deleteAccountLastAdmin:
+      "Assign another administrator before deleting this account.",
+    deleteAccountConflict:
+      "A legacy recovery case must be resolved before this account can be deleted.",
     accountMethod_google: "Google",
     accountMethod_password: "Email and password",
     accountGoogle: "Signed in with Google",
@@ -183,6 +192,15 @@ export const accountCopy = {
     noResults: "Nothing to show.",
   },
   el: {
+    deleteAccount: "Διαγραφή λογαριασμού",
+    deleteAccountConfirm:
+      "Να διαγραφούν οριστικά ο λογαριασμός, το λεξιλόγιο, οι συλλογές και η πρόοδός σου; Η ενέργεια δεν αναιρείται.",
+    deleteAccountConfirmAction: "Ναι, διαγραφή λογαριασμού",
+    deleteAccountPending: "Διαγραφή λογαριασμού…",
+    deleteAccountLastAdmin:
+      "Όρισε άλλον διαχειριστή πριν διαγράψεις αυτόν τον λογαριασμό.",
+    deleteAccountConflict:
+      "Πρέπει πρώτα να επιλυθεί μια εκκρεμής υπόθεση ανάκτησης.",
     accountMethod_google: "Google",
     accountMethod_password: "Email και κωδικός",
     accountGoogle: "Σύνδεση με Google",
@@ -368,6 +386,15 @@ export const accountCopy = {
     noResults: "Δεν υπάρχουν στοιχεία.",
   },
   it: {
+    deleteAccount: "Elimina account",
+    deleteAccountConfirm:
+      "Eliminare definitivamente account, vocabolario, raccolte e progressi? L’operazione non può essere annullata.",
+    deleteAccountConfirmAction: "Sì, elimina il mio account",
+    deleteAccountPending: "Eliminazione account…",
+    deleteAccountLastAdmin:
+      "Nomina un altro amministratore prima di eliminare questo account.",
+    deleteAccountConflict:
+      "Prima di eliminare l’account va risolta una pratica di recupero.",
     accountMethod_google: "Google",
     accountMethod_password: "Email e password",
     accountGoogle: "Accesso con Google",
