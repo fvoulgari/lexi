@@ -129,3 +129,28 @@ language identifiers. Benvenuti has four distinct tags and 245 tag links; the
 other named Units have none. The ownership migration must preserve those links,
 make metadata available to its owner, and ensure publication does not expose
 unrelated private metadata. No ownership conversion has been run yet.
+
+## Ownership migration and separate role preparation
+
+The draft adds `python -m app.legacy_collection_migration MAPPING --report FILE`.
+It defaults to rollback, requires verified account, profile, Unit and complete card-ID
+sets in the protected mapping file, and writes a new mode-0600 row/column comparison
+report. `--apply` commits and must be used only for an approved cutover or the
+separate rehearsal copy. The command serializes writers, reuses a uniquely matching
+private collection, and fails on changed IDs, ambiguous collections, conflicting
+ownership, incompatible languages, or a tag referenced by another Unit. The latter
+is deliberately a stop for review; it does not transfer or duplicate shared tags.
+The protected report and mapping contain learner identifiers and must not be posted.
+
+The production-copy migration rehearsal, access validation and legacy-access
+retirement remain outstanding. A snapshot of the unmodified restore showed the
+four Benvenuti tags are referenced only by its cards. Repeat that check at cutover.
+
+`scripts/account-directory.sql` is separate operator-run preparation for an
+application DML role and an operator-only view. It requires pre-existing distinct
+roles and fails if the application role has administrative, ownership or schema
+creation privileges. It has been exercised only on a disposable PostgreSQL instance;
+production role separation, credentials, actual application startup and the complete
+privilege set require further testing. The application necessarily reads account and
+profile tables, so restricting the view alone does not prevent it deriving the same
+data from its authorized base-table access.

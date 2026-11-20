@@ -89,6 +89,22 @@ def account_router(sessions, gate):
         )
         return {"changed": True, "reauthentication_required": True}
 
+    @router.delete("/account", dependencies=writes)
+    async def delete_account(request: Request):
+        from starlette.concurrency import run_in_threadpool
+
+        from app.account_deletion import delete_local_account, process_pending
+
+        account = current_account()
+        await run_in_threadpool(
+            delete_local_account,
+            sessions,
+            account.id,
+            request.state.auth_session.get_user_id(),
+        )
+        await process_pending(sessions)
+        return {"deleted": True}
+
     @router.patch("/account", dependencies=writes)
     def update_account(body: AccountUpdate):
         with sessions.begin() as db:

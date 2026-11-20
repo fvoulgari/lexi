@@ -375,6 +375,10 @@ export default function App() {
                         account={session.data.account}
                         logoutAll={logoutAll}
                         onLocked={lockNotebook}
+                        onDeleted={() => {
+                          lockNotebook();
+                          notifySessionChanged();
+                        }}
                       />
                       <Profiles
                         text={text}

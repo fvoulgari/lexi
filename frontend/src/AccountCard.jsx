@@ -4,8 +4,22 @@ import { Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { request } from "./api.js";
 
-export default function AccountCard({ text, account, logoutAll, onLocked }) {
+export default function AccountCard({
+  text,
+  account,
+  logoutAll,
+  onLocked,
+  onDeleted,
+}) {
   const [editing, setEditing] = useState(false);
+  const [confirmingDeletion, setConfirmingDeletion] = useState(false);
+  const deletion = useMutation({
+    mutationFn: () => request("/api/account", { method: "DELETE" }),
+    onSuccess: onDeleted,
+    onError: (error) => {
+      if (error.status === 401) onLocked();
+    },
+  });
   const trigger = useRef(null);
   const identity = useQuery({
     queryKey: ["account-credentials"],
@@ -48,7 +62,7 @@ export default function AccountCard({ text, account, logoutAll, onLocked }) {
           </>
         )}
       </div>
-      {!editing && (
+      {!editing && !confirmingDeletion && (
         <div className="account-actions">
           {details?.can_change_password && !editing && (
             <button
@@ -66,11 +80,52 @@ export default function AccountCard({ text, account, logoutAll, onLocked }) {
           >
             {text.logoutAll}
           </button>
+          <button
+            className="secondary"
+            onClick={() => setConfirmingDeletion(true)}
+          >
+            {text.deleteAccount}
+          </button>
           {account?.role === "admin" && (
             <Link className="secondary" to="/admin">
               {text.admin}
             </Link>
           )}
+        </div>
+      )}
+      {confirmingDeletion && (
+        <div role="group" aria-labelledby="delete-account-confirmation">
+          <p id="delete-account-confirmation">{text.deleteAccountConfirm}</p>
+          {deletion.isError && (
+            <p className="error" role="alert">
+              {deletion.error.code === "last_admin"
+                ? text.deleteAccountLastAdmin
+                : deletion.error.code === "account_deletion_conflict"
+                  ? text.deleteAccountConflict
+                  : text.actionFailed}
+            </p>
+          )}
+          <div className="account-actions">
+            <button
+              className="secondary"
+              disabled={deletion.isPending}
+              onClick={() => deletion.mutate()}
+            >
+              {deletion.isPending
+                ? text.deleteAccountPending
+                : text.deleteAccountConfirmAction}
+            </button>
+            <button
+              className="secondary"
+              disabled={deletion.isPending}
+              onClick={() => {
+                deletion.reset();
+                setConfirmingDeletion(false);
+              }}
+            >
+              {text.cancel}
+            </button>
+          </div>
         </div>
       )}
       {logoutAll.isError && (
