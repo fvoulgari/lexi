@@ -18,7 +18,9 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, synonym
+
+from app.languages import DIRECTION_PAIRS
 
 
 class Base(DeclarativeBase):
@@ -132,6 +134,8 @@ class VocabularyEntry(ContentScope, Base):
     )
     italian: Mapped[str] = mapped_column(String(500))
     greek: Mapped[str] = mapped_column(String(500))
+    source_text = synonym("italian")
+    target_text = synonym("greek")
     word_type: Mapped[str] = mapped_column(String(20), index=True)
     unit_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("units.id", ondelete="RESTRICT"), index=True
@@ -219,7 +223,7 @@ class ReviewEvent(Base):
             "rating IN ('again','hard','easy')", name="valid_review_rating"
         ),
         CheckConstraint(
-            "direction IN ('greek_to_italian','italian_to_greek')",
+            "direction IN (" + ",".join(repr(d) for d in DIRECTION_PAIRS) + ")",
             name="valid_review_direction",
         ),
     )
@@ -261,10 +265,28 @@ class Collection(Base):
         ForeignKey("accounts.id"), index=True
     )
     title: Mapped[str] = mapped_column(String(160))
+    source_language: Mapped[str] = mapped_column(
+        String(16), default="el", server_default="el"
+    )
+    target_language: Mapped[str] = mapped_column(
+        String(16), default="it", server_default="it"
+    )
+    visibility: Mapped[str] = mapped_column(
+        String(16), default="private", server_default="private"
+    )
+    __table_args__ = (
+        CheckConstraint(
+            "visibility IN ('private','published')", name="collection_visibility"
+        ),
+    )
 
 
 class CollectionEntry(Base):
     __tablename__ = "collection_entries"
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    publication_confirmed: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     collection_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True
     )

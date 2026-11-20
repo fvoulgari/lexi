@@ -58,18 +58,41 @@ the investigation, not approval to change production.
   before promising that a view is operator-only: a superuser cannot be denied
   access to a view by ordinary grants.
 
+## Corrected collection visibility decision
+
+All four migrated collections begin **private**: 00 belongs to Fofo, while
+30, 50 and 610 belong to Lollo. Their owners may later publish or withdraw a
+collection through Edit collection, with the existing explicit confirmation
+for owned private cards. No collection is automatically published.
+
+This replaces the prior requirement to preserve cross-owner legacy access:
+Fofo loses access to 30 and 50, while Lollo and Spyros lose access to 00.
+Spyros also loses access to 30 and 50. Unit 610 currently contains no cards.
+The owners retain access to their own cards. This statement describes current
+legacy-card access; audit again at cutover for any intervening changes or other
+independent grants. All users retain their profile IDs, reviews, progress,
+sessions, card references and historical snapshots. Publication must restore
+the original learner's existing progress, not create a replacement record.
+
+The draft sharing branch has owner-controlled private/public collections and
+regression coverage for withdrawal and republication. Its migration changes
+must be reviewed against this production backup, including language text
+normalization and metadata visibility, before the transition can be rehearsed
+or deployed.
+
 ## Required before implementation and approval
 
 1. Review the pending request and unlinked profiles without deleting or merging
-   them. Confirm the card ownership mapping and preserve explicit access for all
-   existing learners. Never infer identity from a name.
+   them. Never infer identity from a name. Map 00 and its cards to Fofo and 30,
+   50 and 610 and their cards to Lollo, stopping on ownership conflicts.
 2. Complete schema and privilege verification of the restored copy. Keep
    personal data and credentials out of the repository and PR. The same-service
    backup is not an independent recovery copy.
 3. Rehearse a transactional, rerunnable plan on the restored copy. Compare IDs,
    card contents, memberships, ownership, audiences, profiles, reviews, sessions,
    snapshots and learning progress, including intended differences. Stop on
-   ownership conflicts or unexpected changes; retain records and access.
+   ownership conflicts or unexpected changes; retain all learning records. The
+   approved access change below is intentional and must be verified explicitly.
 4. Prepare and test the claim retirement, account directory, collection
    unification and an operator path for active controls. Validate all three
    learners' access and personal progress and negative authorization cases.

@@ -4,7 +4,6 @@ import PropTypes from "prop-types";
 import UnitPicker from "./UnitPicker.jsx";
 import CardPreview from "./CardPreview.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
-import AudiencePicker from "./AudiencePicker.jsx";
 import { request } from "./api.js";
 import {
   adjectiveFormFields,
@@ -69,9 +68,18 @@ export default function VocabularyForm({
     queryKey: ["units"],
     queryFn: () => request("/api/units"),
   });
-  const [visibility, setVisibility] = useState(
-    entry?.id ? entry.visibility : "private",
+  const visibility = entry?.id ? entry.visibility : "private";
+  const [collectionId, setCollectionId] = useState("");
+  const [confirmExposure, setConfirmExposure] = useState(false);
+  const collections = useQuery({
+    queryKey: ["collections"],
+    queryFn: () => request("/api/collections"),
+    enabled: !entry?.id,
+  });
+  const selectedCollection = collections.data?.find(
+    (c) => c.id === collectionId,
   );
+  const needsExposure = selectedCollection?.visibility === "published";
   const [creatingUnit, setCreatingUnit] = useState(false);
   const [unitId, setUnitId] = useState(entry?.unit?.id || "");
   useEffect(() => {
@@ -107,7 +115,12 @@ export default function VocabularyForm({
               value?.trim() || null,
             ]),
           ),
-          ...(!entry?.id ? { visibility } : {}),
+          ...(!entry?.id
+            ? {
+                collection_id: collectionId || null,
+                confirm_collection_exposure: confirmExposure,
+              }
+            : {}),
           unit_id: unitId || null,
           tag_ids: (entry?.tags || []).map((tag) => tag.id),
         }),
@@ -124,6 +137,7 @@ export default function VocabularyForm({
     },
   });
   function change(field, value) {
+    setConfirmExposure(false);
     setValues((current) => ({ ...current, [field]: value }));
     setInvalid((current) =>
       current.filter(
@@ -233,6 +247,7 @@ export default function VocabularyForm({
             setFocusRequest({ field: missing[0] });
             return;
           }
+          if (needsExposure && !confirmExposure) return;
           save.mutate();
         }}
       >
@@ -246,14 +261,67 @@ export default function VocabularyForm({
           aria-describedby="meaning-hint card-required-hint"
         >
           {!entry?.id && (
-            <AudiencePicker
-              value={visibility}
-              text={text}
-              onChange={(value) => {
-                setVisibility(value);
-                setUnitId("");
-              }}
-            />
+            <div className="card-collection-choice">
+              <label>
+                {text.cardCollection}
+                <select
+                  value={collectionId}
+                  disabled={collections.isPending || collections.isError}
+                  onChange={(event) => {
+                    setCollectionId(event.target.value);
+                    setConfirmExposure(false);
+                  }}
+                >
+                  <option value="">{text.noCollection}</option>
+                  {collections.data
+                    ?.filter(
+                      (c) =>
+                        c.can_edit &&
+                        [c.source_language, c.target_language].sort().join() ===
+                          "el,it",
+                    )
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {collections.isError && (
+                <p role="alert">
+                  {text.actionFailed}{" "}
+                  <button type="button" onClick={() => collections.refetch()}>
+                    {text.retry}
+                  </button>
+                </p>
+              )}
+              {needsExposure && (
+                <section
+                  className="publication-preview"
+                  aria-label={text.collectionExposure}
+                >
+                  <p>
+                    {selectedCollection.name} · {text.collectionPair} ·{" "}
+                    {selectedCollection.card_count + 1}
+                  </p>
+                  <p>{text.collectionExposure}</p>
+                  <p>
+                    {values.italian || "—"} — {values.greek || "—"}
+                  </p>
+                  <label>
+                    <input
+                      type="checkbox"
+                      required
+                      checked={confirmExposure}
+                      onChange={(event) =>
+                        setConfirmExposure(event.target.checked)
+                      }
+                    />
+                    {text.confirmCollectionExposure}
+                  </label>
+                </section>
+              )}
+            </div>
           )}
           <div className="entry-fields entry-required-fields">
             {selectField("word_type")}
@@ -378,7 +446,11 @@ export default function VocabularyForm({
             <button
               type="submit"
               className="primary"
-              disabled={units.isPending || units.isError}
+              disabled={
+                units.isPending ||
+                units.isError ||
+                (needsExposure && !confirmExposure)
+              }
             >
               {save.isPending ? text.saving : text.saveEntry}
             </button>
@@ -403,7 +475,6 @@ export default function VocabularyForm({
           }}
           onCreated={(unit) => {
             setUnitId(unit.id);
-            setVisibility(unit.visibility || visibility);
           }}
         />
       )}
