@@ -1,4 +1,8 @@
-# Authentication production plan — awaiting review
+# Authentication production plan — executed 20 November 2026
+
+The operator subsequently authorized production rollout. #63/#66 are merged and v1.2.1 is live. The [execution report](authentication-production-release-2026-11-20.md) supersedes pending-state statements below; retain this document as the reviewed configuration/cutover plan. No admin promotion was authorized or performed.
+
+## Original reviewed plan
 
 Prepared 7 November 2026 for #63; reviewed again20 November. This is a proposal, not permission to provision,
 route traffic, create a release tag, bootstrap an administrator or migrate production.

@@ -1,6 +1,10 @@
-# PR #63 closeout — updated 20 November 2026
+# Authentication release status — 20 November 2026
 
-PR #63 stays **draft**. No merge, tag, production deployment/routing/migration or
+**Current outcome: #63 and #66 merged; v1.2.1 released to production with successful automated deployment.** See the [production execution report](authentication-production-release-2026-11-20.md) for tested commits, results, accepted exceptions and rollback. #65 remains separate and draft. Production Google sign-in, registration/verification and password-reset delivery/reuse were confirmed by the operator. Hosted admin/legacy claims remain NOT RUN. Public Google audience status remains unverified.
+
+## Historical pre-cutover assessment (superseded by execution report)
+
+At the time of the assessment below, PR #63 stayed **draft**. No merge, tag, production deployment/routing/migration or
 Lexi production provisioning was performed. The separately approved production authentication Core was created on 20 November; see the current update below. #65 remains separate. This document distinguishes
 implementation/merge evidence from production release gates.
 
