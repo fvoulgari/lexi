@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { practiceSides } from "./card-sides.js";
 import { adjectiveGroups } from "./grammar.js";
 
 export default function PracticeCardView({
@@ -9,6 +10,7 @@ export default function PracticeCardView({
   answerRef,
   children,
 }) {
+  const sides = practiceSides(entry, direction);
   const front = direction === "greek_to_italian" ? "greek" : "italian";
   const back = front === "greek" ? "italian" : "greek";
   const populated = (fields) =>
@@ -62,12 +64,12 @@ export default function PracticeCardView({
         {entry.word_type && <span>{text[entry.word_type]}</span>}
       </div>
       <p lang={front === "greek" ? "el" : "it"} className="card-prompt">
-        {entry[front]}
+        {sides.prompt}
       </p>
       {children}
       {revealed && (
         <div className="card-answer" ref={answerRef} tabIndex={-1}>
-          <h2 lang={back === "greek" ? "el" : "it"}>{entry[back]}</h2>
+          <h2 lang={back === "greek" ? "el" : "it"}>{sides.answer}</h2>
           {(groups.length > 0 || hasAdjectiveMetadata) && (
             <div className="card-detail-groups" aria-label={text[back]}>
               {hasAdjectiveMetadata && (

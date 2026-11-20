@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.access import (
     apply_scope,
+    current_account,
     lock_owned_profile,
     require_same_scope,
     require_write,
@@ -45,7 +46,7 @@ from app.schemas import (
     TagOutput,
     UnitCreate,
     UnitOutput,
-    VocabularyCreate,
+    VocabularyCreateRequest,
     VocabularyOutput,
     VocabularyPage,
     VocabularySaved,
@@ -182,6 +183,12 @@ def create_app():
         archived: bool = False,
     ):
         conditions = vocabulary_conditions(q, unit_ids, no_unit, word_types, tag_ids)
+        conditions.extend(
+            [
+                VocabularyEntry.source_language == "it",
+                VocabularyEntry.target_language == "el",
+            ]
+        )
         with sessions() as db:
             if collection_id is not None:
                 if db.get(Collection, collection_id) is None:
@@ -224,9 +231,12 @@ def create_app():
     def export_vocabulary():
         with sessions() as db:
             entries = db.scalars(
-                select(VocabularyEntry).order_by(
-                    VocabularyEntry.italian, VocabularyEntry.id
+                select(VocabularyEntry)
+                .where(
+                    VocabularyEntry.source_language == "it",
+                    VocabularyEntry.target_language == "el",
                 )
+                .order_by(VocabularyEntry.italian, VocabularyEntry.id)
             ).all()
             return Response(
                 export_library(entries),
@@ -252,6 +262,8 @@ def create_app():
         with sessions.begin() as db:
             values = body.model_dump(exclude_unset=True)
             visibility = values.pop("visibility", "private")
+            collection_id = values.pop("collection_id", None)
+            confirm_exposure = values.pop("confirm_collection_exposure", False)
             if (
                 values.get("unit_id") is not None
                 and db.get(Unit, values["unit_id"]) is None
@@ -323,6 +335,53 @@ def create_app():
                 entry.tags = tags
             db.flush()
             db.refresh(entry)
+            if collection_id is not None:
+                collection = db.scalar(
+                    select(Collection)
+                    .where(Collection.id == collection_id)
+                    .with_for_update()
+                )
+                if (
+                    collection is None
+                    or collection.owner_account_id != current_account().id
+                ):
+                    raise HTTPException(403, "Choose a collection you own.")
+                if (
+                    entry.owner_account_id != current_account().id
+                    or entry.visibility != "private"
+                ):
+                    raise HTTPException(
+                        422, "New collection cards must be owned private cards."
+                    )
+                if sorted(
+                    [collection.source_language, collection.target_language]
+                ) != sorted([entry.source_language, entry.target_language]):
+                    raise HTTPException(
+                        422, "Card language pair differs from collection."
+                    )
+                published = collection.visibility == "published"
+                if published and not confirm_exposure:
+                    raise HTTPException(
+                        409,
+                        "Confirm sharing this new card through the public collection.",
+                    )
+                position = (
+                    db.scalar(
+                        select(
+                            func.coalesce(func.max(CollectionEntry.position), -1)
+                        ).where(CollectionEntry.collection_id == collection.id)
+                    )
+                    + 1
+                )
+                db.add(
+                    CollectionEntry(
+                        collection_id=collection.id,
+                        entry_id=entry.id,
+                        position=position,
+                        publication_confirmed=published,
+                    )
+                )
+                db.flush()
 
             pair = normalized_pair(entry.italian, entry.greek)
             duplicates = [
@@ -347,7 +406,7 @@ def create_app():
         status_code=201,
         dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
     )
-    def create_entry(body: VocabularyCreate):
+    def create_entry(body: VocabularyCreateRequest):
         return save_entry(body)
 
     @app.delete(

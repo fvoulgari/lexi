@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 
 from app.access import lock_owned_profile
 from app.filters import category_conditions
+from app.languages import DIRECTION_PAIRS
 from app.models import (
     Collection,
     CollectionEntry,
@@ -135,13 +136,39 @@ def practice_router(sessions, gate):
                     body.unit_ids, body.no_unit, body.word_types, body.tag_ids
                 ),
             )
-            if body.collection_id is not None:
-                if db.get(Collection, body.collection_id) is None:
+            collection_ids = set(body.collection_ids)
+            if body.collection_id:
+                collection_ids.add(body.collection_id)
+            prompt, answer = DIRECTION_PAIRS[body.direction]
+            selection = selection.where(
+                (
+                    (VocabularyEntry.source_language == prompt)
+                    & (VocabularyEntry.target_language == answer)
+                )
+                | (
+                    (VocabularyEntry.source_language == answer)
+                    & (VocabularyEntry.target_language == prompt)
+                )
+            )
+            if collection_ids:
+                collections = list(
+                    db.scalars(
+                        select(Collection).where(Collection.id.in_(collection_ids))
+                    )
+                )
+                if len(collections) != len(collection_ids):
                     raise HTTPException(404, "Collection not found.")
+                if any(
+                    {c.source_language, c.target_language} != {prompt, answer}
+                    for c in collections
+                ):
+                    raise HTTPException(
+                        422, "Collections must match the practice language pair."
+                    )
                 selection = selection.where(
                     VocabularyEntry.id.in_(
                         select(CollectionEntry.entry_id).where(
-                            CollectionEntry.collection_id == body.collection_id
+                            CollectionEntry.collection_id.in_(collection_ids)
                         )
                     )
                 )
@@ -238,6 +265,14 @@ def practice_router(sessions, gate):
                 },
             )
 
+    def validate_direction(card, direction):
+        languages = {
+            card.snapshot.get("source_language", "it"),
+            card.snapshot.get("target_language", "el"),
+        }
+        if set(DIRECTION_PAIRS[direction]) != languages:
+            raise HTTPException(422, "Direction does not match this card.")
+
     def event_output(event):
         with sessions() as db:
             accessible = (
@@ -264,6 +299,7 @@ def practice_router(sessions, gate):
     def reveal(session_id: UUID, position: int, body: RevealCard):
         with sessions.begin() as db:
             _, card = locked_card(db, session_id, position)
+            validate_direction(card, body.direction)
             require_entry(db, card)
             card.revealed_direction = body.direction
             return {"revealed": True}
@@ -272,6 +308,7 @@ def practice_router(sessions, gate):
     def review(session_id: UUID, position: int, body: ReviewCard):
         with sessions.begin() as db:
             session, card = locked_card(db, session_id, position)
+            validate_direction(card, body.direction)
             existing = db.scalar(
                 select(ReviewEvent).where(
                     ReviewEvent.session_id == session_id,
