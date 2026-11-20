@@ -46,8 +46,8 @@ function open(props = {}) {
 }
 
 test.each([
-  ["😀".repeat(14), false],
-  ["😀".repeat(15), true],
+  ["😀".repeat(7), false],
+  ["😀".repeat(8), true],
   ["😀".repeat(128), true],
   ["x".repeat(129), false],
 ])("registration enforces Unicode character limits without truncation (%#)", async (password, accepted) => {
@@ -107,7 +107,7 @@ test("registration supports password managers, visibility and generic confirmati
   );
   const password = screen.getByLabelText(copy.en.authPassword);
   expect(password).toHaveAttribute("autocomplete", "new-password");
-  expect(password).toHaveAttribute("minlength", "15");
+  expect(password).toHaveAttribute("minlength", "8");
   await user.click(
     screen.getByRole("button", { name: copy.en.authShowPassword }),
   );
@@ -170,6 +170,8 @@ test("reset link requires explicit new password submission", async () => {
   );
 });
 test.each([
+  ["😀".repeat(7), false],
+  ["😀".repeat(8), true],
   ["😀".repeat(128), true],
   ["x".repeat(129), false],
 ])("reset preserves Unicode boundaries (%#)", async (password, accepted) => {

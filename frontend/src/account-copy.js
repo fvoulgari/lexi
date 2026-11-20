@@ -32,7 +32,7 @@ export const accountCopy = {
     authShowPassword: "Show password",
     authHidePassword: "Hide password",
     authPasswordPolicy:
-      "Use 15–128 characters. Spaces and password managers are welcome.",
+      "Use 8–128 characters. Spaces and password managers are welcome.",
     authAction_signin: "Sign in",
     authAction_signup: "Create account",
     authAction_forgot: "Send reset link",
@@ -218,7 +218,7 @@ export const accountCopy = {
     authShowPassword: "Εμφάνιση κωδικού",
     authHidePassword: "Απόκρυψη κωδικού",
     authPasswordPolicy:
-      "Χρησιμοποιήστε 15–128 χαρακτήρες. Επιτρέπονται κενά και διαχειριστές κωδικών.",
+      "Χρησιμοποιήστε 8–128 χαρακτήρες. Επιτρέπονται κενά και διαχειριστές κωδικών.",
     authAction_signin: "Σύνδεση",
     authAction_signup: "Δημιουργία λογαριασμού",
     authAction_forgot: "Αποστολή συνδέσμου επαναφοράς",
@@ -401,7 +401,7 @@ export const accountCopy = {
     authShowPassword: "Mostra password",
     authHidePassword: "Nascondi password",
     authPasswordPolicy:
-      "Usa 15–128 caratteri. Sono consentiti spazi e gestori di password.",
+      "Usa 8–128 caratteri. Sono consentiti spazi e gestori di password.",
     authAction_signin: "Accedi",
     authAction_signup: "Crea account",
     authAction_forgot: "Invia link di recupero",

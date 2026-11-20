@@ -296,7 +296,7 @@ export default function AuthGate({
                       passwordMode &&
                       (!password ||
                         (newPassword &&
-                          (Array.from(password).length < 15 ||
+                          (Array.from(password).length < 8 ||
                             Array.from(password).length > 128)))
                     )
                       invalid.password = newPassword
@@ -344,7 +344,7 @@ export default function AuthGate({
                           autoComplete={
                             newPassword ? "new-password" : "current-password"
                           }
-                          minLength={newPassword ? 15 : undefined}
+                          minLength={newPassword ? 8 : undefined}
                           maxLength={256}
                           required
                           value={password}
