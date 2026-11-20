@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from uuid import UUID
@@ -63,8 +64,19 @@ def create_app():
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        engine.dispose()
+        from app.account_deletion import deletion_worker
+
+        worker = asyncio.create_task(deletion_worker(sessions)) if gate.ready else None
+        try:
+            yield
+        finally:
+            if worker:
+                worker.cancel()
+                try:
+                    await worker
+                except asyncio.CancelledError:
+                    pass
+            engine.dispose()
 
     app = FastAPI(
         title="Italian Notebook",

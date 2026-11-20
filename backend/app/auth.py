@@ -13,9 +13,10 @@ from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 
 from app.access import account_context
+from app.account_deletion import lock_subject, subject_hash
 from app.auth_provider import configuration_ready, configure_provider
 from app.ingress import loopback_peer, tunnel_client_ip
-from app.models import Account, LoginThrottle, Profile
+from app.models import Account, AccountDeletion, LoginThrottle, Profile
 from app.password_attempts import PasswordAttemptBusy, PasswordVerificationUnavailable
 
 log = logging.getLogger("lexi.security")
@@ -61,6 +62,9 @@ class AuthGate:
 
     def _account(self, subject, display_name="Learner"):
         with self.sessions.begin() as db:
+            lock_subject(db, subject)
+            if db.get(AccountDeletion, subject_hash(subject)) is not None:
+                fail(401, "authentication_required", "Sign in first.")
             account = db.scalar(
                 select(Account).where(Account.provider_subject == subject)
             )
