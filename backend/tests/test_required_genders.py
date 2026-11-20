@@ -8,6 +8,7 @@ from test_vocabulary_editing import headers
 
 def body(client, category):
     return {
+        "visibility": "legacy",
         "unit_id": client.get("/api/units").json()[0]["id"],
         "italian": "l’artista" if category == "noun" else "alta",
         "greek": "καλλιτέχνης" if category == "noun" else "ψηλή",
@@ -82,6 +83,7 @@ def test_missing_legacy_genders_are_reviewable_but_must_be_corrected_on_save(
     original = client.post(
         "/api/vocabulary",
         json={
+            "visibility": "legacy",
             **body(client, category),
             italian: "feminine",
             greek: "neuter",

@@ -9,6 +9,10 @@ import Library from "./Library.jsx";
 import { copy } from "./copy.js";
 let lastParams;
 const server = setupServer(
+  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.patch("*/api/account", async ({ request }) =>
+    HttpResponse.json(await request.json()),
+  ),
   http.get("*/api/profiles", () => HttpResponse.json([])),
   http.get("*/api/units", () =>
     HttpResponse.json([
@@ -22,6 +26,8 @@ const server = setupServer(
       items: [
         {
           id: "e",
+          can_edit: true,
+          visibility: "private",
           italian: lastParams.get("page") === "2" ? "due" : "uno",
           greek: "ένα",
           word_type: "noun",
@@ -150,6 +156,8 @@ test("editing preserves hidden tags while allowing unit changes in Italian", asy
         items: [
           {
             id: "e",
+            can_edit: true,
+            visibility: "private",
             italian: "casa",
             greek: "σπίτι",
             word_type: "noun",
@@ -165,7 +173,7 @@ test("editing preserves hidden tags while allowing unit changes in Italian", asy
     http.patch("*/api/vocabulary/e", async ({ request }) => {
       saved = await request.json();
       return HttpResponse.json({
-        entry: { id: "e", ...saved },
+        entry: { id: "e", can_edit: true, visibility: "private", ...saved },
         duplicate_ids: [],
       });
     }),
@@ -236,6 +244,8 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
             : [
                 {
                   id: "e",
+                  can_edit: true,
+                  visibility: "private",
                   italian: second
                     ? "last"
                     : changed
@@ -254,7 +264,12 @@ test("saving the final filtered-page result returns to a valid page and keeps fi
     http.patch("*/api/vocabulary/e", async ({ request }) => {
       changed = true;
       return HttpResponse.json({
-        entry: { id: "e", ...(await request.json()) },
+        entry: {
+          id: "e",
+          can_edit: true,
+          visibility: "private",
+          ...(await request.json()),
+        },
         duplicate_ids: [],
       });
     }),

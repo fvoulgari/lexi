@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, update
 
+from app.access import require_same_scope, require_write
 from app.filters import vocabulary_conditions
 from app.models import Unit, VocabularyEntry
 from app.schemas import VocabularyBulk, WordType
@@ -38,11 +39,21 @@ def vocabulary_bulk_router(sessions, gate):
         with sessions.begin() as db:
             # Reviews and single-card deletion lock these same rows. Stable order
             # prevents deadlocks between overlapping bulk operations.
+            selected = list(
+                db.scalars(
+                    select(VocabularyEntry)
+                    .where(VocabularyEntry.id.in_(ids))
+                    .order_by(VocabularyEntry.id)
+                    .with_for_update(of=VocabularyEntry)
+                ).all()
+            )
+            for entry in selected:
+                require_write(entry)
             found = db.scalars(
                 select(VocabularyEntry.id)
                 .where(VocabularyEntry.id.in_(ids))
                 .order_by(VocabularyEntry.id)
-                .with_for_update()
+                .with_for_update(of=VocabularyEntry)
             ).all()
             missing = ids - set(found)
             if missing and body.action == "move":
@@ -60,6 +71,9 @@ def vocabulary_bulk_router(sessions, gate):
                         422,
                         {"code": "invalid_unit", "message": "Choose an existing unit."},
                     )
+                destination = db.get(Unit, body.unit_id)
+                for entry in selected:
+                    require_same_scope(entry, destination)
                 db.execute(
                     update(VocabularyEntry)
                     .where(VocabularyEntry.id.in_(ids))

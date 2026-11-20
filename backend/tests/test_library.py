@@ -4,27 +4,18 @@ def test_library_requires_the_shared_password_gate(client):
     assert response.json()["error"]["code"] == "authentication_required"
 
 
-def test_shared_password_opens_the_gate(client):
-    state = client.get("/api/auth/session").json()
-    assert state["authenticated"] is False
-    response = client.post(
-        "/api/auth/login",
-        json={"password": "test-notebook-password"},
-        headers={"X-CSRF-Token": state["csrf_token"]},
-    )
-    assert response.status_code == 200
+def test_verified_session_opens_only_owned_profile(client):
+    from conftest import signin
+
+    assert client.get("/api/auth/session").json()["authenticated"] is False
+    signin(client)
     assert client.get("/api/auth/session").json()["authenticated"] is True
+    assert len(client.get("/api/profiles").json()) == 1
 
 
-def test_seeded_library_is_paginated_without_repeated_entries(client):
-    state = client.get("/api/auth/session").json()
-    client.post(
-        "/api/auth/login",
-        json={"password": "test-notebook-password"},
-        headers={"X-CSRF-Token": state["csrf_token"]},
-    )
-    first = client.get("/api/vocabulary?page=1&page_size=6").json()
-    second = client.get("/api/vocabulary?page=2&page_size=6").json()
+def test_seeded_library_is_paginated_without_repeated_entries(logged_in):
+    first = logged_in.get("/api/vocabulary?page=1&page_size=6").json()
+    second = logged_in.get("/api/vocabulary?page=2&page_size=6").json()
     assert first["total"] == second["total"] == 10
     assert len(first["items"]) == 6
     assert len(second["items"]) == 4
@@ -44,7 +35,7 @@ def test_private_responses_cannot_be_cached(logged_in):
 def test_seeded_profiles_and_units_are_only_visible_inside_gate(client, logged_in):
     assert {
         profile["display_name"] for profile in logged_in.get("/api/profiles").json()
-    } >= {"Foteini", "Spyros"}
+    } == {"Foteini"}
     assert [unit["code"] for unit in logged_in.get("/api/units").json()] == ["00", "01"]
     logged_in.cookies.clear()
     assert client.get("/api/profiles").status_code == 401

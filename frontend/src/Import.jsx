@@ -5,6 +5,7 @@ import { FileDown, ArrowRight, X } from "lucide-react";
 import UnitPicker from "./UnitPicker.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
 import csvExample from "../../backend/app/csv_example.json";
+import { useAccount } from "./AccountContext.jsx";
 import { request } from "./api.js";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
 
@@ -15,6 +16,7 @@ const format = (template, values) =>
 
 export default function Import({ text, csrf, onLocked, onAttention }) {
   const client = useQueryClient();
+  const account = useAccount();
   const [exampleOpen, setExampleOpen] = useState(false);
   const exampleId = useId();
   const [unitId, setUnitId] = useState("");
@@ -189,7 +191,11 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
       <UnitPicker
         id="csv-destination-unit"
         text={text}
-        units={units.data || []}
+        units={(units.data || []).filter(
+          (unit) =>
+            unit.can_edit !== false &&
+            (unit.visibility !== "published" || account?.role === "admin"),
+        )}
         value={unitId}
         disabled={importing || units.isPending || creatingUnit}
         onCreate={() => setCreatingUnit(true)}

@@ -16,6 +16,10 @@ import App from "./App.jsx";
 import { copy } from "./copy.js";
 
 const server = setupServer(
+  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.patch("*/api/account", async ({ request }) =>
+    HttpResponse.json(await request.json()),
+  ),
   http.get("*/api/auth/session", () =>
     HttpResponse.json({ authenticated: true, csrf_token: "csrf" }),
   ),
@@ -55,7 +59,7 @@ test.each(["el", "en", "it"])(
       await screen.findByRole("heading", { name: text.homeWelcomeTitle }),
     ).toBeVisible();
     expect(screen.queryByLabelText(text.profile)).not.toBeInTheDocument();
-    expect(await screen.findByText(text.homeCreateProfileHint)).toBeVisible();
+    expect(await screen.findByText(text.requestProfile)).toBeVisible();
     expect(document.documentElement).toHaveAttribute("lang", language);
     const nav = within(screen.getByRole("navigation"));
     await user.click(
@@ -65,7 +69,7 @@ test.each(["el", "en", "it"])(
       await screen.findByRole("heading", { name: text.empty }),
     ).toBeVisible();
     expect(screen.getByLabelText(text.csvFile)).not.toBeVisible();
-    await user.click(screen.getByRole("button", {name: text.toolsImport}));
+    await user.click(screen.getByRole("button", { name: text.toolsImport }));
     expect(screen.getByLabelText(text.csvFile)).toBeVisible();
     expect(
       screen.getByRole("button", { name: text.csvPreview }),
@@ -75,9 +79,7 @@ test.each(["el", "en", "it"])(
     expect(screen.getByLabelText(`${text.fields.greek} *`)).toBeRequired();
     expect(screen.getByLabelText(`${text.fields.word_type} *`)).toBeRequired();
     await user.click(screen.getByRole("button", { name: text.cancel }));
-    for (const [trigger, label] of [
-      [text.toolsNewUnit, text.unitCode],
-    ]) {
+    for (const [trigger, label] of [[text.toolsNewUnit, text.unitCode]]) {
       await user.click(screen.getAllByRole("button", { name: trigger })[0]);
       expect(screen.getByLabelText(label)).toHaveFocus();
       await user.click(screen.getByRole("button", { name: text.cancel }));
@@ -88,7 +90,7 @@ test.each(["el", "en", "it"])(
     expect(
       await screen.findByRole("heading", { name: text.practice }),
     ).toBeVisible();
-    expect(await screen.findByText(text.practiceChooseProfile)).toBeVisible();
+    expect(await screen.findByText(text.requestProfile)).toBeVisible();
     expect(
       screen.queryByRole("button", { name: text.startPractice }),
     ).not.toBeInTheDocument();
@@ -98,18 +100,20 @@ test.each(["el", "en", "it"])(
     expect(
       await screen.findByRole("heading", { name: text.detailTitle }),
     ).toBeVisible();
-    expect(
-      await screen.findByRole("link", { name: text.createProfile }),
-    ).toBeVisible();
+    expect(await screen.findByText(text.requestProfile)).toBeVisible();
     await user.click(
       nav.getByRole("link", { name: text.settings, exact: true }),
     );
-    expect(await within(screen.getByRole("region", {name: text.deviceSettings})).findByLabelText(text.deviceLanguage)).toHaveValue(
-      language,
-    );
+    expect(
+      await within(
+        screen.getByRole("region", { name: text.deviceSettings }),
+      ).findByLabelText(text.deviceLanguage),
+    ).toHaveValue(language);
     expect(screen.queryByLabelText(text.motion)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: text.settingsNewProfile }));
-    expect(screen.getByLabelText(text.settingsName)).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: text.settingsNewProfile }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText(text.requestProfile)).toBeVisible();
   },
 );
 
@@ -136,9 +140,11 @@ test.each(["el", "en", "it"])(
     await userEvent
       .setup()
       .click(screen.getByRole("button", { name: copy[language].retry }));
-    expect(await screen.findByLabelText(copy[language].password)).toBeVisible();
     expect(
-      screen.getByRole("button", { name: copy[language].enter }),
+      await screen.findByLabelText(copy[language].authEmail),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: copy[language].authAction_signin }),
     ).toBeVisible();
   },
 );

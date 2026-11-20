@@ -8,6 +8,10 @@ import Library from "./Library.jsx";
 import { copy } from "./copy.js";
 
 const server = setupServer(
+  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.patch("*/api/account", async ({ request }) =>
+    HttpResponse.json(await request.json()),
+  ),
   http.get("*/api/vocabulary", () =>
     HttpResponse.json({ items: [], total: 0 }),
   ),

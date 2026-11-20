@@ -22,7 +22,7 @@ def main():
         "--write-disposable",
         type=Path,
         metavar="EVIDENCE_JSON",
-        help="Create a learner, import two meanings, and save reviews",
+        help="Use a fresh dedicated test account, import two meanings, and save reviews",
     )
     mode.add_argument(
         "--verify",
@@ -34,14 +34,19 @@ def main():
     if args.write_disposable and args.write_disposable.exists():
         parser.error("Use a new evidence filename; no disposable writes were started")
     base = os.environ.get("SMOKE_BASE_URL", "http://localhost:8000").rstrip("/")
-    password = os.environ["SHARED_PASSWORD"]
-    client = urllib.request.build_opener(
-        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
-    )
+    jar = http.cookiejar.MozillaCookieJar()
+    cookie_file = os.environ.get("SMOKE_COOKIE_FILE")
+    if cookie_file:
+        # Use an owner-only Netscape cookie export for a dedicated test account.
+        # Never print it, commit it, or pass credentials on the command line.
+        if Path(cookie_file).stat().st_mode & 0o077:
+            parser.error("SMOKE_COOKIE_FILE must be readable only by its owner")
+        jar.load(cookie_file, ignore_discard=True)
+    client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
     csrf = None
 
     def request(path, method="GET", body=None, expected=200, csv=False):
-        headers = {"Content-Type": "text/csv" if csv else "application/json"}
+        headers = {"Content-Type": "text/csv" if csv else "application/json", "rid": "session", "Origin": base}
         if csrf:
             headers["X-CSRF-Token"] = csrf
         data = (
@@ -75,11 +80,13 @@ def main():
 
     request("/api/health")
     check('id="root"' in request("/vocabulary"), "Frontend shell missing")
-    request("/api/vocabulary", expected=401)
-    # Login requires a signed CSRF token even before a gate session exists.
-    request("/api/auth/login", "POST", {"password": password}, expected=403)
-    csrf = request("/api/auth/session")["csrf_token"]
-    request("/api/auth/login", "POST", {"password": password})
+    state = request("/api/auth/session")
+    if not state["authenticated"]:
+        request("/api/vocabulary", expected=401 if state["auth_available"] else 503)
+        check(not (args.write_disposable or args.verify), "A dedicated authenticated test account is required for persistence checks")
+        print("PASS: public health, frontend shell, private cache policy, and fail-closed access. Provider sign-in not verified.")
+        return
+    csrf = state["csrf_token"]
     profiles = request("/api/profiles")
     request("/api/units")
     first = request("/api/vocabulary?page=1&page_size=6")
@@ -91,7 +98,11 @@ def main():
     )
 
     if args.write_disposable:
-        # Unique identities allow repeated drills without touching existing learner history.
+        check(len(profiles) == 1, "Expected exactly one owned learner profile")
+        profile = profiles[0]
+        check(request(f"/api/profiles/{profile['id']}/progress")["total_reviews"] == 0,
+              "Write drill requires a fresh dedicated disposable account")
+        # Unique markers isolate the drill within this disposable account.
         marker = uuid4().hex[:12]
         unit = request(
             "/api/units",
@@ -100,16 +111,6 @@ def main():
                 "code": f"release-{marker}",
                 "title": f"Release drill {marker}",
                 "sort_order": 0,
-            },
-            expected=201,
-        )
-        profile = request(
-            "/api/profiles",
-            "POST",
-            {
-                "display_name": f"Release drill {marker}",
-                "preferred_direction": "greek_to_italian",
-                "default_session_size": 10,
             },
             expected=201,
         )
@@ -224,7 +225,7 @@ def main():
     request("/api/auth/logout", "POST")
     request("/api/vocabulary", expected=401)
     print(
-        "PASS: health, frontend shell, gate, CSRF, pagination, private cache policy, logout"
+        "PASS: health, frontend shell, verified account, CSRF, pagination, private cache policy, logout"
     )
 
 

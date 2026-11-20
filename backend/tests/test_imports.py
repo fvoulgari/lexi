@@ -54,6 +54,7 @@ def test_stale_preview_and_repeat_confirmation_skip_normalized_duplicates(logged
     logged_in.post(
         "/api/vocabulary",
         json={
+            "visibility": "legacy",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
@@ -339,6 +340,7 @@ def test_ambiguous_existing_pairs_are_reported_without_updating_either_card(logg
         client.post(
             "/api/vocabulary",
             json={
+                "visibility": "legacy",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
                 "italian": "nuovo",

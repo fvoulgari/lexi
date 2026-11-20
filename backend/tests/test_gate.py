@@ -7,107 +7,62 @@ def csrf(client):
     return {"X-CSRF-Token": client.get("/api/auth/session").json()["csrf_token"]}
 
 
-def test_login_and_logout_require_csrf(client):
-    assert (
-        client.post(
-            "/api/auth/login", json={"password": "test-notebook-password"}
-        ).status_code
-        == 403
-    )
+def test_logout_requires_csrf_and_revokes_verified_session(logged_in):
+    client = logged_in
     headers = csrf(client)
-    assert (
-        client.post(
-            "/api/auth/login",
-            json={"password": "test-notebook-password"},
-            headers=headers,
-        ).status_code
-        == 200
-    )
     assert client.post("/api/auth/logout").status_code == 403
     assert client.get("/api/vocabulary").status_code == 200
-    cookie = client.cookies.get("notebook_session")
+    cookie = client.cookies.get("test_verified_session")
     assert client.post("/api/auth/logout", headers=headers).status_code == 200
-    client.cookies.set("notebook_session", cookie)
+    client.cookies.set("test_verified_session", cookie)
     assert client.get("/api/vocabulary").status_code == 401
 
 
-def test_incorrect_password_and_cross_origin_login_are_rejected(client):
-    headers = csrf(client)
+def test_password_endpoint_is_removed_and_cross_origin_logout_rejected(logged_in):
     assert (
-        client.post(
-            "/api/auth/login", json={"password": "wrong"}, headers=headers
-        ).status_code
-        == 401
+        logged_in.post("/api/auth/login", json={"password": "wrong"}).status_code == 405
     )
-    assert client.get("/api/vocabulary").status_code == 401
-    headers["Origin"] = "https://another-site.example"
     assert (
-        client.post(
-            "/api/auth/login",
-            json={"password": "test-notebook-password"},
-            headers=headers,
+        logged_in.post(
+            "/api/auth/logout",
+            headers={**csrf(logged_in), "Origin": "https://another-site.example"},
         ).status_code
         == 403
     )
 
 
 def test_throttling_survives_application_restart(client):
-    headers = csrf(client)
+    from app.auth import AuthGate
+    from app.config import Settings
+    from app.database import database
+
+    engine, sessions = database(Settings().database_url)
+    gate = AuthGate(Settings(), sessions)
     for _ in range(5):
-        assert (
-            client.post(
-                "/api/auth/login", json={"password": "wrong"}, headers=headers
-            ).status_code
-            == 401
-        )
-    with TestClient(create_app()) as restarted:
-        response = restarted.post(
-            "/api/auth/login",
-            json={"password": "test-notebook-password"},
-            headers=csrf(restarted),
-        )
-        assert response.status_code == 429
-        assert response.headers["Retry-After"] == "60"
+        assert gate.throttle("restart-test")
+    restarted = AuthGate(Settings(), sessions)
+    assert not restarted.throttle("restart-test")
+    engine.dispose()
 
 
-def test_session_survives_restart_but_not_secret_rotation(logged_in, monkeypatch):
-    cookie = logged_in.cookies.get("notebook_session")
+def test_verified_provider_session_survives_application_restart(logged_in):
+    cookie = logged_in.cookies.get("test_verified_session")
     with TestClient(create_app()) as restarted:
-        restarted.cookies.set("notebook_session", cookie)
+        restarted.cookies.set("test_verified_session", cookie)
         assert restarted.get("/api/vocabulary").status_code == 200
-    monkeypatch.setenv("SESSION_SECRET", "a-different-secret-at-least-32-characters")
-    with TestClient(create_app()) as rotated:
-        rotated.cookies.set("notebook_session", cookie)
-        assert rotated.get("/api/vocabulary").status_code == 401
-
-
-def test_production_cookies_are_secure_and_httponly(client, monkeypatch):
-    monkeypatch.setenv("COOKIE_SECURE", "true")
-    monkeypatch.setenv("PUBLIC_ORIGIN", "https://testserver")
-    with TestClient(create_app(), base_url="https://testserver") as secure_client:
-        response = secure_client.post(
-            "/api/auth/login",
-            json={"password": "test-notebook-password"},
-            headers=csrf(secure_client),
-        )
-        assert response.status_code == 200
-        assert "Secure" in response.headers["set-cookie"]
-        assert "HttpOnly" in response.headers["set-cookie"]
-        assert "SameSite=strict" in response.headers["set-cookie"]
 
 
 def test_forged_session_and_csrf_tokens_do_not_open_gate(client):
-    client.cookies.set("notebook_session", "forged-token")
+    from conftest import signin
+
+    client.cookies.set("test_verified_session", "forged-token")
     assert client.get("/api/vocabulary").status_code == 401
-    client.cookies.set("notebook_csrf", "nonce.forged-signature")
+    signin(client)
     assert (
-        client.post(
-            "/api/auth/login",
-            json={"password": "test-notebook-password"},
-            headers={"X-CSRF-Token": "nonce.forged-signature"},
-        ).status_code
+        client.post("/api/auth/logout", headers={"X-CSRF-Token": "forged"}).status_code
         == 403
     )
+    assert client.get("/api/vocabulary").status_code == 200
 
 
 def test_public_pwa_files_and_private_api_cache_policy(client, tmp_path, monkeypatch):

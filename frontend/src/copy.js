@@ -1,3 +1,4 @@
+import { accountCopy } from "./account-copy.js";
 import { progressCopy } from "./progress-copy.js";
 export const languages = { el: "Ελληνικά", en: "English", it: "Italiano" };
 
@@ -26,15 +27,15 @@ export const copy = {
     bulkSelectedOne: "{count} card selected",
     bulkSelected: "{count} cards selected",
     bulkMove: "Move to unit",
-    bulkDelete: "Delete selected",
+    bulkDelete: "Archive selected",
     bulkDestination: "Destination unit",
-    bulkDeleteTitle: "Delete selected cards?",
+    bulkDeleteTitle: "Archive selected cards?",
     bulkDeleteWarning:
-      "This permanently deletes the selected cards and their practice history for all learners, removing them from statistics. Unavailable cards will be excluded before you confirm again.",
+      "Archive the selected cards? They will leave future practice queues. Reviews and completed-session history are preserved.",
     bulkMovedOne: "{count} card moved.",
     bulkMoved: "{count} cards moved.",
-    bulkDeletedOne: "{count} card deleted.",
-    bulkDeleted: "{count} cards deleted.",
+    bulkDeletedOne: "{count} card archived.",
+    bulkDeleted: "{count} cards archived.",
 
     exportLibrary: "Export full library (CSV)",
     exporting: "Exporting…",
@@ -113,10 +114,10 @@ export const copy = {
     },
 
     deleteEntry: "Delete card",
-    confirmDelete: "Permanently delete",
+    confirmDelete: "Archive",
     deleteWarning:
-      "This permanently deletes the card and its practice history for all learners, removing it from statistics.",
-    entryDeleted: "Card deleted.",
+      "Archive this card? Existing reviews and completed sessions are preserved. The card will leave future practice queues.",
+    entryDeleted: "Card archived.",
     entrySkipped:
       "This card was deleted. It was skipped and the session count was adjusted.",
     motionReducedActive: "Reduced motion is active.",
@@ -307,9 +308,9 @@ export const copy = {
     libraryNote: "One word at a time.",
     errors: {
       bulk_selection_updated:
-        "Reviewed or unavailable cards were removed from the selection. Nothing was deleted. Confirm to delete the remaining cards.",
+        "Unavailable or unauthorised cards were removed from the selection. Nothing was archived. Confirm to archive the remaining cards.",
       bulk_nothing_to_delete:
-        "All selected cards are unavailable. Nothing was deleted.",
+        "All selected cards are unavailable. Nothing was archived.",
       bulk_missing:
         "Some selected cards no longer exist. Clear the selection and select again.",
       invalid_unit: "Choose a unit",
@@ -335,7 +336,7 @@ export const copy = {
     csvImportHeading: "Add new words.",
     csvIntro: "Choose a CSV file to preview the cards before importing them.",
     csvFormat: "CSV format and requirements",
-    settingsPageTitle: "Profiles and settings",
+    settingsPageTitle: "Profile and settings",
     settingsProfileTitle: "Your profile",
     settingsNewProfile: "New profile",
     settingsName: "Name",
@@ -370,15 +371,15 @@ export const copy = {
     bulkSelectedOne: "{count} επιλεγμένη κάρτα",
     bulkSelected: "{count} επιλεγμένες κάρτες",
     bulkMove: "Μετακίνηση σε ενότητα",
-    bulkDelete: "Διαγραφή επιλεγμένων",
+    bulkDelete: "Αρχειοθέτηση επιλεγμένων",
     bulkDestination: "Ενότητα προορισμού",
-    bulkDeleteTitle: "Διαγραφή επιλεγμένων καρτών;",
+    bulkDeleteTitle: "Αρχειοθέτηση επιλεγμένων καρτών;",
     bulkDeleteWarning:
-      "Αυτό διαγράφει οριστικά τις επιλεγμένες κάρτες και το ιστορικό εξάσκησης για όλους τους μαθητές, αφαιρώντας τις από τα στατιστικά στοιχεία. Οι μη διαθέσιμες κάρτες θα εξαιρεθούν πριν επιβεβαιώσετε ξανά.",
+      "Να αρχειοθετηθούν οι επιλεγμένες κάρτες; Οι αξιολογήσεις και οι ολοκληρωμένες συνεδρίες διατηρούνται. Οι κάρτες δεν θα εμφανίζονται σε νέα εξάσκηση.",
     bulkMovedOne: "Μετακινήθηκε {count} κάρτα.",
     bulkMoved: "Μετακινήθηκαν {count} κάρτες.",
-    bulkDeletedOne: "Διαγράφηκε {count} κάρτα.",
-    bulkDeleted: "Διαγράφηκαν {count} κάρτες.",
+    bulkDeletedOne: "Αρχειοθετήθηκε {count} κάρτα.",
+    bulkDeleted: "Αρχειοθετήθηκαν {count} κάρτες.",
 
     exportLibrary: "Εξαγωγή όλης της βιβλιοθήκης (CSV)",
     exporting: "Εξαγωγή…",
@@ -458,10 +459,10 @@ export const copy = {
     },
 
     deleteEntry: "Διαγραφή κάρτας",
-    confirmDelete: "Οριστική διαγραφή",
+    confirmDelete: "Αρχειοθέτηση",
     deleteWarning:
-      "Με αυτόν τον τρόπο η κάρτα και το ιστορικό εξάσκησης για όλους τους μαθητές διαγράφονται οριστικά, ενώ η κάρτα αφαιρείται από τα στατιστικά στοιχεία.",
-    entryDeleted: "Η κάρτα διαγράφηκε.",
+      "Να αρχειοθετηθεί η κάρτα; Οι αξιολογήσεις και οι ολοκληρωμένες συνεδρίες διατηρούνται. Δεν θα εμφανίζεται σε νέα εξάσκηση.",
+    entryDeleted: "Η κάρτα αρχειοθετήθηκε.",
     entrySkipped:
       "Αυτή η κάρτα διαγράφηκε. Παραλείφθηκε και ο αριθμός των συνεδριών προσαρμόστηκε.",
     motionReducedActive: "Η μειωμένη κίνηση είναι ενεργή.",
@@ -718,15 +719,15 @@ export const copy = {
     bulkSelectedOne: "{count} scheda selezionata",
     bulkSelected: "{count} schede selezionate",
     bulkMove: "Sposta in un’unità",
-    bulkDelete: "Elimina selezionate",
+    bulkDelete: "Archivia selezionate",
     bulkDestination: "Unità di destinazione",
-    bulkDeleteTitle: "Eliminare le schede selezionate?",
+    bulkDeleteTitle: "Archiviare le schede selezionate?",
     bulkDeleteWarning:
-      "Questa operazione elimina definitivamente le schede selezionate e la cronologia delle esercitazioni relative a tutti gli studenti, rimuovendole dalle statistiche. Le schede non disponibili verranno escluse prima che tu confermi nuovamente.",
+      "Archiviare le schede selezionate? Le valutazioni e le sessioni completate restano disponibili. Le schede saranno escluse dalle nuove esercitazioni.",
     bulkMovedOne: "{count} scheda spostata.",
     bulkMoved: "{count} schede spostate.",
-    bulkDeletedOne: "{count} scheda eliminata.",
-    bulkDeleted: "{count} schede eliminate.",
+    bulkDeletedOne: "{count} scheda archiviata.",
+    bulkDeleted: "{count} schede archiviate.",
 
     exportLibrary: "Esporta tutta la biblioteca (CSV)",
     exporting: "Esportazione…",
@@ -806,10 +807,10 @@ export const copy = {
     },
 
     deleteEntry: "Elimina scheda",
-    confirmDelete: "Elimina definitivamente",
+    confirmDelete: "Archivia",
     deleteWarning:
-      "In questo modo la scheda e la cronologia delle esercitazioni relative a tutti gli studenti vengono eliminate definitivamente, escludendole dalle statistiche.",
-    entryDeleted: "Scheda eliminata.",
+      "Archiviare la scheda? Le valutazioni e le sessioni completate restano disponibili. La scheda sarà esclusa dalle nuove esercitazioni.",
+    entryDeleted: "Scheda archiviata.",
     entrySkipped:
       "Questa scheda è stata eliminata. È stata saltata e il conteggio delle sessioni è stato aggiornato.",
     motionReducedActive: "Il movimento ridotto è attivo.",
@@ -1031,7 +1032,7 @@ export const copy = {
     csvIntro:
       "Scegli un file CSV per visualizzare le schede prima di importarle.",
     csvFormat: "Formato e requisiti CSV",
-    settingsPageTitle: "Profili e impostazioni",
+    settingsPageTitle: "Profilo e impostazioni",
     settingsProfileTitle: "Il tuo profilo",
     settingsNewProfile: "Nuovo profilo",
     settingsName: "Nome",
@@ -1070,25 +1071,5 @@ const connectionCopy = {
 for (const language of Object.keys(connectionCopy))
   Object.assign(copy[language], connectionCopy[language]);
 
-const profileDeletionCopy = {
-  en: {
-    deleteProfile: "Delete profile",
-    deleteProfileWarning:
-      "Are you sure? This permanently deletes this learner profile and all its practice history, reviews and progress. This cannot be undone. Shared vocabulary and other learners are kept.",
-    profileDeleted: "Profile permanently deleted.",
-  },
-  el: {
-    deleteProfile: "Διαγραφή προφίλ",
-    deleteProfileWarning:
-      "Είσαι σίγουρος; Θα διαγραφούν οριστικά αυτό το προφίλ και όλο το ιστορικό εξάσκησης, οι αξιολογήσεις και η πρόοδός του. Η ενέργεια δεν αναιρείται. Το κοινό λεξιλόγιο και τα άλλα προφίλ διατηρούνται.",
-    profileDeleted: "Το προφίλ διαγράφηκε οριστικά.",
-  },
-  it: {
-    deleteProfile: "Elimina profilo",
-    deleteProfileWarning:
-      "Sei sicuro? Il profilo e tutta la sua cronologia di esercitazione, le valutazioni e i progressi verranno eliminati definitivamente. L’azione è irreversibile. Il vocabolario condiviso e gli altri profili verranno conservati.",
-    profileDeleted: "Profilo eliminato definitivamente.",
-  },
-};
-for (const language of Object.keys(profileDeletionCopy))
-  Object.assign(copy[language], profileDeletionCopy[language]);
+for (const language of Object.keys(accountCopy))
+  Object.assign(copy[language], accountCopy[language]);

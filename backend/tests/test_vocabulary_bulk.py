@@ -63,7 +63,7 @@ def test_move_preserves_review_history_and_other_card_fields(logged_in):
     )
 
 
-def test_delete_is_atomic_and_removes_reviewed_cards_and_stats(logged_in):
+def test_archive_is_atomic_and_preserves_reviewed_cards_history(logged_in):
     client = logged_in
     session = start(client).json()
     reviewed = session["cards"][0]["entry_id"]
@@ -92,9 +92,9 @@ def test_delete_is_atomic_and_removes_reviewed_cards_and_stats(logged_in):
     assert client.get(f"/api/vocabulary/{reviewed}").status_code == 404
     assert client.get(f"/api/vocabulary/{other}").status_code == 404
     stats = client.get(f"/api/profiles/{session['profile_id']}/progress").json()
-    assert stats["total_reviews"] == 0
-    assert stats["entries_practised"] == 0
-    assert client.get(f"/api/sessions/{session['id']}/summary").json()["total"] == 0
+    assert stats["total_reviews"] == 1
+    assert stats["entries_practised"] == 1
+    assert client.get(f"/api/sessions/{session['id']}/summary").json()["total"] == 1
     assert (
         client.get(f"/api/sessions/{session['id']}").json()["cards"][1]["skipped"]
         is True

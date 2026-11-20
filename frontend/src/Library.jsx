@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
   ChevronLeft,
@@ -11,6 +11,8 @@ import {
   FolderPlus,
 } from "lucide-react";
 import PropTypes from "prop-types";
+import { useAccount } from "./AccountContext.jsx";
+import Collections, { CollectionMembership } from "./Collections.jsx";
 import BulkVocabularyActions from "./BulkVocabularyActions.jsx";
 import CardActions from "./CardActions.jsx";
 import Import from "./Import.jsx";
@@ -21,6 +23,22 @@ import { downloadLibrary, request } from "./api.js";
 
 export default function Library({ text, csrf, onLocked }) {
   const client = useQueryClient();
+  const account = useAccount();
+  const collections = useQuery({
+    queryKey: ["collections"],
+    queryFn: () => request("/api/collections"),
+  });
+  const [collectionId, setCollectionId] = useState("");
+  const [archived, setArchived] = useState(false);
+  const cardAction = useMutation({
+    mutationFn: ({ id, publish }) =>
+      request(`/api/vocabulary/${id}/${publish ? "visibility" : "restore"}`, {
+        method: publish ? "PATCH" : "POST",
+        headers: { "X-CSRF-Token": csrf },
+        body: publish ? JSON.stringify({ visibility: "published" }) : "{}",
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["vocabulary"] }),
+  });
   const [importOpen, setImportOpen] = useState(false);
   const importPanelId = useId();
   const showImport = useCallback(() => setImportOpen(true), []);
@@ -101,13 +119,15 @@ export default function Library({ text, csrf, onLocked }) {
     page_size: "12",
     q: filters.q,
   });
+  if (collectionId) params.set("collection_id", collectionId);
+  if (archived) params.set("archived", "true");
   for (const key of ["unit_ids", "word_types"])
     for (const value of filters[key]) {
       if (value === "none" && key === "unit_ids") params.set("no_unit", "true");
       else params.append(key, value);
     }
   const library = useQuery({
-    queryKey: ["vocabulary", page, filters],
+    queryKey: ["vocabulary", page, filters, collectionId, archived],
     queryFn: () => request(`/api/vocabulary?${params}`),
   });
   useEffect(() => {
@@ -120,7 +140,13 @@ export default function Library({ text, csrf, onLocked }) {
   async function refreshLibrary() {
     await client.invalidateQueries({ queryKey: ["vocabulary"] });
     // Read the refreshed total for the active filters, including off-page deletions.
-    const current = client.getQueryData(["vocabulary", page, filters]);
+    const current = client.getQueryData([
+      "vocabulary",
+      page,
+      filters,
+      collectionId,
+      archived,
+    ]);
     if (current)
       setPage(Math.min(page, Math.max(1, Math.ceil(current.total / 12))));
     for (const key of [
@@ -160,6 +186,35 @@ export default function Library({ text, csrf, onLocked }) {
 
   return (
     <section className="library-page">
+      <Collections
+        collections={collections}
+        selected={collectionId}
+        onSelect={(id) => {
+          setCollectionId(id);
+          setPage(1);
+          setSelectedIds([]);
+        }}
+        text={text}
+        csrf={csrf}
+      />
+      <label className="check-option">
+        <input
+          type="checkbox"
+          checked={archived}
+          onChange={(event) => {
+            setArchived(event.target.checked);
+            setPage(1);
+            setSelectedIds([]);
+            setSelecting(false);
+          }}
+        />
+        {text.archiveFilter}
+      </label>
+      {cardAction.isError && (
+        <p role="alert" className="error">
+          {text.actionFailed}
+        </p>
+      )}
       <div className="page-heading">
         <div>
           <h1>{text.libraryTitle}</h1>
@@ -440,7 +495,9 @@ export default function Library({ text, csrf, onLocked }) {
           csrf={csrf}
           onLocked={onLocked}
           ids={selectedIds}
-          pageIds={(library.data?.items || []).map((entry) => entry.id)}
+          pageIds={(library.data?.items || [])
+            .filter((entry) => entry.can_edit && !entry.archived_at)
+            .map((entry) => entry.id)}
           units={units.data || []}
           onChange={setSelectedIds}
           onPendingChange={setBulkBusy}
@@ -497,7 +554,11 @@ export default function Library({ text, csrf, onLocked }) {
                   <label className="card-selection">
                     <input
                       type="checkbox"
-                      disabled={bulkBusy}
+                      disabled={
+                        bulkBusy ||
+                        !entry.can_edit ||
+                        Boolean(entry.archived_at)
+                      }
                       checked={selectedIds.includes(entry.id)}
                       onChange={(event) =>
                         setSelectedIds((current) =>
@@ -513,6 +574,10 @@ export default function Library({ text, csrf, onLocked }) {
                   </label>
                 )}
                 <div className="entry-meta">
+                  <span className="audience-badge">
+                    {text[entry.visibility] || text.private}
+                    {entry.archived_at ? ` · ${text.archived}` : ""}
+                  </span>
                   <span className="type-badge">
                     {text[entry.word_type] || text.other}
                   </span>
@@ -526,13 +591,21 @@ export default function Library({ text, csrf, onLocked }) {
                 <p lang="el">{entry.greek}</p>
                 <CardActions
                   entry={entry}
+                  busy={isSaving || deletePending || selecting || bulkBusy}
                   text={text}
                   open={openCard === entry.id}
                   onOpenChange={(open) => setOpenCard(open ? entry.id : null)}
                   editDisabled={
-                    isSaving || deletePending || selecting || bulkBusy
+                    !entry.can_edit ||
+                    Boolean(entry.archived_at) ||
+                    isSaving ||
+                    deletePending ||
+                    selecting ||
+                    bulkBusy
                   }
                   deleteDisabled={
+                    !entry.can_edit ||
+                    Boolean(entry.archived_at) ||
                     isSaving ||
                     deletePending ||
                     deleting !== null ||
@@ -550,6 +623,50 @@ export default function Library({ text, csrf, onLocked }) {
                     setDeleteError(null);
                     setDeleting(entry);
                   }}
+                />
+                {entry.archived_at && entry.can_edit && (
+                  <button
+                    className="secondary"
+                    disabled={cardAction.isPending}
+                    onClick={() => cardAction.mutate({ id: entry.id })}
+                  >
+                    {text.restore}
+                  </button>
+                )}
+                {!entry.archived_at && entry.visibility !== "private" && (
+                  <button
+                    className="secondary"
+                    onClick={() => {
+                      setEditing({
+                        ...entry,
+                        id: undefined,
+                        unit: null,
+                        tags: [],
+                        visibility: "private",
+                      });
+                    }}
+                  >
+                    {text.personalVariant}
+                  </button>
+                )}
+                {account?.role === "admin" && entry.visibility === "legacy" && (
+                  <button
+                    className="secondary"
+                    disabled={cardAction.isPending}
+                    onClick={() => {
+                      if (window.confirm(text.publishConfirm))
+                        cardAction.mutate({ id: entry.id, publish: true });
+                    }}
+                  >
+                    {text.publish}
+                  </button>
+                )}
+                <CollectionMembership
+                  entry={entry}
+                  collections={collections.data || []}
+                  selected={collectionId}
+                  csrf={csrf}
+                  text={text}
                 />
               </li>
             ))}

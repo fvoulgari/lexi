@@ -4,6 +4,7 @@ import PropTypes from "prop-types";
 import UnitPicker from "./UnitPicker.jsx";
 import CardPreview from "./CardPreview.jsx";
 import OrganizationForm from "./OrganizationForm.jsx";
+import AudiencePicker from "./AudiencePicker.jsx";
 import { request } from "./api.js";
 import {
   adjectiveFormFields,
@@ -68,6 +69,9 @@ export default function VocabularyForm({
     queryKey: ["units"],
     queryFn: () => request("/api/units"),
   });
+  const [visibility, setVisibility] = useState(
+    entry?.id ? entry.visibility : "private",
+  );
   const [creatingUnit, setCreatingUnit] = useState(false);
   const [unitId, setUnitId] = useState(entry?.unit?.id || "");
   useEffect(() => {
@@ -93,8 +97,8 @@ export default function VocabularyForm({
   }, [focusRequest]);
   const save = useMutation({
     mutationFn: () =>
-      request(entry ? `/api/vocabulary/${entry.id}` : "/api/vocabulary", {
-        method: entry ? "PATCH" : "POST",
+      request(entry?.id ? `/api/vocabulary/${entry.id}` : "/api/vocabulary", {
+        method: entry?.id ? "PATCH" : "POST",
         headers: { "X-CSRF-Token": csrf },
         body: JSON.stringify({
           ...Object.fromEntries(
@@ -103,6 +107,7 @@ export default function VocabularyForm({
               value?.trim() || null,
             ]),
           ),
+          ...(!entry?.id ? { visibility } : {}),
           unit_id: unitId || null,
           tag_ids: (entry?.tags || []).map((tag) => tag.id),
         }),
@@ -240,12 +245,30 @@ export default function VocabularyForm({
           disabled={save.isPending || creatingUnit}
           aria-describedby="meaning-hint card-required-hint"
         >
+          {!entry?.id && (
+            <AudiencePicker
+              value={visibility}
+              text={text}
+              onChange={(value) => {
+                setVisibility(value);
+                setUnitId("");
+              }}
+            />
+          )}
           <div className="entry-fields entry-required-fields">
             {selectField("word_type")}
             <UnitPicker
               id="entry-unit_id"
               text={text}
-              units={units.data || []}
+              units={(units.data || []).filter(
+                (unit) =>
+                  !unit.visibility ||
+                  (visibility === "private"
+                    ? unit.visibility === "private"
+                    : visibility === "published"
+                      ? unit.visibility === "published"
+                      : ["legacy", "published"].includes(unit.visibility)),
+              )}
               value={unitId}
               disabled={save.isPending || units.isPending || creatingUnit}
               invalid={invalid.includes("unit_id")}
@@ -368,6 +391,7 @@ export default function VocabularyForm({
       {creatingUnit && (
         <OrganizationForm
           kind="units"
+          initialVisibility={visibility}
           text={text}
           csrf={csrf}
           onLocked={onLocked}
@@ -377,7 +401,10 @@ export default function VocabularyForm({
               document.getElementById("entry-unit_id")?.focus(),
             );
           }}
-          onCreated={(unit) => setUnitId(unit.id)}
+          onCreated={(unit) => {
+            setUnitId(unit.id);
+            setVisibility(unit.visibility || visibility);
+          }}
         />
       )}
     </>

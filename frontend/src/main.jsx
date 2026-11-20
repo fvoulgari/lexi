@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.jsx";
 import "./styles.css";
+import { initializeAuth } from "./auth.js";
+initializeAuth();
 
 const queryClient = new QueryClient({
   defaultOptions: {

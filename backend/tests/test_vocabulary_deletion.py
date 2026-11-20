@@ -16,7 +16,7 @@ def test_delete_unreviewed_entry_removes_search_and_future_selections(logged_in)
     assert logged_in.delete(path).status_code == 401
 
 
-def test_reviewed_entry_deletion_removes_reviews_and_stats(logged_in):
+def test_reviewed_entry_archive_preserves_reviews_and_stats(logged_in):
     session = start(logged_in).json()
     path = f"/api/sessions/{session['id']}/cards/0"
     csrf = headers(logged_in)
@@ -36,13 +36,13 @@ def test_reviewed_entry_deletion_removes_reviews_and_stats(logged_in):
         == 200
     )
     stats = logged_in.get(f"/api/profiles/{profile}/progress").json()
-    assert stats["total_reviews"] == 0
-    assert stats["entries_practised"] == 0
-    assert stats["difficult_entries"] == 0
-    assert stats["recent_session"] is None
-    assert logged_in.get(f"/api/profiles/{profile}/learning-records").json() == []
-    assert logged_in.get(f"/api/sessions/{session['id']}/summary").json()["total"] == 0
-    assert logged_in.post(path + "/reviews", json=body, headers=csrf).status_code == 409
+    assert stats["total_reviews"] == 1
+    assert stats["entries_practised"] == 1
+    assert stats["difficult_entries"] == 1
+    assert stats["recent_session"]["total_reviews"] == 1
+    assert len(logged_in.get(f"/api/profiles/{profile}/learning-records").json()) == 1
+    assert logged_in.get(f"/api/sessions/{session['id']}/summary").json()["total"] == 1
+    assert logged_in.post(path + "/reviews", json=body, headers=csrf).status_code == 200
 
 
 def test_deleted_queued_entry_is_skipped_without_changing_other_cards(logged_in):
@@ -89,7 +89,7 @@ def test_deleted_queued_entry_is_skipped_without_changing_other_cards(logged_in)
     )
 
 
-def test_concurrent_review_and_deletion_leave_no_history_or_stats(logged_in):
+def test_concurrent_review_and_archive_preserve_any_accepted_history(logged_in):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
 
@@ -99,6 +99,7 @@ def test_concurrent_review_and_deletion_leave_no_history_or_stats(logged_in):
         entry = logged_in.post(
             "/api/vocabulary",
             json={
+                "visibility": "legacy",
                 "unit_id": logged_in.get("/api/units").json()[0]["id"],
                 "italian": f"accidentale {number}",
                 "greek": f"λάθος {number}",
@@ -137,25 +138,28 @@ def test_concurrent_review_and_deletion_leave_no_history_or_stats(logged_in):
         record = next((r for r in records if r["entry_id"] == entry["id"]), None)
         assert saved.status_code in (200, 409)
         assert deleted.status_code == 200
-        assert summary["total"] == 0
-        assert record is None
+        assert summary["total"] == (1 if saved.status_code == 200 else 0)
+        assert (record is not None) == (saved.status_code == 200)
         assert logged_in.get(f"/api/vocabulary/{entry['id']}").status_code == 404
 
 
-def test_deletion_clears_all_learners_and_directions_but_keeps_other_cards(logged_in):
+def test_archiving_shared_card_preserves_each_learner_history(
+    logged_in, account_client
+):
     client = logged_in
     csrf = headers(client)
-    profiles = [client.get("/api/profiles").json()[0]["id"]]
-    profiles.append(
-        client.post(
-            "/api/profiles", json={"display_name": "Second learner"}, headers=csrf
-        ).json()["id"]
-    )
+    from conftest import signin
+
     entries = client.get("/api/vocabulary").json()["items"]
     removed, retained = [entry["id"] for entry in entries[:2]]
-    for profile in profiles:
+    identities = ["test-admin", "second-learner"]
+    for subject in identities:
+        if subject == "second-learner":
+            account_client(subject, legacy_access=True)
+        else:
+            signin(client, subject)
         for direction in ("greek_to_italian", "italian_to_greek"):
-            session = start(client, profile=profile, direction=direction).json()
+            session = start(client, direction=direction).json()
             for entry_id in (removed, retained):
                 card = next(c for c in session["cards"] if c["entry_id"] == entry_id)
                 path = f"/api/sessions/{session['id']}/cards/{card['position']}"
@@ -173,13 +177,15 @@ def test_deletion_clears_all_learners_and_directions_but_keeps_other_cards(logge
                     ).status_code
                     == 200
                 )
+    signin(client)
     assert client.delete(f"/api/vocabulary/{removed}", headers=csrf).status_code == 200
-    for profile in profiles:
+    for subject in identities:
+        signin(client, subject)
+        profile = client.get("/api/profiles").json()[0]["id"]
         stats = client.get(f"/api/profiles/{profile}/progress").json()
-        assert stats["total_reviews"] == 2
-        assert stats["entries_practised"] == 1
-        assert stats["counts"] == {"again": 0, "hard": 0, "easy": 2}
-        assert stats["difficult_entries"] == 0
-        assert all(d["total_reviews"] == 1 for d in stats["directions"])
+        assert stats["total_reviews"] == 4
+        assert stats["entries_practised"] == 2
+        assert stats["counts"] == {"again": 2, "hard": 0, "easy": 2}
         records = client.get(f"/api/profiles/{profile}/learning-records").json()
-        assert {record["entry_id"] for record in records} == {retained}
+        assert {record["entry_id"] for record in records} == {removed, retained}
+        assert removed not in {c["entry_id"] for c in start(client).json()["cards"]}

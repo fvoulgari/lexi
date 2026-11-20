@@ -1,11 +1,14 @@
 # Italian Notebook
 
-A shared Italian–Greek vocabulary library with independent practice records for each learner and learning direction.
+A language-learning notebook with personal vocabulary, a shared vocabulary library, and independent practice records for each learner and learning direction.
 
 ## Language
 
+**Learner account**:
+A person's verified identity in Lexi, associated with exactly one learner profile. Registration is open; access to content and permission to edit it are separate from identity verification.
+
 **Learner profile**:
-A learner's display identity and preferences, associated with their own learning records. Selecting a profile does not authenticate the person using it.
+A learner's display identity, learning preferences, and personal learning records, owned exclusively by one learner account. A legacy learner profile may await administrator-controlled association with its owner.
 _Avoid_: User account, authenticated user
 
 **Vocabulary card**:
@@ -13,7 +16,34 @@ One meaning expressed by an Italian word or phrase and its Greek equivalent. The
 _Avoid_: Word, translation pair without a meaning
 
 **Vocabulary library**:
-The vocabulary entries shared by all learners. Everyone admitted to the application is trusted to edit the library and select any learner profile.
+The shared vocabulary cards available to their permitted audience. Publication makes shared cards available for registered learners to read and practise; it does not grant editing permission.
+
+**Private vocabulary**:
+Vocabulary cards owned and managed by one learner account, accessible only to that learner.
+
+**Private collection**:
+A learner-owned grouping of vocabulary for personal use, accessible only to that learner.
+
+**Published shared vocabulary**:
+Shared vocabulary explicitly made available to all registered learners for reading and practice. Existing shared vocabulary retains its current audience until explicitly classified.
+
+**Library editor**:
+A learner with an explicitly assigned permission to manage shared vocabulary. This permission grants no access to another learner's private collections or learning records.
+
+**Administrator**:
+A person authorized to assign or revoke library-editor permissions and associate legacy learner profiles with verified learner accounts.
+
+**Legacy profile claim**:
+An authenticated learner's explicit association of an unclaimed legacy learner profile with their account, authorised by an administrator-issued claim link. Claiming preserves prior learning records and grants no additional library access or editing permissions.
+
+**Claim link**:
+A single-use, expiring authorisation for a signed-in learner to claim one specific legacy learner profile. An administrator issues it after trusted-channel identity verification and shares it manually.
+
+**Legacy progress request**:
+A private request from an authenticated learner for help associating previous progress, identified by an old profile name and an optional note. A matching name is not proof of ownership.
+
+**Profile resolution case**:
+A pending administrator review of a legacy association blocked by existing learner data. Both profiles and their learning records remain intact pending a separately reviewed migration procedure.
 
 **Learning direction**:
 The language shown as the prompt and the language recalled as the answer: Italian to Greek or Greek to Italian. A learner's performance in each direction is independent.
@@ -30,7 +60,7 @@ The optional grammatical gender of the Italian expression in a vocabulary entry,
 The optional grammatical gender of the Greek expression in a vocabulary entry, independent of the Italian expression's gender.
 
 **Unit**:
-A teaching chapter identified by a stable code, display title, and ordering. Every vocabulary card belongs to exactly one unit. Units and their cards are shared by all learners.
+A teaching chapter identified by a stable code, display title, and ordering. Every vocabulary card belongs to exactly one unit; shared units and cards remain subject to their permitted audience.
 _Avoid_: Category, tag
 
 **Tag**:

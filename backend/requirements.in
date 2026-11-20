@@ -4,3 +4,4 @@ sqlalchemy
 alembic
 pydantic-settings
 psycopg[binary]
+supertokens-python==0.31.4

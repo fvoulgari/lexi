@@ -41,7 +41,7 @@ db-up: ## Start only the development PostgreSQL service
 	$(COMPOSE) up -d --wait postgres
 
 backend: ## Run the native backend with hot reload (configure backend/.env first)
-	cd backend && $(BACKEND_PYTHON) -m uvicorn app.main:create_app --factory --reload --host 127.0.0.1 --port 8000
+	cd backend && $(BACKEND_PYTHON) -m uvicorn app.main:create_app --factory --no-access-log --reload --host 127.0.0.1 --port 8000
 
 frontend: ## Run Vite locally (use a second terminal)
 	cd frontend && $(NPM) run dev -- --host 127.0.0.1
@@ -89,5 +89,5 @@ check: lint test build ## Run the application checks (requires the test database
 test-pwa: ## Build and run the browser PWA checks (requires Playwright Chromium)
 	cd frontend && $(NPM) run test:pwa
 
-smoke: ## Check a running app; export SHARED_PASSWORD and optionally SMOKE_BASE_URL
+smoke: ## Check public readiness; optionally set SMOKE_BASE_URL and SMOKE_COOKIE_FILE
 	backend/$(BACKEND_PYTHON) scripts/smoke.py

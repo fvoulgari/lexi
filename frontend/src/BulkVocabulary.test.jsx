@@ -30,12 +30,18 @@ function matching(request) {
   );
 }
 const server = setupServer(
+  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.patch("*/api/account", async ({ request }) =>
+    HttpResponse.json(await request.json()),
+  ),
   http.get("*/api/units", () => HttpResponse.json(units)),
   http.get("*/api/vocabulary", ({ request }) => {
     const items = matching(request),
       page = Number(new URL(request.url).searchParams.get("page"));
     return HttpResponse.json({
-      items: items.slice((page - 1) * 12, page * 12),
+      items: items
+        .slice((page - 1) * 12, page * 12)
+        .map((entry) => ({ ...entry, can_edit: true, visibility: "private" })),
       total: items.length,
     });
   }),
@@ -177,7 +183,7 @@ test("mass delete requires confirmation, Escape restores focus, and unavailable 
   open();
   const user = userEvent.setup();
   await selectAll(user);
-  const trigger = screen.getByRole("button", { name: "Delete selected" });
+  const trigger = screen.getByRole("button", { name: "Archive selected" });
   await user.click(trigger);
   expect(writes).toEqual([]);
   await user.keyboard("{Escape}");
@@ -186,20 +192,20 @@ test("mass delete requires confirmation, Escape restores focus, and unavailable 
   await user.click(trigger);
   await user.click(
     within(screen.getByRole("dialog")).getByRole("button", {
-      name: "Permanently delete",
+      name: "Archive",
     }),
   );
   expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Nothing was deleted",
+    "Nothing was archived",
   );
   expect(entries).toHaveLength(13);
   expect(screen.getAllByText("11 cards selected").length).toBeGreaterThan(0);
   await user.click(
     within(screen.getByRole("dialog")).getByRole("button", {
-      name: "Permanently delete",
+      name: "Archive",
     }),
   );
-  expect(await screen.findByText("11 cards deleted.")).toBeInTheDocument();
+  expect(await screen.findByText("11 cards archived.")).toBeInTheDocument();
   expect(entries.map((entry) => entry.id)).toEqual(["e0", "e12"]);
   expect(writes[1].entry_ids).not.toContain("e0");
 });
@@ -273,10 +279,10 @@ for (const allBlocked of [false, true])
     open();
     const user = userEvent.setup();
     await selectAll(user);
-    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    await user.click(screen.getByRole("button", { name: "Archive selected" }));
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", {
-        name: "Permanently delete",
+        name: "Archive",
       }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -297,7 +303,7 @@ for (const allBlocked of [false, true])
     expect(entries).toHaveLength(13);
     expect(writes).toHaveLength(1);
     const confirm = within(screen.getByRole("dialog")).getByRole("button", {
-      name: "Permanently delete",
+      name: "Archive",
     });
     if (allBlocked) expect(confirm).toBeDisabled();
     else {
@@ -328,13 +334,13 @@ for (const remaining of [12, 13]) {
         name: "Select card: carta 12 — κάρτα 0",
       }),
     );
-    await user.click(screen.getByRole("button", { name: "Delete selected" }));
+    await user.click(screen.getByRole("button", { name: "Archive selected" }));
     await user.click(
       within(screen.getByRole("dialog")).getByRole("button", {
-        name: "Permanently delete",
+        name: "Archive",
       }),
     );
-    await screen.findByText("1 card deleted.");
+    await screen.findByText("1 card archived.");
     expect(
       await screen.findByText(
         `Page ${remaining === 12 ? 1 : 2} of ${remaining === 12 ? 1 : 2}`,
@@ -365,13 +371,11 @@ for (const remaining of [12, 13]) {
       }),
     );
     await user.click(
-      screen.getByRole("menuitem", { name: "Delete card: carta 12" }),
+      screen.getByRole("menuitem", { name: "Archive card: carta 12" }),
     );
     expect(screen.getByRole("dialog")).toHaveTextContent(copy.en.deleteWarning);
-    await user.click(
-      screen.getByRole("button", { name: "Permanently delete" }),
-    );
-    await screen.findByText("Card deleted.");
+    await user.click(screen.getByRole("button", { name: "Archive" }));
+    await screen.findByText("Card archived.");
     expect(
       await screen.findByText(
         `Page ${remaining === 12 ? 1 : 2} of ${remaining === 12 ? 1 : 2}`,
@@ -395,13 +399,13 @@ test("bulk deletion submits selected cards from multiple pages", async () => {
   await user.click(
     screen.getByRole("checkbox", { name: "Select all on this page" }),
   );
-  await user.click(screen.getByRole("button", { name: "Delete selected" }));
+  await user.click(screen.getByRole("button", { name: "Archive selected" }));
   await user.click(
     within(screen.getByRole("dialog")).getByRole("button", {
-      name: "Permanently delete",
+      name: "Archive",
     }),
   );
-  await screen.findByText("12 cards deleted.");
+  await screen.findByText("12 cards archived.");
   expect(writes[0].entry_ids).toEqual(
     Array.from({ length: 12 }, (_, i) => `e${i + 1}`),
   );

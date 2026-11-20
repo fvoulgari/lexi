@@ -3,6 +3,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -27,6 +28,9 @@ class Base(DeclarativeBase):
 class Profile(Base):
     __tablename__ = "profiles"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    is_legacy: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     display_name: Mapped[str] = mapped_column(String(80))
     preferred_direction: Mapped[str] = mapped_column(
         String(24), default="greek_to_italian"
@@ -39,10 +43,49 @@ class Profile(Base):
     )
 
 
-class Unit(Base):
+class Account(Base):
+    __tablename__ = "accounts"
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('learner','editor','admin')", name="valid_account_role"
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    provider_subject: Mapped[str] = mapped_column(String(255), unique=True)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id"), unique=True
+    )
+    role: Mapped[str] = mapped_column(
+        String(16), default="learner", server_default="learner"
+    )
+    legacy_access: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    interface_language: Mapped[str | None] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ContentScope:
+    @property
+    def can_edit(self):
+        from app.access import account_context, can_write
+
+        return can_write(self) if account_context.get() else False
+
+    owner_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("accounts.id"), index=True
+    )
+    visibility: Mapped[str] = mapped_column(
+        String(16), default="legacy", server_default="legacy"
+    )
+
+
+class Unit(ContentScope, Base):
     __tablename__ = "units"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    code: Mapped[str] = mapped_column(String(20), unique=True)
+    code: Mapped[str] = mapped_column(String(20))
     title: Mapped[str] = mapped_column(String(160))
     sort_order: Mapped[int]
 
@@ -64,13 +107,13 @@ entry_tags = Table(
 )
 
 
-class Tag(Base):
+class Tag(ContentScope, Base):
     __tablename__ = "tags"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String(80), unique=True)
+    name: Mapped[str] = mapped_column(String(80))
 
 
-class VocabularyEntry(Base):
+class VocabularyEntry(ContentScope, Base):
     __tablename__ = "vocabulary_entries"
     __table_args__ = (
         Index("ix_vocabulary_entries_italian_id", "italian", "id"),
@@ -80,6 +123,13 @@ class VocabularyEntry(Base):
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_language: Mapped[str] = mapped_column(
+        String(16), default="it", server_default="it"
+    )
+    target_language: Mapped[str] = mapped_column(
+        String(16), default="el", server_default="el"
+    )
     italian: Mapped[str] = mapped_column(String(500))
     greek: Mapped[str] = mapped_column(String(500))
     word_type: Mapped[str] = mapped_column(String(20), index=True)
@@ -202,3 +252,22 @@ class LearningProgress(Base):
     weighted_sum: Mapped[float] = mapped_column(Float, default=0)
     weight: Mapped[float] = mapped_column(Float, default=0)
     last_reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    owner_account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("accounts.id"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(160))
+
+
+class CollectionEntry(Base):
+    __tablename__ = "collection_entries"
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True
+    )
+    entry_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("vocabulary_entries.id"), primary_key=True
+    )

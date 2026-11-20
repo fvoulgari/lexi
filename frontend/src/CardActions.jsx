@@ -6,6 +6,7 @@ import CardPreview from "./CardPreview.jsx";
 
 export default function CardActions({
   entry,
+  busy = false,
   text,
   open,
   onOpenChange,
@@ -147,12 +148,12 @@ export default function CardActions({
       <button
         type="button"
         className="card-actions-trigger"
+        disabled={busy}
         ref={trigger}
         aria-label={`${text.cardActions}: ${entry.italian}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        disabled={editDisabled && deleteDisabled}
         onClick={() => {
           lastFirst.current = false;
           onOpenChange(!open);
@@ -181,25 +182,26 @@ export default function CardActions({
             style={position}
             onKeyDown={navigate}
           >
-            <button
-              type="button"
-              role="menuitem"
-              tabIndex={-1}
-              aria-label={`${text.editEntry}: ${entry.italian}`}
-              disabled={editDisabled}
-              onClick={() => {
-                dismiss(false);
-                onEdit();
-              }}
-            >
-              {text.editEntry}
-            </button>
+            {entry.can_edit && (
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                aria-label={`${text.editEntry}: ${entry.italian}`}
+                disabled={editDisabled}
+                onClick={() => {
+                  dismiss(false);
+                  onEdit();
+                }}
+              >
+                {text.editEntry}
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"
               tabIndex={-1}
               aria-label={`${text.cardPreview}: ${entry.italian}`}
-              disabled={editDisabled}
               onClick={() => {
                 dismiss(false);
                 setPreviewing(true);
@@ -207,20 +209,22 @@ export default function CardActions({
             >
               {text.cardPreview}
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              tabIndex={-1}
-              className="card-action-delete"
-              aria-label={`${text.deleteEntry}: ${entry.italian}`}
-              disabled={deleteDisabled}
-              onClick={() => {
-                dismiss(false);
-                onDelete(trigger.current);
-              }}
-            >
-              {text.deleteEntry}
-            </button>
+            {entry.can_edit && (
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                className="card-action-delete"
+                aria-label={`${text.deleteEntry}: ${entry.italian}`}
+                disabled={deleteDisabled}
+                onClick={() => {
+                  dismiss(false);
+                  onDelete(trigger.current);
+                }}
+              >
+                {text.deleteEntry}
+              </button>
+            )}
           </div>,
           document.body,
         )}
@@ -254,6 +258,7 @@ export default function CardActions({
 }
 CardActions.propTypes = {
   entry: PropTypes.object.isRequired,
+  busy: PropTypes.bool,
   text: PropTypes.object.isRequired,
   open: PropTypes.bool.isRequired,
   onOpenChange: PropTypes.func.isRequired,

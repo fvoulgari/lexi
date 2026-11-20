@@ -22,6 +22,7 @@ afterAll(() => {
 
 const entry = {
   id: "e",
+  can_edit: true,
   italian: "casa",
   greek: "σπίτι",
   word_type: "noun",
