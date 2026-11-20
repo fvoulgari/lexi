@@ -180,7 +180,7 @@ function PasswordChange({ text, onCancel, onLocked }) {
         const invalid = {};
         if (!values.current) invalid.current = "authPasswordRequired";
         if (
-          Array.from(values.next).length < 15 ||
+          Array.from(values.next).length < 8 ||
           Array.from(values.next).length > 128
         )
           invalid.next = "authPasswordPolicy";

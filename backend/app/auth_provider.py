@@ -176,8 +176,8 @@ def restrict_thirdparty(apis, public_origin):
 async def validate_password(value, _tenant_id):
     # One policy is shared by SDK registration and reset validation. Allow paste,
     # spaces, Unicode and password managers; avoid arbitrary composition rules.
-    if not isinstance(value, str) or not 15 <= len(value) <= 128:
-        return "Use between 15 and 128 characters."
+    if not isinstance(value, str) or not 8 <= len(value) <= 128:
+        return "Use between 8 and 128 characters."
     return None
 
 

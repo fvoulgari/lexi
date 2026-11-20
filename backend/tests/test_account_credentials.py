@@ -139,7 +139,7 @@ def test_foreign_identity_or_wrong_password_cannot_change(
     "body",
     [
         {**BODY, "confirmation": "different new password"},
-        {**BODY, "new_password": "short"},
+        {**BODY, "new_password": "1234567", "confirmation": "1234567"},
         {**BODY, "user_id": "someone-else"},
     ],
 )
@@ -149,6 +149,13 @@ def test_validation_never_reaches_provider_update(logged_in, provider, body):
         == 422
     )
     provider.update.assert_not_awaited()
+
+
+def test_password_change_accepts_eight_characters(logged_in, provider):
+    body = {**BODY, "new_password": "12345678", "confirmation": "12345678"}
+    response = logged_in.post("/api/account/password", json=body, headers=HEADERS)
+    assert response.status_code == 200
+    assert provider.update.await_args.kwargs["password"] == "12345678"
 
 
 def test_password_change_requires_csrf_and_throttles(logged_in, provider):

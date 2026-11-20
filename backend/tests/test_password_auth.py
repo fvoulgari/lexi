@@ -46,7 +46,8 @@ def apis(**values):
     "password,valid",
     [
         ("short", False),
-        ("x" * 14, False),
+        ("x" * 7, False),
+        ("x" * 8, True),
         ("spaces and unicode Ελληνικά", True),
         ("x" * 128, True),
         ("x" * 129, False),
