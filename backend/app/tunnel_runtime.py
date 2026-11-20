@@ -1,4 +1,4 @@
-"""Staging-only, fail-closed supervision of loopback Lexi and cloudflared."""
+"""Explicitly enabled, fail-closed supervision of loopback Lexi and cloudflared."""
 
 import os
 import signal
@@ -10,11 +10,17 @@ import time
 from app.runtime_health import healthy
 
 STAGING_ENVIRONMENT = "8bb27c88-f6a8-4074-b701-bcefb982ab2d"
+PRODUCTION_ENVIRONMENT = "c41cced0-97ff-441b-b86e-38a191a48188"
 
 
 def commands(environment, token_path):
-    if environment.get("RAILWAY_ENVIRONMENT_ID") != STAGING_ENVIRONMENT:
-        raise ValueError("Tunnel proof of concept is restricted to staging")
+    environment_id = environment.get("RAILWAY_ENVIRONMENT_ID")
+    production_enabled = (
+        environment_id == PRODUCTION_ENVIRONMENT
+        and environment.get("LEXI_PRODUCTION_TUNNEL_ENABLED") == "true"
+    )
+    if environment_id != STAGING_ENVIRONMENT and not production_enabled:
+        raise ValueError("Tunnel runtime requires an approved environment")
     if environment.get("AUTH_INGRESS_MODE") != "cloudflare_tunnel":
         raise ValueError("Tunnel ingress mode is required")
     port = int(environment.get("PORT", "8000"))

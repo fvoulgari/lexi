@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from uuid import UUID
 
@@ -151,7 +152,11 @@ def create_app():
     def health():
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
-        return {"status": "ok"}
+        return {
+            "status": "ok",
+            "deployment_id": os.environ.get("RAILWAY_DEPLOYMENT_ID"),
+            "ingress_mode": settings.auth_ingress_mode,
+        }
 
     app.include_router(account_router(sessions, gate))
     app.include_router(legacy_router(sessions, gate, settings))

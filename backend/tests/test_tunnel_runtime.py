@@ -1,6 +1,6 @@
 import pytest
 
-from app.tunnel_runtime import STAGING_ENVIRONMENT, commands
+from app.tunnel_runtime import PRODUCTION_ENVIRONMENT, STAGING_ENVIRONMENT, commands
 
 
 def test_staging_runtime_has_no_public_listener_or_proxy_header_trust():
@@ -159,7 +159,10 @@ def test_readiness_checks_both_loopback_services_without_environment_proxy(monke
     assert not runtime_health.healthy("cloudflare_tunnel", 8000)
 
 
-def test_wrong_environment_rejects_tunnel_before_running_migrations(tmp_path):
+@pytest.mark.parametrize("environment_id", ["production", PRODUCTION_ENVIRONMENT])
+def test_wrong_environment_rejects_tunnel_before_running_migrations(
+    tmp_path, environment_id
+):
     import os
     import subprocess
     import sys
@@ -176,7 +179,8 @@ def test_wrong_environment_rejects_tunnel_before_running_migrations(tmp_path):
         env={
             **os.environ,
             "AUTH_INGRESS_MODE": "cloudflare_tunnel",
-            "RAILWAY_ENVIRONMENT_ID": "production",
+            "RAILWAY_ENVIRONMENT_ID": environment_id,
+            "LEXI_PRODUCTION_TUNNEL_ENABLED": "false",
             "PATH": f"{tmp_path}:{Path(sys.executable).parent}:{os.environ['PATH']}",
         },
         capture_output=True,
@@ -184,5 +188,45 @@ def test_wrong_environment_rejects_tunnel_before_running_migrations(tmp_path):
         timeout=5,
     )
     assert result.returncode != 0
-    assert "restricted to staging" in result.stderr
+    assert "requires an approved environment" in result.stderr
     assert not marker.exists()
+
+
+@pytest.mark.parametrize("enabled", [None, "false", "TRUE", "1", ""])
+def test_production_tunnel_requires_explicit_opt_in(enabled):
+    environment = {
+        "RAILWAY_ENVIRONMENT_ID": PRODUCTION_ENVIRONMENT,
+        "AUTH_INGRESS_MODE": "cloudflare_tunnel",
+    }
+    if enabled is not None:
+        environment["LEXI_PRODUCTION_TUNNEL_ENABLED"] = enabled
+    with pytest.raises(ValueError, match="approved environment"):
+        commands(environment, "/private/token")
+
+
+def test_production_opt_in_retains_isolated_listener_and_header_boundary():
+    environment = {
+        "RAILWAY_ENVIRONMENT_ID": PRODUCTION_ENVIRONMENT,
+        "AUTH_INGRESS_MODE": "cloudflare_tunnel",
+        "LEXI_PRODUCTION_TUNNEL_ENABLED": "true",
+    }
+    app, connector = commands(environment, "/private/token")
+    assert app[app.index("--host") + 1] == "127.0.0.1"
+    assert "--no-proxy-headers" in app
+    assert connector[connector.index("--metrics") + 1] == "127.0.0.1:2000"
+    environment["RAILWAY_ENVIRONMENT_ID"] = "unapproved-environment"
+    with pytest.raises(ValueError, match="approved environment"):
+        commands(environment, "/private/token")
+
+
+def test_public_health_identifies_the_exact_deployment_without_credentials(
+    client, monkeypatch
+):
+    monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "synthetic-deployment")
+    response = client.get("/api/health")
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "deployment_id": "synthetic-deployment",
+        "ingress_mode": "direct",
+    }

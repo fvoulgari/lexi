@@ -16,35 +16,24 @@ repository and is pinned to `ghcr.io/fvoulgari/lexi@sha256:589bb1e76ddc9cdc42196
 
 ## Managed Core and billing
 
-Read-only dashboard inspection found **one development Core**, `lexi-staging`,
-Core 12.4.2 in Ireland on7 November; the 20 November dashboard now reports12.5.0 with the same displayed lifetimes. There is no production Core to inspect. The production
-creation dialog explicitly says **“Production Environment - Usage Based Billing”**
-and **“Billing applies MAU-based pricing”**. It was closed without proceeding.
-No production billing agreement, payment method, hard cap, Argon2 setting or
-actual production lifetime has been verified.
+On 20 November the operator explicitly approved Core-only usage-based production
+creation, then personally completed payment setup. `lexi-production` is Active in
+Ireland, Core **12.5.0**, with **zero paid add-ons**. Lexi production is not connected.
+The creation screen says charges apply when usage exceeds the free tier. Published
+pricing advertises free below 5,000 MAUs and $0.02/MAU outside the offer. No hard
+spending cap is verified; the operator accepted that exposure. This is not a
+zero-cost guarantee. No payment details or secret values were recorded.
 
-The [published pricing](https://supertokens.com/pricing), checked 7 November,
-advertises core authentication free under 5,000 MAUs and $0.02/MAU. This is not a
-verified account-specific cap or a guarantee that usage cannot become billable.
-Account linking/MFA/other paid add-ons are not required and must remain disabled.
-Before creation the operator must obtain/inspect the exact applicable billing terms:
-threshold treatment (all MAUs versus excess), payment requirement, overage behavior,
-suspension behavior and whether an enforceable dollar/MAU cap exists. Alerts alone
-are insufficient. If no free-only cap is available, approve a concrete recurring
-budget or choose a separately reviewed alternative; do not activate on assumption.
-
-Proposed production Core: separately named `lexi-production`, Ireland if supported
-and acceptable for latency/data residency. Use separate credentials from development.
-After approved creation, save/read back the following supported Core settings:
+Saved settings were reloaded and read back on the actual production Core:
 
 | Setting | Proposed production value | Actual staging value, dashboard read 7 Nov | Actual production |
 | --- | --- | --- | --- |
-| Password hashing | provider-managed **ARGON2**, provider-calibrated supported work settings | bcrypt, disabled control | NOT RUN: Core absent |
-| Access validity | 3,600 seconds | 3,600 seconds | NOT RUN |
-| Refresh validity | 10,080 minutes / **168 hours** (7 days) | **2,400 hours** (100 days) | NOT RUN |
-| Reset-token lifetime | 3,600,000 milliseconds / **3,600 seconds** | 3,600 seconds | NOT RUN |
-| Verification-token lifetime | 86,400,000 milliseconds / **24 hours** | 24 hours | NOT RUN |
-| Dynamic access signing-key interval | retain supported 168 hours unless separately reviewed | 168 hours | NOT RUN |
+| Password hashing | provider-managed **ARGON2**, provider-calibrated supported work settings | bcrypt, disabled control | **PASS: argon2 saved** (work settings not exposed) |
+| Access validity | 3,600 seconds | 3,600 seconds | **PASS: 3,600 seconds** |
+| Refresh validity | 10,080 minutes / **168 hours** (7 days) | **2,400 hours** (100 days) | **PASS: 168 hours** |
+| Reset-token lifetime | 3,600,000 milliseconds / **3,600 seconds** | 3,600 seconds | **PASS: 3,600 seconds** |
+| Verification-token lifetime | 86,400,000 milliseconds / **24 hours** | 24 hours | **PASS: 24 hours** |
+| Dynamic access signing-key interval | retain supported 168 hours unless separately reviewed | 168 hours | **PASS: 168 hours** |
 
 Use the dashboard's displayed units; do not paste milliseconds into a seconds
 field. `SESSION_HOURS` in Lexi does not set these values. Refresh validity is not
@@ -77,21 +66,21 @@ no Lexi database, verifies correct and incorrect passwords at 15/128 characters,
 and rejects a Unicode password differing only after UTF-8 byte 72. It deletes
 only the identities it created and reports cleanup. No credential/token is printed.
 The prepared probe passed on the disposable local Argon2 Core (128 Unicode
-characters at 168bytes and 128 supplementary Unicode characters at 512bytes); **NOT RUN on managed production**. Application
+characters at 168bytes and 128 supplementary Unicode characters at 512bytes); **PASS on managed production Core 12.5.0, 20 November, tested commit c8eb74e**. All four synthetic identities were deleted (cleanup PASS), and the temporary protected key file was removed. Application
 15/128/129 validation remains covered by application tests and must also be
 checked through the release candidate's registration/reset/change-password UI.
 
 ## Production ingress proposal
 
 Existing production origin read from protected Railway configuration:
-**https://lexi.fotiniv.com**. Its ingress mode is not set to Tunnel today. Do not
-set `AUTH_INGRESS_MODE=cloudflare_tunnel` there using this PR: the runtime rejects
-all but the exact staging environment. A small separate reviewed change must
-explicitly authorize the production environment ID while retaining fail-closed
+**https://lexi.fotiniv.com**. Production rollout is now explicitly authorized.
+The reviewed runtime rejects
+production unless both the exact production environment ID and
+`LEXI_PRODUCTION_TUNNEL_ENABLED=true` match. Independent reviewers cleared this preparation change; it retains fail-closed
 validation; never remove the guard or accept an arbitrary environment variable
 as proof of origin provenance.
 
-After that change and explicit routing approval:
+Authorized cutover sequence:
 
 1. Create a separate production Tunnel in the confirmed Free Cloudflare account,
    using the existing zone. Confirm creation adds no subscription/paid certificate
@@ -220,11 +209,25 @@ synthetic legacy fixture writes and cleanup; it is intentionally not requested o
 performed in this task because the user explicitly skipped these hosted checks.
 Acceptance of this documented test gap is distinct from evidence of a PASS.
 
-## Immediate operator step —20 November
+## Next operator step — 20 November
 
-The prepared production wizard is only a draft. Multi-tenancy is ON by default in
-its feature step; it has now been switched OFF along with every other paid add-on.
-Do not press Deploy until Core-only usage-based billing is explicitly accepted or
-a guaranteed-free cap/suspension behavior is confirmed. Public pricing does include
-a free allowance under 5,000 MAUs; this is not proof of an account-level spending cap.
-No payment detail or provider credential is needed in chat.
+Prepare the separate production Google OAuth web client for origin
+`https://lexi.fotiniv.com` and redirect URI
+`https://lexi.fotiniv.com/auth/callback/google`. Do not replace staging credentials.
+The operator has now authorized production rollout. The managed Core probe is
+complete; the protected production-copy rehearsal is waived because only test
+users are present. Take the pre-cutover backup before migration. Production
+ingress activation and hosted acceptance results remain pending.
+
+## Operator decision: rehearsal waiver
+
+The operator confirmed production contains only test users and explicitly accepted
+skipping the protected production-copy migration rehearsal. This is a waived gate,
+not a PASS. Keep the source intact and take a verified backup before cutover; no
+permission to discard cards, profiles or history was inferred. Actual production
+migration, routing and deployment still require the concrete cutover approval.
+
+Production Tunnel activation additionally requires sealed connector credentials,
+`AUTH_INGRESS_MODE=cloudflare_tunnel` and `LEXI_PRODUCTION_TUNNEL_ENABLED=true`
+on the exact production environment. Neither setting has been applied. Unknown
+environments remain rejected even with the opt-in. The guard runs before Alembic.

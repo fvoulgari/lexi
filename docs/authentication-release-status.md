@@ -1,7 +1,7 @@
 # PR #63 closeout — updated 20 November 2026
 
 PR #63 stays **draft**. No merge, tag, production deployment/routing/migration or
-paid provisioning was performed. #65 remains separate. This document distinguishes
+Lexi production provisioning was performed. The separately approved production authentication Core was created on 20 November; see the current update below. #65 remains separate. This document distinguishes
 implementation/merge evidence from production release gates.
 
 ## Tested candidate
@@ -17,11 +17,11 @@ review fixes were subsequently tested and deployed to staging only.
 | Check | Result / evidence |
 | --- | --- |
 | Full backend with actual disposable Argon2 Core | **PASS: 233 tests, none skipped**, final runtime `762e27d` |
-| Frontend | **PASS: 262 tests / 20 files** |
+| Frontend | **PASS: 268 tests / 20 files**, rerun 20 November |
 | Ruff / ESLint / frontend build / diff whitespace | **PASS**; existing Starlette/httpx deprecation and bundle-size warnings |
 | Candidate CI | **PASS**, [run 42320523628](https://github.com/fvoulgari/lexi/actions/runs/42320523628): backend/frontend/application/image validation; publishing and production jobs skipped |
 | Synthetic PostgreSQL 17.11 backup/restore/auth migration | **PASS**, `b46c77a9d008` → `b46d77a9d009`; IDs, original columns, references, reviews/progress/snapshots, legacy audience, constraints/defaults and archival history preserved |
-| Managed-production hashing probe | **NOT RUN**; prepared script passes on local Argon2 only |
+| Managed-production hashing probe | **PASS**, managed production Core 12.5.0 / Argon2 on 20 November: 15/128 ASCII and 128 Unicode at 168/512 bytes; four synthetic identities deleted, temporary key file removed |
 
 Local Core used cached official image `c74eef1f69b7`, loopback-only, synthetic
 identities and captured email. It covers reset expiry/reuse, Unicode non-truncation,
@@ -51,7 +51,7 @@ HttpOnly, SameSite=Lax; refresh cookie path `/api/auth/session/refresh`.
 | Denial atomicity | **PASS**, A card/metadata/collections/reviews/progress snapshots unchanged after all denied operations |
 | Practice/progress isolation | **PASS**, B queues exclude A; B review succeeds without changing A; reverse direction stays independent; reciprocal A→B known-ID denial also passed |
 | Reset revokes existing sessions | **PASS**, managed reset invalidated already-active A1 and A2 immediately; unrelated B remained valid |
-| Actual access expiry and provider refresh | **NOT RUN / fresh observation pending**: 7 Nov observation was interrupted and its pre-expiry assertion failed; it is not a PASS. Fresh synthetic observation started 20 Nov, expected access expiry 20:02:29 UTC; no lifetime changes |
+| Actual access expiry and provider refresh | **PASS on 20 Nov**; the earlier interrupted 7 Nov observation remains incomplete. Fresh synthetic observation completed 20 Nov: before-expiry 200, expired signed token 401, refresh 200, same account/profile and advanced expiry; no lifetime changes |
 | Isolated ingress / spoof resistance | **PASS**, current deployment: A gets 429 on sixth request; instrumented independent external B remains 400 before/after forged-header probes within 13.63 seconds. CF observed different source addresses; addresses processed in memory, not logged |
 | Forwarding-header probes | **PASS**, saturated A forging B's XFF/X-Real-IP remains 429; forged CF-Connecting-IP rejected upstream 403; B unaffected. Rejection does not prove successful header replacement |
 | Additional mobile B | **PASS**, user reported third-party-parameter response with Wi-Fi off on updated build |
@@ -167,3 +167,49 @@ No production activation is implied by a merge-ready verdict.
   add-ons OFF (multi-tenancy was ON by default and was switched OFF in the draft).
   **Deploy Production Core was not clicked.** Billing approval is unresolved.
   No production resource, routing, migration or release was activated.
+
+## Current update — 20 November, 19:21 UTC
+
+Tested PR head **c8eb74e3785162018879be7e2de54d5db2ff3768**: required CI
+checks **PASS**, [run 44799150781](https://github.com/fvoulgari/lexi/actions/runs/44799150781).
+Publishing and production deployment jobs were **SKIPPED**. Staging deployment
+`e564dded-0aa0-472d-999d-59f86cc88fb3` serves `466f163` (same tree); public
+frontend artifact matches the locally verified build (**PASS**).
+
+Approved Core-only production preparation is complete: `lexi-production`, Ireland,
+Core 12.5.0, no paid add-ons, saved Argon2, access 3,600 seconds, refresh 168 hours,
+reset 3,600 seconds, verification 24 hours. Managed non-truncation probe and cleanup
+**PASS**. Usage-based billing beyond the allowance was explicitly accepted; no
+hard cap is verified. No Lexi production app variables, routing or database changed.
+The fresh staging expiry observation subsequently passed at 20:02:33 UTC. Production
+ingress, protected production-backup rehearsal and cutover remain **NOT RUN**.
+Hosted admin/legacy-claim checks remain deliberately **NOT RUN**.
+
+### Production preparation follow-up
+
+Operator confirms production currently contains test users only and waives the
+protected production-copy rehearsal. Status: **NOT RUN / RISK ACCEPTED**, not PASS.
+A pre-cutover verified backup remains required. The proposed production Tunnel
+runtime requires both the exact environment ID and explicit opt-in; no production
+variables, connector process, routing or migration were activated.
+
+Local production Tunnel preparation: **PASS, 19 targeted tests** on the working
+tree based on `c8eb74e`; Ruff PASS after formatting. Includes exact production ID
+without opt-in rejected before migration; no hosted production behavior claimed.
+
+### Release authorization — 20 November
+
+Operator explicitly authorized merge/release/production deployment and migration,
+with no further confirmation unless a check fails, a secret is unavailable or an
+unapproved charge is required. #65 stays separate. Production currently contains
+test users; the production-copy rehearsal is waived, but backup/data preservation
+remain required. Production deployment results are pending, not claimed PASS.
+
+Natural staging access expiry/refresh: **PASS** at 20:02:33 UTC. Protected access
+before expiry succeeded, the actual expired signed token was rejected, refresh
+succeeded and retained account/profile while advancing access expiry.
+
+Production preparation review: independent standards and spec reviewers cleared
+the exact-environment opt-in and deployment-bound public readiness check. Release
+controller: **PASS, 22 tests**. Railway SUCCESS alone no longer advances release
+success; the public Tunnel must return the exact new deployment ID in Tunnel mode.

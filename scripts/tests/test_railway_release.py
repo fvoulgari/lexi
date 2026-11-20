@@ -29,6 +29,9 @@ class RailwayReleaseTests(unittest.TestCase):
         self.api_error = None
         self.reject_success = False
         self.reported_id = None
+        self.ready_id = DEPLOYMENT
+        self.ready_mode = "cloudflare_tunnel"
+        self.ready_http = 200
         self.deployed_image = IMAGE
         self.deployed_digest = IMAGE.split("@")[1]
         self.config_reads_remaining = 0
@@ -72,7 +75,10 @@ class RailwayReleaseTests(unittest.TestCase):
                 owner.requests.append(("GET", self.path, None))
                 page = int(parse_qs(urlparse(self.path).query).get("page", ["1"])[0])
                 offset = (page - 1) * 100
-                if path.endswith("/deployments"):
+                if path == "/api/health":
+                    self.respond({"status": "ok", "deployment_id": owner.ready_id,
+                                  "ingress_mode": owner.ready_mode}, owner.ready_http)
+                elif path.endswith("/deployments"):
                     self.respond(owner.records[offset : offset + 100])
                 elif path.endswith("/statuses"):
                     number = int(path.split("/")[-2])
@@ -185,6 +191,8 @@ class RailwayReleaseTests(unittest.TestCase):
                 "RAILWAY_API_URL": base + "/railway",
                 "RELEASE_POLL_INTERVAL": "0",
                 "RELEASE_TIMEOUT": "2",
+                "RELEASE_READY_TIMEOUT": "0.1",
+                "RELEASE_READY_ORIGIN": base,
                 **env,
             },
             check=False,
@@ -192,6 +200,38 @@ class RailwayReleaseTests(unittest.TestCase):
             text=True,
             timeout=10,
         )
+
+    def assert_unready_release_recovers(self, field, value):
+        original = getattr(self, field)
+        setattr(self, field, value)
+        result = self.release()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(any(s["state"] == "success" for s in self.statuses[1]))
+        setattr(self, field, original)
+        result = self.release()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        deploys = [body for _, _, body in self.requests
+                   if body and body.get("operationName") == "ReleaseDeploy"]
+        self.assertEqual(len(deploys), 1)
+
+    def test_old_replica_cannot_satisfy_tunnel_readiness(self):
+        self.assert_unready_release_recovers("ready_id", "old-deployment")
+
+    def test_direct_ingress_cannot_satisfy_tunnel_readiness(self):
+        self.assert_unready_release_recovers("ready_mode", "direct")
+
+    def test_railway_success_with_unready_origin_is_not_release_success(self):
+        self.assert_unready_release_recovers("ready_http", 503)
+
+    def test_recovered_other_release_requires_exact_tunnel_readiness(self):
+        self.seed("v1.2.0", ["in_progress"])
+        self.ready_id = "old-deployment"
+        self.railway_states = ["SUCCESS"]
+        result = self.release(tag="v1.3.0")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(any(s["state"] == "success" for s in self.statuses[1]))
+        self.assertFalse(any(body and body.get("operationName") == "ReleaseDeploy"
+                             for _, _, body in self.requests))
 
     def test_deploys_pinned_image_and_records_success_only_after_readiness(self):
         result = self.release()
@@ -204,6 +244,9 @@ class RailwayReleaseTests(unittest.TestCase):
             patch["variables"]["patch"]["services"][SERVICE]["source"], {"image": IMAGE}
         )
         self.assertTrue(patch["variables"]["skipDeploys"])
+        self.assertIsNone(
+            patch["variables"]["patch"]["services"][SERVICE]["deploy"]["healthcheckPath"]
+        )
         self.assertEqual(self.statuses[1][0]["state"], "success")
         polls = [
             body for body in operations if body["operationName"] == "ReleaseStatus"

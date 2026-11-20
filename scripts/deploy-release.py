@@ -181,12 +181,36 @@ def verify_artifact(deployment, image):
         )
 
 
+def verify_public_readiness(identifier):
+    # Railway SUCCESS no longer implies readiness of a loopback-only origin.
+    # An exact deployment ID prevents an old replica/cache satisfying the probe.
+    deadline = time.monotonic() + float(os.environ.get("RELEASE_READY_TIMEOUT", "180"))
+    origin = os.environ.get("RELEASE_READY_ORIGIN", "https://lexi.fotiniv.com")
+    while time.monotonic() < deadline:
+        try:
+            result = request(
+                origin + "/api/health?" + urlencode({"deployment": identifier}),
+                {"Cache-Control": "no-cache"},
+            )
+            if (
+                result.get("status") == "ok"
+                and result.get("deployment_id") == identifier
+                and result.get("ingress_mode") == "cloudflare_tunnel"
+            ):
+                return
+        except (HTTPError, URLError, TimeoutError, ValueError):
+            pass
+        time.sleep(float(os.environ.get("RELEASE_POLL_INTERVAL", "10")))
+    raise ReleaseError("Exact production deployment is not ready through the Tunnel.")
+
+
 def wait_for(record, identifier, tag, image):
     deadline = time.monotonic() + float(os.environ.get("RELEASE_TIMEOUT", "900"))
     while time.monotonic() < deadline:
         deployment = railway_state(identifier)
         if deployment["status"] == "SUCCESS":
             verify_artifact(deployment, image)
+            verify_public_readiness(identifier)
             status(record, "success", identifier)
             print(f"Release {tag} succeeded: {image} ({identifier})")
             return
@@ -225,7 +249,7 @@ def await_configuration(image):
         if (
             app["source"].get("image") == image
             and not app["source"].get("repo")
-            and deploy.get("healthcheckPath") == "/api/health"
+            and deploy.get("healthcheckPath") is None
             and deploy.get("healthcheckTimeout") == 120
             and replicas == 1
         ):
@@ -291,6 +315,7 @@ def main():
             )
         if deployment["status"] == "SUCCESS":
             verify_artifact(deployment, record["payload"]["image"])
+            verify_public_readiness(identifier)
             status(record, "success", identifier)
             if version(tag) <= deployed_version:
                 raise ReleaseError(
@@ -339,12 +364,14 @@ def main():
         },
     )
     status(record, "queued")
+    # The public Railway probe cannot reach the loopback-only Tunnel origin.
+    # Container readiness/watchdog supervise app + connector; never reopen a listener.
     patch = {
         "services": {
             SERVICE: {
                 "source": {"image": image},
                 "deploy": {
-                    "healthcheckPath": "/api/health",
+                    "healthcheckPath": None,
                     "healthcheckTimeout": 120,
                     "numReplicas": 1,
                 },
