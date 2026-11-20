@@ -113,6 +113,9 @@ class RailwayReleaseTests(unittest.TestCase):
                                 **patch["deploy"],
                             },
                         }
+                        # Railway omits the unused timeout once HTTP probing is off.
+                        if patch["deploy"].get("healthcheckPath") is None:
+                            owner.pending_config["deploy"].pop("healthcheckTimeout", None)
                         self.respond({"data": {"environmentPatchCommit": "patch-id"}})
                     elif operation == "ReleaseConfig":
                         if owner.pending_config and owner.config_reads_remaining > 0:
@@ -232,6 +235,13 @@ class RailwayReleaseTests(unittest.TestCase):
         self.assertFalse(any(s["state"] == "success" for s in self.statuses[1]))
         self.assertFalse(any(body and body.get("operationName") == "ReleaseDeploy"
                              for _, _, body in self.requests))
+
+    def test_normalized_disabled_healthcheck_does_not_block_the_release(self):
+        result = self.release()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        deploy = self.config["services"][SERVICE]["deploy"]
+        self.assertNotIn("healthcheckTimeout", deploy)
+        self.assertIsNone(deploy.get("healthcheckPath"))
 
     def test_deploys_pinned_image_and_records_success_only_after_readiness(self):
         result = self.release()

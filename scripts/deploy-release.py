@@ -250,7 +250,6 @@ def await_configuration(image):
             app["source"].get("image") == image
             and not app["source"].get("repo")
             and deploy.get("healthcheckPath") is None
-            and deploy.get("healthcheckTimeout") == 120
             and replicas == 1
         ):
             return
