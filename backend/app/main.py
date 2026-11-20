@@ -27,7 +27,6 @@ from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
 from app.grammar import clean_grammar, missing_gender_fields
 from app.imports import import_router
-from app.legacy_claims import legacy_router
 from app.models import (
     Collection,
     CollectionEntry,
@@ -160,7 +159,6 @@ def create_app():
         }
 
     app.include_router(account_router(sessions, gate))
-    app.include_router(legacy_router(sessions, gate, settings))
     app.include_router(collection_router(sessions, gate))
     app.include_router(practice_router(sessions, gate))
     app.include_router(progress_router(sessions, gate))

@@ -114,3 +114,18 @@ when there are differences. Review expected changes individually; hashes do not
 prove authorization behavior or replace an encrypted backup, restore, and
 access tests. Record schema grants and non-public schemas separately. Do not
 compare a live source to a later restore without accounting for concurrent writes.
+
+## Implementation progress
+
+The draft disconnects the legacy claim and recovery router. Its follow-up schema
+revision revokes unfinished claim links and expires continuations while retaining
+completed links, account associations and audit records. The Admin page retains
+role assignment but no longer exposes claim management. The old claim URL shows
+an unavailable message and a sign-in route. Targeted PostgreSQL and frontend tests
+cover these changes; this is not a complete transition or deployment approval.
+
+Read-only inspection of the restored copy found all 262 cards use Italian-to-Greek
+language identifiers. Benvenuti has four distinct tags and 245 tag links; the
+other named Units have none. The ownership migration must preserve those links,
+make metadata available to its owner, and ensure publication does not expose
+unrelated private metadata. No ownership conversion has been run yet.
