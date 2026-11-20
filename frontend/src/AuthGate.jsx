@@ -296,7 +296,8 @@ export default function AuthGate({
                       passwordMode &&
                       (!password ||
                         (newPassword &&
-                          (password.length < 15 || password.length > 128)))
+                          (Array.from(password).length < 15 ||
+                            Array.from(password).length > 128)))
                     )
                       invalid.password = newPassword
                         ? "authPasswordPolicy"
@@ -344,7 +345,7 @@ export default function AuthGate({
                             newPassword ? "new-password" : "current-password"
                           }
                           minLength={newPassword ? 15 : undefined}
-                          maxLength={128}
+                          maxLength={256}
                           required
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}

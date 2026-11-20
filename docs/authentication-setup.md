@@ -1,21 +1,21 @@
 # Authentication operator setup
 
-Prepared 4 November 2026. These are operator instructions, not evidence of provisioning or deployment. PR #63 remains a draft; readiness, merging and deployment require separate authorisation even after its release gates are resolved. See [staging checks](authentication-staging-checklist.md) and [migration/rollback](authentication-migration-runbook.md).
+Prepared 4 November; current-status corrections 7 November 2026. See the [production plan](authentication-production-plan.md) for the current rollout proposal and [release status](authentication-release-status.md) for executed evidence. These are operator instructions, not evidence of provisioning or deployment. PR #63 remains a draft; readiness, merging and deployment require separate authorisation even after its release gates are resolved. See [staging checks](authentication-staging-checklist.md) and [migration/rollback](authentication-migration-runbook.md).
 
 ## Decisions and costs before provisioning
 
 Railway account inspection confirmed Hobby on 4 November 2026. Email delivery
 now uses Resend over HTTPS; SMTP is not used and no Railway upgrade is required.
 See the [staging preparation and cost estimate](authentication-staging-preparation.md).
-No hosted resources or paid plans have been approved or activated.
+The existing synthetic staging app/database and Free-plan Tunnel are active under prior authorization. No production Core or paid provider plan has been approved or activated.
 
 SuperTokens managed Core is the implementation candidate. Its current [pricing](https://supertokens.com/pricing) advertises free service **under 5,000 monthly active users** and $0.02/MAU outside the free offer. MAUs are unique logged-in users per month, including registrations. Confirm whether billing at the threshold covers all MAUs or only excess usage, available hard spending limits, and separate staging usage with the provider; do not assume incremental billing or that alerts prevent charges. No paid plan, billable upgrade, or recurring charge is authorised. If free-only operation cannot be assured, stop for approval.
 
-Account linking is disabled by the application; leave paid add-ons disabled. The pricing page lists account linking at $0.005/MAU with a $100 minimum. Resend HTTPS delivery is implemented but not activated: confirm its free-plan quotas, sandbox restrictions, domain ownership and billing separately. Ordinary Google OAuth client configuration is used, not Google Cloud Identity Platform; no paid Google service is required by this code. Confirm the selected projects incur no unrelated charges.
+Account linking is disabled by the application; leave paid add-ons disabled. The pricing page lists account linking at $0.005/MAU with a $100 minimum. Resend HTTPS delivery is implemented and staging delivery has passed; production activation must confirm its free-plan quotas, sandbox restrictions, domain ownership and billing separately. Ordinary Google OAuth client configuration is used, not Google Cloud Identity Platform; no paid Google service is required by this code. Confirm the selected projects incur no unrelated charges.
 
 ## Origins and provider resources
 
-Choose exact origins `STAGING_ORIGIN` and `PRODUCTION_ORIGIN` (scheme and host, optional port, no path or trailing slash). Production is `https://lexi.fotiniv.com`; proposed staging is `https://staging.lexi.fotiniv.com`, pending DNS and isolated service provisioning. Keep separate databases, Core deployments/API keys and Google web clients for staging and production. Never populate staging with unredacted production data.
+Exact origins: production `https://lexi.fotiniv.com`; active isolated staging `https://staging-lexi.fotiniv.com` (not the former multi-level hostname). Keep separate databases, Core deployments/API keys and Google web clients for staging and production. Never populate staging with unredacted production data.
 
 For each environment, after verifying free-only terms:
 
@@ -42,7 +42,7 @@ Use the [Resend HTTPS email API](https://resend.com/docs/api-reference/emails/se
 
 1. Before activating delivery, inspect Resend's **Billing** and confirm the Free plan, payment/upgrade behavior and available quota controls. Its [published free quotas](https://resend.com/docs/knowledge-base/account-quotas-and-limits) are 100 messages/day and 3,000/month, shared between sent and received messages; confirm them in the account. Do not add payment details or enable paid features without approval. SuperTokens automatic billing remains a separate unresolved check.
 2. In Resend **Domains**, add an operator-owned sending subdomain (for example `auth.fotiniv.com`, subject to DNS approval). Enter the exact SPF/DKIM records Resend supplies in the domain's DNS console, verify them in Resend, and set an appropriate DMARC policy. Disable click/open tracking for authentication email to avoid token-link rewriting.
-3. In Resend **API Keys**, create a sending-only key restricted to that domain. Enter it directly into **Railway → Lexi → staging → staging application → Variables → `RESEND_API_KEY`** and protect it there. Set `EMAIL_FROM` to a sender on the verified domain, such as `Lexi <noreply@auth.fotiniv.com>`. These are proposed sender details, not an already verified domain. Do not paste keys into chat, PRs, or screenshots.
+3. In Resend **API Keys**, create a sending-only key restricted to that domain. Enter it directly into **Railway → Lexi → staging → staging application → Variables → `RESEND_API_KEY`** and protect it there. Set `EMAIL_FROM` to a sender on the verified domain, such as `Lexi <noreply@auth.fotiniv.com>`. The staging domain is verified; verify the separate production key and account limits before production use. Do not paste keys into chat, PRs, or screenshots.
 4. Test both verification and reset delivery, rejected recipients, quotas, network timeouts and provider outages. Public registration/recovery acknowledgements intentionally do not reveal email existence or delivery status; operators receive a sanitised failure event. Acknowledgement does not prove delivery.
 
 Verification links use `${ORIGIN}/auth/verify-email`; reset links use `${ORIGIN}/auth/reset-password`. Keep SDK-generated token/tenant parameters intact. The UI requires explicit confirmation/submission, never consumes tokens on GET, and clears token URLs after a definitive success or invalid-token result. Transient network failures retain the URL token so retry remains possible; tokens are never stored in browser storage. Reset revokes existing sessions for that password identity. The provider may mark email verified after successful password reset because it proves inbox possession; protected data still requires the provider's verified status. Password-reset email never creates or links a password identity for a Google-only account.
@@ -79,9 +79,13 @@ Password sign-in also applies persistent tenant/identifier failure backoff: up t
 one second on failed responses after repeated failures in five minutes. It stores
 HMAC identifiers using the sealed Core API key, never raw emails/passwords; valid
 credentials are not locked out. This supplements rather than replaces IP limits.
-The current Railway hosted IP limit has failed its one-source check; see
-[staging evidence](authentication-hosted-rate-limits.md). No guessed forwarding
-trust or unprovisioned Tunnel behavior is enabled.
+Direct-mode Railway peer limiting had the demonstrated rotating-peer failure.
+Staging now uses the tested isolated Tunnel and passes its 5/60 acceptance checks;
+production direct mode is not certified. Failed-password verification is serialized
+per HMAC tenant/identifier using a short PostgreSQL advisory lease across replicas,
+with a ten-second provider timeout, bounded failure delay and no persistent account
+lockout. Busy concurrent attempts receive a generic 429; provider timeout is 503.
+Lease cancellation and failure recording are covered by regression tests.
 
 ## Staging Tunnel POC configuration
 

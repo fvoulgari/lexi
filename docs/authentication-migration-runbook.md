@@ -55,3 +55,90 @@ Ownership and claims migrations intentionally reject downgrade. Never run `alemb
 3. Restore the verified pre-change backup into a **new private database** using the restore steps above. Validate schema `b46c77a9d008`, original IDs/counts/history and application privileges. Retain the upgraded database unchanged. Select an old application image known compatible with that pre-auth schema; its previous shared access model requires a restricted maintenance audience, not public registration.
 4. Under the approved recovery procedure only, change the private database connection and compatible image together, following the release guide's deployment/ledger controls. Remove incompatible provider/public-registration routing, verify no isolated/private data is exposed and do not reuse the upgraded schema. Recovery has not completed until observed application behavior, data validation and explicit post-cutover reconciliation/loss assessment are recorded.
 5. Keep backups, the original isolated database and deployment records protected for investigation/recovery. Do not destroy provider accounts, force claims or attempt a general profile merge as a rollback shortcut. Re-enable public access only after a reviewed plan restores the intended security model.
+
+## Production comparison ledger and write accounting
+
+The 7 November synthetic rehearsal is a completed **local** dump → separate
+restore → auth migration exercise. It is not a rehearsal on a protected production
+backup. The latter is **NOT RUN**. Before running it, obtain approval for the
+specific source backup, private restore destination, data access, encryption,
+retention and any additional database cost. Do not attach dumps, learner names,
+provider subjects or row-level manifests to GitHub. No restored learner data may
+be exposed through the public staging app or assigned to provider test identities.
+
+Create the baseline under a repeatable-read, read-only transaction after the
+write freeze. Store a protected manifest of primary keys, original column names
+and canonical row hashes, plus row counts, schema revision, timestamp, PostgreSQL
+version and backup SHA-256. Order rows by the complete primary key; serialize
+JSON with stable key order and retain exact UTC timestamp precision. Compare the
+same original columns on the restored copy before migration, and again after
+migration. Added auth columns are checked separately, not discarded from review.
+A count-only match cannot establish preservation.
+
+| Table/data | Required exact comparison |
+| --- | --- |
+| `profiles` | complete original profile-ID set, display names, preferences, timestamps |
+| `vocabulary_entries` | complete original card-ID set, text, unit references, grammar fields and original timestamps |
+| `units`, `tags`, `entry_tags` | original IDs, classification and exact membership pairs |
+| `practice_sessions`, `session_cards` | IDs, learner/direction, ordering, card references, reveal state, every stored snapshot |
+| `review_events` | event IDs, profile/card/session/position/direction, rating, timestamp, snapshot; no lost or duplicated event |
+| `learning_progress` | full `(profile_id, entry_id, direction)` key set; review/rating counts, weighted sums/weights and last-reviewed timestamps |
+| existing `collections` / `collection_entries`, if present | IDs, owners and membership pairs unchanged; do not apply #65 schema/visibility behavior |
+| added ownership/audience/language columns | original shared content remains unowned `legacy`, never automatically `published`; original profiles remain legacy; expected `it`/`el` mapping and no unexpected archives |
+| new accounts/claims | one provider subject ↔ one account ↔ one profile, explicit roles/access only, no name/email-derived assignment |
+
+Record intentional invalidation of obsolete `gate_sessions` separately; old shared
+login sessions must not survive as authenticated accounts. Operational limiter
+rows are not learning history. Never silently exclude an unexpected original table
+or column; investigate schema differences before migration.
+
+Use `legacy-report` only on the private restored database and keep its output
+protected. Verify every planned mapping in a private ledger: stable provider
+subject, new account ID/current profile ID, legacy profile ID, identity-verification
+basis, dry-run activity counts, proposed action, approver and timestamp. A new
+account starts learner-only with no editor/legacy access. Claims grant association
+only. For an active replacement profile, stop and retain both histories for a
+separately reviewed migration; do not apply a merge, delete activity or infer
+ownership from matching names. Assign editor/legacy-library access separately.
+
+### Freeze and post-cutover boundaries
+
+1. Record freeze start `T0`, stop every old app replica/import/job/admin writer,
+   and confirm there are no active writer transactions or other application
+   connections capable of writes. Restrict old writer credentials/network access;
+   a maintenance page alone is insufficient. Use a distinct migration connection.
+2. Dump and restore the frozen final source into a new private target. Record
+   checksum and compare manifests. Migrate and validate while writes remain frozen;
+   stop on any unexpected difference. The source remains intact and inaccessible
+   to normal writers. Do not allow public test users onto restored learner data.
+3. Complete approved mappings and synthetic smoke checks. Capture a second
+   protected manifest immediately before reopening writes (`T1`), accounting for
+   each approved mapping/audit mutation. Record exact image digest and private
+   target identity. A protected backup rehearsal from earlier is not this final
+   frozen backup.
+4. On reopening, the migrated target is the sole writer. Record `T2`. Preserve a
+   recovery window with backups/WAL or equivalent protected point-in-time recovery
+   where supported and approved; verify retention rather than assuming it exists.
+5. If rollback is considered, freeze again (`T3`) and take a fresh protected dump
+   of the upgraded database plus a full row/key diff against `T1`. This captures
+   inserts, updates and deletions, including records without `updated_at`; timestamp
+   filters alone miss changes. Inventory new accounts/provider subjects, private
+   cards/collections, reviews/progress, settings, claims and permission changes.
+6. Preserve that upgraded database and Core separately. Do not replay progress
+   counters alone: reconcile accepted review event IDs exactly once, then verify
+   derived direction-specific progress; preserve edits/deletions and ownership
+   without exposing private content in the old shared model. Claim/role/account
+   changes may not have a safe pre-auth representation. Keep maintenance and fix
+   forward unless a separately reviewed transformation/loss decision covers them.
+7. Prove the post-`T2` inventory is fully reconciled (or obtain explicit informed
+   acceptance of specific losses) before pointing users to a pre-change restore.
+   Restoring the `T0` backup does not undo Core identities, passwords or sessions.
+   Revoke incompatible sessions as required. Never run the old image on the
+   upgraded schema, downgrade ownership tables, or reopen an unprotected origin.
+
+Evidence closing the production-backup rehearsal gate: private backup/restore
+identities and checksum, successful restore and upgrade, exact original-column
+manifests, reviewed new-column audience/ownership checks, protected mapping dry-run,
+verified application privileges, synthetic-only smoke trace, and a demonstrated
+post-cutover delta/reconciliation procedure. Publish only sanitized counts/results
+and the tested commit/image digest in the release record.

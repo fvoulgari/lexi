@@ -44,6 +44,27 @@ function open(props = {}) {
   );
   return userEvent.setup();
 }
+
+test.each([
+  ["😀".repeat(14), false],
+  ["😀".repeat(15), true],
+  ["😀".repeat(128), true],
+  ["x".repeat(129), false],
+])("registration enforces Unicode character limits without truncation (%#)", async (password, accepted) => {
+  const user = open();
+  await user.click(screen.getByRole("button", { name: copy.en.authAction_signup }));
+  await user.type(screen.getByLabelText(copy.en.authEmail), "unicode@example.invalid");
+  await user.click(screen.getByLabelText(copy.en.authPassword));
+  await user.paste(password);
+  expect(screen.getByLabelText(copy.en.authPassword)).toHaveValue(password);
+  await user.click(screen.getByRole("button", { name: copy.en.authAction_signup }));
+  if (accepted) {
+    expect(registerPassword).toHaveBeenCalledWith("unicode@example.invalid", password);
+  } else {
+    expect(registerPassword).not.toHaveBeenCalled();
+    expect(screen.getByText(copy.en.authPasswordPolicy, { selector: ".error" })).toBeVisible();
+  }
+});
 test("failed Google callback permits password retry and retains pending claim", async () => {
   window.history.replaceState(
     null,
@@ -147,6 +168,23 @@ test("reset link requires explicit new password submission", async () => {
   expect(await screen.findByRole("status")).toHaveTextContent(
     copy.en.authResetDone,
   );
+});
+test.each([
+  ["😀".repeat(128), true],
+  ["x".repeat(129), false],
+])("reset preserves Unicode boundaries (%#)", async (password, accepted) => {
+  window.history.replaceState(null, "", "/auth/reset-password?token=test-only");
+  const user = open();
+  await user.click(screen.getByLabelText(copy.en.authPassword));
+  await user.paste(password);
+  expect(screen.getByLabelText(copy.en.authPassword)).toHaveValue(password);
+  await user.click(screen.getByRole("button", { name: copy.en.authAction_reset }));
+  if (accepted) {
+    expect(resetPassword).toHaveBeenCalledWith(password);
+  } else {
+    expect(resetPassword).not.toHaveBeenCalled();
+    expect(screen.getByText(copy.en.authPasswordPolicy, { selector: ".error" })).toBeVisible();
+  }
 });
 test("verification link is never consumed on page load", async () => {
   window.history.replaceState(null, "", "/auth/verify-email?token=one-use");

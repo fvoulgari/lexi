@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Opt-in non-truncation probe using only disposable provider identities.
 
 Run from backend with its installed dependencies. No Lexi database, email sending,
@@ -36,8 +35,8 @@ async def probe(uri, key):
     from supertokens_python.recipe import emailpassword
     from supertokens_python.recipe.emailpassword.asyncio import sign_in, sign_up
     from supertokens_python.recipe.emailpassword.interfaces import (
-        SignUpOkResult,
         SignInOkResult,
+        SignUpOkResult,
         WrongCredentialsError,
     )
 
@@ -58,12 +57,13 @@ async def probe(uri, key):
             ("minimum_ascii", "A" * 14 + "Z"),
             ("maximum_ascii", "A" * 127 + "Z"),
             ("maximum_unicode", "α" * 40 + "A" * 87 + "Z"),
+            ("maximum_supplementary_unicode", "😀" * 127 + "😁"),
         ]:
             assert 15 <= len(password) <= 128
             email = "lexi-hash-probe-" + uuid4().hex + "@example.invalid"
             created = await sign_up("public", email, password)
             if not isinstance(created, SignUpOkResult):
-                raise RuntimeError("synthetic_signup_failed")
+                raise RuntimeError("synthetic_signup_failed")  # noqa: TRY004 -- provider status
             identities.append(created.user.id)
             correct = await sign_in("public", email, password)
             incorrect = await sign_in("public", email, password[:-1] + "Y")
@@ -88,7 +88,7 @@ async def probe(uri, key):
         for subject in identities:
             try:
                 await delete_user(subject)
-            except Exception:
+            except Exception:  # noqa: BLE001 -- redact provider exceptions
                 failures += 1
         print(
             json.dumps(
@@ -107,7 +107,7 @@ async def probe(uri, key):
 if __name__ == "__main__":
     try:
         asyncio.run(probe(*configuration()))
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 -- never print credential-bearing exceptions
         # Provider exceptions can contain identifiers/credentials. Never print them.
         print(
             json.dumps({"result": "FAIL", "error_type": type(error).__name__}),

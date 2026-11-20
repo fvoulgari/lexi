@@ -101,3 +101,51 @@ reset paths and their public aliases. CI for deployed implementation `0503808`
 passed backend, frontend, application and image-validation checks; production
 jobs were skipped: [run 42314031624](https://github.com/fvoulgari/lexi/actions/runs/42314031624).
 Subsequent evidence/test-only commits need their own CI result.
+
+## Reviewed candidate and restart — 7 November 2026
+
+Runtime/test commit **`49cd514573cd1ad0597b3e42b21b38ea1629691f`**, staging deployment
+**`3d996820-4192-4cfd-a91f-67ae58f79ef4`**, SUCCESS. The staging-only guard and
+5 requests/60 seconds are unchanged. Independent post-review findings were fixed:
+concurrent password verification now uses a cross-replica identifier lease with
+bounded provider timeout and failure delay; cancellation owns/relinquishes its
+connection safely; IPv4-mapped unspecified/multicast identities are rejected;
+combined app/connector readiness drives a fail-closed restart watchdog.
+
+| Check | Result / sanitized observation |
+| --- | --- |
+| Automated A, single fixed window | PASS: `400,400,400,400,400,429`, 1.92 seconds |
+| Instrumented independent external source B | PASS: A again `400×5,429`; B 400 before and after spoof probes, all within 13.63 seconds. Cloudflare trace confirmed different source addresses in process memory; raw addresses were neither printed nor stored |
+| Spoofing B from saturated A | PASS: XFF/X-Real-IP set to B's observed address still 429; forged CF-Connecting-IP set to B returned edge 403; B remained 400. This is upstream rejection, not proof of header replacement |
+| Phone B | PASS, additional manual report: Wi-Fi off, expected third-party parameter message on updated build |
+| Invalid identity on loopback app | PASS: missing, invalid and mapped unspecified/multicast headers return 400 with no forwarding-header fallback; duplicate-header regression passes locally and earlier deployed duplicate rejection remains applicable |
+| Restart fault injection | PASS: terminated only staging `cloudflared`; supervisor exited and Railway ON_FAILURE restarted the container. Observed 502/530 while down, then external `/api/health` 200 at 37.9 seconds |
+| Readiness after restart | PASS: loopback app and connector `/ready` both 200; ON_FAILURE policy with 10 retries, public healthcheck empty |
+| Post-restart sockets | PASS: only `127.0.0.1:8000` and `127.0.0.1:2000`; no wildcard/IPv6 app/metrics listener |
+| Private bypass after restart | PASS: actual probes from separate staging database container resolve private app DNS and fail to connect over IPv4 AND IPv6 to both ports |
+| Public bypass | PASS: no app custom/generated Railway domains; old Railway target returns 404. Existing TCP-proxy inventory was empty; no proxy added |
+| Backend/real local Core | PASS: 232 tests, none skipped, disposable Argon2 Core; Ruff passed |
+| Frontend | PASS: 262 tests, ESLint/build passed; existing bundle warning |
+| CI for candidate | PASS: [run 42320523628](https://github.com/fvoulgari/lexi/actions/runs/42320523628); publishing/production jobs skipped |
+
+The database image has no Python runtime; its initial Python probe could not run.
+Repeating the private-path probe with its installed Perl/Socket runtime produced
+the four PASS results above. No software was installed in the database service.
+No production route, provider setting or spending limit changed.
+
+Connector samples around this restart: CPU 0.37 seconds/RSS 38,600,704 bytes before
+fault; CPU 0.40 seconds/RSS 39,477,248 bytes after recovery (separate process lifetime,
+so **not a CPU delta**). Whole-service metered cost for the remaining verification
+interval is recorded in the final release status; neither process RSS nor service
+billing can isolate an exact connector invoice.
+
+### Startup-guard follow-up
+
+Final runtime `762e27d7e85bec137afde7141dddc71ae8cb95fa`, deployment
+`6a5b546c-0906-4148-849b-9b6035797896`: SUCCESS. The only runtime change after
+`49cd514` checks the staging environment/mode/port before running Alembic. A
+subprocess regression proves a production-ID Tunnel start cannot invoke migration.
+Independent review found no new issue. Final full local backend/Core suite:
+**233 PASS**, no skips; unchanged frontend results above remain applicable.
+The timed managed session check spans the compatible staging restart; no Core
+identity/lifetime or authorization rule changed.

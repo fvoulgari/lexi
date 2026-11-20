@@ -97,3 +97,15 @@ legacy audiences and archival/history checks passed. Comparison SHA-256:
 `a6ac2693458e446befb5e22cfc58bc6cde2296a3bacdf869082d4bb51a605db9`.
 Both newly created test databases and their dump were removed. This is local
 synthetic evidence, not a production backup or production migration approval.
+
+## Final auth candidate repeat — 7 November 2026
+
+PASS on source `49cd514573cd1ad0597b3e42b21b38ea1629691f`: actual PostgreSQL
+17.11 custom-format dump, separate restore, and upgrade from `b46c77a9d008` to
+`b46d77a9d009`. All original fixture rows/columns, IDs, references, both learning
+directions, reviews/progress/snapshots, four constraints, defaults, legacy audience
+and archival preservation matched. Fresh timestamped fixture comparison SHA-256:
+`be7301e402b61fe23630cd89d2b556d1bdaf8aa6a1221bd08854b57482f35a41`.
+Only the two created local databases and their dump were removed. A protected
+production-backup rehearsal and post-cutover write reconciliation remain NOT RUN;
+see the expanded runbook. This is not production migration approval.
