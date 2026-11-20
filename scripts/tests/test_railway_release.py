@@ -324,6 +324,12 @@ class RailwayReleaseTests(unittest.TestCase):
         self.assertEqual(len(self.records), 1)
         self.assertEqual(self.mutations(), [])
 
+    def test_frozen_stopped_previous_app_allows_the_new_release(self):
+        self.instance["latestDeployment"] = {"id": DEPLOYMENT, "status": "REMOVED"}
+        result = self.release()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.statuses[1][0]["state"], "success")
+
     def test_unrecorded_active_rollout_blocks_a_new_deployment(self):
         self.instance["latestDeployment"] = {"id": DEPLOYMENT, "status": "DEPLOYING"}
         result = self.release()

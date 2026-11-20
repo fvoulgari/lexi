@@ -337,7 +337,7 @@ def main():
         )
     if instance.get("latestDeployment") and instance["latestDeployment"][
         "status"
-    ] not in FAILED | {"SUCCESS"}:
+    ] not in FAILED | {"SUCCESS", "REMOVED"}:
         raise ReleaseError(
             "Railway already has an active rollout; refusing to overlap migrations."
         )
