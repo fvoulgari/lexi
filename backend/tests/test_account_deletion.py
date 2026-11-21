@@ -63,7 +63,7 @@ def test_delete_removes_owned_data_and_retries_provider(
         )
     signin(client, "other-learner")
     assert client.get("/api/auth/session").json()["account"]["id"] == other["id"]
-    assert client.get("/api/units").json()[0]["id"] == other_unit["id"]
+    assert client.get("/api/collections").json()[0]["id"] == other_unit["id"]
     remove.side_effect = None
     asyncio.run(process_pending(sessions))
     with sessions() as db:
