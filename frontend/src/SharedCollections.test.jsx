@@ -54,7 +54,7 @@ function open(language = "en", collection = own, entry = card) {
     </QueryClientProvider>,
   );
 }
-test("publication shows exact exposure before sending confirmation and stale token", async () => {
+test("publication summarizes sharing without listing cards and sends the preview token and IDs", async () => {
   const user = userEvent.setup();
   let confirmation;
   server.use(
@@ -81,9 +81,11 @@ test("publication shows exact exposure before sending confirmation and stale tok
     }),
   );
   expect(confirmation).toBeUndefined();
-  expect(
-    await screen.findByRole("region", { name: "Confirm publication" }),
-  ).toHaveTextContent("γεια — ciao");
+  const preview = await screen.findByRole("region", {
+    name: "Confirm publication",
+  });
+  expect(preview).toHaveTextContent(collectionCopy.en.publishExposure);
+  expect(preview).not.toHaveTextContent("γεια — ciao");
   await user.click(
     screen.getByRole("button", { name: "Confirm publication", exact: true }),
   );
@@ -363,7 +365,7 @@ test("create defaults private and edit visibility requires publication confirmat
   const preview = await screen.findByRole("region", {
     name: "Confirm publication",
   });
-  expect(preview).toHaveTextContent("γεια");
+  expect(preview).not.toHaveTextContent("γεια");
   expect(published).toBe(false);
   await user.click(
     screen.getByRole("button", { name: "Confirm publication", exact: true }),
@@ -423,7 +425,7 @@ test("requesting Public during creation still creates private and previews befor
   const preview = await screen.findByRole("region", {
     name: "Confirm publication",
   });
-  expect(preview).toHaveTextContent("γεια");
+  expect(preview).not.toHaveTextContent("γεια");
   expect(createdBody).not.toHaveProperty("visibility");
   expect(published).toBe(false);
   await user.click(

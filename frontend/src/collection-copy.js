@@ -44,6 +44,7 @@ export const collectionCopy = {
     publish: "Publish collection",
     unpublish: "Unpublish collection",
     confirm: "Confirm publication",
+    publishExposure: "Publishing makes these private cards visible to all signed-in learners.",
     exposure:
       "These private cards will become visible to all signed-in learners. Their creator keeps editing rights. This confirms sharing through this collection only. Access ends when its last confirmed publication in a collection owned by the card creator is removed.",
     none: "No additional private cards will be shared by this collection.",
@@ -120,6 +121,7 @@ export const collectionCopy = {
     publish: "Δημοσίευση συλλογής",
     unpublish: "Απόσυρση συλλογής",
     confirm: "Επιβεβαίωση δημοσίευσης",
+    publishExposure: "Με τη δημοσίευση, αυτές οι ιδιωτικές κάρτες γίνονται ορατές σε όλους τους συνδεδεμένους μαθητές.",
     exposure:
       "Αυτές οι ιδιωτικές κάρτες θα είναι ορατές σε όλους τους συνδεδεμένους μαθητές. Ο δημιουργός διατηρεί την επεξεργασία. Η επιβεβαίωση ισχύει μόνο για αυτή τη συλλογή. Η πρόσβαση λήγει όταν αφαιρεθεί η τελευταία επιβεβαιωμένη δημοσίευση σε συλλογή του δημιουργού της κάρτας.",
     none: "Δεν θα κοινοποιηθούν επιπλέον ιδιωτικές κάρτες μέσω αυτής της συλλογής.",
@@ -195,6 +197,7 @@ export const collectionCopy = {
     publish: "Pubblica raccolta",
     unpublish: "Ritira raccolta",
     confirm: "Conferma pubblicazione",
+    publishExposure: "La pubblicazione rende queste schede private visibili a tutti gli studenti autenticati.",
     exposure:
       "Queste schede private saranno visibili a tutti gli studenti autenticati. Il creatore mantiene il diritto di modifica. La conferma vale solo per questa raccolta. L’accesso termina quando viene rimossa l’ultima pubblicazione confermata in una raccolta del creatore della scheda.",
     none: "Nessuna ulteriore scheda privata sarà condivisa da questa raccolta.",
