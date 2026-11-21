@@ -3,6 +3,40 @@
 Status: **incomplete; not ready to merge or deploy**. This document records
 the investigation, not approval to change production.
 
+## Runtime privilege and cutover preparation
+
+On a disposable local PostgreSQL test database, the account-directory test
+creates a distinct login without administrative privileges, applies the grants
+using the schema owner, and starts the application with that login. It creates
+and reads a collection and card, verifies schema creation is denied, and verifies
+the operator-only view is denied. This is a synthetic test, not a rehearsal of
+the production credential switch. The application still needs base-table
+access to accounts and profiles, so view denial does not prevent application
+code from querying equivalent information from those tables.
+
+Startup now checks the Alembic revision without performing migrations. For a
+reviewed cutover, operators must arrange a separate schema-owner connection,
+run the reviewed Alembic upgrade and ownership migration under the write freeze,
+apply and verify `scripts/account-directory.sql`, then start the release with
+the restricted runtime credential held in Railway's secret store. Validate the
+schema check, account login, collection access, practice, writes, and operator
+view before reopening traffic. Never put credentials in commands, reports, or
+the repository. Keep the former credential protected until rollback is no
+longer required; switching credentials alone does not reverse data migrations.
+If validation fails, keep writes frozen, restore the previous credential and
+compatible application image only after confirming schema compatibility. If a
+data rollback is required, restore the frozen independent backup to a separate
+target and reconcile any writes before redirecting traffic; do not overwrite the
+live database or discard post-cutover activity.
+
+The final recovery gate is a fresh, independently protected backup captured
+after all application and background writers have been stopped and in-flight
+transactions drained. Verify its checksum, restore it to a separate database,
+and compare complete data before migration. The existing rehearsal dump and
+restore share the production volume and do not satisfy this recovery gate. An
+independent protected copy has not yet been obtained; no billable infrastructure
+has been provisioned for one.
+
 ## Observed on 20 November 2026
 
 - Railway production service `lexi` deployment

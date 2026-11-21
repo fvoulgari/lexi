@@ -259,6 +259,9 @@ class VocabularyCreate(VocabularyFields):
 
 
 class VocabularyCreateRequest(VocabularyCreate):
+    # Older CSV/API clients may still supply a unit. New cards are grouped by
+    # collection, with an internal unit retained for historical compatibility.
+    unit_id: UUID | None = None
     collection_id: UUID | None = None
     confirm_collection_exposure: bool = False
 

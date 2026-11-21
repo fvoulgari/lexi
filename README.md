@@ -77,13 +77,21 @@ Use unique protected credentials and follow [provider setup](docs/authentication
 If upgrading an existing installation, follow [the PostgreSQL 17 migration steps](#existing-postgresql-17-installations) before starting this stack. PostgreSQL 18 uses a separate, initially empty volume.
 
 ```sh
-docker compose up --build -d --wait
+docker compose build
+docker compose up -d --wait postgres
+docker compose run --rm --no-deps --entrypoint alembic backend upgrade head
+docker compose up -d --wait
 docker compose exec backend python -m app.seed
 ```
 
 Open [localhost:5173](http://localhost:5173) and sign in with Google or email/password. Registration creates your own learner profile; no profile selection is required.
 
-Startup applies database migrations. Seeding is an explicit first-time action, not a reset command. `docker compose down` retains the named database volume; removing that volume deletes local data.
+Run migrations separately with a schema-owner credential before starting a new
+release. Application startup checks the schema revision and fails closed when it
+does not match; it does not run migrations. The local Compose example uses the
+same development credential for both commands. Seeding is an explicit first-time
+action, not a reset command. `docker compose down` retains the named database
+volume; removing that volume deletes local data.
 
 ### Existing PostgreSQL 17 installations
 

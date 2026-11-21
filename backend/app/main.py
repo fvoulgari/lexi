@@ -279,6 +279,29 @@ def create_app():
             visibility = values.pop("visibility", "private")
             collection_id = values.pop("collection_id", None)
             confirm_exposure = values.pop("confirm_collection_exposure", False)
+            if entry_id is None and not values.get("unit_id"):
+                if not collection_id:
+                    raise HTTPException(422, "Choose a collection for this card.")
+                unit = db.scalar(
+                    select(Unit)
+                    .where(
+                        Unit.owner_account_id == current_account().id,
+                        Unit.visibility == "private",
+                    )
+                    .order_by(Unit.id)
+                    .limit(1)
+                )
+                if unit is None:
+                    unit = Unit(
+                        code="CARDS",
+                        title="Cards",
+                        sort_order=0,
+                        owner_account_id=current_account().id,
+                        visibility="private",
+                    )
+                    db.add(unit)
+                    db.flush()
+                values["unit_id"] = unit.id
             if (
                 values.get("unit_id") is not None
                 and db.get(Unit, values["unit_id"]) is None

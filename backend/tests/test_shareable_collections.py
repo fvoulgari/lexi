@@ -64,6 +64,47 @@ def session(client, account, collections, direction="italian_to_greek", mode="ra
     )
 
 
+def test_full_card_creation_uses_collection_and_preserves_internal_unit_on_edit(
+    client, account_client
+):
+    account_client("collection-card-owner")
+    destination = collection(client)
+    response = client.post(
+        "/api/vocabulary",
+        headers=H,
+        json={
+            "collection_id": destination["id"],
+            "italian": "ciao",
+            "greek": "γεια",
+            "word_type": "expression",
+        },
+    )
+    assert response.status_code == 201, response.text
+    entry = response.json()["entry"]
+    original_unit = entry["unit"]["id"]
+    assert (
+        client.get(f"/api/collections/{destination['id']}/entries").json()[0]["id"]
+        == entry["id"]
+    )
+    response = client.patch(
+        f"/api/vocabulary/{entry['id']}", headers=H, json={"italian": "salve"}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["entry"]["unit"]["id"] == original_unit
+    account_client("other-collection-card-owner")
+    response = client.post(
+        "/api/vocabulary",
+        headers=H,
+        json={
+            "collection_id": destination["id"],
+            "italian": "no",
+            "greek": "όχι",
+            "word_type": "expression",
+        },
+    )
+    assert response.status_code == 403
+
+
 def test_ciao_shared_difficulty_combined_queue_unique_totals_and_two_users(
     client, account_client
 ):

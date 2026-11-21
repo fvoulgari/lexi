@@ -85,7 +85,10 @@ test("a personal variant starts a new private card and does not retain a shared 
   );
   expect(screen.queryByLabelText(text.visibility)).not.toBeInTheDocument();
   expect(screen.getByLabelText("Italian *")).toHaveValue("casa");
-  expect(screen.getByRole("combobox", { name: "Unit *" })).toHaveValue("");
+  expect(
+    screen.queryByRole("combobox", { name: "Unit *" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByLabelText(text.cardCollection)).toHaveValue("");
   expect(screen.getByRole("button", { name: "Save card" })).toBeInTheDocument();
 });
 test("private collection membership accepts a 204 response and refetches membership", async () => {

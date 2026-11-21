@@ -101,7 +101,6 @@ export default function Library({ text, csrf, onLocked }) {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
     q: "",
-    unit_ids: [],
     word_types: [],
   });
   const units = useQuery({
@@ -121,11 +120,7 @@ export default function Library({ text, csrf, onLocked }) {
   });
   if (collectionId) params.set("collection_id", collectionId);
   if (archived) params.set("archived", "true");
-  for (const key of ["unit_ids", "word_types"])
-    for (const value of filters[key]) {
-      if (value === "none" && key === "unit_ids") params.set("no_unit", "true");
-      else params.append(key, value);
-    }
+  for (const value of filters.word_types) params.append("word_types", value);
   const library = useQuery({
     queryKey: ["vocabulary", page, filters, collectionId, archived],
     queryFn: () => request(`/api/vocabulary?${params}`),
@@ -134,7 +129,7 @@ export default function Library({ text, csrf, onLocked }) {
     if ([library.error, units.error].some((error) => error?.status === 401))
       onLocked();
   }, [library.error, units.error, onLocked]);
-  const filterCount = filters.unit_ids.length + filters.word_types.length;
+  const filterCount = filters.word_types.length;
   const pages = Math.max(1, Math.ceil((library.data?.total || 0) / 12));
 
   async function refreshLibrary() {
@@ -259,19 +254,6 @@ export default function Library({ text, csrf, onLocked }) {
           </summary>
           <p>{text.filterHint}</p>
           <Choices
-            legend={text.units}
-            disabled={bulkBusy}
-            options={[
-              { id: "none", label: text.noUnit },
-              ...(units.data || []).map((unit) => ({
-                id: unit.id,
-                label: `${unit.code} — ${unit.title}`,
-              })),
-            ]}
-            selected={filters.unit_ids}
-            onChange={(value) => changeFilter("unit_ids", value)}
-          />
-          <Choices
             legend={text.filterType}
             disabled={bulkBusy}
             options={[
@@ -293,7 +275,7 @@ export default function Library({ text, csrf, onLocked }) {
             onClick={() => {
               setSelectedIds([]);
               setBulkNotice(null);
-              setFilters({ q: "", unit_ids: [], word_types: [] });
+              setFilters({ q: "", word_types: [] });
               setPage(1);
             }}
           >

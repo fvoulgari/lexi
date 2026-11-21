@@ -20,7 +20,17 @@ const card = {
 };
 const server = setupServer(
   http.get("*/api/units", () => HttpResponse.json([unit])),
-  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.get("*/api/collections", () =>
+    HttpResponse.json([
+      {
+        id: "c",
+        name: "Cards",
+        can_edit: true,
+        source_language: "it",
+        target_language: "el",
+      },
+    ]),
+  ),
 );
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterAll(() => server.close());
@@ -62,8 +72,8 @@ for (const language of ["el", "en", "it"]) {
     expect(
       [...form.querySelectorAll("[required]")].map((field) => field.id),
     ).toEqual([
+      "entry-collection_id",
       "entry-word_type",
-      "entry-unit_id",
       "entry-italian",
       "entry-greek",
     ]);
@@ -123,7 +133,6 @@ test("editing opens existing details and collapsing preserves every value and hi
     word_type: "noun",
     italian_gender: "masculine",
     greek_gender: "neuter",
-    unit_id: "u",
     tag_ids: ["t"],
     ...optional,
     ...Object.fromEntries(adjectiveFields.map((field) => [field, null])),
@@ -556,7 +565,10 @@ for (const category of ["noun", "adjective"]) {
       category === "noun" ? "καλλιτέχνης" : "ψηλή",
     );
     await user.selectOptions(screen.getByLabelText("Word type *"), category);
-    await user.selectOptions(screen.getByLabelText("Unit *"), "u");
+    await user.selectOptions(
+      await screen.findByLabelText(copy.en.cardCollection),
+      "c",
+    );
     const italianField =
       category === "noun" ? "italian_gender" : "italian_adjective_gender";
     const greekField =
@@ -726,10 +738,6 @@ test("new card selects an owned collection instead of an audience", async () => 
   await user.selectOptions(
     screen.getByLabelText(`${copy.en.fields.word_type} *`),
     "expression",
-  );
-  await user.selectOptions(
-    screen.getByLabelText(`${copy.en.fields.unit_id} *`),
-    "u",
   );
   await user.type(screen.getByLabelText(`${copy.en.fields.italian} *`), "ciao");
   await user.type(screen.getByLabelText(`${copy.en.fields.greek} *`), "γεια");

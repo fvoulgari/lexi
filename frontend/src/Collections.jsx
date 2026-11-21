@@ -54,10 +54,9 @@ export default function Collections({
             {collections.data
               ?.filter(
                 (c) =>
-                  c.can_edit !== false &&
-                  (!c.source_language ||
-                    [c.source_language, c.target_language].sort().join() ===
-                      "el,it"),
+                  !c.source_language ||
+                  [c.source_language, c.target_language].sort().join() ===
+                    "el,it",
               )
               .map((collection) => (
                 <option value={collection.id} key={collection.id}>
@@ -91,7 +90,7 @@ export default function Collections({
           {renaming ? text.settingsSave : text.createCollection}
         </button>
       </form>
-      {current && (
+      {current && current.can_edit !== false && (
         <div className="form-actions">
           <button
             className="secondary"

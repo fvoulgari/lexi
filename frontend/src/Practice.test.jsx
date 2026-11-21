@@ -347,8 +347,8 @@ test("a lost response retries the selected review before switching the remaining
 
 test("category practice combines selections, explains shortages and reaches summary", async () => {
   server.use(
-    http.get("*/api/units", () =>
-      HttpResponse.json([{ id: "u", code: "00", title: "Benvenuti" }]),
+    http.get("*/api/collections", () =>
+      HttpResponse.json([{ id: "u", name: "00 — Benvenuti" }]),
     ),
     http.get("*/api/tags", () =>
       HttpResponse.json([{ id: "t", name: "Home" }]),
@@ -358,8 +358,7 @@ test("category practice combines selections, explains shortages and reaches summ
         profile_id: "f",
         direction: "italian_to_greek",
         size: 10,
-        unit_ids: ["u"],
-        no_unit: false,
+        collection_ids: ["u"],
         word_types: ["noun", "verb"],
       });
       return HttpResponse.json({
@@ -668,8 +667,8 @@ test("setup uses owned profile defaults and never submits hidden tags", async ()
         },
       ]),
     ),
-    http.get("*/api/units", () =>
-      HttpResponse.json([{ id: "u", code: "00", title: "Benvenuti" }]),
+    http.get("*/api/collections", () =>
+      HttpResponse.json([{ id: "u", name: "00 — Benvenuti" }]),
     ),
     http.get("*/api/tags", () => {
       tagRequests++;
@@ -706,8 +705,7 @@ test("setup uses owned profile defaults and never submits hidden tags", async ()
     profile_id: "f",
     direction: "greek_to_italian",
     size: 10,
-    unit_ids: ["u"],
-    no_unit: false,
+    collection_ids: ["u"],
     word_types: [],
   });
   expect(submissions).toBe(1);
@@ -818,7 +816,7 @@ test("direction loading, failure and retry never retain another direction count"
   expect(screen.queryByLabelText("Learner profile")).not.toBeInTheDocument();
 });
 
-test("all shared units can be selected directly without profile assignment", async () => {
+test("visible collections can be selected directly without profile assignment", async () => {
   server.use(
     http.get("*/api/profiles", () =>
       HttpResponse.json([
@@ -830,15 +828,15 @@ test("all shared units can be selected directly without profile assignment", asy
         },
       ]),
     ),
-    http.get("*/api/units", () =>
+    http.get("*/api/collections", () =>
       HttpResponse.json([
-        { id: "u", code: "00", title: "Benvenuti" },
-        { id: "v", code: "01", title: "Un nuovo inizio" },
+        { id: "u", name: "00 — Benvenuti" },
+        { id: "v", name: "01 — Un nuovo inizio" },
       ]),
     ),
     http.post("*/api/sessions", async ({ request }) => {
       const body = await request.json();
-      expect(body.unit_ids).toEqual(["v"]);
+      expect(body.collection_ids).toEqual(["v"]);
       expect(body.word_types).toEqual(["noun"]);
       return HttpResponse.json({
         id: "s",
