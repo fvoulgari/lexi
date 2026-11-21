@@ -1084,7 +1084,10 @@ test.each(["start", "reveal", "review"])(
     let writes = 0;
     const rejected = () => {
       writes++;
-      return HttpResponse.json({ error: { code: "profile_not_found" } }, { status: 404 });
+      return HttpResponse.json(
+        { error: { code: "profile_not_found" } },
+        { status: 404 },
+      );
     };
     server.use(
       http.get("*/api/profiles", () => HttpResponse.json([])),
@@ -1115,12 +1118,16 @@ test("practice writes do not refetch the profile", async () => {
   const user = userEvent.setup();
   await screen.findByRole("button", { name: copy.en.startPractice });
   let profileReads = 0;
-  server.use(http.get("*/api/profiles", () => {
-    profileReads++;
-    return HttpResponse.json([{ id: "f" }]);
-  }));
+  server.use(
+    http.get("*/api/profiles", () => {
+      profileReads++;
+      return HttpResponse.json([{ id: "f" }]);
+    }),
+  );
   await user.click(screen.getByRole("button", { name: copy.en.startPractice }));
-  await user.click(await screen.findByRole("button", { name: copy.en.revealAnswer }));
+  await user.click(
+    await screen.findByRole("button", { name: copy.en.revealAnswer }),
+  );
   await screen.findByText("la casa");
   await user.click(screen.getByRole("button", { name: copy.en.hard }));
   await screen.findByRole("heading", { name: copy.en.sessionSummary });
