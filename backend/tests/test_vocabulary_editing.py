@@ -12,7 +12,7 @@ def headers(client):
 def test_meaning_can_be_added_and_edited_across_devices(logged_in):
     body = {
         "visibility": "private",
-        "unit_id": logged_in.get("/api/units").json()[0]["id"],
+        "collection_id": logged_in.get("/api/collections").json()[0]["id"],
         "italian": "  il perché  ",
         "greek": "το γιατί",
         "word_type": "noun",
@@ -29,7 +29,7 @@ def test_meaning_can_be_added_and_edited_across_devices(logged_in):
     assert response.status_code == 201
     entry = response.json()["entry"]
     assert entry["italian"] == "il perché"
-    for field in body.keys() - {"italian", "unit_id"}:
+    for field in body.keys() - {"italian", "collection_id"}:
         assert entry[field] == body[field]
     with TestClient(create_app()) as device:
         from conftest import signin
@@ -58,7 +58,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
             "visibility": "private",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
-            "unit_id": logged_in.get("/api/units").json()[0]["id"],
+            "collection_id": logged_in.get("/api/collections").json()[0]["id"],
             "italian": "il caffè",
             "greek": "ο καφές",
             "word_type": "noun",
@@ -72,7 +72,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
             "visibility": "private",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
-            "unit_id": logged_in.get("/api/units").json()[0]["id"],
+            "collection_id": logged_in.get("/api/collections").json()[0]["id"],
             "italian": " IL CAFFE\u0300 ",
             "greek": " Ο ΚΑΦΕ\u0301Σ ",
             "word_type": "noun",
@@ -99,7 +99,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
                 "visibility": "private",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
-                "unit_id": logged_in.get("/api/units").json()[0]["id"],
+                "collection_id": logged_in.get("/api/collections").json()[0]["id"],
                 "italian": italian,
                 "greek": greek,
                 "word_type": "noun",

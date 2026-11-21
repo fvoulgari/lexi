@@ -292,7 +292,7 @@ def test_stale_preview_and_repeat_confirmation_skip_normalized_duplicates(logged
             "visibility": "private",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
-            "unit_id": logged_in.get("/api/units").json()[0]["id"],
+            "collection_id": logged_in.get("/api/collections").json()[0]["id"],
             "italian": "il perché",
             "greek": "το γιατί",
             "word_type": "noun",

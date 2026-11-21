@@ -289,7 +289,14 @@ def create_app():
                     )
                 )
                 if len(matches) != 1:
-                    raise HTTPException(422, "Choose a collection for this card.")
+                    raise HTTPException(
+                        422,
+                        {
+                            "code": "invalid_input",
+                            "message": "Choose a collection for this card.",
+                            "fields": ["unit_id"],
+                        },
+                    )
                 collection_id = matches[0]
             if entry_id is None and not collection_id:
                 raise HTTPException(422, "Choose a collection for this card.")

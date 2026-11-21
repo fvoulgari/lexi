@@ -9,7 +9,7 @@ from test_vocabulary_editing import headers
 def body(client, category):
     return {
         "visibility": "private",
-        "unit_id": client.get("/api/units").json()[0]["id"],
+        "collection_id": client.get("/api/collections").json()[0]["id"],
         "italian": "l’artista" if category == "noun" else "alta",
         "greek": "καλλιτέχνης" if category == "noun" else "ψηλή",
         "word_type": category,
@@ -144,7 +144,7 @@ def test_missing_legacy_genders_are_reviewable_but_must_be_corrected_on_save(
 
 def test_csv_reports_language_and_row_and_validates_merged_updates(logged_in):
     client = logged_in
-    unit = client.get("/api/units").json()[0]["id"]
+    unit = client.get("/api/collections").json()[0]["id"]
     content = (
         "italian,greek,word_type,italian_gender,greek_gender,italian_adjective_gender,greek_adjective_gender\n"
         "nuovo nome,όνομα,noun,,,,\n"
@@ -154,7 +154,7 @@ def test_csv_reports_language_and_row_and_validates_merged_updates(logged_in):
 
     def upload(content, action):
         return client.post(
-            f"/api/imports/{action}?unit_id={unit}",
+            f"/api/imports/{action}?collection_id={unit}",
             content=content.encode(),
             headers=headers(client),
         ).json()

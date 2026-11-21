@@ -97,7 +97,7 @@ def test_export_neutralizes_formulas_and_preserves_literal_apostrophes(logged_in
             headers=headers(logged_in),
             json={
                 "visibility": "private",
-                "unit_id": logged_in.get("/api/units").json()[0]["id"],
+                "collection_id": logged_in.get("/api/collections").json()[0]["id"],
                 "italian": value.strip() or "literal",
                 "greek": "δοκιμή",
                 "word_type": "expression",
