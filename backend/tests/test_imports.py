@@ -128,6 +128,39 @@ def test_csv_routes_legacy_codes_to_owned_collections_without_duplicate_cards(
     assert a[0]["id"] == b[0]["id"]
 
 
+def test_csv_does_not_publish_or_misroute_rows_for_published_collection(
+    client, account_client
+):
+    from uuid import UUID
+
+    from test_shareable_collections import publish
+
+    from app.models import Collection
+
+    account_client("csv-published-target")
+    h = headers(client)
+    private = client.post(
+        "/api/collections", headers=h, json={"name": "Private"}
+    ).json()
+    public = client.post("/api/collections", headers=h, json={"name": "Public"}).json()
+    with client.app.state.sessions.begin() as db:
+        target = db.get(Collection, UUID(public["id"]))
+        target.source_unit_code = "30"
+        target.source_unit_title = "Food"
+        target.source_unit_sort_order = 0
+    assert publish(client, public).status_code == 200
+    data = "italian,greek,word_type,unit_code\nciao,γεια,expression,30\n".encode()
+    response = client.post(
+        f"/api/imports/confirm?collection_id={private['id']}",
+        headers=h,
+        content=data,
+    )
+    assert response.status_code == 200
+    assert response.json()["counts"]["error"] == 1
+    assert client.get(f"/api/collections/{private['id']}/entries").json() == []
+    assert client.get(f"/api/collections/{public['id']}/entries").json() == []
+
+
 def test_collection_import_preserves_card_unit_and_is_idempotent(
     client, account_client
 ):
