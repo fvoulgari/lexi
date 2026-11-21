@@ -150,6 +150,44 @@ def test_shared_tag_is_reported_without_mutating_unrelated_cards(test_database):
     engine.dispose()
 
 
+def test_shared_tag_with_unitless_card_is_a_conflict(test_database):
+    engine = create_engine(test_database)
+    with engine.connect() as db:
+        tx = db.begin()
+        try:
+            mapping, _, tag = fixture(db)
+            # Exercise compatibility with older schemas that allowed unitless cards.
+            db.execute(
+                text(
+                    "ALTER TABLE vocabulary_entries ALTER COLUMN unit_id DROP NOT NULL"
+                )
+            )
+            card = uuid4()
+            db.execute(
+                text(
+                    "INSERT INTO vocabulary_entries "
+                    "(id,unit_id,italian,greek,word_type) "
+                    "VALUES (:id,NULL,'other','άλλο','expression')"
+                ),
+                {"id": card},
+            )
+            db.execute(
+                text("INSERT INTO entry_tags (entry_id,tag_id) VALUES (:card,:tag)"),
+                {"card": card, "tag": tag},
+            )
+            with pytest.raises(ValueError, match="shared with another Unit"):
+                migrate(db, mapping)
+            assert (
+                db.scalar(
+                    text("SELECT owner_account_id FROM tags WHERE id=:id"), {"id": tag}
+                )
+                is None
+            )
+        finally:
+            tx.rollback()
+    engine.dispose()
+
+
 def test_late_conflict_rolls_back_earlier_group(test_database):
     engine = create_engine(test_database)
     with engine.connect() as db:

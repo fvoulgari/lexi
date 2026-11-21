@@ -102,7 +102,7 @@ def migrate(db, mapping):
                 db,
                 """SELECT v.id FROM entry_tags et
                 JOIN vocabulary_entries v ON v.id=et.entry_id
-                WHERE et.tag_id=:tag AND v.unit_id<>:unit LIMIT 1""",
+                WHERE et.tag_id=:tag AND v.unit_id IS DISTINCT FROM :unit LIMIT 1""",
                 tag=tag["id"],
                 unit=unit_id,
             )

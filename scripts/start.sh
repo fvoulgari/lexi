@@ -7,6 +7,7 @@ fi
 # Schema changes run separately with the migration credential. The application
 # credential only needs to read the revision and fails closed if it is stale.
 python -m app.schema_ready
+python -m app.legacy_retirement_ready
 if [ "${AUTH_INGRESS_MODE:-direct}" = "cloudflare_tunnel" ]; then
   exec python -m app.tunnel_runtime
 fi

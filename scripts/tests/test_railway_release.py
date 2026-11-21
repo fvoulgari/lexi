@@ -4,7 +4,6 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -23,11 +22,6 @@ IMAGE = "ghcr.io/fvoulgari/lexi@sha256:" + "b" * 64
 
 class RailwayReleaseTests(unittest.TestCase):
     def setUp(self):
-        self.docker_dir = tempfile.TemporaryDirectory()
-        self.addCleanup(self.docker_dir.cleanup)
-        docker = Path(self.docker_dir.name) / "docker"
-        docker.write_text("#!/bin/sh\nexit ${TEST_MIGRATION_EXIT:-0}\n")
-        docker.chmod(0o700)
         self.records = []
         self.statuses = {}
         self.requests = []
@@ -194,9 +188,6 @@ class RailwayReleaseTests(unittest.TestCase):
                 "RELEASE_TAG": tag,
                 "SOURCE_SHA": SHA,
                 "RELEASE_IMAGE": IMAGE,
-                "MIGRATION_AUTHORIZED_SHA": SHA,
-                "MIGRATION_DATABASE_URL": "postgresql://test-migration-secret",
-                "PATH": self.docker_dir.name + os.pathsep + os.environ.get("PATH", ""),
                 "GH_TOKEN": "test-github-token",
                 "RAILWAY_TOKEN": "test-railway-token",
                 "GITHUB_API_URL": base,
@@ -212,21 +203,6 @@ class RailwayReleaseTests(unittest.TestCase):
             text=True,
             timeout=10,
         )
-
-    def test_migration_failure_blocks_rollout_and_retry_can_recover(self):
-        result = self.release(TEST_MIGRATION_EXIT="1")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertNotIn("test-migration-secret", result.stdout + result.stderr)
-        self.assertFalse(any(body.get("operationName") == "ReleaseDeploy"
-                             for _, path, body in self.requests if path == "/railway"))
-        result = self.release()
-        self.assertEqual(result.returncode, 0, result.stderr)
-
-    def test_unapproved_migration_blocks_rollout(self):
-        result = self.release(MIGRATION_AUTHORIZED_SHA="")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertFalse(any(body.get("operationName") == "ReleaseDeploy"
-                             for _, path, body in self.requests if path == "/railway"))
 
     def assert_unready_release_recovers(self, field, value):
         original = getattr(self, field)

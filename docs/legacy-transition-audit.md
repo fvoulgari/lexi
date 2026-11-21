@@ -3,6 +3,38 @@
 Status: **incomplete; not ready to merge or deploy**. This document records
 the investigation, not approval to change production.
 
+## Reviewed cutover sequence
+
+Do not execute until final cutover approval. Use the exact reviewed release
+image and protected mapping file, and keep credentials out of logs and the
+application runtime.
+
+1. Stop and drain application and background writes; verify no writers or
+   in-flight write transactions remain. Preserve the existing application image
+   and connection configuration for recovery.
+2. Capture a fresh protected backup under the freeze, copy it outside the
+   database service and volume, restore it to a separate isolated database,
+   and compare row-level contents and checksums. Stop if verification fails.
+3. In an authenticated Railway console, use a temporary migration identity in
+   the one-off operator process. Verify the database name, server identity,
+   source schema revision and the four account/profile mappings before any
+   write. Run the reviewed Alembic upgrade, then run
+   `python -m app.legacy_collection_migration MAPPING --report DRY_REPORT`
+   using protected paths. Review the complete report and conflicts. Only if it
+   matches the approved plan, rerun with a new protected report path and
+   `--apply`; rerun the dry run to verify zero further changes. Revoke the
+   temporary identity when finished.
+4. Configure the application with a separate restricted runtime role and
+   deploy the reviewed image. Verify schema and retirement startup checks,
+   all four private collection owners, Fofo/Lollo/Spyros access, publication
+   and withdrawal behavior, and unchanged personal history. Verify view
+   privileges before describing the account directory as operator-only.
+5. Reopen writes only after validation. If validation fails, keep writes
+   frozen and assess compatibility before restoring the previous image and
+   runtime credential. For data recovery, restore the frozen backup to a new
+   database, validate it and redirect deliberately. If writes occurred after
+   reopening, preserve and reconcile them before any rollback or redirection.
+
 ## Final candidate access rehearsal
 
 On the restored copy on 21 November, application code from commit `731398b`
@@ -46,13 +78,21 @@ data rollback is required, restore the frozen independent backup to a separate
 target and reconcile any writes before redirecting traffic; do not overwrite the
 live database or discard post-cutover activity.
 
-The final recovery gate is a fresh, independently protected backup captured
-after all application and background writers have been stopped and in-flight
-transactions drained. Verify its checksum, restore it to a separate database,
-and compare complete data before migration. The existing rehearsal dump and
-restore share the production volume and do not satisfy this recovery gate. An
-independent protected copy has not yet been obtained; no billable infrastructure
-has been provisioned for one.
+On 21 November the 20 November dump was downloaded through the authenticated
+Railway console to a mode-0600 file on the FileVault-encrypted operator computer,
+outside the production service and volume. Its SHA-256 matched the original
+`7a480103c6db67290dde7aeda0b0acd696eb31430089f43e261341a13907990e`.
+It restored successfully into a separate PostgreSQL 18 container with networking
+disabled. All 20 tables matched the earlier full-row/count manifest: 19 matched
+directly; session-card rows matched using stable `C` ordering on both databases
+(the two platforms' default collation ordering differed). This is a verified
+independent copy of the 20 November snapshot, not a fresh cutover backup.
+No paid resources were provisioned.
+
+The final recovery gate remains a fresh protected backup captured after all
+application and background writers have stopped and in-flight transactions
+drained. Verify its checksum, restore it to a separate database, and compare
+complete data before migration.
 
 Railway documents protected logical dumps uploaded to a private S3-compatible
 bucket as an off-volume backup option. Bucket storage is billed at $0.015 per
@@ -63,16 +103,13 @@ provisioning. Restore the downloaded object to a separate database and compare
 its manifest before relying on it. See [Railway's backup guide](https://railway.com/guides/postgres-backups-restores)
 and [bucket billing](https://docs.railway.com/storage-buckets/billing).
 
-The draft release workflow now invokes the exact release image on a dedicated
-`lexi-migration` runner using a separate privileged secret, after release target
-checks and before rollout. It fails closed on migration error or remaining
-legacy units/cards. Local mock-API tests cover failure and retry; a synthetic
-database test covers restricted-login operations and credential rollback.
-Neither constitutes a Railway runner rehearsal. The trusted private-network
-runner must be provisioned and its execution, identity isolation, network path,
-failure and recovery verified before deployment. The existing protected-copy
-data rehearsal predates the latest collection UI and authorization changes and
-must be repeated with the final release candidate.
+The release workflow does not perform database migrations. After approval, an
+operator runs the reviewed migrations once using an authenticated Railway
+console and a temporary owner credential. The replacement application checks
+both schema revision and absence of legacy Units/cards before starting. The
+runtime must use its separate restricted credential; the deployed application
+currently uses a privileged role, so the switch is a required cutover step.
+The directory view's production privileges remain unverified until that switch.
 
 ## Observed on 20 November 2026
 

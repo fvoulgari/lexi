@@ -46,6 +46,37 @@ def test_collection_import_preserves_card_unit_and_is_idempotent(
     assert upload_to("confirm").status_code == 403
 
 
+def test_collection_csv_ignores_other_language_pairs(client, account_client):
+    account_client("import-language-owner")
+    h = headers(client)
+    other = client.post(
+        "/api/collections",
+        headers=h,
+        json={"name": "English", "source_language": "en", "target_language": "el"},
+    ).json()
+    foreign = client.post(
+        f"/api/collections/{other['id']}/cards",
+        headers=h,
+        json={"source_text": "ciao", "target_text": "γεια"},
+    ).json()
+    destination = client.post(
+        "/api/collections", headers=h, json={"name": "Italian"}
+    ).json()
+    response = client.post(
+        f"/api/imports/confirm?collection_id={destination['id']}",
+        headers={**h, "Content-Type": "text/csv"},
+        content="italian,greek,word_type\nciao,γεια,expression\n".encode(),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["counts"]["imported"] == 1
+    imported = client.get(f"/api/collections/{destination['id']}/entries").json()
+    assert len(imported) == 1 and imported[0]["id"] != foreign["id"]
+    assert (
+        client.get(f"/api/collections/{other['id']}/entries").json()[0]["id"]
+        == foreign["id"]
+    )
+
+
 def upload(client, csv, action="preview"):
     csv = with_genders(csv)
     from uuid import uuid4

@@ -115,6 +115,8 @@ def evaluate(db, rows, confirm, destination, collection=None):
         .where(
             VocabularyEntry.owner_account_id == destination.owner_account_id,
             VocabularyEntry.visibility == destination.visibility,
+            VocabularyEntry.source_language == "it",
+            VocabularyEntry.target_language == "el",
         )
         .order_by(VocabularyEntry.id)
     ):

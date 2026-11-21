@@ -138,7 +138,7 @@ The following operator procedure is for initial provisioning or explicitly
 requested manual recovery; ordinary releases use the automated path above.
 
 1. Build and verify the root image with `docker build -t italian-notebook .`. Select the repository root, root `Dockerfile` for the application service. Do not select the development Dockerfiles. The final image runs as `notebook`, contains no Node runtime, and serves the compiled frontend directly.
-2. Add PostgreSQL in the same Railway project **and environment**, with its persistent volume. Retain private networking and remove any public TCP proxy. Configure `DATABASE_URL` with the restricted runtime login and private hostname. Keep the schema-owner credential exclusively on the dedicated migration runner. Verify private connectivity for both identities. Do not use `DATABASE_PUBLIC_URL`. See [Railway private networking](https://docs.railway.com/networking/private-networking).
+2. Add PostgreSQL in the same Railway project **and environment**, with its persistent volume. Retain private networking and remove any public TCP proxy. Configure `DATABASE_URL` with the restricted runtime login and private hostname. Supply the schema-owner credential only to a controlled one-off operator session. Verify private connectivity for both identities. Do not use `DATABASE_PUBLIC_URL`. See [Railway private networking](https://docs.railway.com/networking/private-networking).
 3. Generate independent `SHARED_PASSWORD` (12–256 characters) and `SESSION_SECRET` (32–256 characters). Keep both and `DATABASE_URL` in service variables, never frontend variables, build arguments, Git or logs. `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` generates a suitable secret.
 4. Generate the application HTTPS domain. Set `PUBLIC_ORIGIN` to that exact origin, without a trailing slash or path, and `COOKIE_SECURE=true`. Railway sets `PORT`; the start script binds `0.0.0.0:$PORT`. Do not override the image start command.
 5. In the application service settings, set the health-check path to `/api/health`, health-check timeout to 120 seconds, restart policy to On Failure with 10 retries, and replicas to one. The endpoint checks a real PostgreSQL connection and returns 503 on database failure. Railway health checks gate deployment readiness, not continuous production monitoring; arrange an external uptime check separately. See [Railway health checks](https://docs.railway.com/deployments/healthchecks).
@@ -155,18 +155,14 @@ Lock notebook revokes the PostgreSQL session and clears in-memory private query 
 
 ## Migrations, restarts and rollback
 
-The production release job requires a dedicated trusted Linux runner labelled
-`lexi-migration` with Docker and private database connectivity. After release
-ordering and target checks, it runs the pinned release image's Alembic upgrade
-with the separate `MIGRATION_DATABASE_URL` secret and rejects the rollout if
-any legacy units or cards remain. Set the protected environment variable
-`MIGRATION_AUTHORIZED_SHA` to the reviewed source SHA only after the write freeze,
-independent backup and ownership migration have been approved and performed.
-The application service never receives the migration credential. A failed job
-does not start a rollout; inspect and repair the cause, preserve any committed
-schema changes, and rerun the same release. Startup independently checks the
-schema revision and fails closed on mismatch. The dedicated runner and its
-private network path have not yet been provisioned or tested in Railway.
+The production release job does not run schema migrations. After cutover
+approval, freeze writers, verify a fresh independent backup, and run the reviewed
+Alembic and ownership migrations from a controlled authenticated operator
+session with a temporary privileged credential. Start the application using a
+separate restricted runtime credential. Startup checks the schema revision and
+rejects remaining legacy Units/cards, failing closed when either is not ready.
+If a migration fails, keep writes frozen, inspect the cause and preserve any
+committed schema changes before retrying or restoring to a separate target.
 
 Application replacement/restart retains the separate PostgreSQL volume and all saved records. No durable data belongs on the application filesystem. Unsubmitted cards and a revealed answer are intentionally not recovered after reload. Device storage contains only interface language, motion and selected learner ID.
 

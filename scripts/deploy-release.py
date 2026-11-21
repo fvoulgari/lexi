@@ -4,10 +4,8 @@
 import json
 import os
 import re
-import subprocess
 import sys
 import time
-from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
@@ -352,14 +350,6 @@ def main():
         raise ReleaseError(
             "Production source changed outside recorded releases; reconcile it manually."
         )
-    # Only after release ordering and target checks; a failed migration must
-    # prevent both the configuration mutation and the rollout.
-    migration = subprocess.run(
-        [sys.executable, str(Path(__file__).with_name("run-release-migrations.py"))],
-        check=False,
-    )
-    if migration.returncode:
-        raise ReleaseError("Schema migration gate failed; no rollout was requested.")
     record = github(
         DEPLOYMENTS,
         {
