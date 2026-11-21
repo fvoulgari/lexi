@@ -242,7 +242,8 @@ try {
       .getByRole("button", { name: "Εισαγωγή CSV", exact: true })
       .click();
     await page
-      .getByLabel("Συλλογή εισαγωγής", { exact: true })
+      .locator(".csv-import")
+      .getByRole("combobox")
       .selectOption(collection.id);
     await page.getByLabel("Αρχείο CSV").setInputFiles({
       name: "245.csv",
