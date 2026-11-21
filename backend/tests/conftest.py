@@ -92,7 +92,7 @@ def client(test_database, monkeypatch):
         async def revoke_session(self):
             TEST_SESSIONS.pop(self.token, None)
 
-    async def verified_session(self, request, required=True):
+    async def verified_session(self, request, required=True, enforce_claims=None):
         token = request.cookies.get("test_verified_session")
         subject = TEST_SESSIONS.get(token)
         if subject:
