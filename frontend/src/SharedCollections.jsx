@@ -522,20 +522,25 @@ export default function SharedCollections({ language = "en", csrf }) {
                     {preview.unpublishing
                       ? t.unpublishExposure
                       : preview.private_cards.length
-                        ? t.exposure
+                        ? current.visibility === "published"
+                          ? t.exposure
+                          : t.publishExposure
                         : t.none}
                   </p>
                   {preview.unpublishing &&
                     preview.private_cards.length === 0 && (
                       <p>{t.unpublishNone}</p>
                     )}
-                  <ul>
-                    {preview.private_cards.map((c) => (
-                      <li key={c.id}>
-                        {c.source_text} — {c.target_text}
-                      </li>
-                    ))}
-                  </ul>
+                  {(preview.unpublishing || current.visibility === "published") &&
+                    preview.private_cards.length > 0 && (
+                      <ul>
+                        {preview.private_cards.map((c) => (
+                          <li key={c.id}>
+                            {c.source_text} — {c.target_text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   {preview.unpublishing &&
                     preview.still_shared_cards?.length > 0 && (
                       <>
