@@ -1,8 +1,6 @@
 import asyncio
-import logging
 import os
 from contextlib import asynccontextmanager
-from time import perf_counter
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -56,7 +54,7 @@ from app.schemas import (
     VocabularyUpdate,
     WordType,
 )
-from app.timing import timings
+from app.timing import RequestTimingMiddleware
 from app.vocabulary_bulk import vocabulary_bulk_router
 from app.vocabulary_deletion import delete_entries
 
@@ -95,39 +93,7 @@ def create_app():
 
     @app.middleware("http")
     async def response_security(request, call_next):
-        values = {}
-        token = timings.set(values)
-        started = perf_counter()
-        try:
-            response = await call_next(request)
-        finally:
-            elapsed = (perf_counter() - started) * 1000
-            path = request.url.path
-            operation = (
-                "profiles"
-                if path == "/api/profiles"
-                else "auth_session"
-                if path == "/api/auth/session"
-                else "practice_start"
-                if path == "/api/sessions"
-                else "practice_reveal"
-                if path.startswith("/api/sessions/") and path.endswith("/reveal")
-                else "practice_review"
-                if path.startswith("/api/sessions/") and path.endswith("/reviews")
-                else "practice_summary"
-                if path.startswith("/api/sessions/") and path.endswith("/summary")
-                else None
-            )
-            if operation:
-                logging.getLogger("uvicorn.error").info(
-                    "request_timing operation=%s total_ms=%.1f "
-                    "provider_ms=%.1f db_query_ms=%.1f",
-                    operation,
-                    elapsed,
-                    values.get("provider_ms", 0),
-                    values.get("db_query_ms", 0),
-                )
-            timings.reset(token)
+        response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "no-referrer"
@@ -702,4 +668,5 @@ def create_app():
             )
         return FileResponse(index)
 
+    app.add_middleware(RequestTimingMiddleware)
     return app
