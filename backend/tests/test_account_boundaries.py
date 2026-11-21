@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.orm import Session
 
 from app.access import account_context, require_write
@@ -76,7 +76,9 @@ def test_private_and_legacy_content_do_not_leak_in_count_or_projection(scoped_db
     assert (
         db.scalar(select(func.count()).select_from(Unit).where(Unit.id.in_(ids))) == 2
     )
-    a.legacy_access = True
+    scoped_db.execute(
+        text("UPDATE accounts SET legacy_access = true WHERE id = :id"), {"id": a.id}
+    )
     assert set(db.scalars(select(Unit.id).where(Unit.id.in_(ids)))) == {
         ids[0],
         ids[3],

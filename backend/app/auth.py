@@ -80,7 +80,6 @@ class AuthGate:
                             provider_subject=subject,
                             profile_id=profile.id,
                             role="learner",
-                            legacy_access=False,
                         )
                         db.add(account)
                         db.flush()

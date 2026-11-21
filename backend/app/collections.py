@@ -14,7 +14,6 @@ from app.models import (
     Collection,
     CollectionEntry,
     LearningProgress,
-    Unit,
     VocabularyEntry,
 )
 from app.schemas import Direction, EntryText
@@ -469,22 +468,6 @@ def collection_router(sessions, gate):
                     409,
                     "Confirm exposure of this new card in the published collection.",
                 )
-            unit = db.scalar(
-                select(Unit)
-                .where(Unit.owner_account_id == current_account().id)
-                .order_by(Unit.id)
-                .limit(1)
-            )
-            if unit is None:
-                unit = Unit(
-                    code="CARDS",
-                    title="Cards",
-                    sort_order=0,
-                    owner_account_id=current_account().id,
-                    visibility="private",
-                )
-                db.add(unit)
-                db.flush()
             source, target = (
                 body.source_language or c.source_language,
                 body.target_language or c.target_language,
@@ -505,7 +488,6 @@ def collection_router(sessions, gate):
                 source_text=source_text,
                 target_text=target_text,
                 word_type="expression",
-                unit_id=unit.id,
                 owner_account_id=current_account().id,
                 visibility="private",
             )

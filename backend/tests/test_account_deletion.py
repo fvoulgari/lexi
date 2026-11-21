@@ -81,3 +81,58 @@ def test_last_admin_cannot_delete(logged_in, monkeypatch):
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "last_admin"
     assert logged_in.get("/api/auth/session").json()["authenticated"]
+
+
+def test_deletion_anonymizes_recovery_records_and_preserves_completed_claim(client, account_client):
+    from datetime import datetime, timedelta, timezone
+    from app.legacy_models import ClaimLink, LegacyRequest
+
+    account = account_client("delete-with-claim")
+    now = datetime.now(timezone.utc)
+    sessions = client.app.state.sessions
+    with sessions.begin() as db:
+        request = LegacyRequest(account_id=UUID(account["id"]), profile_name="Personal name", note="Personal note", status="resolved")
+        db.add(request)
+        db.add(ClaimLink(token_hash="a" * 64, profile_id=UUID(account["profile_id"]), issued_by=UUID(account["id"]), expires_at=now + timedelta(days=1), consumed_at=now))
+        db.flush()
+        request_id = request.id
+    response = client.delete("/api/account", headers=headers(client))
+    assert response.status_code == 200, response.text
+    with sessions() as db:
+        request = db.get(LegacyRequest, request_id)
+        claim = db.get(ClaimLink, "a" * 64)
+        assert (request.account_id, request.profile_name, request.note) == (None, "[deleted]", None)
+        assert (claim.profile_id, claim.issued_by) == (None, None)
+        assert claim.consumed_at is not None
+
+
+def test_deletion_blocks_other_accounts_recovery_conflict(client, account_client):
+    from uuid import uuid4
+    from app.models import RecoveryCaseGuard
+
+    other = account_client("case-other")
+    target = account_client("case-target")
+    with client.app.state.sessions.begin() as db:
+        db.add(RecoveryCaseGuard(case_id=uuid4(), account_id=UUID(other["id"]), legacy_profile_id=UUID(target["profile_id"]), current_profile_id=UUID(other["profile_id"])))
+    response = client.delete("/api/account", headers=headers(client))
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "account_deletion_conflict"
+    assert client.get("/api/auth/session").json()["account"]["id"] == target["id"]
+
+
+def test_deletion_blocks_when_another_learner_has_progress(client, account_client):
+    from datetime import datetime, timezone
+    from app.models import LearningProgress
+
+    other = account_client("progress-other")
+    owner = account_client("progress-owner")
+    unit = create_unit(client, "SHARED")
+    card = create_card(client, unit)["entry"]
+    with client.app.state.sessions.begin() as db:
+        db.add(LearningProgress(profile_id=UUID(other["profile_id"]), entry_id=UUID(card["id"]), direction="greek_to_italian", last_reviewed_at=datetime.now(timezone.utc)))
+    response = client.delete("/api/account", headers=headers(client))
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "account_deletion_shared_content"
+    with client.app.state.sessions() as db:
+        assert db.get(Account, UUID(owner["id"])) is not None
+        assert db.get(LearningProgress, (UUID(other["profile_id"]), UUID(card["id"]), "greek_to_italian")) is not None

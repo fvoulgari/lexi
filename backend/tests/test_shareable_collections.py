@@ -81,7 +81,7 @@ def test_full_card_creation_uses_collection_and_preserves_internal_unit_on_edit(
     )
     assert response.status_code == 201, response.text
     entry = response.json()["entry"]
-    original_unit = entry["unit"]["id"]
+    assert entry["unit"] is None
     assert (
         client.get(f"/api/collections/{destination['id']}/entries").json()[0]["id"]
         == entry["id"]
@@ -90,7 +90,7 @@ def test_full_card_creation_uses_collection_and_preserves_internal_unit_on_edit(
         f"/api/vocabulary/{entry['id']}", headers=H, json={"italian": "salve"}
     )
     assert response.status_code == 200, response.text
-    assert response.json()["entry"]["unit"]["id"] == original_unit
+    assert response.json()["entry"]["unit"] is None
     account_client("other-collection-card-owner")
     response = client.post(
         "/api/vocabulary",
@@ -111,7 +111,7 @@ def test_bulk_collection_membership_is_atomic_and_preserves_existing_unit(
     account_client("bulk-collection-owner")
     first, second = collection(client, "First"), collection(client, "Second")
     one, two = card(client, first, "ένα", "uno"), card(client, first, "δύο", "due")
-    original = client.get(f"/api/vocabulary/{one['id']}").json()["unit"]["id"]
+    assert client.get(f"/api/vocabulary/{one['id']}").json()["unit"] is None
     body = {
         "action": "add_to_collection",
         "collection_id": second["id"],
@@ -122,7 +122,7 @@ def test_bulk_collection_membership_is_atomic_and_preserves_existing_unit(
     assert {
         e["id"] for e in client.get(f"/api/collections/{second['id']}/entries").json()
     } == {one["id"], two["id"]}
-    assert client.get(f"/api/vocabulary/{one['id']}").json()["unit"]["id"] == original
+    assert client.get(f"/api/vocabulary/{one['id']}").json()["unit"] is None
     assert publish(client, second).status_code == 200
     assert client.post("/api/vocabulary/bulk", json=body, headers=H).status_code == 409
 

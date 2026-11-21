@@ -60,9 +60,6 @@ class Account(Base):
     role: Mapped[str] = mapped_column(
         String(16), default="learner", server_default="learner"
     )
-    legacy_access: Mapped[bool] = mapped_column(
-        Boolean, default=False, server_default="false"
-    )
     interface_language: Mapped[str | None] = mapped_column(String(16))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -137,10 +134,10 @@ class VocabularyEntry(ContentScope, Base):
     source_text = synonym("italian")
     target_text = synonym("greek")
     word_type: Mapped[str] = mapped_column(String(20), index=True)
-    unit_id: Mapped[uuid.UUID] = mapped_column(
+    unit_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("units.id", ondelete="RESTRICT"), index=True
     )
-    unit: Mapped[Unit] = relationship(lazy="joined")
+    unit: Mapped[Unit | None] = relationship(lazy="joined")
     tags: Mapped[list[Tag]] = relationship(
         secondary=entry_tags, lazy="selectin", order_by=Tag.name
     )
@@ -293,6 +290,14 @@ class CollectionEntry(Base):
     entry_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("vocabulary_entries.id"), primary_key=True
     )
+
+
+class RecoveryCaseGuard(Base):
+    __tablename__ = "recovery_case_guards"
+    case_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"))
+    legacy_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="RESTRICT"))
+    current_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="RESTRICT"))
 
 
 class AccountDeletion(Base):

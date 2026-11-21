@@ -41,7 +41,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   public.legacy_claim_continuations, public.legacy_progress_requests,
   public.legacy_resolution_cases, public.gate_sessions
 TO lexi_app;
-GRANT SELECT ON public.alembic_version TO lexi_app;
+GRANT SELECT ON public.alembic_version, public.recovery_case_guards TO lexi_app;
 CREATE OR REPLACE VIEW public.account_directory AS
 SELECT a.id AS account_id, p.display_name, p.id AS profile_id, a.role
 FROM public.accounts AS a JOIN public.profiles AS p ON p.id = a.profile_id;

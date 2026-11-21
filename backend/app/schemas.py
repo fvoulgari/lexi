@@ -225,7 +225,7 @@ class VocabularyFields(BaseModel):
 
 class VocabularyCreate(VocabularyFields):
     visibility: Literal["private", "legacy", "published"] = "private"
-    unit_id: UUID
+    unit_id: UUID | None = None
     italian: EntryText
     greek: EntryText
     word_type: WordType

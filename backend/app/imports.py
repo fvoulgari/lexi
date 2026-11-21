@@ -4,7 +4,7 @@ import csv
 import io
 import json
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
@@ -209,11 +209,12 @@ def evaluate(db, rows, confirm, destination, collection=None):
                 or (title and title != destination.title)
                 or (order and int(order) != destination.sort_order)
             )
-            unit_spec = UnitCreate(
-                code=destination.code,
-                title=destination.title,
-                sort_order=destination.sort_order,
-            )
+            if collection is None:
+                unit_spec = UnitCreate(
+                    code=destination.code,
+                    title=destination.title,
+                    sort_order=destination.sort_order,
+                )
             matches = pairs.get(
                 normalized_pair(row.get("italian", ""), row.get("greek", "")), []
             )
@@ -221,7 +222,7 @@ def evaluate(db, rows, confirm, destination, collection=None):
             # Missing legacy genders must be corrected explicitly in this row.
             previous = matches[0]["values"] if len(matches) == 1 else {}
             entry = VocabularyCreate(
-                unit_id=destination.id,
+                unit_id=destination.id if collection is None else None,
                 **{**previous, **{k: v or None for k, v in row.items()}},
             )
         except ValidationError as exc:
@@ -284,7 +285,7 @@ def evaluate(db, rows, confirm, destination, collection=None):
                         current = {
                             "entry": None,
                             "values": values,
-                            "unit_id": destination.id,
+                            "unit_id": destination.id if collection is None else None,
                             "tags": set(names),
                         }
                         pairs[pair] = [current]
@@ -299,7 +300,7 @@ def evaluate(db, rows, confirm, destination, collection=None):
                         if stored is None:
                             stored = VocabularyEntry(
                                 **current["values"],
-                                unit=destination,
+                                unit=destination if collection is None else None,
                                 owner_account_id=destination.owner_account_id,
                                 visibility=destination.visibility,
                             )
@@ -401,28 +402,7 @@ def import_router(sessions, gate):
             )
         if {collection.source_language, collection.target_language} != {"it", "el"}:
             raise HTTPException(422, "CSV import requires an Italian–Greek collection.")
-        unit = db.scalar(
-            select(Unit)
-            .where(
-                Unit.owner_account_id == current_account().id,
-                Unit.visibility == "private",
-            )
-            .order_by(Unit.id)
-            .limit(1)
-        )
-        if unit is None:
-            unit = Unit(
-                id=uuid4(),
-                code="CARDS",
-                title="Cards",
-                sort_order=0,
-                owner_account_id=current_account().id,
-                visibility="private",
-            )
-            if confirm:
-                db.add(unit)
-                db.flush()
-        return collection, unit
+        return collection, collection
 
     @router.get("/example")
     def example():

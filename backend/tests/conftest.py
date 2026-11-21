@@ -7,7 +7,7 @@ import pytest
 from alembic.config import Config
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, select, update
+from sqlalchemy import create_engine, delete, select, text, update
 from sqlalchemy.orm import Session
 
 from alembic import command
@@ -58,9 +58,13 @@ def client(test_database, monkeypatch):
             provider_subject="test-admin",
             profile_id=profiles[0].id,
             role="admin",
-            legacy_access=True,
         )
         db.add(admin)
+        db.flush()
+        db.execute(
+            text("UPDATE accounts SET legacy_access = true WHERE id = :id"),
+            {"id": admin.id},
+        )
         db.commit()
         # Seeded records model the post-migration private library in request tests.
         for model in (Unit, VocabularyEntry):
@@ -138,7 +142,10 @@ def account_client(client):
             with Session(engine) as db:
                 row = db.get(Account, __import__("uuid").UUID(account["id"]))
                 row.role = role or row.role
-                row.legacy_access = legacy_access
+                db.execute(
+                    text("UPDATE accounts SET legacy_access = :flag WHERE id = :id"),
+                    {"flag": legacy_access, "id": row.id},
+                )
                 db.commit()
             engine.dispose()
             account = client.get("/api/auth/session").json()["account"]
