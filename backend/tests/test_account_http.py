@@ -235,25 +235,24 @@ def test_editor_permissions_never_grant_private_access_or_admin_roles(
         ).status_code
         == 403
     )
-    for visibility in ("legacy", "published"):
-        assert client.post(
-            "/api/units",
-            json={
-                "code": "forbidden",
-                "title": "forbidden",
-                "sort_order": 0,
-                "visibility": visibility,
-            },
-            headers=headers(client),
-        ).status_code == (422 if visibility == "legacy" else 403)
+    assert client.get(f"/api/collections/{unit['id']}/entries").status_code == 404
+    assert (
+        client.post(
+            f"/api/collections/{unit['id']}/publish", json={}, headers=headers(client)
+        ).status_code
+        == 404
+    )
 
 
-def test_editor_import_cannot_publish_new_cards_or_tags(client, account_client):
+def test_editor_cannot_import_into_someone_elses_public_collection(
+    client, account_client
+):
+    from test_shareable_collections import card, collection, publish
+
     signin(client)
-    unit = create_unit(client, "PUBLISHED", "published")
-    existing = create_card(client, unit, "already public", "δημόσιο", "published")[
-        "entry"
-    ]
+    unit = collection(client, "Published")
+    existing = card(client, unit, "δημόσιο", "already public")
+    assert publish(client, unit).status_code == 200
     account_client("published-editor", role="editor")
     csv_rows = [
         ("already public", "δημόσιο", "expression", "edited by editor", ""),
@@ -261,19 +260,17 @@ def test_editor_import_cannot_publish_new_cards_or_tags(client, account_client):
         ("already public", "δημόσιο", "expression", "new tag attempt", "brand-new-tag"),
     ]
     for action in ("preview", "confirm"):
-        response = upload(client, unit, csv_rows, action)
-        assert response.status_code == 200, response.text
-        result = response.json()
-        assert result["counts"]["error"] == 2
-        assert [row["error_code"] for row in result["rows"][1:]] == [
-            "forbidden_new_publication",
-            "forbidden_new_publication",
-        ]
-        assert result["counts"]["imported"] == 0
-    assert (
-        client.get(f"/api/vocabulary/{existing['id']}").json()["notes"]
-        == "edited by editor"
-    )
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["italian", "greek", "word_type", "notes", "tags"])
+        writer.writerows(csv_rows)
+        response = client.post(
+            f"/api/imports/{action}?collection_id={unit['id']}",
+            content=output.getvalue().encode(),
+            headers=headers(client),
+        )
+        assert response.status_code == 403
+    assert client.get(f"/api/vocabulary/{existing['id']}").json()["notes"] is None
     assert client.get("/api/vocabulary").json()["total"] == 1
     assert client.get("/api/tags").json() == []
     assert (
@@ -284,26 +281,19 @@ def test_editor_import_cannot_publish_new_cards_or_tags(client, account_client):
         ).status_code
         == 403
     )
-    assert (
-        client.post(
-            "/api/vocabulary",
-            json={
-                "unit_id": unit["id"],
-                "italian": "direct publication",
-                "greek": "δημοσίευση",
-                "word_type": "expression",
-                "visibility": "published",
-            },
-            headers=headers(client),
-        ).status_code
-        == 403
-    )
+    assert client.post(
+        "/api/vocabulary",
+        json={
+            "collection_id": unit["id"],
+            "italian": "direct publication",
+            "greek": "δημοσίευση",
+            "word_type": "expression",
+            "visibility": "published",
+        },
+        headers=headers(client),
+    ).status_code in (403, 422)
     signin(client)
-    result = upload(
-        client,
-        unit,
-        [("admin publication", "δημοσίευση διαχειριστή", "expression", "", "")],
-        "confirm",
+    assert (
+        client.get(f"/api/collections/{unit['id']}/entries").json()[0]["id"]
+        == existing["id"]
     )
-    assert result.status_code == 200
-    assert result.json()["counts"]["imported"] == 1

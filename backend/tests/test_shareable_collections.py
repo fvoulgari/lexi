@@ -68,11 +68,13 @@ def test_export_does_not_expose_private_source_collection_metadata(
         db.get(VocabularyEntry, UUID(entry["id"])).source_collection_id = source.id
     assert add(client, public, entry).status_code == 204
     assert publish(client, public).status_code == 200
-    account_client("source-metadata-reader")
+    reader = account_client("source-metadata-reader")
     response = client.get("/api/vocabulary/export.csv")
     assert response.status_code == 200
     assert "PRIVATE-CODE" not in response.text
     assert "PRIVATE-TITLE" not in response.text
+    queue = session(client, reader, [public]).json()
+    assert queue["cards"][0]["snapshot"]["unit"] is None
 
 
 def session(client, account, collections, direction="italian_to_greek", mode="random"):

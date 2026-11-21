@@ -97,7 +97,7 @@ async def read_csv(request):
         invalid("Upload a valid UTF-8 CSV file.")
 
 
-def evaluate(db, rows, confirm, destination, collection=None):
+def evaluate(db, rows, confirm, destination, collection):
     require_write(destination)
     tags = {
         t.name: t
@@ -169,7 +169,7 @@ def evaluate(db, rows, confirm, destination, collection=None):
             for key, value in original.items()
         }
         errors = []
-        entry = unit_spec = None
+        entry = None
         conflict = False
         names = []
         changed_fields = []
@@ -382,21 +382,13 @@ def evaluate(db, rows, confirm, destination, collection=None):
                 "entry": entry.model_dump(exclude={"unit_id", "tag_ids", "visibility"})
                 if entry
                 else None,
-                "unit": unit_spec.model_dump() if unit_spec else None,
+                "unit": None,
                 "tags": names,
             }
         )
     return {
-        "destination_collection": {"id": str(collection.id), "name": collection.title}
-        if collection is not None
-        else None,
-        "destination_unit": None
-        if collection is not None
-        else {
-            "id": str(destination.id),
-            "code": destination.code,
-            "title": destination.title,
-        },
+        "destination_collection": {"id": str(collection.id), "name": collection.title},
+        "destination_unit": None,
         "unit_conflicts": sum(row["unit_conflict"] for row in results),
         "counts": counts,
         "rows": results,
