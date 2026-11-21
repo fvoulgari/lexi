@@ -27,11 +27,15 @@ export default function Progress({ text, onLocked, detailed = false }) {
     data?.directions?.find((row) => row.difficult_entries > 0)?.key ||
     profile?.preferred_direction;
 
-  const difficultPracticeUrl = difficultDirection
-    ? `/practice?mode=difficult&direction=${encodeURIComponent(
-        difficultDirection,
-      )}`
-    : "/practice?mode=difficult";
+  const difficultPracticeUrl =
+    difficultDirection &&
+    !["greek_to_italian", "italian_to_greek"].includes(difficultDirection)
+      ? `/collections?mode=difficult&direction=${encodeURIComponent(difficultDirection)}`
+      : difficultDirection
+        ? `/practice?mode=difficult&direction=${encodeURIComponent(
+            difficultDirection,
+          )}`
+        : "/practice?mode=difficult";
 
   useEffect(() => {
     if (
@@ -352,15 +356,6 @@ function DetailedProgress({ text, profile, profiles, history, onLocked }) {
               label={(key) => directionLabel(text, key)}
             />
             <Breakdown
-              title={text.detailUnitBreakdown}
-              columnLabel={text.unit}
-              rows={data.units}
-              text={text}
-              label={(key, row) =>
-                key ? `${key} · ${row.title}` : text.noUnit
-              }
-            />
-            <Breakdown
               title={text.detailTypeBreakdown}
               columnLabel={text.setupWordTypes}
               rows={data.word_types}
@@ -511,9 +506,7 @@ function DifficultEntries({ text, profileId, direction, count, onLocked }) {
         </h3>
 
         <Link
-          to={`/practice?mode=difficult&direction=${encodeURIComponent(
-            direction,
-          )}`}
+          to={`${["greek_to_italian", "italian_to_greek"].includes(direction) ? "/practice" : "/collections"}?mode=difficult&direction=${encodeURIComponent(direction)}`}
         >
           {text.practiseDifficult}
           <ArrowRight size={16} aria-hidden="true" />
@@ -538,8 +531,12 @@ function DifficultEntries({ text, profileId, direction, count, onLocked }) {
         <ul>
           {entries.data.map((item) => (
             <li key={item.entry.id}>
-              <span lang="it">{item.entry.italian}</span>
-              <span lang="el">{item.entry.greek}</span>
+              <span lang={item.entry.source_language || "it"}>
+                {item.entry.italian}
+              </span>
+              <span lang={item.entry.target_language || "el"}>
+                {item.entry.greek}
+              </span>
             </li>
           ))}
         </ul>
@@ -549,6 +546,8 @@ function DifficultEntries({ text, profileId, direction, count, onLocked }) {
 }
 
 function directionLabel(text, direction) {
+  if (!direction.includes("italian") && !direction.includes("greek"))
+    return direction.replace("_to_", " → ").toUpperCase();
   return direction === "greek_to_italian"
     ? `${text.greek} → ${text.italian}`
     : `${text.italian} → ${text.greek}`;

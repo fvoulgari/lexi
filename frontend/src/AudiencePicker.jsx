@@ -15,10 +15,6 @@ export default function AudiencePicker({
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="private">{text.private}</option>
-        {["admin", "editor"].includes(account?.role) &&
-          account.legacy_access && (
-            <option value="legacy">{text.legacy}</option>
-          )}
         {account?.role === "admin" && (
           <option value="published">{text.published}</option>
         )}

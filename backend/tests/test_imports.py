@@ -2,6 +2,81 @@ from csv_fixtures import with_genders
 from test_vocabulary_editing import headers
 
 
+def test_collection_import_preserves_card_unit_and_is_idempotent(
+    client, account_client
+):
+    account_client("import-collection-owner")
+    h = headers(client)
+    a = client.post("/api/collections", headers=h, json={"name": "First"}).json()
+    b = client.post("/api/collections", headers=h, json={"name": "Second"}).json()
+    created = client.post(
+        "/api/vocabulary",
+        headers=h,
+        json={
+            "collection_id": a["id"],
+            "italian": "ciao",
+            "greek": "γεια",
+            "word_type": "expression",
+            "notes": "keep this",
+        },
+    ).json()["entry"]
+    csv = (
+        "italian,greek,word_type,unit_code,unit_title\n"
+        "ciao,γεια,expression,OLD,Old group\n"
+    ).encode()
+
+    def upload_to(action):
+        return client.post(
+            f"/api/imports/{action}?collection_id={b['id']}",
+            content=csv,
+            headers={**h, "Content-Type": "text/csv"},
+        )
+
+    before = client.get(f"/api/collections/{b['id']}/entries").json()
+    assert upload_to("preview").json()["counts"]["updated"] == 1
+    assert client.get(f"/api/collections/{b['id']}/entries").json() == before
+    assert upload_to("confirm").json()["counts"]["updated"] == 1
+    assert upload_to("confirm").json()["counts"]["duplicate"] == 1
+    cards = client.get(f"/api/collections/{b['id']}/entries").json()
+    assert [card["id"] for card in cards] == [created["id"]]
+    after = client.get(f"/api/vocabulary/{created['id']}").json()
+    assert after["unit"]["id"] == created["unit"]["id"]
+    assert after["notes"] == "keep this"
+    account_client("other-import-user")
+    assert upload_to("confirm").status_code == 403
+
+
+def test_collection_csv_ignores_other_language_pairs(client, account_client):
+    account_client("import-language-owner")
+    h = headers(client)
+    other = client.post(
+        "/api/collections",
+        headers=h,
+        json={"name": "English", "source_language": "en", "target_language": "el"},
+    ).json()
+    foreign = client.post(
+        f"/api/collections/{other['id']}/cards",
+        headers=h,
+        json={"source_text": "ciao", "target_text": "γεια"},
+    ).json()
+    destination = client.post(
+        "/api/collections", headers=h, json={"name": "Italian"}
+    ).json()
+    response = client.post(
+        f"/api/imports/confirm?collection_id={destination['id']}",
+        headers={**h, "Content-Type": "text/csv"},
+        content="italian,greek,word_type\nciao,γεια,expression\n".encode(),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["counts"]["imported"] == 1
+    imported = client.get(f"/api/collections/{destination['id']}/entries").json()
+    assert len(imported) == 1 and imported[0]["id"] != foreign["id"]
+    assert (
+        client.get(f"/api/collections/{other['id']}/entries").json()[0]["id"]
+        == foreign["id"]
+    )
+
+
 def upload(client, csv, action="preview"):
     csv = with_genders(csv)
     from uuid import uuid4
@@ -54,7 +129,7 @@ def test_stale_preview_and_repeat_confirmation_skip_normalized_duplicates(logged
     logged_in.post(
         "/api/vocabulary",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
@@ -340,7 +415,7 @@ def test_ambiguous_existing_pairs_are_reported_without_updating_either_card(logg
         client.post(
             "/api/vocabulary",
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
                 "italian": "nuovo",

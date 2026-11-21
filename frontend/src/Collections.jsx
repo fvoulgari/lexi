@@ -35,7 +35,6 @@ export default function Collections({
   return (
     <details className="collection-panel">
       <summary>{text.collections}</summary>
-      <p className="settings-helper">{text.collectionPrivate}</p>
       {collections.isError ? (
         <>
           <p role="alert">{text.actionFailed}</p>
@@ -52,11 +51,18 @@ export default function Collections({
             }}
           >
             <option value="">{text.allCollections}</option>
-            {collections.data?.map((collection) => (
-              <option value={collection.id} key={collection.id}>
-                {collection.name}
-              </option>
-            ))}
+            {collections.data
+              ?.filter(
+                (c) =>
+                  !c.source_language ||
+                  [c.source_language, c.target_language].sort().join() ===
+                    "el,it",
+              )
+              .map((collection) => (
+                <option value={collection.id} key={collection.id}>
+                  {collection.name}
+                </option>
+              ))}
           </select>
         </label>
       )}
@@ -84,7 +90,7 @@ export default function Collections({
           {renaming ? text.settingsSave : text.createCollection}
         </button>
       </form>
-      {current && (
+      {current && current.can_edit !== false && (
         <div className="form-actions">
           <button
             className="secondary"
@@ -136,7 +142,17 @@ export function CollectionMembership({
       ]),
   });
   const available = collections.filter(
-    (collection) => !collection.entry_ids?.includes(entry.id),
+    (collection) =>
+      collection.can_edit !== false &&
+      collection.visibility !== "published" &&
+      (!collection.source_language ||
+        [collection.source_language, collection.target_language]
+          .sort()
+          .join() ===
+          [entry.source_language || "it", entry.target_language || "el"]
+            .sort()
+            .join()) &&
+      !collection.entry_ids?.includes(entry.id),
   );
   return (
     <div className="collection-membership">

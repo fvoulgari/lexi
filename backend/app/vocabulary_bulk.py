@@ -3,11 +3,11 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
-from app.access import require_same_scope, require_write
+from app.access import current_account, require_same_scope, require_write
 from app.filters import vocabulary_conditions
-from app.models import Unit, VocabularyEntry
+from app.models import Collection, CollectionEntry, Unit, VocabularyEntry
 from app.schemas import VocabularyBulk, WordType
 from app.vocabulary_deletion import delete_entries
 
@@ -56,7 +56,7 @@ def vocabulary_bulk_router(sessions, gate):
                 .with_for_update(of=VocabularyEntry)
             ).all()
             missing = ids - set(found)
-            if missing and body.action == "move":
+            if missing and body.action in {"move", "add_to_collection"}:
                 raise HTTPException(
                     409,
                     {
@@ -65,7 +65,55 @@ def vocabulary_bulk_router(sessions, gate):
                         "Select them again.",
                     },
                 )
-            if body.action == "move":
+            if body.action == "add_to_collection":
+                collection = db.scalar(
+                    select(Collection)
+                    .where(Collection.id == body.collection_id)
+                    .with_for_update()
+                )
+                if (
+                    collection is None
+                    or collection.owner_account_id != current_account().id
+                ):
+                    raise HTTPException(403, "Choose a collection you own.")
+                if collection.visibility != "private":
+                    raise HTTPException(
+                        409, "Add cards to a private collection before publishing it."
+                    )
+                if any(
+                    {entry.source_language, entry.target_language}
+                    != {collection.source_language, collection.target_language}
+                    for entry in selected
+                ):
+                    raise HTTPException(
+                        422, "Card language pair differs from collection."
+                    )
+                existing = set(
+                    db.scalars(
+                        select(CollectionEntry.entry_id).where(
+                            CollectionEntry.collection_id == collection.id
+                        )
+                    )
+                )
+                position = (
+                    db.scalar(
+                        select(
+                            func.coalesce(func.max(CollectionEntry.position), -1)
+                        ).where(CollectionEntry.collection_id == collection.id)
+                    )
+                    + 1
+                )
+                for entry in selected:
+                    if entry.id not in existing:
+                        db.add(
+                            CollectionEntry(
+                                collection_id=collection.id,
+                                entry_id=entry.id,
+                                position=position,
+                            )
+                        )
+                        position += 1
+            elif body.action == "move":
                 if db.get(Unit, body.unit_id) is None:
                     raise HTTPException(
                         422,

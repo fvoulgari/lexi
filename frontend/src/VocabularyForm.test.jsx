@@ -20,6 +20,17 @@ const card = {
 };
 const server = setupServer(
   http.get("*/api/units", () => HttpResponse.json([unit])),
+  http.get("*/api/collections", () =>
+    HttpResponse.json([
+      {
+        id: "c",
+        name: "Cards",
+        can_edit: true,
+        source_language: "it",
+        target_language: "el",
+      },
+    ]),
+  ),
 );
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterAll(() => server.close());
@@ -61,8 +72,8 @@ for (const language of ["el", "en", "it"]) {
     expect(
       [...form.querySelectorAll("[required]")].map((field) => field.id),
     ).toEqual([
+      "entry-collection_id",
       "entry-word_type",
-      "entry-unit_id",
       "entry-italian",
       "entry-greek",
     ]);
@@ -122,7 +133,6 @@ test("editing opens existing details and collapsing preserves every value and hi
     word_type: "noun",
     italian_gender: "masculine",
     greek_gender: "neuter",
-    unit_id: "u",
     tag_ids: ["t"],
     ...optional,
     ...Object.fromEntries(adjectiveFields.map((field) => [field, null])),
@@ -555,7 +565,10 @@ for (const category of ["noun", "adjective"]) {
       category === "noun" ? "καλλιτέχνης" : "ψηλή",
     );
     await user.selectOptions(screen.getByLabelText("Word type *"), category);
-    await user.selectOptions(screen.getByLabelText("Unit *"), "u");
+    await user.selectOptions(
+      await screen.findByLabelText(copy.en.cardCollection),
+      "c",
+    );
     const italianField =
       category === "noun" ? "italian_gender" : "italian_adjective_gender";
     const greekField =
@@ -669,4 +682,108 @@ test("optional grammar precedes aligned example and single-line pronunciation ro
     examples.compareDocumentPosition(pronunciations) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
+});
+
+test("new card selects an owned collection instead of an audience", async () => {
+  const user = userEvent.setup();
+  let payload;
+  server.use(
+    http.get("*/api/collections", () =>
+      HttpResponse.json([
+        {
+          id: "mine",
+          name: "Greetings",
+          source_language: "it",
+          target_language: "el",
+          can_edit: true,
+          visibility: "private",
+          card_count: 0,
+        },
+        {
+          id: "other",
+          name: "Someone else",
+          source_language: "it",
+          target_language: "el",
+          can_edit: false,
+          visibility: "published",
+        },
+        {
+          id: "wrong",
+          name: "Wrong pair",
+          source_language: "en",
+          target_language: "da",
+          can_edit: true,
+          visibility: "private",
+        },
+      ]),
+    ),
+    http.post("*/api/vocabulary", async ({ request }) => {
+      payload = await request.json();
+      return HttpResponse.json({ entry: { id: "new" }, duplicate_ids: [] });
+    }),
+  );
+  openForm();
+  expect(screen.queryByLabelText(copy.en.visibility)).not.toBeInTheDocument();
+  await screen.findByRole("option", { name: "Greetings" });
+  expect(
+    screen.queryByRole("option", { name: "Someone else" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("option", { name: "Wrong pair" }),
+  ).not.toBeInTheDocument();
+  await user.selectOptions(
+    screen.getByLabelText(copy.en.cardCollection),
+    "mine",
+  );
+  await user.selectOptions(
+    screen.getByLabelText(`${copy.en.fields.word_type} *`),
+    "expression",
+  );
+  await user.type(screen.getByLabelText(`${copy.en.fields.italian} *`), "ciao");
+  await user.type(screen.getByLabelText(`${copy.en.fields.greek} *`), "γεια");
+  await user.click(screen.getByRole("button", { name: copy.en.saveEntry }));
+  await waitFor(() => expect(payload?.collection_id).toBe("mine"));
+  expect(payload).not.toHaveProperty("visibility");
+});
+
+test("a new card in a public collection requires explicit exposure confirmation", async () => {
+  const user = userEvent.setup();
+  server.use(
+    http.get("*/api/collections", () =>
+      HttpResponse.json([
+        {
+          id: "public",
+          name: "Public greetings",
+          source_language: "it",
+          target_language: "el",
+          can_edit: true,
+          visibility: "published",
+          card_count: 2,
+        },
+      ]),
+    ),
+  );
+  openForm();
+  await screen.findByRole("option", { name: "Public greetings" });
+  await user.selectOptions(
+    screen.getByLabelText(copy.en.cardCollection),
+    "public",
+  );
+  expect(
+    screen.getByRole("region", { name: copy.en.collectionExposure }),
+  ).toHaveTextContent("Public greetings");
+  expect(
+    screen.getByRole("button", { name: copy.en.saveEntry }),
+  ).toBeDisabled();
+  await user.click(
+    screen.getByRole("checkbox", { name: copy.en.confirmCollectionExposure }),
+  );
+  expect(screen.getByRole("button", { name: copy.en.saveEntry })).toBeEnabled();
+  await user.type(screen.getByLabelText("Italian *"), "ciao");
+  expect(
+    screen.getByRole("checkbox", { name: copy.en.confirmCollectionExposure }),
+  ).not.toBeChecked();
+  expect(
+    screen.getByRole("button", { name: copy.en.saveEntry }),
+  ).toBeDisabled();
 });

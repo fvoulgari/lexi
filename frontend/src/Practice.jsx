@@ -186,21 +186,20 @@ function Setup({
     searchParams.get("mode") === "difficult" ? "difficult" : "random",
   );
   const emptyFilters = {
-    unit_ids: [],
-    no_unit: false,
+    collection_ids: [],
     word_types: [],
   };
   const [filters, setFilters] = useState(emptyFilters);
-  const units = useQuery({
-    queryKey: ["units"],
-    queryFn: () => request("/api/units"),
+  const collections = useQuery({
+    queryKey: ["collections"],
+    queryFn: () => request("/api/collections"),
     enabled: type === "category",
   });
   useEffect(() => {
-    if (units.error?.status === 401) onLocked();
-  }, [units.error, onLocked]);
-  const filterError = type === "category" && units.isError;
-  const filterLoading = type === "category" && units.isPending;
+    if (collections.error?.status === 401) onLocked();
+  }, [collections.error, onLocked]);
+  const filterError = type === "category" && collections.isError;
+  const filterLoading = type === "category" && collections.isPending;
   const changeFilter = (key, value) =>
     setFilters((current) => ({ ...current, [key]: value }));
   const [direction, setDirection] = useState(
@@ -269,7 +268,7 @@ function Setup({
               <button
                 type="button"
                 onClick={() => {
-                  units.refetch();
+                  collections.refetch();
                 }}
               >
                 {text.retry}
@@ -277,23 +276,14 @@ function Setup({
             </div>
           )}
           <Choices
-            legend={text.units}
+            legend={text.practiceCollections}
             disabled={pending || filterLoading || filterError}
-            options={(units.data || []).map((u) => ({
-              id: u.id,
-              label: `${u.code} — ${u.title}`,
+            options={(collections.data || []).map((collection) => ({
+              id: collection.id,
+              label: collection.name,
             }))}
-            selected={[
-              ...filters.unit_ids,
-              ...(filters.no_unit ? ["none"] : []),
-            ]}
-            onChange={(values) =>
-              setFilters((current) => ({
-                ...current,
-                unit_ids: values.filter((v) => v !== "none"),
-                no_unit: values.includes("none"),
-              }))
-            }
+            selected={filters.collection_ids}
+            onChange={(values) => changeFilter("collection_ids", values)}
           />
           <Choices
             legend={text.setupWordTypes}

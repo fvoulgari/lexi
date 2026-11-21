@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, with_loader_criteria
 from app.models import (
     Account,
     Collection,
+    CollectionEntry,
     LearningProgress,
     PracticeSession,
     Profile,
@@ -28,20 +29,35 @@ def current_account():
     return account
 
 
+def collection_grant(model=VocabularyEntry, excluding=None):
+    # Core tables avoid applying unrelated ORM collection/user scopes inside the
+    # grant predicate. Only the card creator's explicitly confirmed publication
+    # counts; foreign references cannot extend access.
+    refs = CollectionEntry.__table__
+    collections = Collection.__table__
+    return (
+        select(refs.c.entry_id)
+        .join(collections, refs.c.collection_id == collections.c.id)
+        .where(
+            refs.c.entry_id == model.id,
+            refs.c.publication_confirmed.is_(True),
+            collections.c.visibility == "published",
+            collections.c.owner_account_id == model.owner_account_id,
+            collections.c.id != excluding if excluding is not None else True,
+        )
+        .correlate(model)
+        .exists()
+    )
+
+
 def visible(model, account=None):
     account = account or current_account()
+    shared = [model.visibility == "published"]
+    if model is VocabularyEntry:
+        shared.append(and_(model.visibility == "private", collection_grant(model)))
     return or_(
         model.owner_account_id == account.id,
-        and_(
-            model.owner_account_id.is_(None),
-            or_(
-                model.visibility == "published",
-                and_(
-                    model.visibility == "legacy",
-                    account.legacy_access or account.role == "admin",
-                ),
-            ),
-        ),
+        *shared,
     )
 
 
@@ -50,11 +66,7 @@ def can_write(entity, account=None):
     return entity.owner_account_id == account.id or (
         entity.owner_account_id is None
         and account.role in {"editor", "admin"}
-        and (
-            entity.visibility == "published"
-            or account.legacy_access
-            or account.role == "admin"
-        )
+        and entity.visibility == "published"
     )
 
 
@@ -68,16 +80,10 @@ def require_write(entity, account=None):
 
 def apply_scope(entity, account=None, visibility="private"):
     account = account or current_account()
-    if visibility not in {"private", "legacy", "published"}:
+    if visibility not in {"private", "published"}:
         raise HTTPException(422, "Invalid visibility.")
     if visibility != "private" and account.role not in {"editor", "admin"}:
         raise HTTPException(403, "Shared-library editing permission required.")
-    if (
-        visibility == "legacy"
-        and account.role == "editor"
-        and not account.legacy_access
-    ):
-        raise HTTPException(403, "Legacy-library access required.")
     if visibility == "published" and account.role != "admin":
         raise HTTPException(403, "Only administrators may publish content.")
     entity.owner_account_id = account.id if visibility == "private" else None
@@ -139,7 +145,12 @@ def scope_reads(state):
         )
     statement = statement.options(
         with_loader_criteria(
-            Collection, Collection.owner_account_id == account.id, include_aliases=True
+            Collection,
+            or_(
+                Collection.owner_account_id == account.id,
+                Collection.visibility == "published",
+            ),
+            include_aliases=True,
         )
     )
     if not state.execution_options.get("include_archived"):

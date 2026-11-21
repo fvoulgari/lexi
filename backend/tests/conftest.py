@@ -7,13 +7,13 @@ import pytest
 from alembic.config import Config
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, select
+from sqlalchemy import create_engine, delete, select, update
 from sqlalchemy.orm import Session
 
 from alembic import command
 from app.auth import AuthGate
 from app.main import create_app
-from app.models import Account, Base, Profile
+from app.models import Account, Base, Profile, Unit, VocabularyEntry
 from app.seed import seed
 
 TEST_CSRF = "supertokens"
@@ -61,6 +61,12 @@ def client(test_database, monkeypatch):
             legacy_access=True,
         )
         db.add(admin)
+        db.commit()
+        # Seeded records model the post-migration private library in request tests.
+        for model in (Unit, VocabularyEntry):
+            db.execute(
+                update(model).values(owner_account_id=admin.id, visibility="private")
+            )
         db.commit()
     TEST_SESSIONS.clear()
 

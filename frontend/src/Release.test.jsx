@@ -79,11 +79,7 @@ test.each(["el", "en", "it"])(
     expect(screen.getByLabelText(`${text.fields.greek} *`)).toBeRequired();
     expect(screen.getByLabelText(`${text.fields.word_type} *`)).toBeRequired();
     await user.click(screen.getByRole("button", { name: text.cancel }));
-    for (const [trigger, label] of [[text.toolsNewUnit, text.unitCode]]) {
-      await user.click(screen.getAllByRole("button", { name: trigger })[0]);
-      expect(screen.getByLabelText(label)).toHaveFocus();
-      await user.click(screen.getByRole("button", { name: text.cancel }));
-    }
+
     await user.click(
       nav.getByRole("link", { name: text.practice, exact: true }),
     );

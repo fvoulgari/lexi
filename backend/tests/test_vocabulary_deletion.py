@@ -99,7 +99,7 @@ def test_concurrent_review_and_archive_preserve_any_accepted_history(logged_in):
         entry = logged_in.post(
             "/api/vocabulary",
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "unit_id": logged_in.get("/api/units").json()[0]["id"],
                 "italian": f"accidentale {number}",
                 "greek": f"λάθος {number}",
@@ -152,6 +152,12 @@ def test_archiving_shared_card_preserves_each_learner_history(
 
     entries = client.get("/api/vocabulary").json()["items"]
     removed, retained = [entry["id"] for entry in entries[:2]]
+    from test_shareable_collections import add, collection, publish
+
+    shared = collection(client, "Shared for archive test")
+    for entry in entries[:2]:
+        assert add(client, shared, entry).status_code == 204
+    assert publish(client, shared).status_code == 200
     identities = ["test-admin", "second-learner"]
     for subject in identities:
         if subject == "second-learner":

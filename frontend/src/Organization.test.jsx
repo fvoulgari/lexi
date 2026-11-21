@@ -9,7 +9,17 @@ import Library from "./Library.jsx";
 import { copy } from "./copy.js";
 let lastParams;
 const server = setupServer(
-  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.get("*/api/collections", () =>
+    HttpResponse.json([
+      {
+        id: "c",
+        name: "Travel",
+        can_edit: true,
+        source_language: "it",
+        target_language: "el",
+      },
+    ]),
+  ),
   http.patch("*/api/account", async ({ request }) =>
     HttpResponse.json(await request.json()),
   ),
@@ -60,16 +70,14 @@ function open(text = copy.en) {
 test("combined filters persist through pages and changing search resets page", async () => {
   open();
   const user = userEvent.setup();
+  await user.click(screen.getByText("My collections", { selector: "summary" }));
+  await user.selectOptions(await screen.findByLabelText("My collections"), "c");
   await user.click(screen.getByText("Filters", { exact: true }));
-  await user.click(
-    await screen.findByRole("checkbox", { name: "003 — Travel" }),
-  );
-  await user.click(screen.getByRole("checkbox", { name: "No unit" }));
   await user.click(screen.getByRole("checkbox", { name: "Noun" }));
   await user.click(screen.getByRole("checkbox", { name: "Expression" }));
   expect(
     screen.getByText("Filters", { exact: false, selector: "summary" }),
-  ).toHaveTextContent("4");
+  ).toHaveTextContent("2");
   expect(
     screen.queryByRole("checkbox", { name: "Daily" }),
   ).not.toBeInTheDocument();
@@ -77,8 +85,8 @@ test("combined filters persist through pages and changing search resets page", a
   expect(
     await screen.findByRole("heading", { name: "due" }),
   ).toBeInTheDocument();
-  expect(lastParams.getAll("unit_ids")).toEqual(["u"]);
-  expect(lastParams.get("no_unit")).toBe("true");
+  expect(lastParams.get("collection_id")).toBe("c");
+  expect(lastParams.has("unit_ids")).toBe(false);
   expect(lastParams.getAll("word_types")).toEqual(["noun", "expression"]);
   expect(lastParams.has("tag_ids")).toBe(false);
   await user.type(screen.getByLabelText("Search Italian or Greek"), "σπίτι");
@@ -90,7 +98,7 @@ test("combined filters persist through pages and changing search resets page", a
   expect(screen.getByLabelText("Search Italian or Greek")).toHaveValue("");
 });
 
-test("create a unit and assign it while tag controls remain hidden", async () => {
+test("new cards use collections while tag controls remain hidden", async () => {
   let units = [];
   let tags = [];
   let saved;
@@ -118,16 +126,6 @@ test("create a unit and assign it while tag controls remain hidden", async () =>
   );
   open();
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "New unit" }));
-  await user.type(screen.getByLabelText("Unit code"), "007");
-  await user.type(screen.getByLabelText("Title"), "A new chapter");
-  expect(screen.queryByLabelText("Order")).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Create" }));
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: "New unit" })).toHaveFocus(),
-  );
-  await user.click(screen.getByText("Filters", { exact: true }));
-  await screen.findByRole("checkbox", { name: "007 — A new chapter" });
   expect(
     screen.queryByRole("button", { name: "Create tag" }),
   ).not.toBeInTheDocument();
@@ -136,15 +134,16 @@ test("create a unit and assign it while tag controls remain hidden", async () =>
   await user.type(screen.getByLabelText("Greek *"), "ταξιδεύω");
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Unit *" }),
-    "new-unit",
+    await screen.findByLabelText(copy.en.cardCollection),
+    "c",
   );
   expect(
     screen.queryByRole("group", { name: "Assign tags" }),
   ).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Save card" }));
   await waitFor(() => expect(saved?.tag_ids).toEqual([]));
-  expect(saved.unit_id).toBe("new-unit");
+  expect(saved.collection_id).toBe("c");
+  expect(saved).not.toHaveProperty("unit_id");
   expect(saved.word_type).toBe("verb");
 });
 
@@ -181,47 +180,15 @@ test("editing preserves hidden tags while allowing unit changes in Italian", asy
   open(copy.it);
   const user = userEvent.setup();
   await user.click(await cardAction("Modifica scheda: casa"));
-  expect(screen.getByRole("combobox", { name: "Unità *" })).toHaveValue("u");
+  expect(
+    screen.queryByRole("combobox", { name: "Unità *" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("group", { name: "Assegna etichette" }),
   ).not.toBeInTheDocument();
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "Unità *" }),
-    "u",
-  );
   await user.click(screen.getByRole("button", { name: "Salva scheda" }));
   await waitFor(() => expect(saved?.tag_ids).toEqual(["t"]));
-  expect(saved.unit_id).toBe("u");
-});
-
-test("failed unit creation retains the draft for retry with Greek labels", async () => {
-  let fail = true;
-  server.use(
-    http.post("*/api/units", async ({ request }) =>
-      fail
-        ? HttpResponse.error()
-        : HttpResponse.json(
-            { id: "new", ...(await request.json()) },
-            { status: 201 },
-          ),
-    ),
-  );
-  open(copy.el);
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: copy.el.toolsNewUnit }));
-  await user.type(screen.getByLabelText(copy.el.unitCode), "007");
-
-  await user.type(screen.getByLabelText(copy.el.unitTitle), "Ταξίδι");
-  await user.click(screen.getByRole("button", { name: "Δημιουργία" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Έλεγξε τη σύνδεσή σου",
-  );
-  expect(screen.getByLabelText(copy.el.unitTitle)).toHaveValue("Ταξίδι");
-  fail = false;
-  await user.click(screen.getByRole("button", { name: "Δημιουργία" }));
-  await waitFor(() =>
-    expect(screen.queryByLabelText(copy.el.unitTitle)).not.toBeInTheDocument(),
-  );
+  expect(saved).not.toHaveProperty("unit_id");
 });
 
 test("saving the final filtered-page result returns to a valid page and keeps filters", async () => {

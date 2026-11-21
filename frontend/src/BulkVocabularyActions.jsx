@@ -9,7 +9,7 @@ export default function BulkVocabularyActions({
   onLocked,
   ids,
   pageIds,
-  units,
+  collections,
   onChange,
   onExit,
   onPendingChange,
@@ -17,7 +17,7 @@ export default function BulkVocabularyActions({
 }) {
   const [pending, setPending] = useState(false);
   const [panel, setPanel] = useState(null);
-  const [unitId, setUnitId] = useState("");
+  const [collectionId, setCollectionId] = useState("");
   const [error, setError] = useState(null);
   const cancel = useRef(null);
   const trigger = useRef(null);
@@ -54,7 +54,12 @@ export default function BulkVocabularyActions({
     } else setError(failure);
   }
   async function submit() {
-    if (pending || !ids.length || (panel === "move" && !unitId)) return;
+    if (
+      pending ||
+      !ids.length ||
+      (panel === "add_to_collection" && !collectionId)
+    )
+      return;
     busy(true);
     setError(null);
     try {
@@ -64,7 +69,9 @@ export default function BulkVocabularyActions({
         body: JSON.stringify({
           action: panel,
           entry_ids: ids,
-          ...(panel === "move" ? { unit_id: unitId } : {}),
+          ...(panel === "add_to_collection"
+            ? { collection_id: collectionId }
+            : {}),
         }),
       });
       await onComplete(result);
@@ -114,7 +121,7 @@ export default function BulkVocabularyActions({
           type="button"
           className="secondary"
           disabled={pending || !ids.length || !!panel}
-          onClick={(event) => open("move", event)}
+          onClick={(event) => open("add_to_collection", event)}
         >
           <FolderInput size={17} aria-hidden="true" />
           {text.bulkMove}
@@ -168,24 +175,26 @@ export default function BulkVocabularyActions({
               : text.bulkSelected
             ).replace("{count}", ids.length)}
           </p>
-          {panel === "move" ? (
+          {panel === "add_to_collection" ? (
             <label>
               {text.bulkDestination}
               <select
                 required
-                value={unitId}
+                value={collectionId}
                 disabled={pending}
                 onChange={(event) => {
-                  setUnitId(event.target.value);
+                  setCollectionId(event.target.value);
                   setError(null);
                 }}
               >
-                <option value="">{text.chooseUnit}</option>
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.code} · {unit.title}
-                  </option>
-                ))}
+                <option value="">{text.noCollection}</option>
+                {collections
+                  .filter((c) => c.can_edit && c.visibility === "private")
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
               </select>
             </label>
           ) : (
@@ -206,7 +215,11 @@ export default function BulkVocabularyActions({
               className={
                 panel === "delete" ? "secondary destructive" : "primary"
               }
-              disabled={pending || !ids.length || (panel === "move" && !unitId)}
+              disabled={
+                pending ||
+                !ids.length ||
+                (panel === "add_to_collection" && !collectionId)
+              }
               onClick={submit}
             >
               {pending
@@ -234,7 +247,7 @@ BulkVocabularyActions.propTypes = {
   onLocked: PropTypes.func.isRequired,
   ids: PropTypes.array.isRequired,
   pageIds: PropTypes.array.isRequired,
-  units: PropTypes.array.isRequired,
+  collections: PropTypes.array.isRequired,
   onChange: PropTypes.func.isRequired,
   onExit: PropTypes.func.isRequired,
   onPendingChange: PropTypes.func.isRequired,

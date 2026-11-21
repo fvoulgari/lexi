@@ -30,7 +30,11 @@ function matching(request) {
   );
 }
 const server = setupServer(
-  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.get("*/api/collections", () =>
+    HttpResponse.json([
+      { id: "v", name: "Collection", can_edit: true, visibility: "private" },
+    ]),
+  ),
   http.patch("*/api/account", async ({ request }) =>
     HttpResponse.json(await request.json()),
   ),
@@ -49,13 +53,9 @@ const server = setupServer(
     expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
     const body = await request.json();
     writes.push(body);
-    if (body.action === "move")
-      entries = entries.map((entry) =>
-        body.entry_ids.includes(entry.id)
-          ? { ...entry, unit: units.find((unit) => unit.id === body.unit_id) }
-          : entry,
-      );
-    else if (body.entry_ids.includes("e0"))
+    if (body.action === "add_to_collection") {
+      // Adding a collection reference does not move historical Unit records.
+    } else if (body.entry_ids.includes("e0"))
       return HttpResponse.json(
         { error: { code: "bulk_blocked", entry_ids: ["e0"] } },
         { status: 409 },
@@ -150,27 +150,27 @@ test("move-all uses an explicit destination and restores focus after completion"
   const user = userEvent.setup();
   await selectAll(user);
   await user.click(
-    screen.getByRole("button", { name: "Move to unit", exact: true }),
+    screen.getByRole("button", { name: "Add to collection", exact: true }),
   );
   const dialog = screen.getByRole("dialog");
   expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveFocus();
   expect(
-    within(dialog).getByRole("button", { name: "Move to unit" }),
+    within(dialog).getByRole("button", { name: "Add to collection" }),
   ).toBeDisabled();
   await user.selectOptions(
-    within(dialog).getByLabelText("Destination unit"),
+    within(dialog).getByLabelText("Destination collection"),
     "v",
   );
   await user.click(
-    within(dialog).getByRole("button", { name: "Move to unit" }),
+    within(dialog).getByRole("button", { name: "Add to collection" }),
   );
-  expect(await screen.findByText("12 cards moved.")).toBeInTheDocument();
+  expect(await screen.findByText("12 cards added.")).toBeInTheDocument();
   expect(writes[0]).toEqual({
-    action: "move",
+    action: "add_to_collection",
     entry_ids: Array.from({ length: 12 }, (_, i) => `e${i}`),
-    unit_id: "v",
+    collection_id: "v",
   });
-  expect(entries.slice(0, 12).every((entry) => entry.unit.id === "v")).toBe(
+  expect(entries.slice(0, 12).every((entry) => entry.unit.id === "u")).toBe(
     true,
   );
   expect(entries[12].unit.id).toBe("u");
@@ -218,28 +218,30 @@ test("a failed move preserves selection and destination for retry", async () => 
       writes.push(body);
       return fail
         ? HttpResponse.error()
-        : HttpResponse.json({ count: 12, action: "move" });
+        : HttpResponse.json({ count: 12, action: "add_to_collection" });
     }),
   );
   open();
   const user = userEvent.setup();
   await selectAll(user);
-  await user.click(screen.getByRole("button", { name: "Move to unit" }));
+  await user.click(screen.getByRole("button", { name: "Add to collection" }));
   const dialog = screen.getByRole("dialog");
   await user.selectOptions(
-    within(dialog).getByLabelText("Destination unit"),
+    within(dialog).getByLabelText("Destination collection"),
     "v",
   );
   await user.click(
-    within(dialog).getByRole("button", { name: "Move to unit" }),
+    within(dialog).getByRole("button", { name: "Add to collection" }),
   );
   expect(await screen.findByRole("alert")).toBeInTheDocument();
-  expect(within(dialog).getByLabelText("Destination unit")).toHaveValue("v");
+  expect(within(dialog).getByLabelText("Destination collection")).toHaveValue(
+    "v",
+  );
   fail = false;
   await user.click(
-    within(dialog).getByRole("button", { name: "Move to unit" }),
+    within(dialog).getByRole("button", { name: "Add to collection" }),
   );
-  expect(await screen.findByText("12 cards moved.")).toBeInTheDocument();
+  expect(await screen.findByText("12 cards added.")).toBeInTheDocument();
   expect(writes[0]).toEqual(writes[1]);
 });
 

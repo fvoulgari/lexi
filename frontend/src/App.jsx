@@ -35,12 +35,9 @@ import AuthGate from "./AuthGate.jsx";
 import AccountCard from "./AccountCard.jsx";
 import { AccountContext } from "./AccountContext.jsx";
 import Admin from "./Admin.jsx";
-import LegacyClaim, {
-  captureLegacyClaim,
-  LegacyRequest,
-} from "./LegacyClaim.jsx";
 import { copy, languages } from "./copy.js";
 import Library from "./Library.jsx";
+import SharedCollections from "./SharedCollections.jsx";
 import Profiles from "./Profiles.jsx";
 import Practice from "./Practice.jsx";
 import Progress from "./Progress.jsx";
@@ -55,6 +52,10 @@ import {
 export default function App() {
   const location = useLocation();
   const main = useRef(null);
+  useEffect(() => {
+    if (location.pathname === "/claim" && window.location.hash)
+      window.history.replaceState(null, "", "/claim");
+  }, [location.pathname]);
   useLayoutEffect(() => {
     main.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -88,11 +89,6 @@ export default function App() {
     refetchOnWindowFocus: true,
     enabled: online,
     networkMode: "always",
-  });
-  const capture = useQuery({
-    queryKey: ["claim-capture"],
-    queryFn: captureLegacyClaim,
-    retry: false,
   });
   const onAuthenticated = useCallback(async () => {
     await queryClient.cancelQueries();
@@ -146,8 +142,7 @@ export default function App() {
     });
     void queryClient.cancelQueries();
     queryClient.removeQueries({
-      predicate: (query) =>
-        !["session", "claim-capture"].includes(query.queryKey[0]),
+      predicate: (query) => query.queryKey[0] !== "session",
     });
   }, [queryClient]);
   useEffect(() => {
@@ -282,14 +277,14 @@ export default function App() {
             {text.actionFailed}
           </p>
         )}
-        {session.data?.authenticated && location.state?.claimCompleted && (
-          <p role="status" className="connection-notice">
-            {text.claimDone}
-          </p>
-        )}
         <main id="main" ref={main} tabIndex={-1}>
-          {(!online || session.error?.code === "connection_error") &&
-          !session.data?.authenticated ? (
+          {location.pathname === "/claim" ? (
+            <section className="status">
+              <h1>This migration link is no longer available</h1>
+              <Link to="/">Sign in</Link>
+            </section>
+          ) : (!online || session.error?.code === "connection_error") &&
+            !session.data?.authenticated ? (
             <section className="status" aria-labelledby="offline-title">
               <h1 id="offline-title">{text.offlineTitle}</h1>
               <p role="status">{text.offlineNote}</p>
@@ -314,45 +309,24 @@ export default function App() {
                 {text.retry}
               </button>
             </div>
-          ) : capture.isPending ? (
-            <p className="status" role="status">
-              {text.loading}
-            </p>
-          ) : capture.isError && location.pathname === "/claim" ? (
-            <p className="status" role="alert">
-              {text.claimInvalid}
-            </p>
           ) : location.pathname.startsWith("/auth/") ||
             !session.data.authenticated ? (
-            capture.isPending ? (
-              <p className="status" role="status">
-                {text.loading}
-              </p>
-            ) : capture.isError && location.pathname === "/claim" ? (
-              <p className="status" role="alert">
-                {text.claimInvalid}
-              </p>
-            ) : (
-              <AuthGate
-                text={text}
-                onAuthenticated={onAuthenticated}
-                verificationRequired={session.data?.verification_required}
-              />
-            )
+            <AuthGate
+              text={text}
+              onAuthenticated={onAuthenticated}
+              verificationRequired={session.data?.verification_required}
+            />
           ) : (
             <PrivateAccountBoundary
-              key={`${accountId}:${session.data.account?.role}:${session.data.account?.legacy_access}:${session.data.account?.profile_id}`}
+              key={`${accountId}:${session.data.account?.role}:${session.data.account?.profile_id}`}
             >
               <Routes>
                 <Route
-                  path="/claim"
+                  path="/collections"
                   element={
-                    <LegacyClaim
-                      text={text}
+                    <SharedCollections
+                      language={language}
                       csrf={session.data.csrf_token}
-                      onSessionChanged={() =>
-                        queryClient.invalidateQueries({ queryKey: ["session"] })
-                      }
                     />
                   }
                 />
@@ -410,10 +384,6 @@ export default function App() {
                         text={text}
                         csrf={session.data.csrf_token}
                         onLocked={lockNotebook}
-                      />
-                      <LegacyRequest
-                        text={text}
-                        csrf={session.data.csrf_token}
                       />
                       <DeviceSettings
                         text={text}

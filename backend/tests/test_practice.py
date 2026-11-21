@@ -393,7 +393,7 @@ def test_category_queue_combines_library_filters_and_persists(logged_in):
     units = client.get("/api/units").json()
     tag_ids = [
         client.post(
-            "/api/tags", json={"visibility": "legacy", "name": name}, headers=csrf
+            "/api/tags", json={"visibility": "private", "name": name}, headers=csrf
         ).json()["id"]
         for name in ("Home", "Reading")
     ]
@@ -476,7 +476,7 @@ def test_category_queue_size_all_and_filter_validation(logged_in):
     csrf = headers(client)
     profile = client.get("/api/profiles").json()[0]["id"]
     tag = client.post(
-        "/api/tags", json={"visibility": "legacy", "name": "Focused"}, headers=csrf
+        "/api/tags", json={"visibility": "private", "name": "Focused"}, headers=csrf
     ).json()["id"]
     expected = set()
     for index in range(12):
@@ -484,7 +484,7 @@ def test_category_queue_size_all_and_filter_validation(logged_in):
             "/api/vocabulary",
             headers=csrf,
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
                 "italian_adjective_gender": "masculine",
@@ -590,7 +590,7 @@ def test_mixed_quotas_overlap_and_recent_boundary(
                 "/api/vocabulary",
                 headers=csrf,
                 json={
-                    "visibility": "legacy",
+                    "visibility": "private",
                     "italian_gender": "masculine",
                     "greek_gender": "neuter",
                     "unit_id": client.get("/api/units").json()[0]["id"],
@@ -682,7 +682,7 @@ def test_mixed_isolation_excluded_times_and_partial_backfill(
             "/api/vocabulary",
             headers=csrf,
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
                 "unit_id": client.get("/api/units").json()[0]["id"],

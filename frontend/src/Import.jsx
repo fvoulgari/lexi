@@ -2,10 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import PropTypes from "prop-types";
 import { FileDown, ArrowRight, X } from "lucide-react";
-import UnitPicker from "./UnitPicker.jsx";
-import OrganizationForm from "./OrganizationForm.jsx";
 import csvExample from "../../backend/app/csv_example.json";
-import { useAccount } from "./AccountContext.jsx";
 import { request } from "./api.js";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
 
@@ -16,19 +13,17 @@ const format = (template, values) =>
 
 export default function Import({ text, csrf, onLocked, onAttention }) {
   const client = useQueryClient();
-  const account = useAccount();
   const [exampleOpen, setExampleOpen] = useState(false);
   const exampleId = useId();
-  const [unitId, setUnitId] = useState("");
-  const [creatingUnit, setCreatingUnit] = useState(false);
-  const units = useQuery({
-    queryKey: ["units"],
-    queryFn: () => request("/api/units"),
+  const [collectionId, setCollectionId] = useState("");
+  const collections = useQuery({
+    queryKey: ["collections"],
+    queryFn: () => request("/api/collections"),
     retry: false,
   });
   useEffect(() => {
-    if (units.error?.status === 401) onLocked();
-  }, [units.error, onLocked]);
+    if (collections.error?.status === 401) onLocked();
+  }, [collections.error, onLocked]);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
@@ -72,8 +67,7 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
     if (operation.current.stage === "importing") return;
     resetReport();
     setFile(null);
-    setUnitId("");
-    setCreatingUnit(false);
+    setCollectionId("");
     if (fileInput.current) fileInput.current.value = "";
     fileInput.current?.focus();
   }
@@ -91,7 +85,7 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
   }
   async function submit(action) {
     // Lock synchronously: React state alone does not guard rapid repeated clicks.
-    if (operation.current.stage !== "idle" || !file || !unitId) return;
+    if (operation.current.stage !== "idle" || !file || !collectionId) return;
     if (action === "confirm" && (!preview || !preview.rows.some(eligible)))
       return;
     const controller = action === "preview" ? new AbortController() : null;
@@ -105,7 +99,7 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
     try {
       if (file.size > 1048576) throw new Error(text.csvLimit);
       const report = await request(
-        `/api/imports/${action}?unit_id=${encodeURIComponent(unitId)}`,
+        `/api/imports/${action}?collection_id=${encodeURIComponent(collectionId)}`,
         {
           method: "POST",
           headers: { "X-CSRF-Token": csrf, "Content-Type": "text/csv" },
@@ -117,7 +111,7 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
       if (action === "confirm") {
         for (const key of [
           "vocabulary",
-          "units",
+          "collections",
           "tags",
           "difficult-entries",
           "progress-difficult",
@@ -188,46 +182,40 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
     <section className="csv-import" aria-label={text.csvImport}>
       <h2>{text.csvImportHeading}</h2>
       <p className="csv-intro">{text.csvIntro}</p>
-      <UnitPicker
-        id="csv-destination-unit"
-        text={text}
-        units={(units.data || []).filter(
-          (unit) =>
-            unit.can_edit !== false &&
-            (unit.visibility !== "published" || account?.role === "admin"),
-        )}
-        value={unitId}
-        disabled={importing || units.isPending || creatingUnit}
-        onCreate={() => setCreatingUnit(true)}
-        onChange={(value) => {
-          resetReport();
-          setUnitId(value);
-        }}
-      />
-      {creatingUnit && (
-        <OrganizationForm
-          kind="units"
-          text={text}
-          csrf={csrf}
-          onLocked={onLocked}
-          onClose={() => {
-            setCreatingUnit(false);
-            requestAnimationFrame(() =>
-              document.getElementById("csv-destination-unit")?.focus(),
-            );
-          }}
-          onCreated={(unit) => {
+      <label>
+        {text.csvDestination}
+        <select
+          required
+          value={collectionId}
+          disabled={importing || collections.isPending}
+          onChange={(event) => {
             resetReport();
-            setUnitId(unit.id);
+            setCollectionId(event.target.value);
           }}
-        />
-      )}
-      {units.isError && (
+        >
+          <option value="">{text.noCollection}</option>
+          {(collections.data || [])
+            .filter(
+              (collection) =>
+                collection.can_edit &&
+                collection.visibility === "private" &&
+                [collection.source_language, collection.target_language]
+                  .sort()
+                  .join() === "el,it",
+            )
+            .map((collection) => (
+              <option key={collection.id} value={collection.id}>
+                {collection.name}
+              </option>
+            ))}
+        </select>
+      </label>
+      {collections.isError && (
         <div>
           <p role="alert" className="error">
             {text.errors.request_failed}
           </p>
-          <button type="button" onClick={() => units.refetch()}>
+          <button type="button" onClick={() => collections.refetch()}>
             {text.retry}
           </button>
         </div>
@@ -269,11 +257,11 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
           aria-controls={previewId}
           disabled={
             !file ||
-            !unitId ||
+            !collectionId ||
             busy ||
-            units.isError ||
-            units.isPending ||
-            creatingUnit
+            collections.isError ||
+            collections.isPending ||
+            false
           }
           onClick={() => (preview ? setPreviewOpen(true) : submit("preview"))}
         >
@@ -380,12 +368,10 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
               )
               .join(" · ")}
           </p>
-          {report.destination_unit && (
+          {report.destination_collection && (
             <p className="csv-destination-summary">
               {text.csvDestination}:{" "}
-              <strong>
-                {report.destination_unit.code} · {report.destination_unit.title}
-              </strong>
+              <strong>{report.destination_collection.name}</strong>
             </p>
           )}
           {report.unit_conflicts > 0 && (
@@ -518,9 +504,7 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
                 <button
                   type="button"
                   className="primary"
-                  disabled={
-                    busy || !unitId || creatingUnit || eligibleCount === 0
-                  }
+                  disabled={busy || !collectionId || eligibleCount === 0}
                   onClick={() => submit("confirm")}
                 >
                   {format(

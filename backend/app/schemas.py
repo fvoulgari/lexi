@@ -13,6 +13,7 @@ from pydantic import (
 )
 
 from app.grammar import clean_grammar, missing_gender_fields
+from app.languages import DIRECTION_PAIRS
 
 
 class UnitOutput(BaseModel):
@@ -41,7 +42,8 @@ class UnitCreate(BaseModel):
 ProfileName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
 ]
-Direction = Literal["greek_to_italian", "italian_to_greek"]
+
+Direction = Annotated[str, Field(pattern="^(" + "|".join(DIRECTION_PAIRS) + ")$")]
 SessionSize = Literal[10, 25, 50] | None
 
 
@@ -256,6 +258,14 @@ class VocabularyCreate(VocabularyFields):
         return self
 
 
+class VocabularyCreateRequest(VocabularyCreate):
+    # Older CSV/API clients may still supply a unit. New cards are grouped by
+    # collection, with an internal unit retained for historical compatibility.
+    unit_id: UUID | None = None
+    collection_id: UUID | None = None
+    confirm_collection_exposure: bool = False
+
+
 class VocabularyUpdate(VocabularyFields):
     italian: EntryText | None = None
     greek: EntryText | None = None
@@ -271,14 +281,17 @@ class VocabularyUpdate(VocabularyFields):
 
 class VocabularyBulk(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    action: Literal["move", "delete"]
+    action: Literal["move", "delete", "add_to_collection"]
     entry_ids: list[UUID] = Field(min_length=1)
     unit_id: UUID | None = None
+    collection_id: UUID | None = None
 
     @model_validator(mode="after")
     def destination_for_move_only(self):
         if (self.action == "move") != (self.unit_id is not None):
             raise ValueError("Moving requires a destination unit; deletion does not.")
+        if (self.action == "add_to_collection") != (self.collection_id is not None):
+            raise ValueError("Adding requires a destination collection.")
         return self
 
 
@@ -289,6 +302,7 @@ class VocabularySaved(BaseModel):
 
 class SessionCreate(BaseModel):
     collection_id: UUID | None = None
+    collection_ids: list[UUID] = Field(default_factory=list, max_length=100)
     mode: Literal["random", "difficult", "mixed"] = "random"
     model_config = ConfigDict(extra="forbid")
     profile_id: UUID

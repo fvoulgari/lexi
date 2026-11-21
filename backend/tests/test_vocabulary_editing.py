@@ -11,7 +11,7 @@ def headers(client):
 
 def test_meaning_can_be_added_and_edited_across_devices(logged_in):
     body = {
-        "visibility": "legacy",
+        "visibility": "private",
         "unit_id": logged_in.get("/api/units").json()[0]["id"],
         "italian": "  il perché  ",
         "greek": "το γιατί",
@@ -55,7 +55,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
     first = logged_in.post(
         "/api/vocabulary",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
@@ -69,7 +69,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
     duplicate = logged_in.post(
         "/api/vocabulary",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
             "unit_id": logged_in.get("/api/units").json()[0]["id"],
@@ -96,7 +96,7 @@ def test_matching_pairs_warn_but_allow_distinct_meanings(logged_in):
         saved = logged_in.post(
             "/api/vocabulary",
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
                 "unit_id": logged_in.get("/api/units").json()[0]["id"],

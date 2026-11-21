@@ -36,7 +36,7 @@ const rows = Array.from({ length: 245 }, (_, index) => ({
 }));
 const report = {
   counts: { valid: 243, updated: 1, duplicate: 1, error: 1, imported: 0 },
-  destination_unit: { id: "u", code: "00", title: "Benvenuti" },
+  destination_collection: { id: "u", name: "Benvenuti" },
   proposed_tags: [],
   rows,
 };
@@ -49,8 +49,17 @@ function deferred() {
 }
 async function setup(preview = () => Promise.resolve(report)) {
   request.mockImplementation((path) => {
-    if (path === "/api/units")
-      return Promise.resolve([{ id: "u", code: "00", title: "Benvenuti" }]);
+    if (path === "/api/collections")
+      return Promise.resolve([
+        {
+          id: "u",
+          name: "Benvenuti",
+          can_edit: true,
+          visibility: "private",
+          source_language: "it",
+          target_language: "el",
+        },
+      ]);
     if (path.includes("/preview")) return preview();
     return Promise.resolve({
       ...report,
@@ -82,7 +91,10 @@ async function setup(preview = () => Promise.resolve(report)) {
     { type: "text/csv" },
   );
   await user.upload(screen.getByLabelText("Αρχείο CSV"), file);
-  await user.selectOptions(await screen.findByLabelText("Ενότητα *"), "u");
+  await user.selectOptions(
+    await screen.findByLabelText("Συλλογή εισαγωγής"),
+    "u",
+  );
   await user.click(screen.getByRole("button", { name: "Προεπισκόπηση" }));
   return { user, file, attention };
 }
@@ -154,7 +166,7 @@ test("close preserves settings and returns focus; reopen retains details and can
     screen.getByRole("button", { name: "Άνοιγμα προεπισκόπησης" }),
   ).toHaveFocus();
   expect(screen.getByLabelText("Αρχείο CSV").files[0]).toBe(file);
-  expect(screen.getByLabelText("Ενότητα *")).toHaveValue("u");
+  expect(screen.getByLabelText("Συλλογή εισαγωγής")).toHaveValue("u");
   await user.click(
     screen.getByRole("button", { name: "Άνοιγμα προεπισκόπησης" }),
   );
@@ -163,7 +175,7 @@ test("close preserves settings and returns focus; reopen retains details and can
   ).toHaveLength(1);
   await user.click(screen.getByRole("button", { name: "Ακύρωση εισαγωγής" }));
   expect(screen.getByLabelText("Αρχείο CSV").files).toHaveLength(0);
-  expect(screen.getByLabelText("Ενότητα *")).toHaveValue("");
+  expect(screen.getByLabelText("Συλλογή εισαγωγής")).toHaveValue("");
   expect(screen.getByRole("button", { name: "Προεπισκόπηση" })).toBeDisabled();
   expect(
     request.mock.calls.filter(([path]) => path.includes("/confirm")),

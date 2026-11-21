@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import PropTypes from "prop-types";
-import UnitPicker from "./UnitPicker.jsx";
 import CardPreview from "./CardPreview.jsx";
-import OrganizationForm from "./OrganizationForm.jsx";
-import AudiencePicker from "./AudiencePicker.jsx";
 import { request } from "./api.js";
 import {
   adjectiveFormFields,
@@ -65,18 +62,20 @@ export default function VocabularyForm({
       ]),
     ),
   );
-  const units = useQuery({
-    queryKey: ["units"],
-    queryFn: () => request("/api/units"),
+  const [collectionId, setCollectionId] = useState("");
+  const [confirmExposure, setConfirmExposure] = useState(false);
+  const collections = useQuery({
+    queryKey: ["collections"],
+    queryFn: () => request("/api/collections"),
+    enabled: !entry?.id,
   });
-  const [visibility, setVisibility] = useState(
-    entry?.id ? entry.visibility : "private",
+  const selectedCollection = collections.data?.find(
+    (c) => c.id === collectionId,
   );
-  const [creatingUnit, setCreatingUnit] = useState(false);
-  const [unitId, setUnitId] = useState(entry?.unit?.id || "");
+  const needsExposure = selectedCollection?.visibility === "published";
   useEffect(() => {
-    if (units.error?.status === 401) onLocked();
-  }, [units.error, onLocked]);
+    if (collections.error?.status === 401) onLocked();
+  }, [collections.error, onLocked]);
   const [optionalOpen, setOptionalOpen] = useState(() =>
     Boolean(
       entry &&
@@ -107,8 +106,12 @@ export default function VocabularyForm({
               value?.trim() || null,
             ]),
           ),
-          ...(!entry?.id ? { visibility } : {}),
-          unit_id: unitId || null,
+          ...(!entry?.id
+            ? {
+                collection_id: collectionId || null,
+                confirm_collection_exposure: confirmExposure,
+              }
+            : {}),
           tag_ids: (entry?.tags || []).map((tag) => tag.id),
         }),
       }),
@@ -124,6 +127,7 @@ export default function VocabularyForm({
     },
   });
   function change(field, value) {
+    setConfirmExposure(false);
     setValues((current) => ({ ...current, [field]: value }));
     setInvalid((current) =>
       current.filter(
@@ -227,12 +231,13 @@ export default function VocabularyForm({
               (field) => !values[field],
             ),
           );
-          if (!unitId) missing.push("unit_id");
+          if (!entry?.id && !collectionId) missing.push("collection_id");
           setInvalid(missing);
           if (missing.length) {
             setFocusRequest({ field: missing[0] });
             return;
           }
+          if (needsExposure && !confirmExposure) return;
           save.mutate();
         }}
       >
@@ -242,45 +247,76 @@ export default function VocabularyForm({
           {text.cardRequiredHint}
         </p>
         <fieldset
-          disabled={save.isPending || creatingUnit}
+          disabled={save.isPending}
           aria-describedby="meaning-hint card-required-hint"
         >
           {!entry?.id && (
-            <AudiencePicker
-              value={visibility}
-              text={text}
-              onChange={(value) => {
-                setVisibility(value);
-                setUnitId("");
-              }}
-            />
+            <div className="card-collection-choice">
+              <label>
+                {text.cardCollection}
+                <select
+                  id="entry-collection_id"
+                  required
+                  value={collectionId}
+                  disabled={collections.isPending || collections.isError}
+                  onChange={(event) => {
+                    setCollectionId(event.target.value);
+                    setConfirmExposure(false);
+                  }}
+                >
+                  <option value="">{text.noCollection}</option>
+                  {collections.data
+                    ?.filter(
+                      (c) =>
+                        c.can_edit &&
+                        [c.source_language, c.target_language].sort().join() ===
+                          "el,it",
+                    )
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {collections.isError && (
+                <p role="alert">
+                  {text.actionFailed}{" "}
+                  <button type="button" onClick={() => collections.refetch()}>
+                    {text.retry}
+                  </button>
+                </p>
+              )}
+              {needsExposure && (
+                <section
+                  className="publication-preview"
+                  aria-label={text.collectionExposure}
+                >
+                  <p>
+                    {selectedCollection.name} · {text.collectionPair} ·{" "}
+                    {selectedCollection.card_count + 1}
+                  </p>
+                  <p>{text.collectionExposure}</p>
+                  <p>
+                    {values.italian || "—"} — {values.greek || "—"}
+                  </p>
+                  <label>
+                    <input
+                      type="checkbox"
+                      required
+                      checked={confirmExposure}
+                      onChange={(event) =>
+                        setConfirmExposure(event.target.checked)
+                      }
+                    />
+                    {text.confirmCollectionExposure}
+                  </label>
+                </section>
+              )}
+            </div>
           )}
           <div className="entry-fields entry-required-fields">
             {selectField("word_type")}
-            <UnitPicker
-              id="entry-unit_id"
-              text={text}
-              units={(units.data || []).filter(
-                (unit) =>
-                  !unit.visibility ||
-                  (visibility === "private"
-                    ? unit.visibility === "private"
-                    : visibility === "published"
-                      ? unit.visibility === "published"
-                      : ["legacy", "published"].includes(unit.visibility)),
-              )}
-              value={unitId}
-              disabled={save.isPending || units.isPending || creatingUnit}
-              invalid={invalid.includes("unit_id")}
-              onChange={(value) => {
-                setUnitId(value);
-                setInvalid((current) =>
-                  current.filter((field) => field !== "unit_id"),
-                );
-                save.reset();
-              }}
-              onCreate={() => setCreatingUnit(true)}
-            />
             {["italian", "greek"].map((language) => (
               <div key={language} className="entry-main-language">
                 {textField(language)}
@@ -290,22 +326,6 @@ export default function VocabularyForm({
               </div>
             ))}
           </div>
-          {units.isError && (
-            <div>
-              <p role="alert" className="error">
-                {text.errors.request_failed}
-              </p>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  units.refetch();
-                }}
-              >
-                {text.retry}
-              </button>
-            </div>
-          )}
           <details
             className="entry-optional-details"
             open={optionalOpen}
@@ -363,7 +383,7 @@ export default function VocabularyForm({
           {(invalid.length > 0 || save.isError) && (
             <p className="error" role="alert" id="entry-errors">
               {invalid.length
-                ? `${text.checkFields} ${invalid.map((field) => (field === "pronunciation" ? text.cardPronunciation : text.fields[field] || field)).join(", ")}. ${text.fieldHint}`
+                ? `${text.checkFields} ${invalid.map((field) => (field === "pronunciation" ? text.cardPronunciation : field === "collection_id" ? text.cardCollection : text.fields[field] || field)).join(", ")}. ${text.fieldHint}`
                 : text.errors[save.error?.code] || text.errors.request_failed}
             </p>
           )}
@@ -371,14 +391,17 @@ export default function VocabularyForm({
             text={text}
             entry={{
               ...values,
-              unit: (units.data || []).find((unit) => unit.id === unitId),
             }}
           />
           <div className="form-actions">
             <button
               type="submit"
               className="primary"
-              disabled={units.isPending || units.isError}
+              disabled={
+                (!entry?.id &&
+                  (collections.isPending || collections.isError)) ||
+                (needsExposure && !confirmExposure)
+              }
             >
               {save.isPending ? text.saving : text.saveEntry}
             </button>
@@ -388,25 +411,6 @@ export default function VocabularyForm({
           </div>
         </fieldset>
       </form>
-      {creatingUnit && (
-        <OrganizationForm
-          kind="units"
-          initialVisibility={visibility}
-          text={text}
-          csrf={csrf}
-          onLocked={onLocked}
-          onClose={() => {
-            setCreatingUnit(false);
-            requestAnimationFrame(() =>
-              document.getElementById("entry-unit_id")?.focus(),
-            );
-          }}
-          onCreated={(unit) => {
-            setUnitId(unit.id);
-            setVisibility(unit.visibility || visibility);
-          }}
-        />
-      )}
     </>
   );
 }

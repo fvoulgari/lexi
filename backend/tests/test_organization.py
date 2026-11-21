@@ -6,7 +6,7 @@ def test_units_keep_codes_and_explicit_order_across_requests(logged_in):
     response = client.post(
         "/api/units",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "code": "003",
             "title": "A later chapter",
             "sort_order": -1,
@@ -20,7 +20,7 @@ def test_units_keep_codes_and_explicit_order_across_requests(logged_in):
     duplicate = client.post(
         "/api/units",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "code": "003",
             "title": "Duplicate",
             "sort_order": 9,
@@ -32,7 +32,7 @@ def test_units_keep_codes_and_explicit_order_across_requests(logged_in):
         client.post(
             "/api/units",
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "code": "004",
                 "title": "Protected",
                 "sort_order": 2,
@@ -48,7 +48,7 @@ def test_tags_and_unit_assignments_persist_and_can_be_cleared(logged_in):
     for name in ["Travel", "Food"]:
         response = client.post(
             "/api/tags",
-            json={"visibility": "legacy", "name": name},
+            json={"visibility": "private", "name": name},
             headers=headers(client),
         )
         assert response.status_code == 201
@@ -58,7 +58,7 @@ def test_tags_and_unit_assignments_persist_and_can_be_cleared(logged_in):
     response = client.post(
         "/api/vocabulary",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "italian": "viaggiare",
             "greek": "ταξιδεύω",
             "word_type": "verb",
@@ -90,7 +90,7 @@ def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
     tags = [
         client.post(
             "/api/tags",
-            json={"visibility": "legacy", "name": name},
+            json={"visibility": "private", "name": name},
             headers=headers(client),
         ).json()
         for name in ["Home", "Everyday"]
@@ -106,7 +106,7 @@ def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
             client.post(
                 "/api/vocabulary",
                 json={
-                    "visibility": "legacy",
+                    "visibility": "private",
                     "italian_gender": "masculine",
                     "greek_gender": "neuter",
                     "italian_adjective_gender": "masculine",
@@ -156,20 +156,20 @@ def test_metadata_and_assignments_validate_without_partial_writes(logged_in):
         )
     tag = client.post(
         "/api/tags",
-        json={"visibility": "legacy", "name": "Theme"},
+        json={"visibility": "private", "name": "Theme"},
         headers=headers(client),
     ).json()
     assert (
         client.post(
             "/api/tags",
-            json={"visibility": "legacy", "name": "Theme"},
+            json={"visibility": "private", "name": "Theme"},
             headers=headers(client),
         ).status_code
         == 409
     )
     assert (
         client.post(
-            "/api/tags", json={"visibility": "legacy", "name": "Protected"}
+            "/api/tags", json={"visibility": "private", "name": "Protected"}
         ).status_code
         == 403
     )
@@ -203,7 +203,7 @@ def test_metadata_and_assignments_validate_without_partial_writes(logged_in):
         client.post(
             "/api/units",
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "code": "9",
                 "title": "Nine",
                 "sort_order": 9,

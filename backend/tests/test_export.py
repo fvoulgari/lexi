@@ -15,7 +15,7 @@ def test_export_full_library_with_unicode_and_metadata(logged_in):
         "/api/units",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "code": "007",
             "title": "Έβδομο",
             "sort_order": 7,
@@ -25,7 +25,7 @@ def test_export_full_library_with_unicode_and_metadata(logged_in):
         "/api/tags",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "name": 'cibo, "καφές"',
         },
     ).json()
@@ -33,7 +33,7 @@ def test_export_full_library_with_unicode_and_metadata(logged_in):
         "/api/vocabulary",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "italian": "il perché",
             "greek": "το γιατί",
             "word_type": "noun",
@@ -96,7 +96,7 @@ def test_export_neutralizes_formulas_and_preserves_literal_apostrophes(logged_in
             "/api/vocabulary",
             headers=headers(logged_in),
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "unit_id": logged_in.get("/api/units").json()[0]["id"],
                 "italian": value.strip() or "literal",
                 "greek": "δοκιμή",
@@ -135,7 +135,7 @@ def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
         "/api/units",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "code": "=007",
             "title": "+title",
             "sort_order": -7,
@@ -145,7 +145,7 @@ def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
         "/api/tags",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "name": '=SUM(A1); "Ελλάδα"',
         },
     ).json()
@@ -153,7 +153,7 @@ def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
         "/api/vocabulary",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "italian_gender": "masculine",
             "greek_gender": "neuter",
             "italian": "＠formula",
@@ -204,7 +204,7 @@ def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in
         "/api/units",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "code": "007",
             "title": "=Έβδομο",
             "sort_order": -7,
@@ -214,7 +214,7 @@ def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in
         "/api/tags",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "name": 'cibo|καφές, "Ελλάδα"',
         },
     ).json()
@@ -222,7 +222,7 @@ def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in
         "/api/vocabulary",
         headers=headers(logged_in),
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "italian": "'=literal",
             "greek": "=τύπος",
             "word_type": "noun",
