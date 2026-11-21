@@ -389,6 +389,8 @@ def create_app():
                         409,
                         "Confirm sharing this new card through the public collection.",
                     )
+                if entry_id is None and collection.source_unit_code:
+                    entry.source_collection_id = collection.id
                 position = (
                     db.scalar(
                         select(

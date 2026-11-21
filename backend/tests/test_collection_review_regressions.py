@@ -59,15 +59,11 @@ def test_workspace_greek_italian_card_has_legacy_vocabulary_and_csv_columns(
     assert any(row["italian"] == "ciao" and row["greek"] == "γεια" for row in rows)
 
 
-def test_existing_editor_saves_shared_owned_card_with_private_unit(
+def test_existing_editor_saves_shared_owned_card_with_private_collection(
     client, account_client
 ):
     account_client("editable-owner")
-    unit = client.post(
-        "/api/units",
-        headers=H,
-        json={"code": "P", "title": "Private unit", "sort_order": 0},
-    ).json()
+    unit = collection(client, "Private collection")
     saved = client.post(
         "/api/vocabulary",
         headers=H,
@@ -75,7 +71,7 @@ def test_existing_editor_saves_shared_owned_card_with_private_unit(
             "italian": "ciao",
             "greek": "γεια",
             "word_type": "expression",
-            "unit_id": unit["id"],
+            "collection_id": unit["id"],
         },
     )
     assert saved.status_code == 201, saved.text
@@ -204,15 +200,11 @@ def test_republication_preserves_difficulty_unique_totals_and_all_references(
     assert client.get(f"/api/profiles/{a['profile_id']}/progress").status_code == 404
 
 
-def test_shared_card_never_shares_private_unit_tags_or_editor_rights(
+def test_shared_card_never_shares_private_collection_tags_or_editor_rights(
     client, account_client
 ):
     account_client("metadata-owner")
-    unit = client.post(
-        "/api/units",
-        headers=H,
-        json={"code": "SECRET", "title": "Private chapter", "sort_order": 0},
-    ).json()
+    unit = collection(client, "Private chapter")
     tag = client.post("/api/tags", headers=H, json={"name": "Private theme"}).json()
     saved = client.post(
         "/api/vocabulary",
@@ -221,18 +213,18 @@ def test_shared_card_never_shares_private_unit_tags_or_editor_rights(
             "italian": "ciao",
             "greek": "γεια",
             "word_type": "expression",
-            "unit_id": unit["id"],
+            "collection_id": unit["id"],
             "tag_ids": [tag["id"]],
         },
     ).json()["entry"]
     c = collection(client)
     assert add(client, c, saved).status_code == 204
     assert publish(client, c).status_code == 200
-    # Existing editor submits unit/tag values even when changing only text.
+    # The owner can edit text while keeping private tags.
     changed = client.patch(
         f"/api/vocabulary/{saved['id']}",
         headers=H,
-        json={"italian": "ciao!", "unit_id": unit["id"], "tag_ids": [tag["id"]]},
+        json={"italian": "ciao!", "tag_ids": [tag["id"]]},
     )
     assert changed.status_code == 200, changed.text
     updated = client.patch(
@@ -248,9 +240,8 @@ def test_shared_card_never_shares_private_unit_tags_or_editor_rights(
         and visible["unit"] is None
         and visible["tags"] == []
     )
-    assert (
-        client.get("/api/units").json() == [] and client.get("/api/tags").json() == []
-    )
+    assert unit["id"] not in {c["id"] for c in client.get("/api/collections").json()}
+    assert client.get("/api/tags").json() == []
     assert (
         client.patch(
             f"/api/vocabulary/{saved['id']}", headers=H, json={"italian": "stolen"}
@@ -307,16 +298,10 @@ def test_vocabulary_create_selects_only_owned_compatible_collection_with_confirm
 ):
     account_client("create-a")
     c = collection(client)
-    unit = client.post(
-        "/api/units",
-        headers=H,
-        json={"code": "UI", "title": "Private", "sort_order": 0},
-    ).json()
     body = {
         "italian": "ciao",
         "greek": "γεια",
         "word_type": "expression",
-        "unit_id": unit["id"],
         "collection_id": c["id"],
     }
     created = client.post("/api/vocabulary", headers=H, json=body)
@@ -337,16 +322,12 @@ def test_vocabulary_create_selects_only_owned_compatible_collection_with_confirm
     shared_id = shared.json()["entry"]["id"]
     account_client("create-b")
     assert client.get(f"/api/vocabulary/{shared_id}").status_code == 200
-    foreign_unit = client.post(
-        "/api/units", headers=H, json={"code": "B", "title": "B", "sort_order": 0}
-    ).json()
     assert (
         client.post(
             "/api/vocabulary",
             headers=H,
             json={
                 **body,
-                "unit_id": foreign_unit["id"],
                 "confirm_collection_exposure": True,
             },
         ).status_code
@@ -357,7 +338,7 @@ def test_vocabulary_create_selects_only_owned_compatible_collection_with_confirm
         client.post(
             "/api/vocabulary",
             headers=H,
-            json={**body, "unit_id": foreign_unit["id"], "collection_id": wrong["id"]},
+            json={**body, "collection_id": wrong["id"]},
         ).status_code
         == 422
     )

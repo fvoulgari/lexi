@@ -390,7 +390,7 @@ def test_concurrent_conflicting_reviews_accept_one_and_replay_after_wording_edit
 def test_category_queue_combines_library_filters_and_persists(logged_in):
     client = logged_in
     csrf = headers(client)
-    units = client.get("/api/units").json()
+    units = client.get("/api/collections").json()
     tag_ids = [
         client.post(
             "/api/tags", json={"visibility": "private", "name": name}, headers=csrf
@@ -407,14 +407,12 @@ def test_category_queue_combines_library_filters_and_persists(logged_in):
                 "greek_gender": "neuter",
                 "italian_adjective_gender": "masculine",
                 "greek_adjective_gender": "masculine",
-                "unit_id": units[0]["id"],
                 "word_type": "noun" if index < 2 else "verb",
                 "tag_ids": tag_ids if index == 0 else [tag_ids[1]],
             },
         )
     filters = {
-        "unit_ids": [units[0]["id"]],
-        "no_unit": True,
+        "collection_ids": [units[0]["id"]],
         "word_types": ["noun"],
         "tag_ids": tag_ids,
     }
@@ -464,7 +462,7 @@ def test_category_queue_combines_library_filters_and_persists(logged_in):
         json={
             "profile_id": profile,
             "direction": "greek_to_italian",
-            "unit_ids": [units[1]["id"]],
+            "collection_ids": [units[1]["id"]],
         },
     )
     assert empty.status_code == 409

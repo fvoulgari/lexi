@@ -22,13 +22,25 @@ def vocabulary_bulk_router(sessions, gate):
         no_unit: bool = False,
         word_types: list[WordType] = Query(default=[]),
         tag_ids: list[UUID] = Query(default=[]),
+        collection_id: UUID | None = None,
     ):
         with sessions() as db:
+            conditions = vocabulary_conditions(
+                q, unit_ids, no_unit, word_types, tag_ids
+            )
+            if collection_id is not None:
+                if db.get(Collection, collection_id) is None:
+                    raise HTTPException(404, "Collection not found.")
+                conditions.append(
+                    VocabularyEntry.id.in_(
+                        select(CollectionEntry.entry_id).where(
+                            CollectionEntry.collection_id == collection_id
+                        )
+                    )
+                )
             ids = db.scalars(
                 select(VocabularyEntry.id)
-                .where(
-                    *vocabulary_conditions(q, unit_ids, no_unit, word_types, tag_ids)
-                )
+                .where(*conditions)
                 .order_by(VocabularyEntry.id)
             ).all()
             return {"entry_ids": [str(id) for id in ids]}
