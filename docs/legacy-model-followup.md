@@ -1,6 +1,6 @@
 # Legacy model retirement and account deletion
 
-This draft is stacked on PR #76. Its migrations must run after #76; do not
+PR #76 has merged. Its migrations must run before this follow-up; do not
 apply them to production without a separately reviewed plan and backup.
 
 ## Historical records and compatibility
@@ -32,8 +32,8 @@ Recovery records stay as security history but links to a deleted account or
 profile become null; the deleted account's recovery request name is replaced
 with `[deleted]` and its free-text note is erased. Claim hashes and event times
 remain as security audit data; they are not a copy of the profile or the note.
-This policy does not set an expiry for those minimized security records. A
-separate retention policy may later define one; do not silently erase active
+This policy does not set an expiry for those minimized security records. They are limited to hashes and event times needed for security history and
+are not copies of names, notes or account links. Do not silently erase active
 users' audit records. Other accounts' associations remain intact.
 
 The minimal `recovery_case_guards` table retains only case, account and profile
@@ -60,4 +60,5 @@ anonymization, and a blocked deletion with another learner’s collection,
 card, practice snapshot and progress. A subsequent manifest matched the
 post-migration manifest exactly. Automated tests also cover cross-account
 recovery conflicts. Repeat against a fresh backup before any production
-migration; concurrency and operational review remain outstanding.
+migration. Concurrent deletion tests cover the cross-account conflict guard
+and a snapshot committed while deletion waits on the card lock.

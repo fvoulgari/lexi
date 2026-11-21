@@ -89,6 +89,17 @@ def delete_local_account(sessions, account_id, subject):
                     "before this account can be deleted.",
                 },
             )
+        # Serialize foreign-key references to owned content with the checks below.
+        # A session snapshot can otherwise be inserted after the check and have
+        # its entry_id silently cleared by ON DELETE SET NULL.
+        for model in (VocabularyEntry, Tag):
+            db.scalars(
+                select(model.id)
+                .where(model.owner_account_id == account_id)
+                .order_by(model.id)
+                .with_for_update()
+                .execution_options(unscoped=True, include_archived=True)
+            ).all()
         # Do not erase another learner's collection or learning history.
         owned_ids = (
             select(VocabularyEntry.id)
