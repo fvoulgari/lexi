@@ -35,7 +35,7 @@ class ClaimContinuation(Base):
     __tablename__ = "legacy_claim_continuations"
     secret_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
     token_hash: Mapped[str] = mapped_column(String(64))
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class LegacyRequest(Base):
