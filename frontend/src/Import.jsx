@@ -431,6 +431,7 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
                       {row.entry?.word_type && (
                         <span>{text[row.entry.word_type]}</span>
                       )}
+                      {row.collection_name && <span>{row.collection_name}</span>}
                     </div>
                     <p className="csv-row-words">
                       <span lang="it">{row.italian}</span> →{" "}

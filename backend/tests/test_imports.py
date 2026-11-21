@@ -90,6 +90,44 @@ def test_migrated_collection_rejects_csv_from_another_unit(client, account_clien
     assert len(client.get(f"/api/collections/{collection['id']}/entries").json()) == 1
 
 
+def test_csv_routes_legacy_codes_to_owned_collections_without_duplicate_cards(
+    client, account_client
+):
+    from uuid import UUID
+
+    from app.models import Collection
+
+    account_client("csv-multiple-groups")
+    h = headers(client)
+    first = client.post("/api/collections", headers=h, json={"name": "First"}).json()
+    second = client.post("/api/collections", headers=h, json={"name": "Second"}).json()
+    with client.app.state.sessions.begin() as db:
+        for item, code, title in ((first, "00", "Welcome"), (second, "30", "Food")):
+            stored = db.get(Collection, UUID(item["id"]))
+            stored.source_unit_code = code
+            stored.source_unit_title = title
+            stored.source_unit_sort_order = 0
+    data = (
+        "italian,greek,word_type,unit_code,unit_title\n"
+        "ciao,γεια,expression,00,Welcome\n"
+        "ciao,γεια,expression,30,Food\n"
+    ).encode()
+    path = f"/api/imports/{{}}?collection_id={first['id']}"
+    preview = client.post(path.format("preview"), headers=h, content=data)
+    assert preview.status_code == 200, preview.text
+    assert [row["collection_name"] for row in preview.json()["rows"]] == [
+        "First",
+        "Second",
+    ]
+    assert client.get(f"/api/collections/{first['id']}/entries").json() == []
+    result = client.post(path.format("confirm"), headers=h, content=data)
+    assert result.status_code == 200, result.text
+    a = client.get(f"/api/collections/{first['id']}/entries").json()
+    b = client.get(f"/api/collections/{second['id']}/entries").json()
+    assert len(a) == len(b) == 1
+    assert a[0]["id"] == b[0]["id"]
+
+
 def test_collection_import_preserves_card_unit_and_is_idempotent(
     client, account_client
 ):

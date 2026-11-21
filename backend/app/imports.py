@@ -133,24 +133,35 @@ def evaluate(db, rows, confirm, destination, collection=None):
             }
         )
     proposed_tags, results = set(), []
-    members = set()
-    position = 0
-    if collection is not None:
-        members = set(
-            db.scalars(
-                select(CollectionEntry.entry_id).where(
-                    CollectionEntry.collection_id == collection.id
+    mapped_query = (
+        select(Collection)
+        .where(
+            Collection.owner_account_id == destination.owner_account_id,
+            Collection.source_unit_code.is_not(None),
+        )
+        .order_by(Collection.id)
+    )
+    if confirm:
+        mapped_query = mapped_query.with_for_update()
+    mapped = list(db.scalars(mapped_query))
+    member_cache, positions = {}, {}
+
+    def membership(target):
+        if target.id not in member_cache:
+            member_cache[target.id] = set(
+                db.scalars(
+                    select(CollectionEntry.entry_id).where(
+                        CollectionEntry.collection_id == target.id
+                    )
                 )
             )
-        )
-        position = (
-            db.scalar(
+            positions[target.id] = 1 + db.scalar(
                 select(func.coalesce(func.max(CollectionEntry.position), -1)).where(
-                    CollectionEntry.collection_id == collection.id
+                    CollectionEntry.collection_id == target.id
                 )
             )
-            + 1
-        )
+        return member_cache[target.id]
+
     counts = dict(imported=0, updated=0, valid=0, skipped=0, duplicate=0, error=0)
     for number, original in enumerate(rows, 2):
         row = {
@@ -162,6 +173,7 @@ def evaluate(db, rows, confirm, destination, collection=None):
         conflict = False
         names = []
         changed_fields = []
+        target = collection
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
@@ -203,17 +215,28 @@ def evaluate(db, rows, confirm, destination, collection=None):
                     title=title or destination.title,
                     sort_order=int(order) if order else 0,
                 )
-            # A migrated Collection has an unambiguous historical Unit identity.
-            # Refuse to silently import a row belonging to a different mapped
-            # group into it. Unmapped Collections retain explicit-destination
-            # compatibility while the remaining CSV transition is completed.
+            candidates = [c for c in mapped if code and c.source_unit_code == code]
+            if title:
+                candidates = [c for c in candidates if c.source_unit_title == title]
+            if order:
+                candidates = [
+                    c for c in candidates if c.source_unit_sort_order == int(order)
+                ]
+            if len(candidates) > 1:
+                raise ValueError("CSV Unit metadata matches multiple Collections.")
+            if candidates:
+                target = candidates[0]
+                if target.visibility != "private":
+                    raise ValueError("Import into a private Collection first.")
+                if {target.source_language, target.target_language} != {"it", "el"}:
+                    raise ValueError("CSV import requires an Italian–Greek Collection.")
             if (
-                collection is not None
-                and collection.source_unit_code
+                target is not None
+                and target.source_unit_code
                 and (
-                    (code and code != collection.source_unit_code)
-                    or (title and title != collection.source_unit_title)
-                    or (order and int(order) != collection.source_unit_sort_order)
+                    (code and code != target.source_unit_code)
+                    or (title and title != target.source_unit_title)
+                    or (order and int(order) != target.source_unit_sort_order)
                 )
             ):
                 raise ValueError(
@@ -266,17 +289,19 @@ def evaluate(db, rows, confirm, destination, collection=None):
                 ]
             else:
                 current = matches[0] if matches else None
+                members = membership(target)
+                marker = (
+                    current["entry"].id
+                    if current and current["entry"]
+                    else ("new", pair)
+                )
                 if current:
                     changed_fields = [
                         key
                         for key, value in supplied.items()
                         if current["values"][key] != value
                     ]
-                    if (
-                        collection is not None
-                        and current["entry"] is not None
-                        and current["entry"].id not in members
-                    ):
+                    if marker not in members:
                         changed_fields.append("collection_id")
                     if "tags" in original and current["tags"] != set(names):
                         changed_fields.append("tags")
@@ -300,6 +325,9 @@ def evaluate(db, rows, confirm, destination, collection=None):
                                 **current["values"],
                                 owner_account_id=destination.owner_account_id,
                                 visibility=destination.visibility,
+                                source_collection_id=target.id
+                                if target.source_unit_code
+                                else None,
                             )
                             db.add(stored)
                             current["entry"] = stored
@@ -320,18 +348,19 @@ def evaluate(db, rows, confirm, destination, collection=None):
                                     db.add(tags[name])
                                 assigned_tags.append(tags[name])
                             stored.tags = assigned_tags
-                        if collection is not None:
-                            db.flush()
-                            if stored.id not in members:
-                                db.add(
-                                    CollectionEntry(
-                                        collection_id=collection.id,
-                                        entry_id=stored.id,
-                                        position=position,
-                                    )
+                        db.flush()
+                        if marker not in members:
+                            db.add(
+                                CollectionEntry(
+                                    collection_id=target.id,
+                                    entry_id=stored.id,
+                                    position=positions[target.id],
                                 )
-                                members.add(stored.id)
-                                position += 1
+                            )
+                            positions[target.id] += 1
+                        members.add(stored.id)
+                    else:
+                        members.add(marker)
         counts[status] += 1
         if status == "updated":
             counts["valid"] += 1
@@ -340,6 +369,7 @@ def evaluate(db, rows, confirm, destination, collection=None):
         results.append(
             {
                 "unit_conflict": conflict,
+                "collection_name": target.title if target else None,
                 "row": number,
                 "italian": original.get("italian", ""),
                 "greek": original.get("greek", ""),
