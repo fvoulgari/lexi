@@ -105,7 +105,7 @@ class VocabularyOutput(BaseModel):
     italian: str
     greek: str
     word_type: str
-    unit: UnitOutput | None
+    unit: UnitOutput | None = None
     tags: list[TagOutput]
     italian_gender: str | None
     greek_gender: str | None

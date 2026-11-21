@@ -9,13 +9,25 @@ from test_progress import submit
 
 
 def create_unit(client, code="PRIVATE", visibility="private"):
+    from uuid import UUID
+
+    from app.models import Collection
+
+    assert visibility == "private", "Use explicit Collection publication"
     response = client.post(
-        "/api/units",
-        json={"code": code, "title": code, "sort_order": 1, "visibility": visibility},
+        "/api/collections",
+        json={"name": code},
         headers=headers(client),
     )
     assert response.status_code == 201, response.text
-    return response.json()
+    result = response.json()
+    with client.app.state.sessions.begin() as db:
+        group = db.get(Collection, UUID(result["id"]))
+        group.source_unit_id = group.id
+        group.source_unit_code = code
+        group.source_unit_title = code
+        group.source_unit_sort_order = 1
+    return {**result, "code": code, "title": code, "sort_order": 1}
 
 
 def create_card(
@@ -78,7 +90,6 @@ def test_guessed_private_ids_never_authorize_another_account(client, account_cli
     assert other["profile_id"] != owner["profile_id"]
     assert client.get("/api/vocabulary").json()["total"] == 0
     assert client.get("/api/vocabulary/selection").json()["entry_ids"] == []
-    assert client.get("/api/units").json() == []
     assert client.get("/api/tags").json() == []
     assert client.get("/api/collections").json() == []
     assert "private-secret" not in client.get("/api/vocabulary/export.csv").text
@@ -184,24 +195,25 @@ def test_mixed_bulk_operations_fail_atomically_without_cross_owner_changes(
     bunit = create_unit(client, "B")
     bcard = create_card(client, bunit, "B secret")["entry"]
     destination = create_unit(client, "B-destination")
-    for action in ("delete", "move"):
+    for action in ("delete", "add_to_collection"):
         body = {"action": action, "entry_ids": [acard["id"], bcard["id"]]}
-        if action == "move":
-            body["unit_id"] = destination["id"]
+        if action == "add_to_collection":
+            body["collection_id"] = destination["id"]
         assert (
             client.post(
                 "/api/vocabulary/bulk", json=body, headers=headers(client)
             ).status_code
             == 409
         )
-        assert (
-            client.get(f"/api/vocabulary/{bcard['id']}").json()["unit"]["id"]
-            == bunit["id"]
-        )
+        assert [
+            e["id"]
+            for e in client.get(f"/api/collections/{bunit['id']}/entries").json()
+        ] == [bcard["id"]]
+        assert client.get(f"/api/collections/{destination['id']}/entries").json() == []
     signin(client, "bulk-a")
-    assert (
-        client.get(f"/api/vocabulary/{acard['id']}").json()["unit"]["id"] == aunit["id"]
-    )
+    assert [
+        e["id"] for e in client.get(f"/api/collections/{aunit['id']}/entries").json()
+    ] == [acard["id"]]
 
 
 def test_editor_permissions_never_grant_private_access_or_admin_roles(
@@ -223,25 +235,24 @@ def test_editor_permissions_never_grant_private_access_or_admin_roles(
         ).status_code
         == 403
     )
-    for visibility in ("legacy", "published"):
-        assert client.post(
-            "/api/units",
-            json={
-                "code": "forbidden",
-                "title": "forbidden",
-                "sort_order": 0,
-                "visibility": visibility,
-            },
-            headers=headers(client),
-        ).status_code == (422 if visibility == "legacy" else 403)
+    assert client.get(f"/api/collections/{unit['id']}/entries").status_code == 404
+    assert (
+        client.post(
+            f"/api/collections/{unit['id']}/publish", json={}, headers=headers(client)
+        ).status_code
+        == 404
+    )
 
 
-def test_editor_import_cannot_publish_new_cards_or_tags(client, account_client):
+def test_editor_cannot_import_into_someone_elses_public_collection(
+    client, account_client
+):
+    from test_shareable_collections import card, collection, publish
+
     signin(client)
-    unit = create_unit(client, "PUBLISHED", "published")
-    existing = create_card(client, unit, "already public", "δημόσιο", "published")[
-        "entry"
-    ]
+    unit = collection(client, "Published")
+    existing = card(client, unit, "δημόσιο", "already public")
+    assert publish(client, unit).status_code == 200
     account_client("published-editor", role="editor")
     csv_rows = [
         ("already public", "δημόσιο", "expression", "edited by editor", ""),
@@ -249,19 +260,17 @@ def test_editor_import_cannot_publish_new_cards_or_tags(client, account_client):
         ("already public", "δημόσιο", "expression", "new tag attempt", "brand-new-tag"),
     ]
     for action in ("preview", "confirm"):
-        response = upload(client, unit, csv_rows, action)
-        assert response.status_code == 200, response.text
-        result = response.json()
-        assert result["counts"]["error"] == 2
-        assert [row["error_code"] for row in result["rows"][1:]] == [
-            "forbidden_new_publication",
-            "forbidden_new_publication",
-        ]
-        assert result["counts"]["imported"] == 0
-    assert (
-        client.get(f"/api/vocabulary/{existing['id']}").json()["notes"]
-        == "edited by editor"
-    )
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["italian", "greek", "word_type", "notes", "tags"])
+        writer.writerows(csv_rows)
+        response = client.post(
+            f"/api/imports/{action}?collection_id={unit['id']}",
+            content=output.getvalue().encode(),
+            headers=headers(client),
+        )
+        assert response.status_code == 403
+    assert client.get(f"/api/vocabulary/{existing['id']}").json()["notes"] is None
     assert client.get("/api/vocabulary").json()["total"] == 1
     assert client.get("/api/tags").json() == []
     assert (
@@ -272,26 +281,19 @@ def test_editor_import_cannot_publish_new_cards_or_tags(client, account_client):
         ).status_code
         == 403
     )
-    assert (
-        client.post(
-            "/api/vocabulary",
-            json={
-                "unit_id": unit["id"],
-                "italian": "direct publication",
-                "greek": "δημοσίευση",
-                "word_type": "expression",
-                "visibility": "published",
-            },
-            headers=headers(client),
-        ).status_code
-        == 403
-    )
+    assert client.post(
+        "/api/vocabulary",
+        json={
+            "collection_id": unit["id"],
+            "italian": "direct publication",
+            "greek": "δημοσίευση",
+            "word_type": "expression",
+            "visibility": "published",
+        },
+        headers=headers(client),
+    ).status_code in (403, 422)
     signin(client)
-    result = upload(
-        client,
-        unit,
-        [("admin publication", "δημοσίευση διαχειριστή", "expression", "", "")],
-        "confirm",
+    assert (
+        client.get(f"/api/collections/{unit['id']}/entries").json()[0]["id"]
+        == existing["id"]
     )
-    assert result.status_code == 200
-    assert result.json()["counts"]["imported"] == 1

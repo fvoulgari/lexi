@@ -1,4 +1,4 @@
-"""Prevent the release from hiding any unmigrated legacy cards or units."""
+"""Prevent the release from hiding unmigrated legacy cards."""
 
 import os
 
@@ -9,14 +9,16 @@ def check_legacy_retired(url: str) -> None:
     engine = create_engine(url)
     try:
         with engine.connect() as connection:
-            for table in ("units", "vocabulary_entries"):
-                remaining = connection.scalar(
-                    text(f"SELECT count(*) FROM {table} WHERE visibility = 'legacy'")
+            remaining = connection.scalar(
+                text(
+                    "SELECT count(*) FROM vocabulary_entries "
+                    "WHERE visibility = 'legacy'"
                 )
-                if remaining:
-                    raise RuntimeError(
-                        "Unmigrated legacy content remains; review the migration first."
-                    )
+            )
+            if remaining:
+                raise RuntimeError(
+                    "Unmigrated legacy content remains; review the migration first."
+                )
     finally:
         engine.dispose()
 

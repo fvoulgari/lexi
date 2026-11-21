@@ -71,10 +71,14 @@ def test_progress_counts_history_and_deduplicates_directions(logged_in):
     )
 
 
-def test_breakdowns_preserve_review_time_units_and_types(logged_in):
+def test_breakdowns_preserve_review_time_collections_and_types(logged_in):
+    from uuid import UUID
+
+    from app.models import VocabularyEntry
+
     client = logged_in
     entries = client.get("/api/vocabulary?page_size=100").json()["items"]
-    units = client.get("/api/units").json()
+    units = client.get("/api/collections").json()
     for entry, unit_id, word_type in [
         (entries[0], units[1]["id"], "noun"),
         (entries[1], units[0]["id"], "verb"),
@@ -87,21 +91,28 @@ def test_breakdowns_preserve_review_time_units_and_types(logged_in):
                     "greek_gender": "neuter",
                     "italian_adjective_gender": "masculine",
                     "greek_adjective_gender": "masculine",
-                    "unit_id": unit_id,
                     "word_type": word_type,
                 },
                 headers=headers(client),
             ).status_code
             == 200
         )
+        with client.app.state.sessions.begin() as db:
+            db.get(VocabularyEntry, UUID(entry["id"])).source_collection_id = UUID(
+                unit_id
+            )
     session = start(client, size=None).json()
     submit(client, session, entries[0]["id"], "greek_to_italian", "again")
     submit(client, session, entries[1]["id"], "greek_to_italian", "easy")
     client.patch(
         f"/api/vocabulary/{entries[0]['id']}",
-        json={"unit_id": units[0]["id"], "word_type": "verb"},
+        json={"word_type": "verb"},
         headers=headers(client),
     )
+    with client.app.state.sessions.begin() as db:
+        db.get(VocabularyEntry, UUID(entries[0]["id"])).source_collection_id = UUID(
+            units[0]["id"]
+        )
     data = client.get(f"/api/profiles/{session['profile_id']}/progress").json()
     assert data["entries_practised"] == data["total_reviews"] == 2
     assert {row["key"]: row["total_reviews"] for row in data["word_types"]} == {
@@ -109,8 +120,8 @@ def test_breakdowns_preserve_review_time_units_and_types(logged_in):
         "verb": 1,
     }
     assert {row["key"]: row["total_reviews"] for row in data["units"]} == {
-        units[1]["code"]: 1,
-        units[0]["code"]: 1,
+        "01": 1,
+        "00": 1,
     }
     assert data["recent_session"]["remembered"] == 50
     assert data["recent_session"]["counts"] == {"again": 1, "hard": 0, "easy": 1}

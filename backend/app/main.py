@@ -34,7 +34,6 @@ from app.models import (
     LearningProgress,
     Profile,
     Tag,
-    Unit,
     VocabularyEntry,
 )
 from app.practice import difficult_progress, practice_router
@@ -45,8 +44,6 @@ from app.schemas import (
     ProfileUpdate,
     TagCreate,
     TagOutput,
-    UnitCreate,
-    UnitOutput,
     VocabularyCreateRequest,
     VocabularyOutput,
     VocabularyPage,
@@ -255,7 +252,7 @@ def create_app():
                 .order_by(VocabularyEntry.italian, VocabularyEntry.id)
             ).all()
             return Response(
-                export_library(entries),
+                export_library(entries, current_account().id),
                 media_type="text/csv; charset=utf-8",
                 headers={
                     "Content-Disposition": 'attachment; filename="italian-notebook.csv"'
@@ -279,22 +276,31 @@ def create_app():
             values = body.model_dump(exclude_unset=True)
             visibility = values.pop("visibility", "private")
             collection_id = values.pop("collection_id", None)
+            legacy_unit_id = values.pop("unit_id", None)
             confirm_exposure = values.pop("confirm_collection_exposure", False)
-            if entry_id is None and not values.get("unit_id"):
-                if not collection_id:
+            if legacy_unit_id is not None:
+                if collection_id is not None or entry_id is not None:
                     raise HTTPException(422, "Choose a collection for this card.")
-            if (
-                values.get("unit_id") is not None
-                and db.get(Unit, values["unit_id"]) is None
-            ):
-                raise HTTPException(
-                    422,
-                    detail={
-                        "code": "invalid_input",
-                        "message": "Choose an existing unit.",
-                        "fields": ["unit_id"],
-                    },
+                matches = list(
+                    db.scalars(
+                        select(Collection.id).where(
+                            Collection.source_unit_id == legacy_unit_id,
+                            Collection.owner_account_id == current_account().id,
+                        )
+                    )
                 )
+                if len(matches) != 1:
+                    raise HTTPException(
+                        422,
+                        {
+                            "code": "invalid_input",
+                            "message": "Choose a collection for this card.",
+                            "fields": ["unit_id"],
+                        },
+                    )
+                collection_id = matches[0]
+            if entry_id is None and not collection_id:
+                raise HTTPException(422, "Choose a collection for this card.")
             tag_ids = values.pop("tag_ids", None)
             if tag_ids is not None:
                 tags = db.scalars(select(Tag).where(Tag.id.in_(set(tag_ids)))).all()
@@ -347,8 +353,6 @@ def create_app():
                     )
                 for field, value in values.items():
                     setattr(entry, field, value)
-            if entry.unit_id is not None:
-                require_same_scope(entry, db.get(Unit, entry.unit_id))
             if tag_ids is not None:
                 for tag in tags:
                     require_same_scope(entry, tag)
@@ -385,6 +389,8 @@ def create_app():
                         409,
                         "Confirm sharing this new card through the public collection.",
                     )
+                if entry_id is None and collection.source_unit_code:
+                    entry.source_collection_id = collection.id
                 position = (
                     db.scalar(
                         select(
@@ -545,24 +551,6 @@ def create_app():
             return ProfileOutput.model_validate(profile)
 
     @app.get(
-        "/api/units",
-        response_model=list[UnitOutput],
-        dependencies=[Depends(gate.require)],
-    )
-    def units():
-        with sessions() as db:
-            rows = db.execute(
-                select(Unit, func.count(VocabularyEntry.id))
-                .outerjoin(VocabularyEntry, Unit.id == VocabularyEntry.unit_id)
-                .group_by(Unit.id)
-                .order_by(Unit.sort_order, Unit.code)
-            ).all()
-            return [
-                UnitOutput.model_validate(unit).model_copy(update={"card_count": count})
-                for unit, count in rows
-            ]
-
-    @app.get(
         "/api/tags",
         response_model=list[TagOutput],
         dependencies=[Depends(gate.require)],
@@ -593,31 +581,6 @@ def create_app():
                     "code": "invalid_input",
                     "message": "Tag name already exists.",
                     "fields": ["name"],
-                },
-            ) from None
-
-    @app.post(
-        "/api/units",
-        response_model=UnitOutput,
-        status_code=201,
-        dependencies=[Depends(gate.require), Depends(gate.check_csrf)],
-    )
-    def create_unit(body: UnitCreate):
-        try:
-            with sessions.begin() as db:
-                values = body.model_dump()
-                visibility = values.pop("visibility", "private")
-                unit = apply_scope(Unit(**values), visibility=visibility)
-                db.add(unit)
-                db.flush()
-                return UnitOutput.model_validate(unit)
-        except IntegrityError:
-            raise HTTPException(
-                409,
-                detail={
-                    "code": "invalid_input",
-                    "message": "Unit code already exists.",
-                    "fields": ["code"],
                 },
             ) from None
 

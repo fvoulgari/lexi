@@ -191,8 +191,6 @@ def account_router(sessions, gate):
             # Shared metadata must remain readable with a published card. A
             # legacy card may continue referencing already published metadata.
             if body.visibility == "published":
-                if entry.unit is not None:
-                    entry.unit.visibility = "published"
                 for tag in entry.tags:
                     tag.visibility = "published"
             entry.visibility = body.visibility

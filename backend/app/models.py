@@ -81,14 +81,6 @@ class ContentScope:
     )
 
 
-class Unit(ContentScope, Base):
-    __tablename__ = "units"
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    code: Mapped[str] = mapped_column(String(20))
-    title: Mapped[str] = mapped_column(String(160))
-    sort_order: Mapped[int]
-
-
 entry_tags = Table(
     "entry_tags",
     Base.metadata,
@@ -134,10 +126,12 @@ class VocabularyEntry(ContentScope, Base):
     source_text = synonym("italian")
     target_text = synonym("greek")
     word_type: Mapped[str] = mapped_column(String(20), index=True)
-    unit_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("units.id", ondelete="RESTRICT"), index=True
+    source_collection_id: Mapped[uuid.UUID | None] = mapped_column()
+    source_collection: Mapped["Collection | None"] = relationship(
+        primaryjoin="foreign(VocabularyEntry.source_collection_id) == Collection.id",
+        viewonly=True,
+        lazy="joined",
     )
-    unit: Mapped[Unit | None] = relationship(lazy="joined")
     tags: Mapped[list[Tag]] = relationship(
         secondary=entry_tags, lazy="selectin", order_by=Tag.name
     )
@@ -168,12 +162,6 @@ class VocabularyEntry(ContentScope, Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-
-
-class GateSession(Base):
-    __tablename__ = "gate_sessions"
-    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class LoginThrottle(Base):
@@ -262,6 +250,10 @@ class Collection(Base):
         ForeignKey("accounts.id"), index=True
     )
     title: Mapped[str] = mapped_column(String(160))
+    source_unit_id: Mapped[uuid.UUID | None] = mapped_column()
+    source_unit_code: Mapped[str | None] = mapped_column(String(20))
+    source_unit_title: Mapped[str | None] = mapped_column(String(160))
+    source_unit_sort_order: Mapped[int | None] = mapped_column(Integer)
     source_language: Mapped[str] = mapped_column(
         String(16), default="el", server_default="el"
     )

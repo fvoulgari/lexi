@@ -8,7 +8,7 @@ from app.legacy_retirement_ready import check_legacy_retired
 from app.schema_ready import check_schema
 
 
-def test_unmigrated_unit_blocks_release(client, test_database):
+def test_unmigrated_card_blocks_release(client, test_database):
     engine = create_engine(test_database)
     unit_id = uuid4()
     try:
@@ -16,8 +16,9 @@ def test_unmigrated_unit_blocks_release(client, test_database):
         with engine.begin() as connection:
             connection.execute(
                 text(
-                    "INSERT INTO units (id, code, title, sort_order, visibility) "
-                    "VALUES (:id, 'PENDING', 'Pending', 0, 'legacy')"
+                    "INSERT INTO vocabulary_entries (id, italian, greek, word_type, "
+                    "visibility) VALUES (:id, 'pending', 'εκκρεμεί', "
+                    "'expression', 'legacy')"
                 ),
                 {"id": unit_id},
             )
@@ -26,7 +27,7 @@ def test_unmigrated_unit_blocks_release(client, test_database):
     finally:
         with engine.begin() as connection:
             connection.execute(
-                text("DELETE FROM units WHERE id = :id"), {"id": unit_id}
+                text("DELETE FROM vocabulary_entries WHERE id = :id"), {"id": unit_id}
             )
         engine.dispose()
 

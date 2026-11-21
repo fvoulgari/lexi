@@ -15,7 +15,7 @@ from app.access import current_account, require_write
 from app.csv_format import FORMAT_VERSION, restore_text
 from app.duplicates import normalized_pair
 from app.grammar import clean_grammar
-from app.models import Collection, CollectionEntry, Tag, Unit, VocabularyEntry
+from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
 
 MAX_BYTES = 1_048_576
@@ -97,7 +97,7 @@ async def read_csv(request):
         invalid("Upload a valid UTF-8 CSV file.")
 
 
-def evaluate(db, rows, confirm, destination, collection=None):
+def evaluate(db, rows, confirm, destination, collection):
     require_write(destination)
     tags = {
         t.name: t
@@ -124,34 +124,45 @@ def evaluate(db, rows, confirm, destination, collection=None):
         pairs.setdefault(pair, []).append(
             {
                 "entry": existing,
+                "source_collection_id": existing.source_collection_id,
                 "values": {
                     field: getattr(existing, field)
                     for field in VocabularyCreate.model_fields
                     if field not in {"unit_id", "tag_ids", "visibility"}
                 },
-                "unit_id": existing.unit_id,
                 "tags": {tag.name for tag in existing.tags},
             }
         )
     proposed_tags, results = set(), []
-    members = set()
-    position = 0
-    if collection is not None:
-        members = set(
-            db.scalars(
-                select(CollectionEntry.entry_id).where(
-                    CollectionEntry.collection_id == collection.id
+    mapped_query = (
+        select(Collection)
+        .where(
+            Collection.owner_account_id == destination.owner_account_id,
+            Collection.source_unit_code.is_not(None),
+        )
+        .order_by(Collection.id)
+    )
+    if confirm:
+        mapped_query = mapped_query.with_for_update()
+    mapped = list(db.scalars(mapped_query))
+    member_cache, positions, pending_metadata = {}, {}, {}
+
+    def membership(target):
+        if target.id not in member_cache:
+            member_cache[target.id] = set(
+                db.scalars(
+                    select(CollectionEntry.entry_id).where(
+                        CollectionEntry.collection_id == target.id
+                    )
                 )
             )
-        )
-        position = (
-            db.scalar(
+            positions[target.id] = 1 + db.scalar(
                 select(func.coalesce(func.max(CollectionEntry.position), -1)).where(
-                    CollectionEntry.collection_id == collection.id
+                    CollectionEntry.collection_id == target.id
                 )
             )
-            + 1
-        )
+        return member_cache[target.id]
+
     counts = dict(imported=0, updated=0, valid=0, skipped=0, duplicate=0, error=0)
     for number, original in enumerate(rows, 2):
         row = {
@@ -159,10 +170,13 @@ def evaluate(db, rows, confirm, destination, collection=None):
             for key, value in original.items()
         }
         errors = []
-        entry = unit_spec = None
+        entry = None
         conflict = False
         names = []
         changed_fields = []
+        target = collection
+        proposed_metadata = None
+        metadata_is_new = False
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
@@ -204,16 +218,46 @@ def evaluate(db, rows, confirm, destination, collection=None):
                     title=title or destination.title,
                     sort_order=int(order) if order else 0,
                 )
-            conflict = collection is None and bool(
-                (code and code != destination.code)
-                or (title and title != destination.title)
-                or (order and int(order) != destination.sort_order)
-            )
-            if collection is None:
-                unit_spec = UnitCreate(
-                    code=destination.code,
-                    title=destination.title,
-                    sort_order=destination.sort_order,
+            code_candidates = [c for c in mapped if code and c.source_unit_code == code]
+            candidates = code_candidates
+            if title:
+                candidates = [c for c in candidates if c.source_unit_title == title]
+            if order:
+                candidates = [
+                    c for c in candidates if c.source_unit_sort_order == int(order)
+                ]
+            if len(candidates) > 1:
+                raise ValueError("CSV Unit metadata matches multiple Collections.")
+            if code_candidates and not candidates:
+                raise ValueError(
+                    "CSV Unit metadata conflicts with an existing Collection."
+                )
+            if candidates:
+                target = candidates[0]
+                if target.visibility != "private":
+                    raise ValueError("Import into a private Collection first.")
+                if {target.source_language, target.target_language} != {"it", "el"}:
+                    raise ValueError("CSV import requires an Italian–Greek Collection.")
+            elif code and target.source_unit_code is None:
+                proposed_metadata = (code, title or None, int(order) if order else None)
+                prior = pending_metadata.get(target.id)
+                if prior is not None and prior != proposed_metadata:
+                    raise ValueError(
+                        "CSV contains another unmapped Unit; "
+                        "select a separate Collection."
+                    )
+                metadata_is_new = prior is None
+            if (
+                target is not None
+                and target.source_unit_code
+                and (
+                    (code and code != target.source_unit_code)
+                    or (title and title != target.source_unit_title)
+                    or (order and int(order) != target.source_unit_sort_order)
+                )
+            ):
+                raise ValueError(
+                    "CSV Unit metadata does not match the selected Collection."
                 )
             matches = pairs.get(
                 normalized_pair(row.get("italian", ""), row.get("greek", "")), []
@@ -222,7 +266,6 @@ def evaluate(db, rows, confirm, destination, collection=None):
             # Missing legacy genders must be corrected explicitly in this row.
             previous = matches[0]["values"] if len(matches) == 1 else {}
             entry = VocabularyCreate(
-                unit_id=destination.id if collection is None else None,
                 **{**previous, **{k: v or None for k, v in row.items()}},
             )
         except ValidationError as exc:
@@ -262,57 +305,78 @@ def evaluate(db, rows, confirm, destination, collection=None):
                     "Edit them individually."
                 ]
             else:
+                if proposed_metadata is not None:
+                    pending_metadata[target.id] = proposed_metadata
                 current = matches[0] if matches else None
+                members = membership(target)
+                marker = (
+                    current["entry"].id
+                    if current and current["entry"]
+                    else ("new", pair)
+                )
                 if current:
                     changed_fields = [
                         key
                         for key, value in supplied.items()
                         if current["values"][key] != value
                     ]
-                    if collection is None and current["unit_id"] != destination.id:
-                        changed_fields.append("unit_id")
-                    if (
-                        collection is not None
-                        and current["entry"] is not None
-                        and current["entry"].id not in members
-                    ):
+                    if marker not in members:
                         changed_fields.append("collection_id")
                     if "tags" in original and current["tags"] != set(names):
                         changed_fields.append("tags")
+                    if proposed_metadata and metadata_is_new:
+                        changed_fields.append("collection_metadata")
+                    if code and current["source_collection_id"] is None:
+                        changed_fields.append("collection_provenance")
                     status = "updated" if changed_fields else "duplicate"
                 if status != "duplicate":
                     if not current:
                         current = {
                             "entry": None,
                             "values": values,
-                            "unit_id": destination.id if collection is None else None,
+                            "source_collection_id": target.id
+                            if code or target.source_unit_code
+                            else None,
                             "tags": set(names),
                         }
                         pairs[pair] = [current]
                     current["values"].update(supplied)
-                    if collection is None:
-                        current["unit_id"] = destination.id
+                    if "collection_provenance" in changed_fields:
+                        current["source_collection_id"] = target.id
                     if "tags" in original:
                         current["tags"] = set(names)
                     proposed_tags.update(name for name in names if name not in tags)
                     if confirm:
+                        if proposed_metadata and target.source_unit_code is None:
+                            (
+                                target.source_unit_code,
+                                target.source_unit_title,
+                                target.source_unit_sort_order,
+                            ) = proposed_metadata
+                            mapped.append(target)
                         stored = current["entry"]
                         if stored is None:
                             stored = VocabularyEntry(
                                 **current["values"],
-                                unit=destination if collection is None else None,
                                 owner_account_id=destination.owner_account_id,
                                 visibility=destination.visibility,
+                                source_collection_id=current["source_collection_id"],
                             )
                             db.add(stored)
                             current["entry"] = stored
                             counts["imported"] += 1
                         else:
                             for key in changed_fields:
-                                if key not in {"unit_id", "tags", "collection_id"}:
+                                if key not in {
+                                    "unit_id",
+                                    "tags",
+                                    "collection_id",
+                                    "collection_metadata",
+                                    "collection_provenance",
+                                }:
                                     setattr(stored, key, supplied[key])
-                            if "unit_id" in changed_fields:
-                                stored.unit = destination
+                            if "collection_provenance" in changed_fields:
+                                stored.source_collection_id = target.id
                         if "tags" in original:
                             assigned_tags = []
                             for name in names:
@@ -325,18 +389,19 @@ def evaluate(db, rows, confirm, destination, collection=None):
                                     db.add(tags[name])
                                 assigned_tags.append(tags[name])
                             stored.tags = assigned_tags
-                        if collection is not None:
-                            db.flush()
-                            if stored.id not in members:
-                                db.add(
-                                    CollectionEntry(
-                                        collection_id=collection.id,
-                                        entry_id=stored.id,
-                                        position=position,
-                                    )
+                        db.flush()
+                        if marker not in members:
+                            db.add(
+                                CollectionEntry(
+                                    collection_id=target.id,
+                                    entry_id=stored.id,
+                                    position=positions[target.id],
                                 )
-                                members.add(stored.id)
-                                position += 1
+                            )
+                            positions[target.id] += 1
+                        members.add(stored.id)
+                    else:
+                        members.add(marker)
         counts[status] += 1
         if status == "updated":
             counts["valid"] += 1
@@ -345,6 +410,7 @@ def evaluate(db, rows, confirm, destination, collection=None):
         results.append(
             {
                 "unit_conflict": conflict,
+                "collection_name": target.title if target else None,
                 "row": number,
                 "italian": original.get("italian", ""),
                 "greek": original.get("greek", ""),
@@ -357,21 +423,13 @@ def evaluate(db, rows, confirm, destination, collection=None):
                 "entry": entry.model_dump(exclude={"unit_id", "tag_ids", "visibility"})
                 if entry
                 else None,
-                "unit": unit_spec.model_dump() if unit_spec else None,
+                "unit": None,
                 "tags": names,
             }
         )
     return {
-        "destination_collection": {"id": str(collection.id), "name": collection.title}
-        if collection is not None
-        else None,
-        "destination_unit": None
-        if collection is not None
-        else {
-            "id": str(destination.id),
-            "code": destination.code,
-            "title": destination.title,
-        },
+        "destination_collection": {"id": str(collection.id), "name": collection.title},
+        "destination_unit": None,
         "unit_conflicts": sum(row["unit_conflict"] for row in results),
         "counts": counts,
         "rows": results,
@@ -404,6 +462,28 @@ def import_router(sessions, gate):
             raise HTTPException(422, "CSV import requires an Italian–Greek collection.")
         return collection, collection
 
+    def resolve_destination(db, unit_id, collection_id, confirm):
+        if (unit_id is None) == (collection_id is None):
+            raise HTTPException(422, "Choose one destination.")
+        if unit_id is not None:
+            # Old import clients may still send the original Unit ID. The
+            # migration records it on the existing Collection, so it is never
+            # necessary to recreate or query a Unit.
+            matches = list(
+                db.scalars(
+                    select(Collection.id).where(
+                        Collection.source_unit_id == unit_id,
+                        Collection.owner_account_id == current_account().id,
+                    )
+                )
+            )
+            if len(matches) > 1:
+                raise HTTPException(409, "Legacy collection mapping is ambiguous.")
+            collection_id = matches[0] if matches else None
+            if collection_id is None:
+                raise HTTPException(422, "Choose a collection you own.")
+        return destination_for_collection(db, collection_id, confirm)
+
     @router.get("/example")
     def example():
         sample = json.loads(Path(__file__).with_name("csv_example.json").read_text())
@@ -425,23 +505,10 @@ def import_router(sessions, gate):
     ):
         rows = await read_csv(request)
         with sessions() as db:
-            if collection_id is not None and unit_id is None:
-                collection, destination = destination_for_collection(
-                    db, collection_id, False
-                )
-                return evaluate(db, rows, False, destination, collection)
-            if unit_id is None or collection_id is not None:
-                raise HTTPException(422, "Choose one destination.")
-            destination = db.get(Unit, unit_id)
-            if destination is None:
-                raise HTTPException(
-                    422,
-                    detail={
-                        "code": "invalid_unit",
-                        "message": "Choose an existing destination unit.",
-                    },
-                )
-            return evaluate(db, rows, False, destination)
+            collection, destination = resolve_destination(
+                db, unit_id, collection_id, False
+            )
+            return evaluate(db, rows, False, destination, collection)
 
     @router.post("/confirm", dependencies=[Depends(gate.check_csrf)])
     async def confirm(
@@ -452,27 +519,14 @@ def import_router(sessions, gate):
             # Also blocks normal vocabulary/unit/tag writes until commit.
             db.execute(
                 text(
-                    "LOCK TABLE vocabulary_entries, units, tags, "
+                    "LOCK TABLE vocabulary_entries, tags, "
                     "collections, collection_entries "
                     "IN SHARE ROW EXCLUSIVE MODE"
                 )
             )
-            if collection_id is not None and unit_id is None:
-                collection, destination = destination_for_collection(
-                    db, collection_id, True
-                )
-                return evaluate(db, rows, True, destination, collection)
-            if unit_id is None or collection_id is not None:
-                raise HTTPException(422, "Choose one destination.")
-            destination = db.get(Unit, unit_id)
-            if destination is None:
-                raise HTTPException(
-                    422,
-                    detail={
-                        "code": "invalid_unit",
-                        "message": "Choose an existing destination unit.",
-                    },
-                )
-            return evaluate(db, rows, True, destination)
+            collection, destination = resolve_destination(
+                db, unit_id, collection_id, True
+            )
+            return evaluate(db, rows, True, destination, collection)
 
     return router

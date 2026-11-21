@@ -21,7 +21,9 @@ def test_seeded_library_is_paginated_without_repeated_entries(logged_in):
     assert len(second["items"]) == 4
     entries = first["items"] + second["items"]
     assert len({entry["id"] for entry in entries}) == 10
-    assert {entry["unit"]["code"] for entry in entries} == {"00"}
+    groups = logged_in.get("/api/collections").json()
+    first_group = next(group for group in groups if group["name"].startswith("00 ·"))
+    assert {entry["id"] for entry in entries} == set(first_group["entry_ids"])
     house = next(entry for entry in entries if entry["italian"] == "la casa")
     assert house["greek"] == "το σπίτι"
     assert house["italian_gender"] == "feminine"
@@ -32,14 +34,19 @@ def test_private_responses_cannot_be_cached(logged_in):
     assert logged_in.get("/api/vocabulary").headers["cache-control"] == "no-store"
 
 
-def test_seeded_profiles_and_units_are_only_visible_inside_gate(client, logged_in):
+def test_seeded_profiles_and_collections_are_only_visible_inside_gate(
+    client, logged_in
+):
     assert {
         profile["display_name"] for profile in logged_in.get("/api/profiles").json()
     } == {"Foteini"}
-    assert [unit["code"] for unit in logged_in.get("/api/units").json()] == ["00", "01"]
+    assert {group["name"] for group in logged_in.get("/api/collections").json()} == {
+        "00 · Benvenuti",
+        "01 · Un nuovo inizio",
+    }
     logged_in.cookies.clear()
     assert client.get("/api/profiles").status_code == 401
-    assert client.get("/api/units").status_code == 401
+    assert client.get("/api/collections").status_code == 401
 
 
 def test_invalid_pagination_and_out_of_range_pages(logged_in):
