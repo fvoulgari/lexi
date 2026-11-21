@@ -1,13 +1,14 @@
 # Legacy transition: audit and release gates
 
-Status: **incomplete; not ready to merge or deploy**. This document records
-the investigation, not approval to change production.
+Status: production cutover to **v1.2.2** completed on 21 November 2026.
+This document retains the historical investigation and recovery procedure;
+it does not authorize a future production change.
 
 ## Reviewed cutover sequence
 
-Do not execute until final cutover approval. Use the exact reviewed release
-image and protected mapping file, and keep credentials out of logs and the
-application runtime.
+For a future cutover, obtain the appropriate approval, use the exact reviewed
+release image and protected mapping file, and keep privileged credentials out
+of logs and the application runtime.
 
 1. Stop and drain application and background writes; verify no writers or
    in-flight write transactions remain. Preserve the existing application image
@@ -90,10 +91,29 @@ directly; session-card rows matched using stable `C` ordering on both databases
 independent copy of the 20 November snapshot, not a fresh cutover backup.
 No paid resources were provisioned.
 
-The final recovery gate remains a fresh protected backup captured after all
-application and background writers have stopped and in-flight transactions
-drained. Verify its checksum, restore it to a separate database, and compare
-complete data before migration.
+For a future migration, capture a fresh protected backup after all application
+and background writers have stopped and in-flight transactions have drained.
+Verify its checksum, restore it to a separate database, and compare complete
+data before migration.
+
+### Restoring a dump that references cutover roles
+
+PostgreSQL custom-format database dumps do not contain cluster-wide role
+definitions. Before restoring the current production archive to an isolated
+PostgreSQL 18 server, create non-login, non-superuser placeholders named
+`lexi_migrate`, `lexi_app`, and `lexi_operator`. Then restore into a new database
+with `pg_restore --no-owner --exit-on-error` and compare all table rows with the
+frozen source manifest. A missing role causes an ACL restore error; it must not
+be hidden with `--no-acl` or treated as a successful restore.
+
+The placeholders are only for an isolated restore test. They do not recover
+passwords, memberships, role attributes, database-level grants, or original
+object ownership. For an actual recovery, inventory and recreate the required
+roles and grants using protected operator records, recover or rotate credentials
+through the approved secret store, and restore ownership deliberately before
+redirecting application traffic. Do not grant login or administrative privileges
+to placeholders merely to make a restore succeed. Preserve and reconcile any
+writes made after the backup before redirecting traffic.
 
 Railway documents protected logical dumps uploaded to a private S3-compatible
 bucket as an off-volume backup option. Bucket storage is billed at $0.015 per
@@ -110,7 +130,9 @@ console and a temporary owner credential. The replacement application checks
 both schema revision and absence of legacy Units/cards before starting. The
 runtime must use its separate restricted credential; the deployed application
 currently uses a privileged role, so the switch is a required cutover step.
-The directory view's production privileges remain unverified until that switch.
+On 21 November, after the production switch, the runtime role was verified to
+be unable to read `account_directory`; the operator role was verified to have
+read access.
 
 ## Observed on 20 November 2026
 
