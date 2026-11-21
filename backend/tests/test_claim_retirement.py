@@ -37,6 +37,15 @@ def test_token_invalidation_preserves_completed_claims_and_continuations(test_da
     with engine.connect() as db:
         transaction = db.begin()
         try:
+            # The current schema retires this table. Recreate its old shape
+            # inside the rollback-only test for the historical revision.
+            db.execute(
+                text(
+                    "CREATE TABLE legacy_claim_continuations ("
+                    "secret_hash varchar(64) PRIMARY KEY, token_hash varchar(64) "
+                    "NOT NULL, expires_at timestamptz NOT NULL)"
+                )
+            )
             db.execute(
                 text(
                     "INSERT INTO profiles (id,display_name,preferred_direction) "
