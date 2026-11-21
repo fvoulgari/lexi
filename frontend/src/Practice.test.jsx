@@ -259,7 +259,7 @@ test("ratings stay disabled while reveal or review is saving", async () => {
     await screen.findByRole("button", { name: "Reveal answer" }),
   );
   await user.click(await screen.findByRole("button", { name: "Hard" }));
-  expect(await screen.findByText("Saving…")).toBeInTheDocument();
+  expect(await screen.findByText(copy.en.savingAnswer)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
   expect(screen.getByLabelText("Learning direction")).toBeDisabled();
   expect(
@@ -801,7 +801,7 @@ test("direction loading, failure and retry never retain another direction count"
   await screen.findByText("1 available card");
   await chooseDirection(user, "italian_to_greek");
   expect(screen.queryByText("1 available card")).not.toBeInTheDocument();
-  expect(screen.getByRole("status")).toHaveTextContent(copy.en.loading);
+  expect(screen.getByRole("status")).toHaveTextContent(copy.en.loadingCards);
   finish();
   expect(await screen.findByRole("alert")).toHaveTextContent(
     copy.en.errors.service_unavailable,
@@ -1063,7 +1063,7 @@ test("practice waits for profiles and keeps request errors separate from an empt
 });
 
 test.each(["start", "reveal", "review"])(
-  "learner deleted before %s prevents the practice write",
+  "server rejects a deleted learner during %s",
   async (stage) => {
     localStorage.setItem("notebook-profile", "f");
     openPractice();
@@ -1082,20 +1082,18 @@ test.each(["start", "reveal", "review"])(
       await screen.findByText("la casa");
     }
     let writes = 0;
+    const rejected = () => {
+      writes++;
+      return HttpResponse.json(
+        { error: { code: "profile_not_found" } },
+        { status: 404 },
+      );
+    };
     server.use(
       http.get("*/api/profiles", () => HttpResponse.json([])),
-      http.post("*/api/sessions", () => {
-        writes++;
-        return HttpResponse.json({});
-      }),
-      http.post("*/api/sessions/s/cards/0/reveal", () => {
-        writes++;
-        return HttpResponse.json({});
-      }),
-      http.post("*/api/sessions/s/cards/0/reviews", () => {
-        writes++;
-        return HttpResponse.json({});
-      }),
+      http.post("*/api/sessions", rejected),
+      http.post("*/api/sessions/s/cards/0/reveal", rejected),
+      http.post("*/api/sessions/s/cards/0/reviews", rejected),
     );
     await user.click(
       screen.getByRole("button", {
@@ -1108,12 +1106,34 @@ test.each(["start", "reveal", "review"])(
       }),
     );
     expect(await screen.findByText(copy.en.requestProfile)).toBeVisible();
-    expect(writes).toBe(0);
+    expect(writes).toBe(1);
     expect(
       screen.queryByRole("button", { name: copy.en.hard }),
     ).not.toBeInTheDocument();
   },
 );
+
+test("practice writes do not refetch the profile", async () => {
+  openPractice();
+  const user = userEvent.setup();
+  await screen.findByRole("button", { name: copy.en.startPractice });
+  let profileReads = 0;
+  server.use(
+    http.get("*/api/profiles", () => {
+      profileReads++;
+      return HttpResponse.json([{ id: "f" }]);
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: copy.en.startPractice }));
+  await user.click(
+    await screen.findByRole("button", { name: copy.en.revealAnswer }),
+  );
+  await screen.findByText("la casa");
+  await user.click(screen.getByRole("button", { name: copy.en.hard }));
+  await screen.findByRole("heading", { name: copy.en.sessionSummary });
+  expect(profileReads).toBe(0);
+  expect(saves).toEqual([{ direction: "greek_to_italian", rating: "hard" }]);
+});
 
 test("backend learner rejection stops practice without offering another learner", async () => {
   openPractice();
@@ -1141,7 +1161,7 @@ test("backend learner rejection stops practice without offering another learner"
   ).not.toBeInTheDocument();
 });
 
-test("failed learner revalidation prevents review and preserves the card for retry", async () => {
+test("failed review preserves the card for an identical retry", async () => {
   localStorage.setItem("notebook-profile", "f");
   openPractice();
   const user = userEvent.setup();
@@ -1153,7 +1173,7 @@ test("failed learner revalidation prevents review and preserves the card for ret
   );
   await screen.findByText("la casa");
   server.use(
-    http.get("*/api/profiles", () =>
+    http.post("*/api/sessions/s/cards/0/reviews", () =>
       HttpResponse.json(
         { error: { code: "service_unavailable" } },
         { status: 503 },
@@ -1167,9 +1187,10 @@ test("failed learner revalidation prevents review and preserves the card for ret
   expect(saves).toEqual([]);
   expect(screen.getByText("la casa")).toBeVisible();
   server.use(
-    http.get("*/api/profiles", () =>
-      HttpResponse.json([{ id: "f", display_name: "Foteini" }]),
-    ),
+    http.post("*/api/sessions/s/cards/0/reviews", async ({ request }) => {
+      saves.push(await request.json());
+      return HttpResponse.json({});
+    }),
   );
   await user.click(screen.getByRole("button", { name: copy.en.practiceRetry }));
   expect(

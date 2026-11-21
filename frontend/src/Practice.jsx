@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   Shuffle,
@@ -15,7 +15,6 @@ import Choices from "./Choices.jsx";
 import PracticeCardView from "./PracticeCardView.jsx";
 
 export default function Practice({ text, csrf, onLocked }) {
-  const client = useQueryClient();
   const profiles = useQuery({
     queryKey: ["profiles"],
     queryFn: () => request("/api/profiles"),
@@ -40,14 +39,7 @@ export default function Practice({ text, csrf, onLocked }) {
     if (profiles.error?.status === 401) onLocked();
   }, [profiles.error, onLocked]);
   async function post(path, body) {
-    // Revalidate before every write, including reveal and review retries.
-    // A remembered ID alone never authorizes practice.
-    const current = await request("/api/profiles");
-    client.setQueryData(["profiles"], current);
-    if (!profile || !current.some((item) => item.id === profile.id)) {
-      profileUnavailable();
-      throw Object.assign(new Error(), { code: "profile_not_found" });
-    }
+    // The server independently checks account and profile on every mutation.
     try {
       return await request(path, {
         method: "POST",
@@ -84,7 +76,7 @@ export default function Practice({ text, csrf, onLocked }) {
       setPending(false);
     }
   }
-  if (profiles.isPending) return <p role="status">{text.loading}</p>;
+  if (profiles.isPending) return <p role="status">{text.loadingCards}</p>;
   if (profiles.isError)
     return (
       <div className="status">
@@ -261,7 +253,7 @@ function Setup({
       {type === "category" && (
         <section className="setup-filters" aria-label={text.filters}>
           <p>{text.setupFilterHint}</p>
-          {filterLoading && <p role="status">{text.loading}</p>}
+          {filterLoading && <p role="status">{text.loadingCards}</p>}
           {filterError && (
             <div>
               <p role="alert">{text.errors.request_failed}</p>
@@ -334,7 +326,7 @@ function Setup({
         >
           <p>{text.difficultyExplanation}</p>
           {difficult.isPending ? (
-            <p role="status">{text.loading}</p>
+            <p role="status">{text.loadingCards}</p>
           ) : difficult.isError ? (
             <>
               <p role="alert">
@@ -389,7 +381,7 @@ function Setup({
         className="primary setup-start"
         disabled={!profile || pending || filterLoading || filterError}
       >
-        {pending ? text.loading : text.startPractice}
+        {pending ? text.loadingCards : text.startPractice}
         <ArrowRight size={18} aria-hidden="true" />
       </button>
     </form>
@@ -621,7 +613,7 @@ function Flashcard({
             disabled={pending}
             onClick={reveal}
           >
-            {pending ? text.loading : text.revealAnswer}
+            {pending ? text.revealingAnswer : text.revealAnswer}
           </button>
         )}
       </PracticeCardView>
@@ -637,7 +629,7 @@ function Flashcard({
           </button>
         ))}
       </div>
-      {pending && rating && <p role="status">{text.saving}</p>}
+      {pending && rating && <p role="status">{text.savingAnswer}</p>}
       {error && (
         <div>
           <p className="error" role="alert">
@@ -689,7 +681,7 @@ function Summary({ text, sessionId, onAgain, onLocked, onProfileUnavailable }) {
         )}
       </header>
       {summary.isPending ? (
-        <p role="status">{text.loading}</p>
+        <p role="status">{text.loadingSummary}</p>
       ) : summary.isError ? (
         <>
           <p role="alert">
