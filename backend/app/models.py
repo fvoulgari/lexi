@@ -170,12 +170,6 @@ class VocabularyEntry(ContentScope, Base):
     )
 
 
-class GateSession(Base):
-    __tablename__ = "gate_sessions"
-    token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-
-
 class LoginThrottle(Base):
     __tablename__ = "login_throttles"
     client_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -262,6 +256,10 @@ class Collection(Base):
         ForeignKey("accounts.id"), index=True
     )
     title: Mapped[str] = mapped_column(String(160))
+    source_unit_id: Mapped[uuid.UUID | None] = mapped_column()
+    source_unit_code: Mapped[str | None] = mapped_column(String(20))
+    source_unit_title: Mapped[str | None] = mapped_column(String(160))
+    source_unit_sort_order: Mapped[int | None] = mapped_column(Integer)
     source_language: Mapped[str] = mapped_column(
         String(16), default="el", server_default="el"
     )

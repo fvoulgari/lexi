@@ -37,8 +37,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   public.vocabulary_entries, public.entry_tags, public.collections,
   public.collection_entries, public.practice_sessions, public.session_cards,
   public.review_events, public.learning_progress, public.login_throttles,
-  public.security_events, public.legacy_claim_links,
-  public.legacy_progress_requests, public.gate_sessions
+  public.security_events
 TO lexi_app;
 GRANT SELECT ON public.alembic_version, public.recovery_case_guards TO lexi_app;
 CREATE OR REPLACE VIEW public.account_directory AS

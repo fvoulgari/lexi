@@ -22,6 +22,12 @@ def test_expiry_index_cleanup_preserves_rows_and_is_reversible(test_database):
     with engine.connect() as db:
         tx = db.begin()
         try:
+            db.execute(
+                text(
+                    "CREATE TABLE gate_sessions (token_hash varchar(64) PRIMARY KEY, "
+                    "expires_at timestamptz NOT NULL)"
+                )
+            )
             # The current schema retires this table. Recreate its old shape
             # inside the rollback-only test for the historical revision.
             db.execute(
@@ -99,6 +105,12 @@ def test_cleanup_refuses_a_different_index_definition(test_database):
     with engine.connect() as db:
         tx = db.begin()
         try:
+            db.execute(
+                text(
+                    "CREATE TABLE gate_sessions (token_hash varchar(64) PRIMARY KEY, "
+                    "expires_at timestamptz NOT NULL)"
+                )
+            )
             # The current schema retires this table. Recreate its old shape
             # inside the rollback-only test for the historical revision.
             db.execute(
