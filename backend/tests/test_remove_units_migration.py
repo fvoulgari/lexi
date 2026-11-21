@@ -12,10 +12,8 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 
-@pytest.mark.parametrize("missing_membership", [False, True])
-def test_drop_units_preserves_collection_provenance_or_rolls_back(
-    test_database, missing_membership
-):
+@pytest.mark.parametrize("case", ["match", "missing_membership", "foreign_duplicate"])
+def test_drop_units_preserves_collection_provenance_or_rolls_back(test_database, case):
     engine = create_engine(test_database)
     schema = "remove_units_" + uuid4().hex
     module = (
@@ -73,13 +71,26 @@ def test_drop_units_preserves_collection_provenance_or_rolls_back(
                 text("INSERT INTO vocabulary_entries VALUES (:c,:u)"),
                 {"c": card, "u": unit},
             )
-            if not missing_membership:
+            if case != "missing_membership":
                 db.execute(
                     text("INSERT INTO collection_entries VALUES (:c,:e)"),
                     {"c": collection, "e": card},
                 )
+            if case == "foreign_duplicate":
+                foreign = uuid4()
+                db.execute(
+                    text(
+                        "INSERT INTO collections VALUES "
+                        "(:c,:o,'private',:u,'wrong','Wrong',7)"
+                    ),
+                    {"c": foreign, "o": uuid4(), "u": unit},
+                )
+                db.execute(
+                    text("INSERT INTO collection_entries VALUES (:c,:e)"),
+                    {"c": foreign, "e": card},
+                )
             with Operations.context(MigrationContext.configure(db)):
-                if missing_membership:
+                if case == "missing_membership":
                     savepoint = db.begin_nested()
                     with pytest.raises(DBAPIError):
                         module.upgrade()
@@ -95,10 +106,12 @@ def test_drop_units_preserves_collection_provenance_or_rolls_back(
                     assert db.execute(
                         text("SELECT id,source_collection_id FROM vocabulary_entries")
                     ).one() == (card, collection)
-                    assert (
-                        db.scalar(text("SELECT entry_id FROM collection_entries"))
-                        == card
-                    )
+                    assert db.scalar(
+                        text(
+                            "SELECT count(*) FROM collection_entries WHERE entry_id=:id"
+                        ),
+                        {"id": card},
+                    ) == (2 if case == "foreign_duplicate" else 1)
         finally:
             tx.rollback()
             engine.dispose()
