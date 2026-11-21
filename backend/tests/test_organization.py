@@ -1,44 +1,22 @@
 from test_vocabulary_editing import headers
 
 
-def test_units_keep_codes_and_explicit_order_across_requests(logged_in):
+def test_collections_keep_identity_and_are_write_protected(logged_in):
     client = logged_in
-    response = client.post(
-        "/api/units",
-        json={
-            "visibility": "private",
-            "code": "003",
-            "title": "A later chapter",
-            "sort_order": -1,
-        },
-        headers=headers(client),
+    first = client.post(
+        "/api/collections", json={"name": "A later chapter"}, headers=headers(client)
     )
-    assert response.status_code == 201
-    unit = response.json()
-    assert unit["code"] == "003"
-    assert client.get("/api/units").json()[0] == unit
-    duplicate = client.post(
-        "/api/units",
-        json={
-            "visibility": "private",
-            "code": "003",
-            "title": "Duplicate",
-            "sort_order": 9,
-        },
-        headers=headers(client),
+    assert first.status_code == 201
+    second = client.post(
+        "/api/collections", json={"name": "A later chapter"}, headers=headers(client)
     )
-    assert duplicate.status_code == 409
+    assert second.status_code == 201
+    assert first.json()["id"] != second.json()["id"]
+    assert {first.json()["id"], second.json()["id"]} <= {
+        c["id"] for c in client.get("/api/collections").json()
+    }
     assert (
-        client.post(
-            "/api/units",
-            json={
-                "visibility": "private",
-                "code": "004",
-                "title": "Protected",
-                "sort_order": 2,
-            },
-        ).status_code
-        == 403
+        client.post("/api/collections", json={"name": "Protected"}).status_code == 403
     )
 
 
@@ -54,7 +32,7 @@ def test_tags_and_unit_assignments_persist_and_can_be_cleared(logged_in):
         assert response.status_code == 201
         tags.append(response.json())
     assert all(tag in client.get("/api/tags").json() for tag in tags)
-    unit = client.get("/api/units").json()[0]
+    unit = client.get("/api/collections").json()[0]
     response = client.post(
         "/api/vocabulary",
         json={
@@ -62,7 +40,7 @@ def test_tags_and_unit_assignments_persist_and_can_be_cleared(logged_in):
             "italian": "viaggiare",
             "greek": "ταξιδεύω",
             "word_type": "verb",
-            "unit_id": unit["id"],
+            "collection_id": unit["id"],
             "tag_ids": [tag["id"] for tag in tags],
         },
         headers=headers(client),
@@ -80,13 +58,15 @@ def test_tags_and_unit_assignments_persist_and_can_be_cleared(logged_in):
     cleared = client.patch(
         f"/api/vocabulary/{entry['id']}", json={"tag_ids": []}, headers=headers(client)
     ).json()["entry"]
-    assert cleared["unit"]["id"] == unit["id"]
+    assert entry["id"] in [
+        c["id"] for c in client.get(f"/api/collections/{unit['id']}/entries").json()
+    ]
     assert cleared["tags"] == []
 
 
 def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
     client = logged_in
-    unit = client.get("/api/units").json()[0]
+    unit = client.get("/api/collections").json()[0]
     tags = [
         client.post(
             "/api/tags",
@@ -114,7 +94,7 @@ def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
                     "italian": italian,
                     "greek": greek,
                     "word_type": kind,
-                    "unit_id": assigned_unit,
+                    "collection_id": assigned_unit,
                     "tag_ids": [tag["id"] for tag in assigned_tags],
                 },
                 headers=headers(client),
@@ -122,8 +102,7 @@ def test_search_and_groups_combine_without_duplicate_pagination(logged_in):
         )
     params = [
         ("q", "ΣΠΊΤΙ"),
-        ("unit_ids", unit["id"]),
-        ("no_unit", "true"),
+        ("collection_id", unit["id"]),
         ("word_types", "noun"),
         ("word_types", "expression"),
         *[("tag_ids", tag["id"]) for tag in tags],
@@ -145,8 +124,7 @@ def test_metadata_and_assignments_validate_without_partial_writes(logged_in):
 
     client = logged_in
     for path, body in [
-        ("units", {"code": " ", "title": "Chapter", "sort_order": 1}),
-        ("units", {"code": "009", "title": " ", "sort_order": 1}),
+        ("collections", {"name": " "}),
         ("tags", {"name": " "}),
         ("tags", {"name": "x" * 81}),
     ]:
@@ -199,15 +177,4 @@ def test_metadata_and_assignments_validate_without_partial_writes(logged_in):
     ).json()["entry"]["tags"] == [tag]
     client.cookies.clear()
     assert client.get("/api/tags").status_code == 401
-    assert (
-        client.post(
-            "/api/units",
-            json={
-                "visibility": "private",
-                "code": "9",
-                "title": "Nine",
-                "sort_order": 9,
-            },
-        ).status_code
-        == 401
-    )
+    assert client.post("/api/collections", json={"name": "Nine"}).status_code == 401

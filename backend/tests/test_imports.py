@@ -5,9 +5,9 @@ from test_vocabulary_editing import headers
 def test_legacy_unit_import_resolves_to_owned_collection(client, account_client):
     from uuid import UUID, uuid4
 
-    from sqlalchemy import func, select
+    from sqlalchemy import inspect
 
-    from app.models import Collection, Unit
+    from app.models import Collection
 
     account_client("legacy-csv-owner")
     h = headers(client)
@@ -17,7 +17,7 @@ def test_legacy_unit_import_resolves_to_owned_collection(client, account_client)
     old_unit_id = uuid4()
     with client.app.state.sessions.begin() as db:
         db.get(Collection, UUID(collection["id"])).source_unit_id = old_unit_id
-        before = db.scalar(select(func.count()).select_from(Unit))
+        assert not inspect(db.connection()).has_table("units")
     response = client.post(
         f"/api/imports/confirm?unit_id={old_unit_id}",
         headers={**h, "Content-Type": "text/csv"},
@@ -30,7 +30,7 @@ def test_legacy_unit_import_resolves_to_owned_collection(client, account_client)
     cards = client.get(f"/api/collections/{collection['id']}/entries").json()
     assert len(cards) == 1
     with client.app.state.sessions() as db:
-        assert db.scalar(select(func.count()).select_from(Unit)) == before
+        assert not inspect(db.connection()).has_table("units")
     duplicate = client.post(
         "/api/collections", headers=h, json={"name": "Ambiguous"}
     ).json()
@@ -239,12 +239,21 @@ def test_collection_csv_ignores_other_language_pairs(client, account_client):
 
 def upload(client, csv, action="preview"):
     csv = with_genders(csv)
-    from uuid import uuid4
-
-    response = client.get("/api/units")
-    unit_id = response.json()[0]["id"] if response.status_code == 200 else str(uuid4())
+    response = client.get("/api/collections")
+    if response.status_code != 200:
+        return client.post(
+            f"/api/imports/{action}",
+            content=csv.encode("utf-8"),
+            headers={**headers(client), "Content-Type": "text/csv"},
+        )
+    groups = response.json()
+    target = next((group for group in groups if group["name"] == "CSV test"), None)
+    if target is None:
+        target = client.post(
+            "/api/collections", headers=headers(client), json={"name": "CSV test"}
+        ).json()
     return client.post(
-        f"/api/imports/{action}?unit_id={unit_id}",
+        f"/api/imports/{action}?collection_id={target['id']}",
         content=csv.encode("utf-8"),
         headers={**headers(client), "Content-Type": "text/csv"},
     )
@@ -256,8 +265,8 @@ def test_preview_is_pure_and_confirmation_imports_valid_rows(logged_in):
         "il perché,το γιατί,noun,07,Domande,questions|daily,perˈke\n"
     )
     before = logged_in.get("/api/vocabulary").json()["total"]
-    units = logged_in.get("/api/units").json()
     preview = upload(logged_in, csv)
+    collections = logged_in.get("/api/collections").json()
     assert preview.status_code == 200
     assert preview.json()["counts"] == {
         "imported": 0,
@@ -268,10 +277,10 @@ def test_preview_is_pure_and_confirmation_imports_valid_rows(logged_in):
         "error": 0,
     }
     assert preview.json()["proposed_units"] == []
-    assert preview.json()["unit_conflicts"] == 1
+    assert preview.json()["unit_conflicts"] == 0
     assert preview.json()["proposed_tags"] == ["daily", "questions"]
     assert logged_in.get("/api/vocabulary").json()["total"] == before
-    assert logged_in.get("/api/units").json() == units
+    assert logged_in.get("/api/collections").json() == collections
     assert logged_in.get("/api/tags").json() == []
     result = upload(logged_in, csv, "confirm")
     assert result.status_code == 200
@@ -279,7 +288,11 @@ def test_preview_is_pure_and_confirmation_imports_valid_rows(logged_in):
     entry = logged_in.get("/api/vocabulary?q=perché").json()["items"][0]
     assert entry["greek"] == "το γιατί"
     assert entry["pronunciation"] == "perˈke"
-    assert entry["unit"]["id"] == logged_in.get("/api/units").json()[0]["id"]
+    target = next(c for c in collections if c["name"] == "CSV test")
+    assert entry["id"] in [
+        c["id"]
+        for c in logged_in.get(f"/api/collections/{target['id']}/entries").json()
+    ]
     assert {tag["name"] for tag in entry["tags"]} == {"questions", "daily"}
 
 
@@ -300,10 +313,11 @@ def test_stale_preview_and_repeat_confirmation_skip_normalized_duplicates(logged
         },
         headers=headers(logged_in),
     )
-    for _ in range(2):
+    for attempt in range(2):
         result = upload(logged_in, csv, "confirm").json()
         assert result["counts"]["imported"] == 0
-        assert result["counts"]["duplicate"] == 2
+        assert result["counts"]["duplicate"] == (1 if attempt == 0 else 2)
+        assert result["counts"]["updated"] == (1 if attempt == 0 else 0)
     assert logged_in.get("/api/vocabulary?q=perché").json()["items"][0]["notes"] == (
         "Preserve this meaning"
     )
@@ -404,9 +418,11 @@ def test_unit_conflicts_and_malformed_rows_are_reported_without_partial_metadata
     result = upload(logged_in, csv, "confirm").json()
     assert result["counts"]["imported"] == 2
     assert result["counts"]["error"] == 4
-    assert result["unit_conflicts"] == 2
+    assert all(row["collection_name"] == "CSV test" for row in result["rows"])
     assert {t["name"] for t in logged_in.get("/api/tags").json()} == {"daily", "orphan"}
-    assert not any(u["code"] == "08" for u in logged_in.get("/api/units").json())
+    assert not any(
+        c["name"].startswith("08 ·") for c in logged_in.get("/api/collections").json()
+    )
 
 
 def test_concurrent_confirmations_import_pair_once(logged_in):
@@ -417,6 +433,7 @@ def test_concurrent_confirmations_import_pair_once(logged_in):
     from app.main import create_app
 
     csv = "italian,greek,word_type\nnuovo,νέο,noun\n"
+    assert upload(logged_in, csv).status_code == 200
     with TestClient(create_app()) as device:
         device.cookies.update(logged_in.cookies)
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -439,7 +456,10 @@ def test_legacy_columns_and_conflicting_aliases(logged_in):
     entry = logged_in.get("/api/vocabulary?q=perché").json()["items"][0]
     assert entry["italian_plural"] == "i perché"
     assert entry["italian_example"] == "Non so il perché."
-    assert entry["unit"]["id"] == logged_in.get("/api/units").json()[0]["id"]
+    target = next(
+        c for c in logged_in.get("/api/collections").json() if c["name"] == "CSV test"
+    )
+    assert entry["id"] in target["entry_ids"]
     conflict = upload(
         logged_in, "italian,greek,type,word_type\nnuovo,νέο,noun,verb\n"
     ).json()
@@ -477,10 +497,16 @@ def test_import_updates_only_changed_supplied_fields_and_keeps_history(logged_in
     )
     content = output.getvalue()
 
-    # Use the existing unit, as chosen explicitly by the import UI.
+    # Use an existing Collection containing the card.
+    target = next(
+        c
+        for c in client.get("/api/collections").json()
+        if entry["id"] in c["entry_ids"]
+    )
+
     def send(action):
         return client.post(
-            f"/api/imports/{action}?unit_id={entry['unit']['id']}",
+            f"/api/imports/{action}?collection_id={target['id']}",
             content=content.encode(),
             headers=headers(client),
         ).json()
@@ -570,7 +596,7 @@ def test_new_card_followed_by_changed_row_matches_preview_and_confirmation(logge
 
 def test_ambiguous_existing_pairs_are_reported_without_updating_either_card(logged_in):
     client = logged_in
-    unit = client.get("/api/units").json()[0]["id"]
+    unit = client.get("/api/collections").json()[0]["id"]
     for note in ["meaning one", "meaning two"]:
         client.post(
             "/api/vocabulary",
@@ -581,7 +607,7 @@ def test_ambiguous_existing_pairs_are_reported_without_updating_either_card(logg
                 "italian": "nuovo",
                 "greek": "νέο",
                 "word_type": "noun",
-                "unit_id": unit,
+                "collection_id": unit,
                 "notes": note,
             },
             headers=headers(client),
@@ -670,7 +696,6 @@ def test_collection_csv_preserves_existing_historical_unit_and_adds_unitless_car
     collection = client.post(
         "/api/collections", headers=h, json={"name": "CSV destination"}
     ).json()
-    units_before = client.get("/api/units").json()
     response = client.post(
         f"/api/imports/confirm?collection_id={collection['id']}",
         headers={**h, "Content-Type": "text/csv"},
@@ -683,7 +708,9 @@ def test_collection_csv_preserves_existing_historical_unit_and_adds_unitless_car
     assert response.status_code == 200, response.text
     cards = client.get(f"/api/collections/{collection['id']}/entries").json()
     assert len(cards) == 2
-    assert client.get(f"/api/vocabulary/{old['id']}").json()["unit"]["id"] == unit["id"]
+    assert old["id"] in [
+        e["id"] for e in client.get(f"/api/collections/{unit['id']}/entries").json()
+    ]
     new_id = next(card["id"] for card in cards if card["id"] != old["id"])
     assert client.get(f"/api/vocabulary/{new_id}").json()["unit"] is None
-    assert client.get("/api/units").json() == units_before
+    assert client.get("/api/vocabulary").json()["total"] == 2
