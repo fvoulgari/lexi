@@ -185,3 +185,33 @@ def test_late_conflict_rolls_back_earlier_group(test_database):
         finally:
             tx.rollback()
     engine.dispose()
+
+
+def test_remaining_legacy_content_stops_retirement(test_database):
+    engine = create_engine(test_database)
+    with engine.connect() as db:
+        tx = db.begin()
+        try:
+            mapping, _, _ = fixture(db)
+            extra = uuid4()
+            db.execute(
+                text(
+                    "INSERT INTO units (id,code,title,sort_order) "
+                    "VALUES (:id,'unreviewed','Unreviewed',9)"
+                ),
+                {"id": extra},
+            )
+            savepoint = db.begin_nested()
+            with pytest.raises(ValueError, match="legacy units remain"):
+                migrate(db, mapping)
+            savepoint.rollback()
+            assert (
+                db.execute(
+                    text("SELECT owner_account_id FROM units WHERE id=:id"),
+                    {"id": UUID(mapping[0]["unit_id"])},
+                ).scalar_one()
+                is None
+            )
+        finally:
+            tx.rollback()
+    engine.dispose()

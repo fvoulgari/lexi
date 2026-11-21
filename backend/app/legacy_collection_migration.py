@@ -212,6 +212,14 @@ def migrate(db, mapping):
                 "visibility": "private",
             }
         )
+    for table in ("units", "vocabulary_entries"):
+        remaining = db.execute(
+            text(f"SELECT count(*) FROM {table} WHERE visibility = 'legacy'")
+        ).scalar_one()
+        if remaining:
+            raise ValueError(
+                f"{remaining} legacy {table} remain; review before retirement"
+            )
     return result
 
 

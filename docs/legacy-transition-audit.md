@@ -154,3 +154,53 @@ production role separation, credentials, actual application startup and the comp
 privilege set require further testing. The application necessarily reads account and
 profile tables, so restricting the view alone does not prevent it deriving the same
 data from its authorized base-table access.
+
+## Restored-copy ownership rehearsal — 21 November 2026
+
+Exact draft commit `a72a4fd041e6ac3c60654dc7d4eb8a518fa5a14d` was run against
+`lexi_transition_rehearsal_20261120`, not the live database. A database-name
+assertion preceded both schema upgrade and ownership application. The schema was
+upgraded from `b46d77a9d009` to `f80b11e3f013`. Original-column row hashes and
+key sets matched across all original tables except the expected Alembic revision
+key; `account_deletions` was the only added table. The private mapping ledger
+contained the verified account/profile/Unit IDs and complete card-ID sets.
+
+The transactional dry run and application to the copy reported:
+
+| Unit | Owner | Cards / new memberships | Tags | Collection visibility |
+| --- | --- | ---: | ---: | --- |
+| 00 · Benvenuti | Fofo | 245 / 245 | 4 | private |
+| 30 · Foods | Lollo | 8 / 8 | 0 | private |
+| 50 · Days | Lollo | 9 / 9 | 0 | private |
+| 610 · Lorenzo | Lollo | 0 / 0 | 0 | private |
+
+The row-level comparison identified four new collections and 262 new membership
+pairs, and ownership/visibility changes to four Units, 262 cards and four tags.
+No other columns or tables changed: card contents and IDs, all 245 existing tag
+links, account/profile mappings, reviews, sessions, session snapshots and learning
+progress remained identical. Repeating the command produced zero changed rows,
+zero new memberships and no new collections.
+
+Scoped ORM queries after the migration showed Fofo could read 245 Benvenuti
+cards and four tags; Lollo could read eight Foods and nine Days cards; Spyros
+could read none of those cards or tags. The empty Lorenzo collection belonged to
+Lollo. In a rolled-back publication simulation, Lollo and Spyros could each read
+all 245 Benvenuti cards, neither could read Fofo's private tags, and their full
+existing progress rows remained identical. The simulation changed the collection
+and confirmed-grant fields inside a transaction and rolled it back; the separate
+synthetic HTTP test exercises the owner publication endpoint. This is not an
+end-to-end provider-identity or production deployment test.
+
+The mapping and before/after manifests, dry-run, applied and rerun reports are
+stored in the separate copy's `rehearsal_evidence.artifacts` table, in a schema
+with `PUBLIC` access revoked. They contain identifiers and column hashes and must
+remain private. The copy and backup share the production PostgreSQL service and
+volume and are not independent disaster recovery. A later draft hardens the
+migration to stop if any unmapped legacy Units or cards remain; that additional
+check has synthetic coverage but was not part of commit `a72a4fd` rehearsed above.
+
+CI for `a72a4fd` passed, as did local backend (260 passed, one skipped) and
+frontend (277 passed, lint and build) checks. Retiring the legacy-access behavior
+and replacing the remaining Unit-facing screens still require implementation and
+regression coverage. The production operator-view role/credential rollout also
+remains unverified and must not be applied from this draft without review.
