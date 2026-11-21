@@ -56,11 +56,6 @@ export default function PracticeCardView({
   return (
     <div className="flashcard">
       <div className="card-metadata">
-        <span>
-          {entry.unit
-            ? `${entry.unit.code} · ${entry.unit.title}`
-            : text.noUnit}
-        </span>
         {entry.word_type && <span>{text[entry.word_type]}</span>}
       </div>
       <p lang={front === "greek" ? "el" : "it"} className="card-prompt">

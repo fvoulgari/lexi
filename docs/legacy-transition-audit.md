@@ -37,6 +37,26 @@ restore share the production volume and do not satisfy this recovery gate. An
 independent protected copy has not yet been obtained; no billable infrastructure
 has been provisioned for one.
 
+Railway documents protected logical dumps uploaded to a private S3-compatible
+bucket as an off-volume backup option. Bucket storage is billed at $0.015 per
+GB-month, rounded up to whole GB-months; service upload egress is $0.05 per GB,
+and any backup or restore worker uses additional compute. Confirm workspace
+limits, retention, encryption/key custody and the complete expected cost before
+provisioning. Restore the downloaded object to a separate database and compare
+its manifest before relying on it. See [Railway's backup guide](https://railway.com/guides/postgres-backups-restores)
+and [bucket billing](https://docs.railway.com/storage-buckets/billing).
+
+The draft release workflow now invokes the exact release image on a dedicated
+`lexi-migration` runner using a separate privileged secret, after release target
+checks and before rollout. It fails closed on migration error or remaining
+legacy units/cards. Local mock-API tests cover failure and retry; a synthetic
+database test covers restricted-login operations and credential rollback.
+Neither constitutes a Railway runner rehearsal. The trusted private-network
+runner must be provisioned and its execution, identity isolation, network path,
+failure and recovery verified before deployment. The existing protected-copy
+data rehearsal predates the latest collection UI and authorization changes and
+must be repeated with the final release candidate.
+
 ## Observed on 20 November 2026
 
 - Railway production service `lexi` deployment

@@ -26,14 +26,14 @@ export const copy = {
     bulkPage: "Select all on this page",
     bulkSelectedOne: "{count} card selected",
     bulkSelected: "{count} cards selected",
-    bulkMove: "Move to unit",
+    bulkMove: "Add to collection",
     bulkDelete: "Archive selected",
-    bulkDestination: "Destination unit",
+    bulkDestination: "Destination collection",
     bulkDeleteTitle: "Archive selected cards?",
     bulkDeleteWarning:
       "Archive the selected cards? They will leave future practice queues. Reviews and completed-session history are preserved.",
-    bulkMovedOne: "{count} card moved.",
-    bulkMoved: "{count} cards moved.",
+    bulkMovedOne: "{count} card added.",
+    bulkMoved: "{count} cards added.",
     bulkDeletedOne: "{count} card archived.",
     bulkDeleted: "{count} cards archived.",
 
@@ -371,14 +371,14 @@ export const copy = {
     bulkPage: "Επιλογή όλων στη σελίδα",
     bulkSelectedOne: "{count} επιλεγμένη κάρτα",
     bulkSelected: "{count} επιλεγμένες κάρτες",
-    bulkMove: "Μετακίνηση σε ενότητα",
+    bulkMove: "Προσθήκη σε συλλογή",
     bulkDelete: "Αρχειοθέτηση επιλεγμένων",
-    bulkDestination: "Ενότητα προορισμού",
+    bulkDestination: "Συλλογή προορισμού",
     bulkDeleteTitle: "Αρχειοθέτηση επιλεγμένων καρτών;",
     bulkDeleteWarning:
       "Να αρχειοθετηθούν οι επιλεγμένες κάρτες; Οι αξιολογήσεις και οι ολοκληρωμένες συνεδρίες διατηρούνται. Οι κάρτες δεν θα εμφανίζονται σε νέα εξάσκηση.",
-    bulkMovedOne: "Μετακινήθηκε {count} κάρτα.",
-    bulkMoved: "Μετακινήθηκαν {count} κάρτες.",
+    bulkMovedOne: "Προστέθηκε {count} κάρτα.",
+    bulkMoved: "Προστέθηκαν {count} κάρτες.",
     bulkDeletedOne: "Αρχειοθετήθηκε {count} κάρτα.",
     bulkDeleted: "Αρχειοθετήθηκαν {count} κάρτες.",
 
@@ -389,7 +389,7 @@ export const copy = {
     chooseUnit: "Επίλεξε ενότητα",
     practiceScopeEmpty:
       "Οι επιλεγμένες ενότητες δεν έχουν διαθέσιμες κάρτες για αυτή την εξάσκηση.",
-    csvDestination: "Ενότητα εισαγωγής",
+    csvDestination: "Συλλογή εισαγωγής",
     csvUnitConflict:
       "Οι ενότητες του CSV διαφέρουν από την επιλεγμένη. Όλες οι νέες και ενημερωμένες κάρτες χρησιμοποιούν την ενότητα που επέλεξες. Το ιστορικό εξάσκησης διατηρείται.",
     setupPracticeType: "Τρόπος εξάσκησης",
@@ -720,14 +720,14 @@ export const copy = {
     bulkPage: "Seleziona tutte le schede nella pagina",
     bulkSelectedOne: "{count} scheda selezionata",
     bulkSelected: "{count} schede selezionate",
-    bulkMove: "Sposta in un’unità",
+    bulkMove: "Aggiungi alla raccolta",
     bulkDelete: "Archivia selezionate",
-    bulkDestination: "Unità di destinazione",
+    bulkDestination: "Raccolta di destinazione",
     bulkDeleteTitle: "Archiviare le schede selezionate?",
     bulkDeleteWarning:
       "Archiviare le schede selezionate? Le valutazioni e le sessioni completate restano disponibili. Le schede saranno escluse dalle nuove esercitazioni.",
-    bulkMovedOne: "{count} scheda spostata.",
-    bulkMoved: "{count} schede spostate.",
+    bulkMovedOne: "{count} scheda aggiunta.",
+    bulkMoved: "{count} schede aggiunte.",
     bulkDeletedOne: "{count} scheda archiviata.",
     bulkDeleted: "{count} schede archiviate.",
 
@@ -738,7 +738,7 @@ export const copy = {
     chooseUnit: "Scegli un’unità",
     practiceScopeEmpty:
       "Le unità selezionate non hanno schede disponibili per questa esercitazione.",
-    csvDestination: "Unità di importazione",
+    csvDestination: "Raccolta di importazione",
     csvUnitConflict:
       "Le unità del CSV differiscono dalla destinazione selezionata. Tutte le schede nuove e aggiornate usano l’unità scelta. La cronologia delle esercitazioni viene conservata.",
     setupPracticeType: "Modalità di esercitazione",

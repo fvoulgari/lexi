@@ -58,11 +58,6 @@ def visible(model, account=None):
     return or_(
         model.owner_account_id == account.id,
         *shared,
-        and_(
-            model.owner_account_id.is_(None),
-            model.visibility == "legacy",
-            account.legacy_access or account.role == "admin",
-        ),
     )
 
 
@@ -71,11 +66,7 @@ def can_write(entity, account=None):
     return entity.owner_account_id == account.id or (
         entity.owner_account_id is None
         and account.role in {"editor", "admin"}
-        and (
-            entity.visibility == "published"
-            or account.legacy_access
-            or account.role == "admin"
-        )
+        and entity.visibility == "published"
     )
 
 
@@ -89,16 +80,10 @@ def require_write(entity, account=None):
 
 def apply_scope(entity, account=None, visibility="private"):
     account = account or current_account()
-    if visibility not in {"private", "legacy", "published"}:
+    if visibility not in {"private", "published"}:
         raise HTTPException(422, "Invalid visibility.")
     if visibility != "private" and account.role not in {"editor", "admin"}:
         raise HTTPException(403, "Shared-library editing permission required.")
-    if (
-        visibility == "legacy"
-        and account.role == "editor"
-        and not account.legacy_access
-    ):
-        raise HTTPException(403, "Legacy-library access required.")
     if visibility == "published" and account.role != "admin":
         raise HTTPException(403, "Only administrators may publish content.")
     entity.owner_account_id = account.id if visibility == "private" else None

@@ -281,14 +281,17 @@ class VocabularyUpdate(VocabularyFields):
 
 class VocabularyBulk(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    action: Literal["move", "delete"]
+    action: Literal["move", "delete", "add_to_collection"]
     entry_ids: list[UUID] = Field(min_length=1)
     unit_id: UUID | None = None
+    collection_id: UUID | None = None
 
     @model_validator(mode="after")
     def destination_for_move_only(self):
         if (self.action == "move") != (self.unit_id is not None):
             raise ValueError("Moving requires a destination unit; deletion does not.")
+        if (self.action == "add_to_collection") != (self.collection_id is not None):
+            raise ValueError("Adding requires a destination collection.")
         return self
 
 

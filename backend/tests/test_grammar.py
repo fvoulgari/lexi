@@ -20,7 +20,7 @@ def create(client, **values):
     return client.post(
         "/api/vocabulary",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "unit_id": client.get("/api/units").json()[0]["id"],
             "italian": "il biglietto",
             "greek": "το εισιτήριο",

@@ -124,6 +124,26 @@ def test_application_runs_with_restricted_login(client, test_database, monkeypat
                 runtime.get(f"/api/collections/{collection_id}/entries").status_code
                 == 200
             )
+            csv = "italian,greek,word_type\nsalve,γεια σου,expression\n".encode()
+            for action in ("preview", "confirm"):
+                imported = runtime.post(
+                    f"/api/imports/{action}?collection_id={collection_id}",
+                    headers={**headers, "Content-Type": "text/csv"},
+                    content=csv,
+                )
+                assert imported.status_code == 200, imported.text
+            assert imported.json()["counts"]["imported"] == 1
+        # Roll back only the connection credential; data written by the
+        # restricted process must remain visible and keep the same identifiers.
+        monkeypatch.setenv("DATABASE_URL", test_database)
+        rollback = create_app()
+        rollback.state.auth_gate.ready = True
+        with TestClient(rollback) as restored_runtime:
+            signin(restored_runtime)
+            cards = restored_runtime.get(f"/api/collections/{collection_id}/entries")
+            assert cards.status_code == 200
+            assert cards.json()[0]["id"] == response.json()["id"]
+            assert len(cards.json()) == 2
     finally:
         with engine.begin() as db:
             if directory_created:

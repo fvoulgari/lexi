@@ -131,7 +131,7 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
   expect(
     screen.getByRole("option", { name: "Italian → Greek" }),
   ).toBeInTheDocument();
-  expect(screen.getByText("00 · Benvenuti")).toBeInTheDocument();
+  expect(screen.queryByText("00 · Benvenuti")).not.toBeInTheDocument();
   expect(screen.getByText("Noun")).toBeInTheDocument();
   expect(screen.queryByText("la casa")).not.toBeInTheDocument();
   expect(screen.queryByText("welcome")).not.toBeInTheDocument();

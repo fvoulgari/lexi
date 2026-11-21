@@ -98,7 +98,7 @@ test("combined filters persist through pages and changing search resets page", a
   expect(screen.getByLabelText("Search Italian or Greek")).toHaveValue("");
 });
 
-test("create a unit and assign it while tag controls remain hidden", async () => {
+test("new cards use collections while tag controls remain hidden", async () => {
   let units = [];
   let tags = [];
   let saved;
@@ -126,14 +126,6 @@ test("create a unit and assign it while tag controls remain hidden", async () =>
   );
   open();
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "New unit" }));
-  await user.type(screen.getByLabelText("Unit code"), "007");
-  await user.type(screen.getByLabelText("Title"), "A new chapter");
-  expect(screen.queryByLabelText("Order")).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Create" }));
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: "New unit" })).toHaveFocus(),
-  );
   expect(
     screen.queryByRole("button", { name: "Create tag" }),
   ).not.toBeInTheDocument();
@@ -197,36 +189,6 @@ test("editing preserves hidden tags while allowing unit changes in Italian", asy
   await user.click(screen.getByRole("button", { name: "Salva scheda" }));
   await waitFor(() => expect(saved?.tag_ids).toEqual(["t"]));
   expect(saved).not.toHaveProperty("unit_id");
-});
-
-test("failed unit creation retains the draft for retry with Greek labels", async () => {
-  let fail = true;
-  server.use(
-    http.post("*/api/units", async ({ request }) =>
-      fail
-        ? HttpResponse.error()
-        : HttpResponse.json(
-            { id: "new", ...(await request.json()) },
-            { status: 201 },
-          ),
-    ),
-  );
-  open(copy.el);
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: copy.el.toolsNewUnit }));
-  await user.type(screen.getByLabelText(copy.el.unitCode), "007");
-
-  await user.type(screen.getByLabelText(copy.el.unitTitle), "Ταξίδι");
-  await user.click(screen.getByRole("button", { name: "Δημιουργία" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Έλεγξε τη σύνδεσή σου",
-  );
-  expect(screen.getByLabelText(copy.el.unitTitle)).toHaveValue("Ταξίδι");
-  fail = false;
-  await user.click(screen.getByRole("button", { name: "Δημιουργία" }));
-  await waitFor(() =>
-    expect(screen.queryByLabelText(copy.el.unitTitle)).not.toBeInTheDocument(),
-  );
 });
 
 test("saving the final filtered-page result returns to a valid page and keeps filters", async () => {

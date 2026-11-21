@@ -38,7 +38,7 @@ def test_required_units_for_manual_cards_and_csv(logged_in):
         assert (
             client.post(
                 "/api/vocabulary",
-                json={"visibility": "legacy", **body, **unit},
+                json={"visibility": "private", **body, **unit},
                 headers=headers(client),
             ).status_code
             == 422
@@ -74,7 +74,7 @@ def test_session_unit_choices_apply_without_profile_assignment(logged_in, mode):
         client.post(
             "/api/vocabulary",
             json={
-                "visibility": "legacy",
+                "visibility": "private",
                 "italian_adjective_gender": "masculine",
                 "greek_adjective_gender": "masculine",
                 "italian": "nuovo",
@@ -122,7 +122,7 @@ def test_new_profile_can_practise_new_unit_immediately(logged_in, test_database)
     unit = client.post(
         "/api/units",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "code": "NEW",
             "title": "New shared unit",
             "sort_order": 0,
@@ -132,7 +132,7 @@ def test_new_profile_can_practise_new_unit_immediately(logged_in, test_database)
     card = client.post(
         "/api/vocabulary",
         json={
-            "visibility": "legacy",
+            "visibility": "private",
             "italian_adjective_gender": "masculine",
             "greek_adjective_gender": "masculine",
             "italian": "nuovo",

@@ -79,7 +79,6 @@ def test_private_and_legacy_content_do_not_leak_in_count_or_projection(scoped_db
     a.legacy_access = True
     assert set(db.scalars(select(Unit.id).where(Unit.id.in_(ids)))) == {
         ids[0],
-        ids[2],
         ids[3],
     }
     with pytest.raises(HTTPException):
@@ -185,16 +184,14 @@ def test_unpublication_redacts_snapshots_without_erasing_personal_history(
     from conftest import signin
     from test_practice import headers, start
     from test_progress import submit
+    from test_shareable_collections import add, publish
+    from test_shareable_collections import collection as make_collection
 
     client = logged_in
     card = client.get("/api/vocabulary").json()["items"][0]
-    path = f"/api/vocabulary/{card['id']}/visibility"
-    assert (
-        client.patch(
-            path, json={"visibility": "published"}, headers=headers(client)
-        ).status_code
-        == 200
-    )
+    owner_collection = make_collection(client, "Published")
+    assert add(client, owner_collection, card).status_code == 204
+    assert publish(client, owner_collection).status_code == 200
     account = account_client("published-reader")
     collection = client.post(
         "/api/collections", json={"name": "Reading"}, headers=headers(client)
@@ -211,8 +208,9 @@ def test_unpublication_redacts_snapshots_without_erasing_personal_history(
     submit(client, session, card["id"], "greek_to_italian", "hard")
     signin(client)
     assert (
-        client.patch(
-            path, json={"visibility": "legacy"}, headers=headers(client)
+        client.post(
+            f"/api/collections/{owner_collection['id']}/unpublish",
+            headers=headers(client),
         ).status_code
         == 200
     )

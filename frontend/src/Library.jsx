@@ -8,22 +8,18 @@ import {
   SlidersHorizontal,
   Upload,
   Download,
-  FolderPlus,
 } from "lucide-react";
 import PropTypes from "prop-types";
-import { useAccount } from "./AccountContext.jsx";
 import Collections, { CollectionMembership } from "./Collections.jsx";
 import BulkVocabularyActions from "./BulkVocabularyActions.jsx";
 import CardActions from "./CardActions.jsx";
 import Import from "./Import.jsx";
-import OrganizationForm from "./OrganizationForm.jsx";
 import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
 
 export default function Library({ text, csrf, onLocked }) {
   const client = useQueryClient();
-  const account = useAccount();
   const collections = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
@@ -31,11 +27,11 @@ export default function Library({ text, csrf, onLocked }) {
   const [collectionId, setCollectionId] = useState("");
   const [archived, setArchived] = useState(false);
   const cardAction = useMutation({
-    mutationFn: ({ id, publish }) =>
-      request(`/api/vocabulary/${id}/${publish ? "visibility" : "restore"}`, {
-        method: publish ? "PATCH" : "POST",
+    mutationFn: ({ id }) =>
+      request(`/api/vocabulary/${id}/restore`, {
+        method: "POST",
         headers: { "X-CSRF-Token": csrf },
-        body: publish ? JSON.stringify({ visibility: "published" }) : "{}",
+        body: "{}",
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["vocabulary"] }),
   });
@@ -62,14 +58,6 @@ export default function Library({ text, csrf, onLocked }) {
       if (error.status === 401) onLocked();
     }
   }
-  const [creating, setCreating] = useState(null);
-  const returnToTools = useRef(false);
-  useEffect(() => {
-    if (creating === null && returnToTools.current) {
-      returnToTools.current = false;
-      restoreFocus(document.getElementById("create-units"));
-    }
-  }, [creating]);
   const [openCard, setOpenCard] = useState(null);
   const [editing, setEditing] = useState(undefined);
   const [deleting, setDeleting] = useState(null);
@@ -103,10 +91,6 @@ export default function Library({ text, csrf, onLocked }) {
     q: "",
     word_types: [],
   });
-  const units = useQuery({
-    queryKey: ["units"],
-    queryFn: () => request("/api/units"),
-  });
   function changeFilter(key, value) {
     setSelectedIds([]);
     setBulkNotice(null);
@@ -126,9 +110,11 @@ export default function Library({ text, csrf, onLocked }) {
     queryFn: () => request(`/api/vocabulary?${params}`),
   });
   useEffect(() => {
-    if ([library.error, units.error].some((error) => error?.status === 401))
+    if (
+      [library.error, collections.error].some((error) => error?.status === 401)
+    )
       onLocked();
-  }, [library.error, units.error, onLocked]);
+  }, [library.error, collections.error, onLocked]);
   const filterCount = filters.word_types.length;
   const pages = Math.max(1, Math.ceil((library.data?.total || 0) / 12));
 
@@ -282,21 +268,6 @@ export default function Library({ text, csrf, onLocked }) {
             {text.clearFilters}
           </button>
         )}
-        {units.isError && (
-          <div>
-            <p role="alert" className="error">
-              {text.errors.request_failed}
-            </p>
-            <button
-              className="secondary"
-              onClick={() => {
-                units.refetch();
-              }}
-            >
-              {text.retry}
-            </button>
-          </div>
-        )}
       </section>
       <section
         className="library-tools"
@@ -328,34 +299,12 @@ export default function Library({ text, csrf, onLocked }) {
             <Download size={17} aria-hidden="true" />
             {exportState === "pending" ? text.exporting : text.toolsExport}
           </button>
-          <button
-            id="create-units"
-            className="secondary"
-            disabled={isSaving || creating !== null}
-            onClick={() => setCreating("units")}
-          >
-            <FolderPlus size={17} aria-hidden="true" />
-            {text.toolsNewUnit}
-          </button>
         </div>
         {exportState === "success" && <p role="status">{text.exportStarted}</p>}
         {exportState === "error" && (
           <p role="alert" className="error">
             {text.errors[exportError?.code] || text.errors.request_failed}
           </p>
-        )}
-        {creating && (
-          <OrganizationForm
-            key={creating}
-            kind={creating}
-            text={text}
-            csrf={csrf}
-            onLocked={onLocked}
-            onClose={() => {
-              returnToTools.current = true;
-              setCreating(null);
-            }}
-          />
         )}
         <div id={importPanelId} hidden={!importOpen}>
           <Import
@@ -441,7 +390,7 @@ export default function Library({ text, csrf, onLocked }) {
 
       {bulkNotice && (
         <p role="status" className="save-notice">
-          {(bulkNotice.action === "move"
+          {(bulkNotice.action === "add_to_collection"
             ? bulkNotice.count === 1
               ? text.bulkMovedOne
               : text.bulkMoved
@@ -460,8 +409,7 @@ export default function Library({ text, csrf, onLocked }) {
             isSaving ||
             deletePending ||
             deleting !== null ||
-            editing !== undefined ||
-            creating !== null
+            editing !== undefined
           }
           onClick={() => {
             setSelecting(true);
@@ -483,7 +431,7 @@ export default function Library({ text, csrf, onLocked }) {
           pageIds={(library.data?.items || [])
             .filter((entry) => entry.can_edit && !entry.archived_at)
             .map((entry) => entry.id)}
-          units={units.data || []}
+          collections={collections.data || []}
           onChange={setSelectedIds}
           onPendingChange={setBulkBusy}
           onExit={() => {
@@ -498,7 +446,7 @@ export default function Library({ text, csrf, onLocked }) {
             setSelectedIds([]);
             setSelecting(false);
             await refreshLibrary();
-            await client.invalidateQueries({ queryKey: ["units"] });
+            await client.invalidateQueries({ queryKey: ["collections"] });
           }}
         />
       )}
@@ -566,11 +514,6 @@ export default function Library({ text, csrf, onLocked }) {
                   <span className="type-badge">
                     {text[entry.word_type] || text.other}
                   </span>
-                  <span>
-                    {entry.unit
-                      ? `${entry.unit.code} · ${entry.unit.title}`
-                      : text.noUnit}
-                  </span>
                 </div>
                 <h2 lang="it">{entry.italian}</h2>
                 <p lang="el">{entry.greek}</p>
@@ -632,18 +575,6 @@ export default function Library({ text, csrf, onLocked }) {
                     }}
                   >
                     {text.personalVariant}
-                  </button>
-                )}
-                {account?.role === "admin" && entry.visibility === "legacy" && (
-                  <button
-                    className="secondary"
-                    disabled={cardAction.isPending}
-                    onClick={() => {
-                      if (window.confirm(text.publishConfirm))
-                        cardAction.mutate({ id: entry.id, publish: true });
-                    }}
-                  >
-                    {text.publish}
                   </button>
                 )}
                 <CollectionMembership

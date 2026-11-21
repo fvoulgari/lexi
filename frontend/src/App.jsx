@@ -318,7 +318,7 @@ export default function App() {
             />
           ) : (
             <PrivateAccountBoundary
-              key={`${accountId}:${session.data.account?.role}:${session.data.account?.legacy_access}:${session.data.account?.profile_id}`}
+              key={`${accountId}:${session.data.account?.role}:${session.data.account?.profile_id}`}
             >
               <Routes>
                 <Route

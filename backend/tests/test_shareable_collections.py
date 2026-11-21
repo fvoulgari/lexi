@@ -105,6 +105,28 @@ def test_full_card_creation_uses_collection_and_preserves_internal_unit_on_edit(
     assert response.status_code == 403
 
 
+def test_bulk_collection_membership_is_atomic_and_preserves_existing_unit(
+    client, account_client
+):
+    account_client("bulk-collection-owner")
+    first, second = collection(client, "First"), collection(client, "Second")
+    one, two = card(client, first, "ένα", "uno"), card(client, first, "δύο", "due")
+    original = client.get(f"/api/vocabulary/{one['id']}").json()["unit"]["id"]
+    body = {
+        "action": "add_to_collection",
+        "collection_id": second["id"],
+        "entry_ids": [one["id"], two["id"]],
+    }
+    assert client.post("/api/vocabulary/bulk", json=body, headers=H).status_code == 200
+    assert client.post("/api/vocabulary/bulk", json=body, headers=H).status_code == 200
+    assert {
+        e["id"] for e in client.get(f"/api/collections/{second['id']}/entries").json()
+    } == {one["id"], two["id"]}
+    assert client.get(f"/api/vocabulary/{one['id']}").json()["unit"]["id"] == original
+    assert publish(client, second).status_code == 200
+    assert client.post("/api/vocabulary/bulk", json=body, headers=H).status_code == 409
+
+
 def test_ciao_shared_difficulty_combined_queue_unique_totals_and_two_users(
     client, account_client
 ):
@@ -225,21 +247,6 @@ def test_publication_requires_exact_confirmation_and_restricted_cards_fail(
     new = card(client, private)
     assert add(client, c, new).status_code == 409
     assert add(client, c, new, [new["id"]]).status_code == 204
-    legacy = client.get("/api/vocabulary").json()["items"]
-    legacy = next(e for e in legacy if e["visibility"] == "legacy")
-    assert add(client, c, legacy).status_code == 409
-    restricted = collection(client, "Restricted")
-    assert add(client, restricted, legacy).status_code == 204
-    assert (
-        client.get(f"/api/collections/{restricted['id']}/publish-preview").status_code
-        == 409
-    )
-    assert (
-        client.post(
-            f"/api/collections/{restricted['id']}/publish", headers=H, json={}
-        ).status_code
-        == 409
-    )
     account_client("outsider")
     assert client.get(f"/api/collections/{private['id']}/entries").status_code == 404
     assert client.get(f"/api/vocabulary/{own['id']}").status_code == 200

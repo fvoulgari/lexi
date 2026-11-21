@@ -35,7 +35,18 @@ const report = {
   ],
 };
 const server = setupServer(
-  http.get("*/api/collections", () => HttpResponse.json([])),
+  http.get("*/api/collections", () =>
+    HttpResponse.json([
+      {
+        id: "u",
+        name: "Domande",
+        can_edit: true,
+        visibility: "private",
+        source_language: "it",
+        target_language: "el",
+      },
+    ]),
+  ),
   http.patch("*/api/account", async ({ request }) =>
     HttpResponse.json(await request.json()),
   ),
@@ -87,10 +98,12 @@ test("upload previews rows and proposed metadata before explicit confirmation", 
   expect(
     screen.queryByRole("button", { name: "Import 1 card" }),
   ).not.toBeInTheDocument();
-  await user.selectOptions(screen.getByLabelText("Unit *"), "u");
+  await user.selectOptions(screen.getByLabelText("Import destination"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(await screen.findByText("greek: required")).toBeInTheDocument();
-  expect(screen.getByRole("combobox", { name: "Unit *" })).toHaveValue("u");
+  expect(
+    screen.getByRole("combobox", { name: "Import destination" }),
+  ).toHaveValue("u");
   expect(screen.getByText("questions")).toBeInTheDocument();
   await user.click(screen.getByText("Card details"));
   expect(screen.getByText("Italian gender")).toBeInTheDocument();
@@ -127,7 +140,7 @@ test("failed confirmation retains preview for retry and changing file clears it"
     { type: "text/csv" },
   );
   await user.upload(screen.getByLabelText("CSV file"), file);
-  await user.selectOptions(screen.getByLabelText("Unit *"), "u");
+  await user.selectOptions(screen.getByLabelText("Import destination"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   await user.click(
     await screen.findByRole("button", { name: "Import 1 card" }),
@@ -168,7 +181,7 @@ test("interface language changes retain the file and preview", async () => {
       { type: "text/csv" },
     ),
   );
-  await user.selectOptions(screen.getByLabelText("Unit *"), "u");
+  await user.selectOptions(screen.getByLabelText("Import destination"), "u");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   await screen.findByRole("button", { name: "Import 1 card" });
   rendered.rerender(view(copy.el));
@@ -227,7 +240,7 @@ test.each(["success", "error"])(
       { type: "text/csv" },
     );
     await user.upload(screen.getByLabelText("CSV file"), file);
-    await user.selectOptions(screen.getByLabelText("Unit *"), "u");
+    await user.selectOptions(screen.getByLabelText("Import destination"), "u");
     await user.click(screen.getByRole("button", { name: "Preview" }));
     await user.click(toggle);
     expect(panel).not.toBeVisible();
@@ -316,10 +329,10 @@ test("CSV destination conflicts are visible without any profile assignment", asy
       ]),
     ),
     http.post("*/api/imports/preview", ({ request }) => {
-      expect(new URL(request.url).searchParams.get("unit_id")).toBe("u");
+      expect(new URL(request.url).searchParams.get("collection_id")).toBe("u");
       return HttpResponse.json({
         ...report,
-        destination_unit: { id: "u", code: "07", title: "Domande" },
+        destination_collection: { id: "u", name: "Domande" },
         unit_conflicts: 1,
       });
     }),
@@ -338,7 +351,7 @@ test("CSV destination conflicts are visible without any profile assignment", asy
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Import CSV" }));
   await user.selectOptions(
-    screen.getByRole("combobox", { name: "Unit *" }),
+    screen.getByRole("combobox", { name: "Import destination" }),
     "u",
   );
   await user.upload(
@@ -350,7 +363,7 @@ test("CSV destination conflicts are visible without any profile assignment", asy
   await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(await screen.findByText(copy.en.csvUnitConflict)).toBeInTheDocument();
   expect(
-    screen.getByText("07 · Domande", { selector: "strong" }),
+    screen.getByText("Domande", { selector: "strong" }),
   ).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Import 1 card" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
@@ -406,7 +419,10 @@ test("an update-only CSV shows changed fields and can be confirmed", async () =>
       { type: "text/csv" },
     ),
   );
-  await user.selectOptions(await screen.findByLabelText("Unit *"), "u");
+  await user.selectOptions(
+    await screen.findByLabelText("Import destination"),
+    "u",
+  );
   await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(
     await screen.findByText("Changed fields: Italian pronunciation"),

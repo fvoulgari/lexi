@@ -27,12 +27,11 @@ class AccountUpdate(BaseModel):
 class RoleUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     role: Literal["learner", "editor", "admin"] | None = None
-    legacy_access: bool | None = None
 
 
 class Publication(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    visibility: Literal["published", "legacy"]
+    visibility: Literal["published"]
 
 
 def account_output(account, name=None):
@@ -41,7 +40,6 @@ def account_output(account, name=None):
         "profile_id": str(account.profile_id),
         "display_name": name,
         "role": account.role,
-        "legacy_access": account.legacy_access,
         "interface_language": account.interface_language,
     }
 
@@ -153,8 +151,6 @@ def account_router(sessions, gate):
                         },
                     )
                 account.role = body.role
-            if body.legacy_access is not None:
-                account.legacy_access = body.legacy_access
             from app.legacy_models import SecurityEvent
 
             db.add(

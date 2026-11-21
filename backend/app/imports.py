@@ -4,18 +4,18 @@ import csv
 import io
 import json
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import ValidationError
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from app.access import current_account, require_write
 from app.csv_format import FORMAT_VERSION, restore_text
 from app.duplicates import normalized_pair
 from app.grammar import clean_grammar
-from app.models import Tag, Unit, VocabularyEntry
+from app.models import Collection, CollectionEntry, Tag, Unit, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
 
 MAX_BYTES = 1_048_576
@@ -97,7 +97,7 @@ async def read_csv(request):
         invalid("Upload a valid UTF-8 CSV file.")
 
 
-def evaluate(db, rows, confirm, destination):
+def evaluate(db, rows, confirm, destination, collection=None):
     require_write(destination)
     tags = {
         t.name: t
@@ -132,6 +132,24 @@ def evaluate(db, rows, confirm, destination):
             }
         )
     proposed_tags, results = set(), []
+    members = set()
+    position = 0
+    if collection is not None:
+        members = set(
+            db.scalars(
+                select(CollectionEntry.entry_id).where(
+                    CollectionEntry.collection_id == collection.id
+                )
+            )
+        )
+        position = (
+            db.scalar(
+                select(func.coalesce(func.max(CollectionEntry.position), -1)).where(
+                    CollectionEntry.collection_id == collection.id
+                )
+            )
+            + 1
+        )
     counts = dict(imported=0, updated=0, valid=0, skipped=0, duplicate=0, error=0)
     for number, original in enumerate(rows, 2):
         row = {
@@ -184,7 +202,7 @@ def evaluate(db, rows, confirm, destination):
                     title=title or destination.title,
                     sort_order=int(order) if order else 0,
                 )
-            conflict = bool(
+            conflict = collection is None and bool(
                 (code and code != destination.code)
                 or (title and title != destination.title)
                 or (order and int(order) != destination.sort_order)
@@ -248,8 +266,14 @@ def evaluate(db, rows, confirm, destination):
                         for key, value in supplied.items()
                         if current["values"][key] != value
                     ]
-                    if current["unit_id"] != destination.id:
+                    if collection is None and current["unit_id"] != destination.id:
                         changed_fields.append("unit_id")
+                    if (
+                        collection is not None
+                        and current["entry"] is not None
+                        and current["entry"].id not in members
+                    ):
+                        changed_fields.append("collection_id")
                     if "tags" in original and current["tags"] != set(names):
                         changed_fields.append("tags")
                     status = "updated" if changed_fields else "duplicate"
@@ -263,7 +287,8 @@ def evaluate(db, rows, confirm, destination):
                         }
                         pairs[pair] = [current]
                     current["values"].update(supplied)
-                    current["unit_id"] = destination.id
+                    if collection is None:
+                        current["unit_id"] = destination.id
                     if "tags" in original:
                         current["tags"] = set(names)
                     proposed_tags.update(name for name in names if name not in tags)
@@ -281,7 +306,7 @@ def evaluate(db, rows, confirm, destination):
                             counts["imported"] += 1
                         else:
                             for key in changed_fields:
-                                if key not in {"unit_id", "tags"}:
+                                if key not in {"unit_id", "tags", "collection_id"}:
                                     setattr(stored, key, supplied[key])
                             if "unit_id" in changed_fields:
                                 stored.unit = destination
@@ -297,6 +322,18 @@ def evaluate(db, rows, confirm, destination):
                                     db.add(tags[name])
                                 assigned_tags.append(tags[name])
                             stored.tags = assigned_tags
+                        if collection is not None:
+                            db.flush()
+                            if stored.id not in members:
+                                db.add(
+                                    CollectionEntry(
+                                        collection_id=collection.id,
+                                        entry_id=stored.id,
+                                        position=position,
+                                    )
+                                )
+                                members.add(stored.id)
+                                position += 1
         counts[status] += 1
         if status == "updated":
             counts["valid"] += 1
@@ -322,7 +359,12 @@ def evaluate(db, rows, confirm, destination):
             }
         )
     return {
-        "destination_unit": {
+        "destination_collection": {"id": str(collection.id), "name": collection.title}
+        if collection is not None
+        else None,
+        "destination_unit": None
+        if collection is not None
+        else {
             "id": str(destination.id),
             "code": destination.code,
             "title": destination.title,
@@ -343,6 +385,43 @@ def import_router(sessions, gate):
         ],
     )
 
+    def destination_for_collection(db, collection_id, confirm):
+        collection = db.scalar(
+            select(Collection).where(Collection.id == collection_id).with_for_update()
+            if confirm
+            else select(Collection).where(Collection.id == collection_id)
+        )
+        if collection is None or collection.owner_account_id != current_account().id:
+            raise HTTPException(403, "Choose a collection you own.")
+        if collection.visibility != "private":
+            raise HTTPException(
+                409, "Import into a private collection before publishing it."
+            )
+        if {collection.source_language, collection.target_language} != {"it", "el"}:
+            raise HTTPException(422, "CSV import requires an Italian–Greek collection.")
+        unit = db.scalar(
+            select(Unit)
+            .where(
+                Unit.owner_account_id == current_account().id,
+                Unit.visibility == "private",
+            )
+            .order_by(Unit.id)
+            .limit(1)
+        )
+        if unit is None:
+            unit = Unit(
+                id=uuid4(),
+                code="CARDS",
+                title="Cards",
+                sort_order=0,
+                owner_account_id=current_account().id,
+                visibility="private",
+            )
+            if confirm:
+                db.add(unit)
+                db.flush()
+        return collection, unit
+
     @router.get("/example")
     def example():
         sample = json.loads(Path(__file__).with_name("csv_example.json").read_text())
@@ -359,9 +438,18 @@ def import_router(sessions, gate):
         )
 
     @router.post("/preview", dependencies=[Depends(gate.check_csrf)])
-    async def preview(request: Request, unit_id: UUID):
+    async def preview(
+        request: Request, unit_id: UUID | None = None, collection_id: UUID | None = None
+    ):
         rows = await read_csv(request)
         with sessions() as db:
+            if collection_id is not None and unit_id is None:
+                collection, destination = destination_for_collection(
+                    db, collection_id, False
+                )
+                return evaluate(db, rows, False, destination, collection)
+            if unit_id is None or collection_id is not None:
+                raise HTTPException(422, "Choose one destination.")
             destination = db.get(Unit, unit_id)
             if destination is None:
                 raise HTTPException(
@@ -374,16 +462,26 @@ def import_router(sessions, gate):
             return evaluate(db, rows, False, destination)
 
     @router.post("/confirm", dependencies=[Depends(gate.check_csrf)])
-    async def confirm(request: Request, unit_id: UUID):
+    async def confirm(
+        request: Request, unit_id: UUID | None = None, collection_id: UUID | None = None
+    ):
         rows = await read_csv(request)
         with sessions.begin() as db:
             # Also blocks normal vocabulary/unit/tag writes until commit.
             db.execute(
                 text(
-                    "LOCK TABLE vocabulary_entries, units, tags "
+                    "LOCK TABLE vocabulary_entries, units, tags, "
+                    "collections, collection_entries "
                     "IN SHARE ROW EXCLUSIVE MODE"
                 )
             )
+            if collection_id is not None and unit_id is None:
+                collection, destination = destination_for_collection(
+                    db, collection_id, True
+                )
+                return evaluate(db, rows, True, destination, collection)
+            if unit_id is None or collection_id is not None:
+                raise HTTPException(422, "Choose one destination.")
             destination = db.get(Unit, unit_id)
             if destination is None:
                 raise HTTPException(

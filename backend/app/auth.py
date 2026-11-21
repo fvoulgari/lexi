@@ -146,7 +146,6 @@ class AuthGate:
             account={
                 "id": str(account.id),
                 "role": account.role,
-                "legacy_access": account.legacy_access,
                 "interface_language": account.interface_language,
                 "profile_id": str(account.profile_id),
                 "display_name": display_name,

@@ -181,9 +181,9 @@ test("Progress shows owned learner direction counts without a profile switcher",
   expect(
     within(directions).getByRole("rowheader", { name: "Italian → Greek" }),
   ).toBeInTheDocument();
-  expect(screen.getByRole("region", { name: "By unit" })).toHaveTextContent(
-    "00 · Benvenuti",
-  );
+  expect(
+    screen.queryByRole("region", { name: "By unit" }),
+  ).not.toBeInTheDocument();
   expect(
     screen.getByRole("region", { name: "By card type" }),
   ).toHaveTextContent("Noun");
@@ -286,44 +286,6 @@ test.each([
     ).not.toBeInTheDocument();
   },
 );
-
-test("breakdown tables preserve overlapping counts and missing difficult values", async () => {
-  server.use(
-    http.get("*/api/profiles/:id/progress", () =>
-      HttpResponse.json({
-        ...history,
-        units: [
-          { ...history.units[0], difficult_entries: 1 },
-          {
-            ...history.units[0],
-            key: "01",
-            title: "Historical classification",
-          },
-        ],
-      }),
-    ),
-  );
-  open("/progress");
-  const table = await screen.findByRole("table", { name: "By unit" });
-  const rows = within(table).getAllByRole("row");
-  expect(
-    within(rows[1])
-      .getAllByRole("cell")
-      .map((cell) => cell.textContent),
-  ).toEqual(["3", "1", "1", "1", "1", "1"]);
-  expect(
-    within(rows[2])
-      .getAllByRole("cell")
-      .map((cell) => cell.textContent),
-  ).toEqual(["3", "1", "—", "1", "1", "1"]);
-  const summary = screen.getByText("Vocabulary cards").closest("dl");
-  expect(
-    within(summary).getByText("Cards practised").nextElementSibling,
-  ).toHaveTextContent("1");
-  expect(
-    screen.getByText("How is this calculated?").closest("details"),
-  ).not.toHaveAttribute("open");
-});
 
 test("detailed difficult-card retry preserves language pairs and direction link", async () => {
   let fail = true;

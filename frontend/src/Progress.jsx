@@ -356,15 +356,6 @@ function DetailedProgress({ text, profile, profiles, history, onLocked }) {
               label={(key) => directionLabel(text, key)}
             />
             <Breakdown
-              title={text.detailUnitBreakdown}
-              columnLabel={text.unit}
-              rows={data.units}
-              text={text}
-              label={(key, row) =>
-                key ? `${key} · ${row.title}` : text.noUnit
-              }
-            />
-            <Breakdown
               title={text.detailTypeBreakdown}
               columnLabel={text.setupWordTypes}
               rows={data.word_types}

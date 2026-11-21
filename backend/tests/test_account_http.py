@@ -224,19 +224,16 @@ def test_editor_permissions_never_grant_private_access_or_admin_roles(
         == 403
     )
     for visibility in ("legacy", "published"):
-        assert (
-            client.post(
-                "/api/units",
-                json={
-                    "code": "forbidden",
-                    "title": "forbidden",
-                    "sort_order": 0,
-                    "visibility": visibility,
-                },
-                headers=headers(client),
-            ).status_code
-            == 403
-        )
+        assert client.post(
+            "/api/units",
+            json={
+                "code": "forbidden",
+                "title": "forbidden",
+                "sort_order": 0,
+                "visibility": visibility,
+            },
+            headers=headers(client),
+        ).status_code == (422 if visibility == "legacy" else 403)
 
 
 def test_editor_import_cannot_publish_new_cards_or_tags(client, account_client):
@@ -270,7 +267,7 @@ def test_editor_import_cannot_publish_new_cards_or_tags(client, account_client):
     assert (
         client.patch(
             f"/api/vocabulary/{existing['id']}/visibility",
-            json={"visibility": "legacy"},
+            json={"visibility": "published"},
             headers=headers(client),
         ).status_code
         == 403
