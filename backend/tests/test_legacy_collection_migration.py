@@ -8,8 +8,22 @@ from app.preservation_manifest import compare, snapshot
 
 
 def fixture(db):
-    # Isolate Unit 00 from other tests; the transaction is rolled back.
-    db.execute(text("TRUNCATE TABLE units CASCADE"))
+    # Recreate only the old structures needed by this historical migration.
+    # DDL and fixture data are rolled back with each test.
+    db.execute(
+        text(
+            "CREATE TABLE units (id uuid PRIMARY KEY, code varchar(20) NOT NULL, "
+            "title varchar(160) NOT NULL, sort_order integer NOT NULL, "
+            "owner_account_id uuid REFERENCES accounts(id), "
+            "visibility varchar(16) NOT NULL DEFAULT 'legacy')"
+        )
+    )
+    db.execute(
+        text(
+            "ALTER TABLE vocabulary_entries ADD COLUMN "
+            "unit_id uuid REFERENCES units(id)"
+        )
+    )
     people = [(uuid4(), uuid4()), (uuid4(), uuid4())]
     for account, profile in people:
         db.execute(
