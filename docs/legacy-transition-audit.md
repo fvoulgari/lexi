@@ -195,9 +195,9 @@ The mapping and before/after manifests, dry-run, applied and rerun reports are
 stored in the separate copy's `rehearsal_evidence.artifacts` table, in a schema
 with `PUBLIC` access revoked. They contain identifiers and column hashes and must
 remain private. The copy and backup share the production PostgreSQL service and
-volume and are not independent disaster recovery. A later draft hardens the
-migration to stop if any unmapped legacy Units or cards remain; that additional
-check has synthetic coverage but was not part of commit `a72a4fd` rehearsed above.
+volume and are not independent disaster recovery. Commit `987db8e` adds a fail-closed check for unmapped legacy Units or cards.
+Its exact migration command was rerun against the migrated copy and reported
+zero changes; the private report is retained with the other rehearsal evidence.
 
 CI for `a72a4fd` passed, as did local backend (260 passed, one skipped) and
 frontend (277 passed, lint and build) checks. Retiring the legacy-access behavior
