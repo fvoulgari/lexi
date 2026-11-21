@@ -75,6 +75,8 @@ def test_public_pwa_files_and_private_api_cache_policy(client, tmp_path, monkeyp
         "icon-192.png": ("public icon", "image/png"),
         "icon-512.png": ("public icon", "image/png"),
         "apple-touch-icon.png": ("public icon", "image/png"),
+        "favicon.ico": ("public icon", "image/vnd.microsoft.icon"),
+        "favicon-32.png": ("public icon", "image/png"),
     }
     for name, (body, _) in files.items():
         (tmp_path / name).write_text(body)

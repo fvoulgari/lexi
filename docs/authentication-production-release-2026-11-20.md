@@ -1,5 +1,7 @@
 # Authentication production execution — 20 November 2026
 
+> Historical record. For current behavior and operator procedures, see the [README](../README.md), [authentication guide](authentication.md), and [Railway runbook](railway-release.md).
+
 The operator explicitly authorized the cutover and follow-up deployment. #63 and
 #66 are merged. **v1.2.1 is live at https://lexi.fotiniv.com.** #65 remains separate,
 open and draft; its collection changes are not part of this release.

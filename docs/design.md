@@ -1,5 +1,7 @@
 # Italian Notebook v1 decisions
 
+> Historical record. For current behavior and operator procedures, see the [README](../README.md), [authentication guide](authentication.md), and [Railway runbook](railway-release.md).
+
 The supplied product brief defines the initial release, delivered in stages. Future features remain deferred. Frontend code uses JavaScript and JSX; the backend uses Python with PostgreSQL persistence.
 
 ## Learners and vocabulary

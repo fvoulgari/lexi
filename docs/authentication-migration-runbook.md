@@ -1,5 +1,7 @@
 # Authentication migration and rollback runbook
 
+> Historical record. For current behavior and operator procedures, see the [README](../README.md), [authentication guide](authentication.md), and [Railway runbook](railway-release.md).
+
 Execution on 20 November 2026 is recorded in the [production report](authentication-production-release-2026-11-20.md), including the explicitly waived production-copy restore rehearsal. The instructions below remain the rollback/preparation reference; their original draft restriction was superseded by explicit rollout approval.
 
 Original preparation context: operator-controlled instructions only; no production commands were executed to prepare this document. Keep PR #63 draft. Do not merge, tag or deploy until separately authorised. Preserve the single same-origin app/private PostgreSQL topology in [ADR 0001](adr/0001-railway-application-and-private-postgresql.md). The old shared-password instructions in the [release guide](railway-release.md) are superseded by this authentication runbook; image/deployment-ledger controls still apply.

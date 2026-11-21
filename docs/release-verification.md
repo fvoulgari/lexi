@@ -1,5 +1,7 @@
 # Release verification — issue #16
 
+> Historical record. For current behavior and operator procedures, see the [README](../README.md), [authentication guide](authentication.md), and [Railway runbook](railway-release.md).
+
 Verified on 13 October 2026 against `origin/main` at `583209c`, in an isolated worktree and disposable PostgreSQL 17 environment. Production deployment was not performed. Operational procedures are in [the Railway runbook](railway-release.md).
 
 ## Executed checks

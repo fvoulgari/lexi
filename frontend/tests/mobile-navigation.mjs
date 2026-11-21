@@ -4,6 +4,15 @@ import { readFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
+const collection = {
+  id: "collection",
+  name: "Benvenuti",
+  can_edit: true,
+  visibility: "private",
+  source_language: "el",
+  target_language: "it",
+  card_count: 1,
+};
 const card = {
   id: "card",
   can_edit: true,
@@ -13,12 +22,11 @@ const card = {
   word_type: "verb",
   pronunciation: "αμπ-μπι-νά-ρε",
   greek_pronunciation: "sin-dhi-à-zo",
-  unit: { id: "u", code: "00", title: "Benvenuti" },
   tags: [],
 };
 const report = {
   counts: { valid: 245, duplicate: 0, error: 0, imported: 0 },
-  destination_unit: card.unit,
+  destination_collection: collection,
   proposed_tags: [],
   rows: Array.from({ length: 245 }, (_, i) => ({
     row: i + 2,
@@ -48,7 +56,7 @@ const server = createServer(async (req, res) => {
           display_name: "Learner",
         },
       };
-    if (path === "/api/units") body = [card.unit];
+    if (path === "/api/collections") body = [collection];
     if (path === "/api/vocabulary")
       body = { items: [card], total: 1, page: 1, page_size: 12 };
     if (path === "/api/imports/preview") body = report;
@@ -206,11 +214,37 @@ try {
     );
     await page.keyboard.press("Escape");
     assert.equal(await dialog.count(), 0);
+    const collections = page.locator(".collection-panel");
+    await collections.locator("summary").click();
+    const selector = collections.getByRole("combobox");
+    await selector.selectOption(collection.id);
+    assert.match(
+      await selector.locator("option:checked").textContent(),
+      /Benvenuti · 1 κάρτα · Ιδιωτική/,
+    );
+    await collections.getByRole("button", { name: "Νέα συλλογή" }).click();
+    const visibility = collections.getByRole("switch", { name: "Δημόσια" });
+    assert.equal(await visibility.isChecked(), false);
+    await visibility.focus();
+    await visibility.press("Space");
+    await collections.getByText("Ορατή σε άλλους μαθητές.").waitFor();
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+      true,
+    );
+    await collections.getByRole("button", { name: "Ακύρωση" }).click();
+    await collections.locator("summary").click();
+
     // CSS shares the complete safe-area-aware bar height with sticky import actions.
     await page
       .getByRole("button", { name: "Εισαγωγή CSV", exact: true })
       .click();
-    await page.getByLabel("Ενότητα *", { exact: true }).selectOption("u");
+    await page
+      .locator(".csv-import")
+      .getByRole("combobox")
+      .selectOption(collection.id);
     await page.getByLabel("Αρχείο CSV").setInputFiles({
       name: "245.csv",
       mimeType: "text/csv",

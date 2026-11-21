@@ -1,11 +1,11 @@
 # Shareable collections
 
-Tracked in [issue #64](https://github.com/fvoulgari/lexi/issues/64). This feature is a separate branch and draft PR stacked on the unmerged authentication branch. It does not alter provider configuration, authentication credentials or the authentication release's staging/production environment.
+Collections organise reusable cards for browsing and practice.
 
 ## Model and permissions
 
 - Reuse `collections`, `collection_entries` and `vocabulary_entries`: one card row, composite membership primary key, explicit position and deferred unique order. Same spelling never causes a merge.
-- A collection pair is unordered/canonical; practice direction and card text order are separate. Supported identifiers: `el`, `it`, `en`, `da`. New collections require two different languages, start private and retain their pair.
+- A collection pair is unordered/canonical; practice direction and card text order are separate. Supported identifiers: `el`, `it`, `en`, `da`. New collections require two different languages, default to private and retain their pair. The Vocabulary management form can explicitly create an empty Public collection.
 - Each reference has `publication_confirmed`, initially false. Publication preview requires explicit confirmation for every private card owned by the collection creator, even if another of their collections already shares it. Adding a private owned card to an already published collection also confirms that card's current text. Stale preview/text fingerprints are rejected.
 - Collection publication never changes a private card's stored visibility or ownership. Its grant is active only when the reference is confirmed, the collection is published, and the collection owner is the card creator. Another learner's private or published collection can reference an accessible card but cannot grant or extend access.
 - Unpublishing clears that collection's confirmations. Deletion and reference removal delete the corresponding grant. If another valid creator-owned grant remains, access continues. Otherwise card reads, search, CSV, new queues and existing session/summary responses hide the text. References, reviews and difficulty remain. Republishing requires confirmation and restores access to the same card ID and learning state.
@@ -15,11 +15,11 @@ Tracked in [issue #64](https://github.com/fvoulgari/lexi/issues/64). This featur
 
 ## UI
 
-Open Vocabulary → My collections → the collection workspace link. Choose a language pair, create a collection, create a card or search/add an accessible existing card, reorder references, preview publication, then confirm. Shared library lists published collections for the selected pair. Select one or several collections and a direction for normal or difficult-only practice. All new copy supports English, Greek and Italian; controls retain notebook typography, cream panels and sage accents.
+In Vocabulary, open **My collections** to select an owned Italian–Greek collection, see its card count and visibility, or create one. **Edit collection** changes the name or visibility. Changing an existing collection to Public opens the card-sharing preview for confirmation. Deleting a collection removes its references and grants while preserving the cards and learning history. Open the **Collections** workspace for all supported language pairs and shared collections. Choose a language pair, create a collection, create a card or search/add an accessible existing card, reorder references, preview publication, then confirm. Shared library lists published collections for the selected pair. Select one or several collections and a direction for normal or difficult-only practice. All new copy supports English, Greek and Italian; controls retain notebook typography, cream panels and sage accents.
 
 Italian–Greek cards created in the workspace use Italian text in the Italian slot and Greek text in the Greek slot, so the existing Vocabulary editor, CSV export and both practice screens work for the same ID. Explicit language mapping also handles old reversed session snapshots without rewriting their history. Additional pairs use the generic workspace. The practice endpoint validates both pair and direction at creation, reveal and review.
 
-## Migration and rollback
+## Historical migration and rollback record
 
 Migration `c57e88b0e010` follows `b46d77a9d009` and runs transactionally:
 

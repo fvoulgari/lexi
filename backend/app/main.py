@@ -645,6 +645,8 @@ def create_app():
             "icon-192.png": "image/png",
             "icon-512.png": "image/png",
             "apple-touch-icon.png": "image/png",
+            "favicon.ico": "image/vnd.microsoft.icon",
+            "favicon-32.png": "image/png",
         }
         if path in public_files:
             asset = settings.static_dir / path

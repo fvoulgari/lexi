@@ -35,6 +35,21 @@ class CollectionBody(BaseModel):
         return self
 
 
+class CreateCollectionBody(CollectionBody):
+    make_public: bool = False
+
+
+class VisibilityBody(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+
+    @field_validator("name")
+    @classmethod
+    def valid_name(cls, name):
+        if name is not None and not name.strip():
+            raise ValueError("Collection title is required.")
+        return name.strip() if name is not None else None
+
+
 class MembershipBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     entry_id: UUID
@@ -42,7 +57,7 @@ class MembershipBody(BaseModel):
     exposure_token: str = Field(default="", max_length=64)
 
 
-class PublishBody(BaseModel):
+class PublishBody(VisibilityBody):
     model_config = ConfigDict(extra="forbid")
     confirm_private_ids: list[UUID] = []
     preview_token: str = Field(default="", max_length=64)
@@ -232,14 +247,14 @@ def collection_router(sessions, gate):
             return [output(db, c) for c in db.scalars(query)]
 
     @router.post("", status_code=201, dependencies=writes)
-    def create(body: CollectionBody):
+    def create(body: CreateCollectionBody):
         with sessions.begin() as db:
             collection = Collection(
                 title=body.name.strip(),
                 owner_account_id=current_account().id,
                 source_language=body.source_language,
                 target_language=body.target_language,
-                visibility="private",
+                visibility="published" if body.make_public else "private",
             )
             db.add(collection)
             db.flush()
@@ -316,6 +331,8 @@ def collection_router(sessions, gate):
                     409, "Collection changed; review publication again."
                 )
             confirm_publication(db, c, private, body.confirm_private_ids)
+            if body.name is not None:
+                c.title = body.name
             c.visibility = "published"
             db.flush()
             return output(db, c)
@@ -351,9 +368,11 @@ def collection_router(sessions, gate):
             }
 
     @router.post("/{collection_id}/unpublish", dependencies=writes)
-    def unpublish(collection_id: UUID):
+    def unpublish(collection_id: UUID, body: VisibilityBody | None = None):
         with sessions.begin() as db:
             c = find(db, collection_id, True)
+            if body is not None and body.name is not None:
+                c.title = body.name
             c.visibility = "private"
             db.execute(
                 update(CollectionEntry)

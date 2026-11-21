@@ -177,14 +177,9 @@ export const accountCopy = {
     bulkDeleteWarning:
       "Archive the selected cards? They will leave future practice queues. Reviews and completed-session history are preserved.",
     deleteCollection: "Delete collection",
-    collections: "My collections",
-    collectionName: "Collection name",
-    createCollection: "Create collection",
     addToCollection: "Add to collection",
     removeFromCollection: "Remove from collection",
     allCollections: "All accessible cards",
-    collectionPrivate:
-      "Collections are private. Membership never grants access to a restricted card.",
     deleteEntry: "Archive card",
     deleteWarning:
       "Archive this card? It will leave future practice queues. Existing reviews and completed sessions are preserved.",
@@ -378,14 +373,9 @@ export const accountCopy = {
     bulkDeleteWarning:
       "Να αρχειοθετηθούν οι επιλεγμένες κάρτες; Δεν θα εμφανίζονται σε νέα εξάσκηση. Οι αξιολογήσεις και οι ολοκληρωμένες συνεδρίες διατηρούνται.",
     deleteCollection: "Διαγραφή συλλογής",
-    collections: "Οι συλλογές μου",
-    collectionName: "Όνομα συλλογής",
-    createCollection: "Δημιουργία συλλογής",
     addToCollection: "Προσθήκη σε συλλογή",
     removeFromCollection: "Αφαίρεση από συλλογή",
     allCollections: "Όλες οι προσβάσιμες κάρτες",
-    collectionPrivate:
-      "Οι συλλογές είναι ιδιωτικές. Η συμμετοχή δεν παρέχει πρόσβαση σε περιορισμένες κάρτες.",
     deleteEntry: "Αρχειοθέτηση κάρτας",
     deleteWarning:
       "Να αρχειοθετηθεί η κάρτα; Δεν θα εμφανίζεται σε νέα εξάσκηση. Οι αξιολογήσεις και οι ολοκληρωμένες συνεδρίες διατηρούνται.",
@@ -574,14 +564,9 @@ export const accountCopy = {
     bulkDeleteWarning:
       "Archiviare le schede selezionate? Saranno escluse dalle nuove esercitazioni. Le valutazioni e le sessioni completate restano disponibili.",
     deleteCollection: "Elimina raccolta",
-    collections: "Le mie raccolte",
-    collectionName: "Nome della raccolta",
-    createCollection: "Crea raccolta",
     addToCollection: "Aggiungi alla raccolta",
     removeFromCollection: "Rimuovi dalla raccolta",
     allCollections: "Tutte le schede accessibili",
-    collectionPrivate:
-      "Le raccolte sono private. Non concedono accesso alle schede riservate.",
     deleteEntry: "Archivia scheda",
     deleteWarning:
       "Archiviare la scheda? Sarà esclusa dalle nuove esercitazioni. Le valutazioni e le sessioni completate restano disponibili.",

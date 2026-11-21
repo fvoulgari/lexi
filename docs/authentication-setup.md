@@ -1,23 +1,15 @@
 # Authentication operator setup
 
-Prepared 4 November; current-status corrections 7 November 2026. See the [production plan](authentication-production-plan.md) for the current rollout proposal and [release status](authentication-release-status.md) for executed evidence. These are operator instructions, not evidence of provisioning or deployment. PR #63 remains a draft; readiness, merging and deployment require separate authorisation even after its release gates are resolved. See [staging checks](authentication-staging-checklist.md) and [migration/rollback](authentication-migration-runbook.md).
-
-## Decisions and costs before provisioning
-
-Railway account inspection confirmed Hobby on 4 November 2026. Email delivery
-now uses Resend over HTTPS; SMTP is not used and no Railway upgrade is required.
-See the [staging preparation and cost estimate](authentication-staging-preparation.md).
-The existing synthetic staging app/database and Free-plan Tunnel are active under prior authorization. No production Core or paid provider plan has been approved or activated.
-
-SuperTokens managed Core is the implementation candidate. Its current [pricing](https://supertokens.com/pricing) advertises free service **under 5,000 monthly active users** and $0.02/MAU outside the free offer. MAUs are unique logged-in users per month, including registrations. Confirm whether billing at the threshold covers all MAUs or only excess usage, available hard spending limits, and separate staging usage with the provider; do not assume incremental billing or that alerts prevent charges. No paid plan, billable upgrade, or recurring charge is authorised. If free-only operation cannot be assured, stop for approval.
-
-Account linking is disabled by the application; leave paid add-ons disabled. The pricing page lists account linking at $0.005/MAU with a $100 minimum. Resend HTTPS delivery is implemented and staging delivery has passed; production activation must confirm its free-plan quotas, sandbox restrictions, domain ownership and billing separately. Ordinary Google OAuth client configuration is used, not Google Cloud Identity Platform; no paid Google service is required by this code. Confirm the selected projects incur no unrelated charges.
+Use this guide when configuring a Lexi environment or rotating provider
+credentials. See the [historical production release record](authentication-production-release-2026-11-20.md)
+for rollout evidence. Review provider costs, quotas and account-linking settings
+before provisioning a new environment.
 
 ## Origins and provider resources
 
-Exact origins: production `https://lexi.fotiniv.com`; active isolated staging `https://staging-lexi.fotiniv.com` (not the former multi-level hostname). Keep separate databases, Core deployments/API keys and Google web clients for staging and production. Never populate staging with unredacted production data.
+Exact origins: production `https://lexi.fotiniv.com`; isolated staging `https://staging-lexi.fotiniv.com`. Keep separate databases, Core deployments/API keys and Google web clients for staging and production. Never populate staging with unredacted production data.
 
-For each environment, after verifying free-only terms:
+For each environment:
 
 1. In the [SuperTokens dashboard](https://supertokens.com/dashboard), create/select the managed deployment. Store its HTTPS connection URI and API key directly in the backend runtime's protected variables. Do not expose Core administration to browser code. Keep automatic account linking and other paid features disabled.
 2. Enable email/password and required email verification in Lexi's SDK recipes; do not enable passwordless. The managed development dashboard reports configuration changes are available only to production Cores. Leave its disabled bcrypt setting unchanged. Restricted synthetic staging tests may proceed with short passwords; see [development versus production hashing requirements](authentication-hashing.md). Do not infer that a paid upgrade is needed. For production with the unchanged 15–128-character Unicode policy, separately confirm provider-supported Argon2 and non-truncation before accepting real users. Passwords and hashing remain entirely inside Core.
@@ -47,15 +39,13 @@ Use the [Resend HTTPS email API](https://resend.com/docs/api-reference/emails/se
 
 Verification links use `${ORIGIN}/auth/verify-email`; reset links use `${ORIGIN}/auth/reset-password`. Keep SDK-generated token/tenant parameters intact. The UI requires explicit confirmation/submission, never consumes tokens on GET, and clears token URLs after a definitive success or invalid-token result. Transient network failures retain the URL token so retry remains possible; tokens are never stored in browser storage. Reset revokes existing sessions for that password identity. The provider may mark email verified after successful password reset because it proves inbox possession; protected data still requires the provider's verified status. Password-reset email never creates or links a password identity for a Google-only account.
 
-Legacy claims remain `${ORIGIN}/claim#token=<generated-token>`, with default 48-hour validity and a separate 20-minute continuation. They are not sign-in links and remain available after removing magic-link login. Never log their fragments or register them as Google callbacks.
-
 ## Backend runtime variables
 
 Set these in the selected environment's protected runtime configuration, never frontend `VITE_*` variables or build arguments. Values below describe requirements, not credentials.
 
 | Variable | Required setting |
 | --- | --- |
-| `DATABASE_URL` | Selected environment's private PostgreSQL connection; password is secret. SQLAlchemy accepts `postgresql+psycopg://`; standard PostgreSQL URLs are normalised. |
+| `DATABASE_URL` | Selected environment's private PostgreSQL connection using the restricted runtime login. SQLAlchemy accepts `postgresql+psycopg://`; standard PostgreSQL URLs are normalised. |
 | `PUBLIC_ORIGIN` | Exact selected HTTPS origin, no trailing slash. |
 | `COOKIE_SECURE` | `true` in staging/production. |
 | `SUPERTOKENS_CONNECTION_URI` | Selected Core's HTTPS connection URI. |
@@ -64,14 +54,16 @@ Set these in the selected environment's protected runtime configuration, never f
 | `GOOGLE_CLIENT_SECRET` | Corresponding secret. |
 | `RESEND_API_KEY` | Secret, sending-only Resend API key restricted to the verified sender domain. |
 | `EMAIL_FROM` | Verified sender, optionally `Lexi <address@verified-domain>`. |
-| `FORWARDED_ALLOW_IPS` | Verified trusted proxy IPs/CIDRs; never `*`. Default `127.0.0.1` is not proof the actual edge proxy is trusted. |
-| `CLAIM_HOURS` | `48`; allowed 1–168, controls legacy claims only. |
+| `AUTH_INGRESS_MODE` | `cloudflare_tunnel` on hosted environments. |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Sealed connector credential for the selected environment. |
+| `LEXI_PRODUCTION_TUNNEL_ENABLED` | `true` for the production tunnel. |
 | `LOGIN_LIMIT` | `5`; application authentication, verification and recovery limit per client-address hash in a 60-second window. Hosted ingress provenance must be verified separately. |
 
-`SESSION_HOURS` is parsed for compatibility but unused: it does **not** configure provider sessions. `SHARED_PASSWORD` and `SESSION_SECRET` do not restore old gate authentication. `POSTGRES_PASSWORD` belongs only to local database provisioning, not an extra production application setting.
-
-Keep frontend and API same-origin; no permissive CORS. Validate proxy trust before interpreting per-client throttling. Configure edge logs to omit auth callback query strings, cookies, bodies, Authorization headers and claim secrets. The application start command disables raw access logs; check upstream logs independently. `/api/health` proves neither provider connectivity nor delivered email. `/api/auth/session` must report `auth_available=true`, followed by the complete [real-provider checklist](authentication-staging-checklist.md).
-
+Keep browser requests same-origin and omit credentials and token URLs from edge logs.
+The start command disables raw application access logs.
+Verify both sign-in methods, verification and reset delivery, and session renewal
+when changing provider configuration. Check `/api/auth/session` for
+`auth_available=true` before testing those browser flows.
 
 ## Password-attempt and hosted IP-limit status
 
@@ -79,22 +71,18 @@ Password sign-in also applies persistent tenant/identifier failure backoff: up t
 one second on failed responses after repeated failures in five minutes. It stores
 HMAC identifiers using the sealed Core API key, never raw emails/passwords; valid
 credentials are not locked out. This supplements rather than replaces IP limits.
-Direct-mode Railway peer limiting had the demonstrated rotating-peer failure.
-Staging now uses the tested isolated Tunnel and passes its 5/60 acceptance checks;
-production direct mode is not certified. Failed-password verification is serialized
+Hosted IP limits use the isolated Tunnel ingress. Failed-password verification is serialized
 per HMAC tenant/identifier using a short PostgreSQL advisory lease across replicas,
 with a ten-second provider timeout, bounded failure delay and no persistent account
 lockout. Busy concurrent attempts receive a generic 429; provider timeout is 503.
 Lease cancellation and failure recording are covered by regression tests.
 
-## Staging Tunnel POC configuration
+## Hosted Tunnel configuration
 
-The active staging origin is `https://staging-lexi.fotiniv.com`. Set
-`AUTH_INGRESS_MODE=cloudflare_tunnel` and sealed `CLOUDFLARE_TUNNEL_TOKEN` only in
-the existing staging backend. The runtime enforces the staging environment ID,
-binds app and connector metrics to loopback, and disables Uvicorn proxy-header
-trust. `FORWARDED_ALLOW_IPS` is not used in this mode. Set the Cloudflare published
-route to `http://127.0.0.1:8000`; retain no Railway app public domains/TCP proxies.
-Google redirect: `https://staging-lexi.fotiniv.com/auth/callback/google`.
-Railway public healthcheck is empty; local health/readiness must be verified.
-See [tested results and rollback](authentication-tunnel-staging-results.md).
+Production and staging route their respective hostnames through Cloudflare
+Tunnel to the application listener on loopback. The supervisor also binds
+connector metrics to loopback and disables Uvicorn proxy-header trust.
+Verify the exact Environment ID, public origin and Google callback before
+rotating a connector token. Keep Railway public app domains and database TCP
+proxies disabled. Use the [Railway release runbook](railway-release.md) for
+readiness and [staging restart](staging-restart.md) for the paused environment.

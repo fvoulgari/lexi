@@ -1,5 +1,7 @@
 ## Problem Statement
 
+> Historical record. For current behavior and operator procedures, see the [README](../README.md), [authentication guide](authentication.md), and [Railway runbook](railway-release.md).
+
 Foteini and Spyros need an enjoyable mobile vocabulary practice tool for learning Italian from Greek, with support for learners studying Greek from Italian. They need a shared, editable vocabulary library, separate learning records for each learner and learning direction, and a reliable way to revisit difficult entries. The application must work comfortably during connected commutes, preserve submitted reviews, and be straightforward to host on Railway.
 
 ## Solution

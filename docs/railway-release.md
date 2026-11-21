@@ -1,8 +1,6 @@
-> Authentication update: the shared-password, profile-selection, and old session-secret procedures below describe the previous release. For this branch, follow [authentication configuration, migration, and legacy claims](authentication.md). Do not deploy this change before its provider and migration gates are verified. Existing image-release and backup mechanics still apply.
-
 # Railway release runbook
 
-One application service serves the React build and FastAPI API on the same origin. A separate PostgreSQL service owns all durable vocabulary, learner preferences, gate sessions, review events and learning records. See [ADR 0001](adr/0001-railway-application-and-private-postgresql.md). Local Compose and the separate frontend/backend development builds remain supported.
+Cloudflare Tunnel connects the public origin to the loopback listener in the Railway application service. That service serves the React build and FastAPI API on the same origin. A separate private PostgreSQL 18 service persists vocabulary, learner preferences, reviews and progress. SuperTokens Core handles authentication and sessions, with Resend HTTPS delivery for verification and reset emails. See [ADR 0001](adr/0001-railway-application-and-private-postgresql.md). Local Compose and the separate frontend/backend development builds remain supported.
 
 ## Automated releases
 
@@ -12,10 +10,10 @@ immutable version image, and deploys its exact registry digest to the existing
 lexi production application. GitHub Release publication and prerelease tags do not
 deploy. The tagged revision must contain the deployment workflow.
 
-The first automated version must be greater than the existing v1.1.2 baseline.
-After merging the deployment PR and completing the credential step below, an
-operator-created stable tag is the explicit release action. This implementation
-and setup do not create a tag or replace the running deployment.
+An operator-created stable tag is the explicit release action. On 21 November
+2026, a read-only Railway check confirmed v1.2.2 as the active production
+application image. See the [post-cutover audit](legacy-schema-audit.md) for its
+image digest and source revision.
 
 ### Production credential setup
 
@@ -65,13 +63,14 @@ exceeding the bounded history scan fails closed for operator review.
 A release records intent before applying any source change. Configuration is
 committed with `skipDeploys=true`, changing only the application's image and
 readiness settings. The command waits for effective environment configuration to
-show the requested image, `/api/health`, 120 seconds, and one replica; legacy
+show the requested image, no public Railway health-check path, a 120-second
+health-check timeout setting, and one replica; legacy
 service-instance fields may differ from that effective configuration. It checks
 that the existing rollout has not changed, then explicitly starts one deployment
 and immediately records its exact Railway ID. No rebuild is requested on Railway.
 
-Only that ID's `SUCCESS`, matching project/environment/service and image digest,
-advances successful-release state. Polling is bounded to 15 minutes; configuration
+Only that ID's `SUCCESS`, matching project/environment/service and image digest, plus the public readiness probe reporting Tunnel ingress,
+advance successful-release state. Polling is bounded to 15 minutes; configuration
 convergence is bounded to two minutes, within the job's 25-minute limit. Failure,
 crash, timeout, approval wait, or any other non-success state fails the job. No
 application rollback, migration downgrade, or database change is performed by the
@@ -99,7 +98,7 @@ not run migrations at startup.
 For manual application/database recovery, follow the migration and backup sections
 below. A new stable tag is an explicit release; it does not imply a safe schema rollback.
 
-## Setup verification (18 October 2026)
+## Historical setup verification (18 October 2026)
 
 The effective production environment configuration was read back with
 `/api/health`, a 120-second timeout, and `multiRegionConfig.sfo.numReplicas=1` after
@@ -120,8 +119,7 @@ secret exists (updated `2026-10-18T20:27:31Z`); its value was not read back.
 Controlled HTTP APIs exercise the release command without live deployment access.
 They verify image/target identity, success timing, numeric/paginated history,
 convergence, busy rollouts, failure/timeout/approval states, lost-success recording,
-reruns, and ambiguous attempts. The first authorized stable tag must still provide
-hosted event-routing, image-pull, startup migration, and Railway readiness evidence.
+reruns, and ambiguous attempts. This section records pre-rollout pipeline validation. See the [production authentication release record](authentication-production-release-2026-11-20.md) for later execution evidence.
 
 Local validation passed: 35 pipeline tests (including 18 controlled release API
 cases), 112 backend tests on disposable PostgreSQL 18, 204 frontend tests, lint,
@@ -132,26 +130,22 @@ filtering of the default Python user agent; the deployment client sends an
 explicit application user agent. Actionlint passes with the previously documented
 unsupported `queue` diagnostic excluded. No separate typechecking command exists.
 
-## Initial provisioning and manual deployment
+## Runtime configuration
 
-The following operator procedure is for initial provisioning or explicitly
-requested manual recovery; ordinary releases use the automated path above.
+Run the production image as built from the root Dockerfile. The app and
+PostgreSQL services share the same private Railway environment. The application
+listener and tunnel metrics stay on loopback. The database has no public TCP
+proxy. Configure the exact HTTPS `PUBLIC_ORIGIN`, secure cookies, and the
+[provider settings](authentication.md) through protected service variables.
 
-1. Build and verify the root image with `docker build -t italian-notebook .`. Select the repository root, root `Dockerfile` for the application service. Do not select the development Dockerfiles. The final image runs as `notebook`, contains no Node runtime, and serves the compiled frontend directly.
-2. Add PostgreSQL in the same Railway project **and environment**, with its persistent volume. Retain private networking and remove any public TCP proxy. Configure `DATABASE_URL` with the restricted runtime login and private hostname. Supply the schema-owner credential only to a controlled one-off operator session. Verify private connectivity for both identities. Do not use `DATABASE_PUBLIC_URL`. See [Railway private networking](https://docs.railway.com/networking/private-networking).
-3. Generate independent `SHARED_PASSWORD` (12–256 characters) and `SESSION_SECRET` (32–256 characters). Keep both and `DATABASE_URL` in service variables, never frontend variables, build arguments, Git or logs. `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` generates a suitable secret.
-4. Generate the application HTTPS domain. Set `PUBLIC_ORIGIN` to that exact origin, without a trailing slash or path, and `COOKIE_SECURE=true`. Railway sets `PORT`; the start script binds `0.0.0.0:$PORT`. Do not override the image start command.
-5. In the application service settings, set the health-check path to `/api/health`, health-check timeout to 120 seconds, restart policy to On Failure with 10 retries, and replicas to one. The endpoint checks a real PostgreSQL connection and returns 503 on database failure. Railway health checks gate deployment readiness, not continuous production monitoring; arrange an external uptime check separately. See [Railway health checks](https://docs.railway.com/deployments/healthchecks).
-6. Inspect migration/startup logs and health. Run `python -m app.seed` once in the application container using Railway SSH, or a one-off container on the same private network with the same environment. `railway run` on a laptop does not join the private network. Seeding is explicit and idempotent for initial identities; it is not a reset operation.
-7. Run the read-only smoke check from an operator machine with the shared password supplied securely in its environment: `SMOKE_BASE_URL=https://your-domain python3 scripts/smoke.py`. Sign in in a browser and complete the gate → CSV preview/confirm → practice in both directions → Progress journey. The write-enabled smoke mode is only for a disposable staging database.
-
-## HTTPS, cookies and proxies
-
-Railway terminates HTTPS and forwards HTTP to Uvicorn. Browser requests are same-origin `/api` requests; no production CORS or separate frontend service is needed. `PUBLIC_ORIGIN` validates write origins even though the internal hop is HTTP. Production cookies are Secure, HttpOnly and SameSite=Strict; the signed CSRF header is required for login and all writes. Local HTTP needs `COOKIE_SECURE=false` and an exact local `PUBLIC_ORIGIN`.
-
-`FORWARDED_ALLOW_IPS` defaults to `127.0.0.1` in the start script. Set it only to verified trusted proxy IPs/networks. Do not blindly use `*`: other callers must not be able to spoof client IPs through forwarded headers. With no trusted Railway proxy configured, login throttling groups users by the connecting proxy address (five attempts per minute). This can block the whole small group after failed passwords; verify proxy trust in the deployment environment before enabling per-client forwarded IPs. The app does not derive cookie security or CSRF origin from forwarded headers.
-
-Lock notebook revokes the PostgreSQL session and clears in-memory private query data. Rotate `SESSION_SECRET` when changing `SHARED_PASSWORD` to invalidate existing sessions. Learner profiles are shared identities, not authenticated private accounts.
+Supply the application a private `DATABASE_URL` using the restricted runtime
+login. Grant the runtime only the application table operations it requires. It
+must not own the schema, have DDL or role-management privileges, or read the
+operator-only account directory. Keep the schema-owner connection in controlled
+operator sessions. Verify both identities' effective privileges after restore
+or rotation. See the [post-cutover audit](legacy-schema-audit.md) for the recorded
+runtime/operator view access and the [staging restart runbook](staging-restart.md)
+for resuming the retained services.
 
 ## Migrations, restarts and rollback
 
@@ -159,18 +153,18 @@ The production release job does not run schema migrations. After cutover
 approval, freeze writers, verify a fresh independent backup, and run the reviewed
 Alembic and ownership migrations from a controlled authenticated operator
 session with a temporary privileged credential. Start the application using a
-separate restricted runtime credential. Startup checks the schema revision and
-rejects remaining legacy Units/cards, failing closed when either is not ready.
+separate restricted runtime credential. Startup checks the schema revision and rejects unmigrated legacy cards or
+Units. Readiness also checks the runtime database connection.
 If a migration fails, keep writes frozen, inspect the cause and preserve any
 committed schema changes before retrying or restoring to a separate target.
 
-Application replacement/restart retains the separate PostgreSQL volume and all saved records. No durable data belongs on the application filesystem. Unsubmitted cards and a revealed answer are intentionally not recovered after reload. Device storage contains only interface language, motion and selected learner ID.
+Application replacement/restart retains the separate PostgreSQL volume and all saved records. No durable data belongs on the application filesystem. Unsubmitted cards and a revealed answer are intentionally not recovered after reload. Device preferences can be restored independently of application records.
 
-For a failed application release, redeploy the previous known-good image if compatible with the current schema. This release adds no database migration. Do not automatically downgrade Alembic: older practice-table downgrades delete history. For an incompatible schema, stop writes and plan recovery from the verified pre-release backup with an operator; restore to a replacement database first, validate it, then switch the private connection reference. Retain the old database until recovery is accepted.
+For a failed application release, redeploy the previous known-good image if compatible with the current schema. Do not automatically downgrade Alembic: older practice-table downgrades delete history. For an incompatible schema, stop writes and plan recovery from the verified pre-release backup with an operator; restore to a replacement database first, validate it, then switch the private connection reference. Retain the old database until recovery is accepted.
 
 ## Backups
 
-PostgreSQL volume backups are opt-in. In the PostgreSQL service's **Backups** tab, enable **Daily**, verify the first backup completes, and check subsequent completion dates. Daily backups are retained for six days, so up to a day's changes may be lost. Take a manual volume snapshot before a risky migration. Volume snapshots remain tied to that service/project/environment; deleting the volume also deletes its backups. Keep protected logical dumps separately. See [Railway volume backups](https://docs.railway.com/volumes/backups) and [the PostgreSQL restore guide](https://docs.railway.com/guides/postgres-backups-restores).
+PostgreSQL volume backups are opt-in. In the PostgreSQL service's **Backups** tab, enable **Daily**, verify the first backup completes, and check subsequent completion dates. Confirm the available retention and the latest recoverable point for the selected service. Take a manual volume snapshot before a risky migration. Volume snapshots remain tied to that service/project/environment; deleting the volume also deletes its backups. Keep protected logical dumps separately. See [Railway volume backups](https://docs.railway.com/volumes/backups) and [the PostgreSQL restore guide](https://docs.railway.com/guides/postgres-backups-restores).
 
 For a manual logical backup, run PostgreSQL 18 client tools in a maintenance container or PostgreSQL container on the same private network. The application image does not include `pg_dump`. Supply libpq `PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE` and `PGPASSWORD` through protected environment variables; do not put a password on the command line. Use the same PostgreSQL major version as the server (or a supported newer dump client). Store dumps with restricted access, encryption and offsite retention.
 
@@ -183,7 +177,7 @@ pg_restore --dbname=notebook_restore --no-owner --no-acl \
   --exit-on-error notebook.dump
 ```
 
-`createdb` uses the same connection host/user; the restore role needs database-creation permission. Restore into a **new disposable database**, never over the source. Point a separate application instance at that private database, with its own matching `PUBLIC_ORIGIN`, run migrations, then verify vocabulary, tags/units, both learning directions, summaries and progress through the public API. Rotate session secrets before admitting learners to a recovered live service. A volume-snapshot restore is a separate operation: stop writes, review the staged restored volume and data-loss cutoff, deploy the staged change, verify readiness and records, and only then reopen writes.
+`createdb` uses the same connection host/user; the restore role needs database-creation permission. Restore into a **new disposable database**, never over the source. Point a separate application instance at that private database, with its own matching `PUBLIC_ORIGIN`, run migrations, then verify account ownership, Collections, card IDs, both learning directions, summaries and progress through the API. Verify provider session and revocation behavior before admitting learners to a recovered live service. A volume-snapshot restore is a separate operation: stop writes, review the staged restored volume and data-loss cutoff, deploy the staged change, verify readiness and records, and only then reopen writes.
 
 For local Compose, the tools already exist inside the private PostgreSQL service:
 
@@ -198,7 +192,9 @@ docker compose exec -T postgres pg_restore -U notebook -d notebook_restore \
 
 `docker compose down` keeps the named volume. `down -v` destroys it. Do not expose PostgreSQL publicly to run maintenance.
 
-## Repeat the connected persistence and restore drill
+## Historical shared-gate persistence and restore drill
+
+The commands below record the earlier release rehearsal. Use a compatible historical image to reproduce it. For current recovery, use the isolated restore procedure above and the current sign-in flow.
 
 Use a fresh private Docker network, PostgreSQL 18 container and database, with a localhost-only test port if needed. Run the production image on that network, supply disposable secrets, `COOKIE_SECURE=false`, and `PUBLIC_ORIGIN=http://localhost:8801`; publish only `127.0.0.1:8801:8000`. Seed once. In the following commands, the PostgreSQL container is `lexi-release-postgres`, the application is `lexi-release-app`, and the source database is `lexi_release`.
 
@@ -227,11 +223,11 @@ SMOKE_BASE_URL=http://localhost:8802 python3 scripts/smoke.py \
 
 The evidence compares imported vocabulary, both direction totals, full progress and session summaries through HTTP after restart and restore. Write mode creates a uniquely named learner and two meanings, and saves one review in each direction. It does not clean up those reviewed meanings; discard the disposable environment afterward. Evidence files contain learner data, are created with owner-only permissions and must not be committed. Use a new evidence filename for each drill. Default smoke mode performs no library or practice writes; it creates and revokes a temporary gate session.
 
-## Release evidence and limitations
+## Historical release evidence and limitations
 
 See [the release verification record](release-verification.md) for executed checks, the screen audit and remaining operator checks. Device installation differs between browsers; real iOS/Android installation and Railway edge behavior require verification in those environments. Continuous monitoring, point-in-time recovery, automated offsite logical dumps, individual authentication, multi-replica migration coordination and offline private practice remain deferred improvements.
 
-## Release publication failure on v1.1.3
+## Historical release publication failure on v1.1.3
 
 The first v1.1.3 tag run passed checks but stopped before deployment: the Docker
 runner converted the SHA image's OCI manifest to Docker format while retagging,
