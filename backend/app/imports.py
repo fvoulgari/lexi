@@ -204,6 +204,22 @@ def evaluate(db, rows, confirm, destination, collection=None):
                     title=title or destination.title,
                     sort_order=int(order) if order else 0,
                 )
+            # A migrated Collection has an unambiguous historical Unit identity.
+            # Refuse to silently import a row belonging to a different mapped
+            # group into it. Unmapped Collections retain explicit-destination
+            # compatibility while the remaining CSV transition is completed.
+            if (
+                collection is not None
+                and collection.source_unit_code
+                and (
+                    (code and code != collection.source_unit_code)
+                    or (title and title != collection.source_unit_title)
+                    or (order and int(order) != collection.source_unit_sort_order)
+                )
+            ):
+                raise ValueError(
+                    "CSV Unit metadata does not match the selected Collection."
+                )
             conflict = collection is None and bool(
                 (code and code != destination.code)
                 or (title and title != destination.title)

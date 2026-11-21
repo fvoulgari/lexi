@@ -51,6 +51,45 @@ def test_legacy_unit_import_resolves_to_owned_collection(client, account_client)
     ).status_code in {403, 422}
 
 
+def test_migrated_collection_rejects_csv_from_another_unit(client, account_client):
+    from uuid import UUID
+
+    from app.models import Collection
+
+    account_client("csv-source-owner")
+    h = headers(client)
+    collection = client.post(
+        "/api/collections", headers=h, json={"name": "00 · Welcome"}
+    ).json()
+    with client.app.state.sessions.begin() as db:
+        stored = db.get(Collection, UUID(collection["id"]))
+        stored.source_unit_code = "00"
+        stored.source_unit_title = "Welcome"
+        stored.source_unit_sort_order = 0
+    response = client.post(
+        f"/api/imports/confirm?collection_id={collection['id']}",
+        headers={**h, "Content-Type": "text/csv"},
+        content=(
+            "italian,greek,word_type,unit_code,unit_title\n"
+            "ciao,γεια,expression,30,Foods\n"
+        ).encode(),
+    )
+    assert response.status_code == 200
+    assert response.json()["counts"]["error"] == 1
+    assert client.get(f"/api/collections/{collection['id']}/entries").json() == []
+    accepted = client.post(
+        f"/api/imports/confirm?collection_id={collection['id']}",
+        headers={**h, "Content-Type": "text/csv"},
+        content=(
+            "italian,greek,word_type,unit_code,unit_title,unit_sort_order\n"
+            "ciao,γεια,expression,00,Welcome,0\n"
+        ).encode(),
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["counts"]["imported"] == 1
+    assert len(client.get(f"/api/collections/{collection['id']}/entries").json()) == 1
+
+
 def test_collection_import_preserves_card_unit_and_is_idempotent(
     client, account_client
 ):

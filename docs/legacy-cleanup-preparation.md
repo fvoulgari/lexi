@@ -9,7 +9,10 @@ The Unit table and its references are **not removed**. Card editing, CSV imports
 filters, practice, compatibility APIs, seed data, and account deletion still use
 Units. An old import destination Unit ID resolves to the owner's mapped
 Collection; destinations without a mapping temporarily retain the old path.
-CSV Unit fields are not yet mapped to Collections. Do not merge or deploy this
+For a migrated Collection, CSV Unit fields are checked against its preserved
+metadata and mismatches fail without importing that row. Legacy Unit filters
+also include cards in the corresponding visible Collection. CSV routing across
+Collections and Unit removal are not yet complete. Do not merge or deploy this
 work as a completed Unit retirement.
 
 ## Isolated restore results

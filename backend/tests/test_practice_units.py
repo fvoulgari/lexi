@@ -25,6 +25,75 @@ def start(client, profile, mode="random", **extra):
     )
 
 
+def test_legacy_unit_filter_includes_cards_in_mapped_collection(client, account_client):
+    from uuid import UUID
+
+    from app.models import Collection
+
+    account = account_client("mapped-practice-owner")
+    old_unit = uuid4()
+    collection = client.post(
+        "/api/collections", headers=headers(client), json={"name": "Mapped"}
+    ).json()
+    with client.app.state.sessions.begin() as db:
+        db.get(Collection, UUID(collection["id"])).source_unit_id = old_unit
+    created = client.post(
+        "/api/vocabulary",
+        headers=headers(client),
+        json={
+            "collection_id": collection["id"],
+            "italian": "ciao",
+            "greek": "γεια",
+            "word_type": "expression",
+        },
+    ).json()["entry"]
+    result = start(client, account["profile_id"], unit_ids=[str(old_unit)])
+    assert result.status_code == 201, result.text
+    assert {card["entry_id"] for card in result.json()["cards"]} == {created["id"]}
+
+
+def test_legacy_unit_filter_does_not_expose_private_collection_membership(
+    client, account_client
+):
+    from uuid import UUID
+
+    from test_shareable_collections import add, collection, publish
+
+    from app.models import Collection
+
+    account_client("private-map-owner")
+    private = collection(client, "Private")
+    public = collection(client, "Public")
+    unit = client.post(
+        "/api/units",
+        headers=headers(client),
+        json={"code": "SECRET", "title": "Secret", "sort_order": 0},
+    ).json()
+    old_unit = UUID(unit["id"])
+    with client.app.state.sessions.begin() as db:
+        db.get(Collection, UUID(private["id"])).source_unit_id = old_unit
+    entry = client.post(
+        "/api/vocabulary",
+        headers=headers(client),
+        json={
+            "collection_id": private["id"],
+            "unit_id": unit["id"],
+            "italian": "ciao",
+            "greek": "γεια",
+            "word_type": "expression",
+        },
+    ).json()["entry"]
+    assert add(client, public, entry).status_code == 204
+    assert publish(client, public).status_code == 200
+    other = account_client("private-map-reader")
+    assert client.get("/api/vocabulary").json()["total"] == 1
+    filtered = client.get(f"/api/vocabulary?unit_ids={old_unit}").json()
+    assert filtered["total"] == 0
+    assert (
+        start(client, other["profile_id"], unit_ids=[str(old_unit)]).status_code == 409
+    )
+
+
 def test_required_units_for_manual_cards_and_csv(logged_in):
     client = logged_in
     body = {
