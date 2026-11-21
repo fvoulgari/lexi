@@ -55,8 +55,9 @@ transfer ownership or publish content.
 A protected post-cutover snapshot was restored to an isolated database and the
 stacked #76 and follow-up migrations applied. Before/after row-and-column hash
 manifests show unchanged existing records; only the Alembic version and the
-new, initially empty guard table differ. A rollback-only test exercised account
-deletion and request anonymization on the restored database. Automated tests
-cover conflict and shared-progress guards; see the draft PR for current suite
-results and remaining review work. Repeat against a fresh backup before any
-production migration.
+new, initially empty guard table differ. Rollback-only tests on the restore exercised account deletion, request
+anonymization, and a blocked deletion with another learner’s collection,
+card, practice snapshot and progress. A subsequent manifest matched the
+post-migration manifest exactly. Automated tests also cover cross-account
+recovery conflicts. Repeat against a fresh backup before any production
+migration; concurrency and operational review remain outstanding.
