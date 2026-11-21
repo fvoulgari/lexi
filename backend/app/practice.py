@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 
-from app.access import lock_owned_profile
+from app.access import current_account, lock_owned_profile
 from app.filters import category_conditions
 from app.languages import DIRECTION_PAIRS
 from app.models import (
@@ -216,7 +216,11 @@ def practice_router(sessions, gate):
                     mode="json"
                 )
                 source = entry.source_collection
-                if source is not None and source.source_unit_code:
+                if (
+                    source is not None
+                    and source.owner_account_id == current_account().id
+                    and source.source_unit_code
+                ):
                     # Preserve the historical snapshot shape for migrated
                     # classifications. ORM visibility still hides private
                     # source Collections from other learners.

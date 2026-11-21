@@ -126,6 +126,17 @@ def test_csv_routes_legacy_codes_to_owned_collections_without_duplicate_cards(
     b = client.get(f"/api/collections/{second['id']}/entries").json()
     assert len(a) == len(b) == 1
     assert a[0]["id"] == b[0]["id"]
+    import csv
+    import io
+
+    exported = list(
+        csv.DictReader(
+            io.StringIO(client.get("/api/vocabulary/export.csv").text.lstrip("\ufeff"))
+        )
+    )
+    assert [(row["unit_code"], row["unit_title"]) for row in exported] == [
+        ("00", "Welcome")
+    ]
 
 
 def test_csv_does_not_publish_or_misroute_rows_for_published_collection(
@@ -159,6 +170,116 @@ def test_csv_does_not_publish_or_misroute_rows_for_published_collection(
     assert response.json()["counts"]["error"] == 1
     assert client.get(f"/api/collections/{private['id']}/entries").json() == []
     assert client.get(f"/api/collections/{public['id']}/entries").json() == []
+
+
+def test_csv_unknown_group_preserves_metadata_and_rejects_a_second_group(
+    client, account_client
+):
+    import csv
+    import io
+
+    account_client("csv-unmapped-groups")
+    h = headers(client)
+    selected = client.post(
+        "/api/collections", headers=h, json={"name": "Import"}
+    ).json()
+    data = (
+        "italian,greek,word_type,unit_code,unit_title,unit_sort_order\n"
+        "ciao,γεια,expression,07,Domande,7\n"
+        "salve,χαίρετε,expression,08,Other,8\n"
+    ).encode()
+    path = f"/api/imports/{{}}?collection_id={selected['id']}"
+    before = client.get("/api/collections").json()
+    preview = client.post(path.format("preview"), headers=h, content=data).json()
+    assert [row["status"] for row in preview["rows"]] == ["valid", "error"]
+    assert client.get("/api/collections").json() == before
+    result = client.post(path.format("confirm"), headers=h, content=data).json()
+    assert [row["status"] for row in result["rows"]] == ["valid", "error"]
+    rows = list(
+        csv.DictReader(
+            io.StringIO(client.get("/api/vocabulary/export.csv").text.lstrip("\ufeff"))
+        )
+    )
+    assert [(r["unit_code"], r["unit_title"], r["unit_sort_order"]) for r in rows] == [
+        ("07", "Domande", "7")
+    ]
+
+
+def test_csv_known_code_with_conflicting_title_never_uses_unmapped_fallback(
+    client, account_client
+):
+    from uuid import UUID
+
+    from app.models import Collection
+
+    account_client("csv-conflicting-metadata")
+    h = headers(client)
+    known = client.post("/api/collections", headers=h, json={"name": "Known"}).json()
+    fallback = client.post(
+        "/api/collections", headers=h, json={"name": "Fallback"}
+    ).json()
+    with client.app.state.sessions.begin() as db:
+        target = db.get(Collection, UUID(known["id"]))
+        target.source_unit_code = "30"
+        target.source_unit_title = "Food"
+    response = client.post(
+        f"/api/imports/confirm?collection_id={fallback['id']}",
+        headers=h,
+        content="italian,greek,word_type,unit_code,unit_title\nciao,γεια,expression,30,Wrong\n".encode(),
+    ).json()
+    assert response["counts"]["error"] == 1
+    assert client.get(f"/api/collections/{fallback['id']}/entries").json() == []
+
+
+def test_csv_preserves_legacy_metadata_for_an_existing_card_without_origin(
+    client, account_client
+):
+    import csv
+    import io
+
+    account_client("csv-existing-origin")
+    h = headers(client)
+    group = client.post("/api/collections", headers=h, json={"name": "Import"}).json()
+    saved = client.post(
+        "/api/vocabulary",
+        headers=h,
+        json={
+            "collection_id": group["id"],
+            "italian": "ciao",
+            "greek": "γεια",
+            "word_type": "expression",
+        },
+    ).json()["entry"]
+    data = (
+        "italian,greek,word_type,unit_code,unit_title,unit_sort_order\n"
+        "ciao,γεια,expression,07,Domande,7\n"
+    ).encode()
+    path = f"/api/imports/{{}}?collection_id={group['id']}"
+    preview = client.post(path.format("preview"), headers=h, content=data).json()
+    assert preview["counts"]["updated"] == 1
+    assert {"collection_metadata", "collection_provenance"} <= set(
+        preview["rows"][0]["changed_fields"]
+    )
+    result = client.post(path.format("confirm"), headers=h, content=data).json()
+    assert result["counts"]["updated"] == 1
+    assert (
+        client.get(f"/api/collections/{group['id']}/entries").json()[0]["id"]
+        == saved["id"]
+    )
+    rows = list(
+        csv.DictReader(
+            io.StringIO(client.get("/api/vocabulary/export.csv").text.lstrip("\ufeff"))
+        )
+    )
+    assert [(r["unit_code"], r["unit_title"], r["unit_sort_order"]) for r in rows] == [
+        ("07", "Domande", "7")
+    ]
+    assert (
+        client.post(path.format("confirm"), headers=h, content=data).json()["counts"][
+            "duplicate"
+        ]
+        == 1
+    )
 
 
 def test_collection_import_preserves_card_unit_and_is_idempotent(
@@ -416,10 +537,10 @@ def test_unit_conflicts_and_malformed_rows_are_reported_without_partial_metadata
         "sesto,έκτο,noun,,,,,extra\n"
     )
     result = upload(logged_in, csv, "confirm").json()
-    assert result["counts"]["imported"] == 2
-    assert result["counts"]["error"] == 4
+    assert result["counts"]["imported"] == 1
+    assert result["counts"]["error"] == 5
     assert all(row["collection_name"] == "CSV test" for row in result["rows"])
-    assert {t["name"] for t in logged_in.get("/api/tags").json()} == {"daily", "orphan"}
+    assert {t["name"] for t in logged_in.get("/api/tags").json()} == {"daily"}
     assert not any(
         c["name"].startswith("08 ·") for c in logged_in.get("/api/collections").json()
     )
@@ -684,7 +805,7 @@ def test_245_row_file_imports_every_card_and_preserves_existing_progress(logged_
     assert client.get("/api/vocabulary").json()["total"] == before + 245
 
 
-def test_collection_csv_preserves_existing_historical_unit_and_adds_unitless_card(
+def test_collection_csv_reuses_historical_collection_and_existing_card(
     client, account_client
 ):
     from test_account_http import create_card, create_unit
@@ -701,16 +822,15 @@ def test_collection_csv_preserves_existing_historical_unit_and_adds_unitless_car
         headers={**h, "Content-Type": "text/csv"},
         content=(
             "italian,greek,word_type,unit_code,unit_title\n"
-            "ciao,γεια,expression,OLD,Old group\n"
-            "salve,χαίρετε,expression,OLD,Old group\n"
+            "ciao,γεια,expression,OLD,OLD\n"
+            "salve,χαίρετε,expression,OLD,OLD\n"
         ).encode(),
     )
     assert response.status_code == 200, response.text
-    cards = client.get(f"/api/collections/{collection['id']}/entries").json()
+    assert client.get(f"/api/collections/{collection['id']}/entries").json() == []
+    cards = client.get(f"/api/collections/{unit['id']}/entries").json()
     assert len(cards) == 2
-    assert old["id"] in [
-        e["id"] for e in client.get(f"/api/collections/{unit['id']}/entries").json()
-    ]
+    assert old["id"] in [e["id"] for e in cards]
     new_id = next(card["id"] for card in cards if card["id"] != old["id"])
     assert client.get(f"/api/vocabulary/{new_id}").json()["unit"] is None
     assert client.get("/api/vocabulary").json()["total"] == 2

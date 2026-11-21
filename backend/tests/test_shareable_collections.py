@@ -77,6 +77,37 @@ def test_export_does_not_expose_private_source_collection_metadata(
     assert queue["cards"][0]["snapshot"]["unit"] is None
 
 
+def test_renamed_public_collection_does_not_expose_old_private_metadata(
+    client, account_client
+):
+    from uuid import UUID
+
+    from app.models import Collection, VocabularyEntry
+
+    account_client("renamed-source-owner")
+    source = collection(client, "Private title")
+    entry = card(client, source)
+    with client.app.state.sessions.begin() as db:
+        group = db.get(Collection, UUID(source["id"]))
+        group.source_unit_code = "OLD-SECRET"
+        group.source_unit_title = "Old secret title"
+        db.get(VocabularyEntry, UUID(entry["id"])).source_collection_id = group.id
+    assert (
+        client.patch(
+            f"/api/collections/{source['id']}", headers=H, json={"name": "Public title"}
+        ).status_code
+        == 200
+    )
+    assert publish(client, source).status_code == 200
+    reader = account_client("renamed-source-reader")
+    response = client.get("/api/vocabulary/export.csv")
+    assert "OLD-SECRET" not in response.text
+    assert "Old secret title" not in response.text
+    assert (
+        session(client, reader, [source]).json()["cards"][0]["snapshot"]["unit"] is None
+    )
+
+
 def session(client, account, collections, direction="italian_to_greek", mode="random"):
     return client.post(
         "/api/sessions",

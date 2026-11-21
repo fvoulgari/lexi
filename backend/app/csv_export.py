@@ -37,12 +37,14 @@ COLUMNS = (
 )
 
 
-def export_library(entries):
+def export_library(entries, account_id):
     output = io.StringIO(newline="")
     writer = csv.writer(output, quoting=csv.QUOTE_ALL)
     writer.writerow(COLUMNS)
     for entry in entries:
         source = entry.source_collection
+        if source is not None and source.owner_account_id != account_id:
+            source = None
         values = {
             **{field: getattr(entry, field, None) for field in COLUMNS},
             "csv_format": FORMAT_VERSION,

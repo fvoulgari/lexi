@@ -124,6 +124,7 @@ def evaluate(db, rows, confirm, destination, collection):
         pairs.setdefault(pair, []).append(
             {
                 "entry": existing,
+                "source_collection_id": existing.source_collection_id,
                 "values": {
                     field: getattr(existing, field)
                     for field in VocabularyCreate.model_fields
@@ -144,7 +145,7 @@ def evaluate(db, rows, confirm, destination, collection):
     if confirm:
         mapped_query = mapped_query.with_for_update()
     mapped = list(db.scalars(mapped_query))
-    member_cache, positions = {}, {}
+    member_cache, positions, pending_metadata = {}, {}, {}
 
     def membership(target):
         if target.id not in member_cache:
@@ -174,6 +175,8 @@ def evaluate(db, rows, confirm, destination, collection):
         names = []
         changed_fields = []
         target = collection
+        proposed_metadata = None
+        metadata_is_new = False
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
@@ -215,7 +218,8 @@ def evaluate(db, rows, confirm, destination, collection):
                     title=title or destination.title,
                     sort_order=int(order) if order else 0,
                 )
-            candidates = [c for c in mapped if code and c.source_unit_code == code]
+            code_candidates = [c for c in mapped if code and c.source_unit_code == code]
+            candidates = code_candidates
             if title:
                 candidates = [c for c in candidates if c.source_unit_title == title]
             if order:
@@ -224,12 +228,25 @@ def evaluate(db, rows, confirm, destination, collection):
                 ]
             if len(candidates) > 1:
                 raise ValueError("CSV Unit metadata matches multiple Collections.")
+            if code_candidates and not candidates:
+                raise ValueError(
+                    "CSV Unit metadata conflicts with an existing Collection."
+                )
             if candidates:
                 target = candidates[0]
                 if target.visibility != "private":
                     raise ValueError("Import into a private Collection first.")
                 if {target.source_language, target.target_language} != {"it", "el"}:
                     raise ValueError("CSV import requires an Italian–Greek Collection.")
+            elif code and target.source_unit_code is None:
+                proposed_metadata = (code, title or None, int(order) if order else None)
+                prior = pending_metadata.get(target.id)
+                if prior is not None and prior != proposed_metadata:
+                    raise ValueError(
+                        "CSV contains another unmapped Unit; "
+                        "select a separate Collection."
+                    )
+                metadata_is_new = prior is None
             if (
                 target is not None
                 and target.source_unit_code
@@ -288,6 +305,8 @@ def evaluate(db, rows, confirm, destination, collection):
                     "Edit them individually."
                 ]
             else:
+                if proposed_metadata is not None:
+                    pending_metadata[target.id] = proposed_metadata
                 current = matches[0] if matches else None
                 members = membership(target)
                 marker = (
@@ -305,37 +324,59 @@ def evaluate(db, rows, confirm, destination, collection):
                         changed_fields.append("collection_id")
                     if "tags" in original and current["tags"] != set(names):
                         changed_fields.append("tags")
+                    if proposed_metadata and metadata_is_new:
+                        changed_fields.append("collection_metadata")
+                    if code and current["source_collection_id"] is None:
+                        changed_fields.append("collection_provenance")
                     status = "updated" if changed_fields else "duplicate"
                 if status != "duplicate":
                     if not current:
                         current = {
                             "entry": None,
                             "values": values,
+                            "source_collection_id": target.id
+                            if code or target.source_unit_code
+                            else None,
                             "tags": set(names),
                         }
                         pairs[pair] = [current]
                     current["values"].update(supplied)
+                    if "collection_provenance" in changed_fields:
+                        current["source_collection_id"] = target.id
                     if "tags" in original:
                         current["tags"] = set(names)
                     proposed_tags.update(name for name in names if name not in tags)
                     if confirm:
+                        if proposed_metadata and target.source_unit_code is None:
+                            (
+                                target.source_unit_code,
+                                target.source_unit_title,
+                                target.source_unit_sort_order,
+                            ) = proposed_metadata
+                            mapped.append(target)
                         stored = current["entry"]
                         if stored is None:
                             stored = VocabularyEntry(
                                 **current["values"],
                                 owner_account_id=destination.owner_account_id,
                                 visibility=destination.visibility,
-                                source_collection_id=target.id
-                                if target.source_unit_code
-                                else None,
+                                source_collection_id=current["source_collection_id"],
                             )
                             db.add(stored)
                             current["entry"] = stored
                             counts["imported"] += 1
                         else:
                             for key in changed_fields:
-                                if key not in {"unit_id", "tags", "collection_id"}:
+                                if key not in {
+                                    "unit_id",
+                                    "tags",
+                                    "collection_id",
+                                    "collection_metadata",
+                                    "collection_provenance",
+                                }:
                                     setattr(stored, key, supplied[key])
+                            if "collection_provenance" in changed_fields:
+                                stored.source_collection_id = target.id
                         if "tags" in original:
                             assigned_tags = []
                             for name in names:

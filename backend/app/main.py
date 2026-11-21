@@ -252,7 +252,7 @@ def create_app():
                 .order_by(VocabularyEntry.italian, VocabularyEntry.id)
             ).all()
             return Response(
-                export_library(entries),
+                export_library(entries, current_account().id),
                 media_type="text/csv; charset=utf-8",
                 headers={
                     "Content-Disposition": 'attachment; filename="italian-notebook.csv"'

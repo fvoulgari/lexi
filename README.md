@@ -81,10 +81,17 @@ docker compose build
 docker compose up -d --wait postgres
 docker compose run --rm --no-deps --entrypoint alembic backend upgrade head
 docker compose up -d --wait
-docker compose exec backend python -m app.seed
 ```
 
 Open [localhost:5173](http://localhost:5173) and sign in with Google or email/password. Registration creates your own learner profile; no profile selection is required.
+
+To add the optional sample library, first identify your **local** account ID and
+then explicitly select it as owner. This does not target production:
+
+```sh
+docker compose exec postgres psql -U notebook -d notebook -c 'SELECT a.id, p.display_name FROM accounts a JOIN profiles p ON p.id = a.profile_id;'
+docker compose exec backend python -m app.seed --owner-account-id YOUR_LOCAL_ACCOUNT_ID
+```
 
 Run migrations separately with a schema-owner credential before starting a new
 release. Application startup checks the schema revision and fails closed when it
@@ -137,7 +144,6 @@ Configure `backend/.env` with `DATABASE_URL`, the provider/email variables above
 
 ```sh
 make migrate-local
-make seed-local
 make backend
 ```
 
@@ -146,6 +152,9 @@ In a second terminal:
 ```sh
 make frontend
 ```
+
+After signing in and identifying your local account ID, optionally run
+`make seed-local SEED_OWNER_ACCOUNT_ID=YOUR_LOCAL_ACCOUNT_ID` in another terminal.
 
 The root `.env` configures Compose; `backend/.env` configures native commands. Both, along with local `.env.*` variants, are excluded from Git and Docker build contexts. `.env.example` templates remain included. `make env` creates templates without overwriting existing files. Run `make help` for available commands.
 
