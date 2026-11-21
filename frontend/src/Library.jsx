@@ -17,8 +17,9 @@ import Import from "./Import.jsx";
 import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
+import { collectionCopy } from "./collection-copy.js";
 
-export default function Library({ text, csrf, onLocked }) {
+export default function Library({ text, csrf, onLocked, language = "en" }) {
   const client = useQueryClient();
   const collections = useQuery({
     queryKey: ["collections"],
@@ -168,9 +169,10 @@ export default function Library({ text, csrf, onLocked }) {
   return (
     <section className="library-page">
       <a className="collection-workspace-link" href="/collections">
-        {text.collections} →
+        {collectionCopy[language].title} →
       </a>
       <Collections
+        language={language}
         collections={collections}
         selected={collectionId}
         onSelect={(id) => {

@@ -397,6 +397,7 @@ export default function App() {
                   path="/vocabulary"
                   element={
                     <Library
+                      language={language}
                       text={text}
                       csrf={session.data.csrf_token}
                       onLocked={lockNotebook}

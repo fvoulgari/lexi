@@ -1,5 +1,7 @@
 # Authentication release status — 20 November 2026
 
+> Historical record. For current behavior and operator procedures, see the [README](../README.md), [authentication guide](authentication.md), and [Railway runbook](railway-release.md).
+
 **Current outcome: #63 and #66 merged; v1.2.1 released to production with successful automated deployment.** See the [production execution report](authentication-production-release-2026-11-20.md) for tested commits, results, accepted exceptions and rollback. #65 remains separate and draft. Production Google sign-in, registration/verification and password-reset delivery/reuse were confirmed by the operator. Hosted admin/legacy claims remain NOT RUN. Public Google audience status remains unverified.
 
 ## Historical pre-cutover assessment (superseded by execution report)

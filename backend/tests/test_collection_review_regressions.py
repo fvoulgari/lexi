@@ -114,7 +114,35 @@ def test_republication_preserves_difficulty_unique_totals_and_all_references(
     first, second = collection(client, "Unit 1"), collection(client, "Greetings")
     entry = card(client, first)
     assert add(client, second, entry).status_code == 204
-    assert publish(client, first).status_code == 200
+    first_path = f"/api/collections/{first['id']}"
+    preview = client.get(f"{first_path}/publish-preview").json()
+    publish_body = {
+        "name": "Everyday Italian",
+        "preview_token": preview["preview_token"],
+        "confirm_private_ids": [entry["id"]],
+    }
+    account_client("republish-outsider")
+    for method, path, body in (
+        ("POST", f"{first_path}/publish", publish_body),
+        ("POST", f"{first_path}/unpublish", {"name": "Unauthorized"}),
+        ("DELETE", first_path, None),
+    ):
+        assert client.request(method, path, headers=H, json=body).status_code == 404
+    account_client("republish-a")
+    invalid = client.post(
+        f"{first_path}/publish", headers=H, json={**publish_body, "preview_token": ""}
+    )
+    assert invalid.status_code == 409
+    unchanged = next(
+        c for c in client.get("/api/collections").json() if c["id"] == first["id"]
+    )
+    assert (unchanged["name"], unchanged["visibility"]) == ("Unit 1", "private")
+    published = client.post(f"{first_path}/publish", headers=H, json=publish_body)
+    assert published.status_code == 200
+    assert (published.json()["name"], published.json()["visibility"]) == (
+        "Everyday Italian",
+        "published",
+    )
     # Each creator-owned collection must independently confirm its private cards,
     # even when another confirmed grant already makes the card accessible.
     preview = client.get(f"/api/collections/{second['id']}/publish-preview").json()
@@ -133,9 +161,13 @@ def test_republication_preserves_difficulty_unique_totals_and_all_references(
     preview = client.get(f"/api/collections/{first['id']}/unpublish-preview").json()
     assert preview["private_cards"] == []
     assert [e["id"] for e in preview["still_shared_cards"]] == [entry["id"]]
-    assert (
-        client.post(f"/api/collections/{first['id']}/unpublish", headers=H).status_code
-        == 200
+    unpublished = client.post(
+        f"{first_path}/unpublish", headers=H, json={"name": "Personal Italian"}
+    )
+    assert unpublished.status_code == 200
+    assert (unpublished.json()["name"], unpublished.json()["visibility"]) == (
+        "Personal Italian",
+        "private",
     )
     preview = client.get(f"/api/collections/{second['id']}/unpublish-preview").json()
     assert [e["id"] for e in preview["private_cards"]] == [entry["id"]]
@@ -336,3 +368,23 @@ def test_vocabulary_create_selects_only_owned_compatible_collection_with_confirm
     )
     account_client("create-b")
     assert client.get(f"/api/vocabulary/{shared_id}").status_code == 404
+
+
+def test_new_collection_defaults_to_private_and_empty_collection_can_be_public(
+    client, account_client
+):
+    account_client("new-collection-owner")
+    private = collection(client, "Personal Italian")
+    assert private["visibility"] == "private"
+    public = client.post(
+        "/api/collections",
+        headers=H,
+        json={"name": "Open Italian", "make_public": True},
+    )
+    assert public.status_code == 201
+    assert public.json()["visibility"] == "published"
+    assert public.json()["card_count"] == 0
+    account_client("new-collection-reader")
+    visible = {c["id"]: c for c in client.get("/api/collections").json()}
+    assert private["id"] not in visible
+    assert not visible[public.json()["id"]]["can_edit"]

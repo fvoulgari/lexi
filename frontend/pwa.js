@@ -18,6 +18,8 @@ export function staticPwa() {
         "icon-192.png",
         "icon-512.png",
         "apple-touch-icon.png",
+        "favicon.ico",
+        "favicon-32.png",
         ...readdirSync(resolve(output, "assets")).map(
           (name) => `assets/${name}`,
         ),

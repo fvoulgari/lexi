@@ -1,5 +1,14 @@
 export const collectionCopy = {
   en: {
+    newCollection: "New collection",
+    oneCard: "card",
+    onlyYou: "Only you",
+    visibleToLearners: "Visible to other learners.",
+    savedCollection: "Collection saved.",
+    deletedCollection: "Collection deleted.",
+    backToEdit: "Back to edit",
+    deleteEffect:
+      "Deleting this collection removes its card references and sharing through this collection. Cards and learning history are kept. Cards shared only here will no longer be visible to other learners.",
     visibility: "Collection visibility",
     editCollection: "Edit collection",
     reviewSharing: "Review card sharing",
@@ -65,6 +74,15 @@ export const collectionCopy = {
     loading: "Loading…",
   },
   el: {
+    newCollection: "Νέα συλλογή",
+    oneCard: "κάρτα",
+    onlyYou: "Μόνο εσύ",
+    visibleToLearners: "Ορατή σε άλλους μαθητές.",
+    savedCollection: "Η συλλογή αποθηκεύτηκε.",
+    deletedCollection: "Η συλλογή διαγράφηκε.",
+    backToEdit: "Πίσω στην επεξεργασία",
+    deleteEffect:
+      "Η διαγραφή αφαιρεί τις αναφορές στις κάρτες και την κοινή χρήση μέσω αυτής της συλλογής. Οι κάρτες και το ιστορικό εξάσκησης διατηρούνται. Οι κάρτες που ήταν κοινόχρηστες μόνο εδώ δεν θα είναι πλέον ορατές σε άλλους μαθητές.",
     visibility: "Πρόσβαση συλλογής",
     editCollection: "Επεξεργασία συλλογής",
     reviewSharing: "Έλεγχος κοινής χρήσης καρτών",
@@ -132,6 +150,15 @@ export const collectionCopy = {
     loading: "Φόρτωση…",
   },
   it: {
+    newCollection: "Nuova raccolta",
+    oneCard: "scheda",
+    onlyYou: "Solo tu",
+    visibleToLearners: "Visibile agli altri studenti.",
+    savedCollection: "Raccolta salvata.",
+    deletedCollection: "Raccolta eliminata.",
+    backToEdit: "Torna alla modifica",
+    deleteEffect:
+      "Eliminare la raccolta rimuove i riferimenti alle schede e la condivisione tramite questa raccolta. Le schede e lo storico di apprendimento vengono conservati. Le schede condivise solo qui non saranno più visibili agli altri studenti.",
     visibility: "Visibilità della raccolta",
     editCollection: "Modifica raccolta",
     reviewSharing: "Rivedi condivisione delle schede",

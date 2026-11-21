@@ -11,30 +11,30 @@ The current version focuses on **Italian ↔ Greek**, with a calm sage-green and
 ## Features
 
 - **Your own vocabulary.** Add and edit words or phrases, with examples, pronunciation text and grammatical forms relevant to their part of speech.
-- **An organised library.** Every card belongs to a unit. Search, filter, or move selected cards between units.
-- **Practice in either direction.** Choose Italian → Greek or Greek → Italian, with random, difficult or mixed sessions and optional unit and card-type filters.
-- **Individual learning records.** Learner profiles keep separate preferences and review histories, tracked independently for each learning direction.
-- **CSV import and export.** Preview imports before confirming them, download an example, and export the full vocabulary library.
+- **An organised library.** Organise cards into Collections and filter Vocabulary by collection. Reuse a card across collections without copying it.
+- **Practice in either direction.** Choose Italian → Greek or Greek → Italian, with random, difficult or mixed sessions and optional collection and card-type filters.
+- **Individual learning records.** Each account has its own preferences and review history. Progress follows the same card ID across collections and is tracked per learning direction.
+- **CSV import and export.** Preview imports before confirming them, download an example, and export the vocabulary accessible to your account.
 - **Three interface languages.** Greek, English and Italian.
 - **Home-screen installation.** Install on supported browsers. Vocabulary and practice still require an internet connection.
 
 ## How practice works
 
-Select a learner profile, choose a direction and session size, and start practising. Reveal each answer before rating how well you remembered it. Reviews feed into your session summary, difficult-card selection and progress page.
+Sign in, choose a direction and session size, and start practising. Reveal each answer before rating how well you remembered it. Reviews feed into your session summary, difficult-card selection and progress page.
 
-Units and card types narrow a session to the material you want to study. Leaving those filters empty uses the shared library. Mixed practice combines difficult cards, recently practised cards and random selections, without repeating a card within the queue.
+Collections and card types narrow a session to the material you want to study. Leaving those filters empty uses the vocabulary you can access. Mixed practice combines difficult cards, recently practised cards and random selections, without repeating a card within the queue.
 
 Session recall counts **Hard + Easy** responses as a proportion of submitted reviews. It describes that session, rather than claiming long-term mastery. Revealing an answer alone does not count as a review.
 
 ## Scope and access
 
-Lexi supports public registration through Google or email/password with mandatory email verification. Each account owns exactly one learner profile, private vocabulary, collections, settings, and progress. Registered learners can practise published shared vocabulary. Existing content stays in a restricted legacy library until explicitly reviewed and published; administrators separately assign legacy access and editing roles.
+Sign in with Google or register with email and password. Email/password accounts verify their email before opening the notebook. Each account has a dedicated learner profile. The legacy claim links and learner recovery-request flows are retired.
 
-Administrators can issue secure single-use links to associate verified learners with their legacy progress. Existing activity blocks automatic reassignment and produces a resolution report; no automatic merging or name-based claiming occurs. Ordinary card deletion archives content while preserving reviews and completed-session history. Profile switching and permanent profile-deletion controls are unavailable.
+Collections start private by default. Owners can publish or unpublish them. Publishing a collection can share the owner's cards with other signed-in learners after explicit confirmation. Cards retain their IDs and personal progress across collections. Unpublishing or deleting a collection removes sharing through that collection. Cards and learning history are preserved, and other valid publications keep their grants.
 
-See [authentication setup and administrator guide](docs/authentication.md) for provider requirements, free-tier limitations, legacy claims, backups, and rollout gates. Required external configuration and real-provider verification must be completed before production readiness.
+See the [authentication guide](docs/authentication.md) and [Collections guide](docs/shareable-collections.md).
 
-Interface language is independent of the languages on the cards. The current vocabulary model supports Italian and Greek, not arbitrary language pairs. Pronunciation is entered as text; automatic translation and generated speech are not included.
+Interface language is independent of the languages on the cards. Vocabulary and the standard practice flow focus on Italian and Greek. The Collections workspace also supports English and Danish language pairs. Pronunciation is entered as text; automatic translation and generated speech are not included.
 
 ## Technology
 
@@ -46,7 +46,7 @@ Interface language is independent of the languages on the cards. The current voc
 | Testing | pytest, Vitest, Testing Library, Playwright |
 | Delivery | Docker, GitHub Actions, GHCR, Railway |
 
-In production, one application container serves the built frontend and API from the same origin. A separate, privately connected PostgreSQL service holds the durable data.
+In production, Cloudflare Tunnel routes the public origin to one Railway application container serving React and FastAPI. A separate private PostgreSQL 18 service holds application data. SuperTokens Core manages identity and sessions, and Resend delivers verification and reset email.
 
 ## Run locally
 
@@ -184,9 +184,9 @@ GitHub Actions runs application tests, lint/build checks and image-publication v
 
 ## Deployment
 
-The production image runs as a non-root user. Expiring server-side sessions, CSRF validation and login throttling protect the shared gate. The service worker caches only the generic application shell and public static assets, not vocabulary or API responses.
+The production image runs as a non-root user. SuperTokens sessions, same-origin write checks, and authentication throttling protect account access. The application uses a restricted PostgreSQL runtime login. Schema changes run separately with an operator-controlled schema-owner connection. The service worker caches only the generic application shell and public static assets, not vocabulary or API responses.
 
-Successful `main` checks publish a SHA-tagged image. Stable version tags trigger release checks and deployment of the verified image digest to Railway. See the [release runbook](docs/railway-release.md) for configuration, migrations, backups and recovery. Use a separate disposable instance if offering a public demo.
+Successful `main` checks publish a SHA-tagged image. Stable version tags trigger release checks and deployment of the verified image digest to Railway. See the [release runbook](docs/railway-release.md) for configuration, migrations and recovery. Keep independent protected backups and verify restores on an isolated database before relying on them. Follow the [staging restart procedure](docs/staging-restart.md) to resume the retained staging deployments. Use a separate disposable instance if offering a public demo.
 
 ## Project layout
 

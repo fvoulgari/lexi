@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Pencil, Plus } from "lucide-react";
 import { request } from "./api.js";
+import { collectionCopy } from "./collection-copy.js";
 
 export default function Collections({
   collections,
@@ -8,114 +10,339 @@ export default function Collections({
   onSelect,
   text,
   csrf,
+  language,
 }) {
   const client = useQueryClient();
+  const t = collectionCopy[language];
+  const [expanded, setExpanded] = useState(false);
+  const [mode, setMode] = useState(null);
   const [name, setName] = useState("");
-  const [renaming, setRenaming] = useState(false);
-  const current = collections.data?.find((item) => item.id === selected);
+  const [isPublic, setPublic] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [notice, setNotice] = useState("");
+  const focusTarget = useRef(null);
+  const focusReturn = useRef(null);
+  const selector = useRef(null);
+  const owned = collections.data?.filter(
+    (c) =>
+      c.can_edit !== false &&
+      (!c.source_language ||
+        [c.source_language, c.target_language].sort().join() === "el,it"),
+  );
+  const current = owned?.find((item) => item.id === selected);
+
   const action = useMutation({
-    mutationFn: ({ method, id, name: value }) =>
-      request(`/api/collections${id ? `/${id}` : ""}`, {
+    mutationFn: ({ path = "", method = "POST", body }) =>
+      request(`/api/collections${path}`, {
         method,
         headers: { "X-CSRF-Token": csrf },
-        body:
-          method !== "DELETE"
-            ? JSON.stringify({ name: value.trim() })
-            : undefined,
+        body: body === undefined ? undefined : JSON.stringify(body),
       }),
-    onSuccess: async (result, variables) => {
-      await client.invalidateQueries({ queryKey: ["collections"] });
-      await client.invalidateQueries({ queryKey: ["vocabulary"] });
-      setName("");
-      setRenaming(false);
-      if (variables.method === "DELETE") onSelect("");
-      else if (result?.id) onSelect(result.id);
+    onSuccess: async (result, { method = "POST" }) => {
+      if (method === "GET") {
+        setPreview(result);
+        return;
+      }
+      onSelect(method === "DELETE" ? "" : result.id);
+      await Promise.all(
+        [
+          "collections",
+          "collection-cards",
+          "collection-search",
+          "collection-progress",
+          "vocabulary",
+        ].map((key) => client.invalidateQueries({ queryKey: [key] })),
+      );
+      setNotice(method === "DELETE" ? t.deletedCollection : t.savedCollection);
+      setPreview(null);
+      setMode(null);
+      if (method === "DELETE") focusReturn.current = selector.current;
     },
   });
+
+  useEffect(() => {
+    if (action.isPending) return;
+    if (mode) focusTarget.current?.focus();
+    else if (notice) focusReturn.current?.focus();
+  }, [mode, preview, action.isPending, notice]);
+
+  function open(next, event) {
+    focusReturn.current = event.currentTarget;
+    action.reset();
+    setNotice("");
+    setPreview(null);
+    setName(next === "edit" ? current.name : "");
+    setPublic(next === "edit" && current.visibility === "published");
+    setMode(next);
+  }
+
+  function cancel() {
+    setMode(null);
+    setPreview(null);
+    action.reset();
+    if (mode === "delete") selector.current?.focus();
+    else focusReturn.current?.focus();
+  }
+
+  function save(event) {
+    event.preventDefault();
+    const title = name.trim();
+    if (!title) return;
+    if (mode === "create") {
+      action.mutate({ body: { name: title, make_public: isPublic } });
+    } else if (isPublic !== (current.visibility === "published")) {
+      action.mutate({
+        method: "GET",
+        path: `/${current.id}/${isPublic ? "publish" : "unpublish"}-preview`,
+      });
+    } else {
+      action.mutate({
+        method: "PATCH",
+        path: `/${current.id}`,
+        body: {
+          name: title,
+          source_language: current.source_language,
+          target_language: current.target_language,
+        },
+      });
+    }
+  }
+
+  function confirmVisibility() {
+    action.mutate({
+      path: `/${current.id}/${isPublic ? "publish" : "unpublish"}`,
+      body: isPublic
+        ? {
+            name: name.trim(),
+            preview_token: preview.preview_token,
+            confirm_private_ids: preview.private_cards.map((card) => card.id),
+          }
+        : { name: name.trim() },
+    });
+  }
+
   return (
-    <details className="collection-panel">
-      <summary>{text.collections}</summary>
-      {collections.isError ? (
-        <>
-          <p role="alert">{text.actionFailed}</p>
-          <button onClick={() => collections.refetch()}>{text.retry}</button>
-        </>
-      ) : (
-        <label>
-          {text.collections}
+    <details
+      className="collection-panel"
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary>{t.mine}</summary>
+      <div className="collection-panel-content" hidden={!expanded}>
+        {collections.isPending && <p role="status">{t.loading}</p>}
+        {collections.isError && (
+          <div className="form-actions">
+            <p role="alert">{text.actionFailed}</p>
+            <button className="secondary" onClick={() => collections.refetch()}>
+              {text.retry}
+            </button>
+          </div>
+        )}
+        <div className="collection-panel-toolbar">
+          <label className="sr-only" htmlFor="collection-filter">
+            {t.mine}
+          </label>
           <select
-            value={selected}
+            ref={selector}
+            id="collection-filter"
+            value={current?.id ?? ""}
+            disabled={action.isPending || !owned}
             onChange={(event) => {
+              setMode(null);
+              setPreview(null);
+              setNotice("");
+              action.reset();
               onSelect(event.target.value);
-              setRenaming(false);
             }}
           >
             <option value="">{text.allCollections}</option>
-            {collections.data
-              ?.filter(
-                (c) =>
-                  !c.source_language ||
-                  [c.source_language, c.target_language].sort().join() ===
-                    "el,it",
-              )
-              .map((collection) => (
+            {owned?.map((collection) => {
+              const count =
+                collection.card_count ?? collection.entry_ids?.length ?? 0;
+              return (
                 <option value={collection.id} key={collection.id}>
-                  {collection.name}
+                  {collection.name} · {count}{" "}
+                  {count === 1 ? t.oneCard : t.cards} ·{" "}
+                  {t[collection.visibility ?? "private"]}
                 </option>
-              ))}
+              );
+            })}
           </select>
-        </label>
-      )}
-      <form
-        className="collection-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          action.mutate({
-            method: renaming ? "PATCH" : "POST",
-            id: renaming ? current.id : undefined,
-            name,
-          });
-        }}
-      >
-        <label>
-          {text.collectionName}
-          <input
-            value={name}
-            maxLength={160}
-            required
-            onChange={(event) => setName(event.target.value)}
-          />
-        </label>
-        <button className="secondary" disabled={action.isPending}>
-          {renaming ? text.settingsSave : text.createCollection}
-        </button>
-      </form>
-      {current && current.can_edit !== false && (
-        <div className="form-actions">
           <button
-            className="secondary"
+            className="primary"
             disabled={action.isPending}
-            onClick={() => {
-              setName(current.name);
-              setRenaming(true);
-            }}
+            onClick={(event) => open("create", event)}
           >
-            {text.editEntry}
+            <Plus size={16} aria-hidden="true" /> {t.newCollection}
           </button>
+          {current && (
+            <button
+              className="secondary"
+              disabled={action.isPending}
+              onClick={(event) => open("edit", event)}
+            >
+              <Pencil size={15} aria-hidden="true" /> {t.editCollection}
+            </button>
+          )}
+        </div>
+
+        {(mode === "create" || (mode === "edit" && current)) && !preview && (
+          <form className="collection-panel-form" onSubmit={save}>
+            <h3>{mode === "create" ? t.newCollection : t.editCollection}</h3>
+            <label>
+              {t.name}
+              <input
+                ref={focusTarget}
+                value={name}
+                maxLength={160}
+                required
+                disabled={action.isPending}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+            <div className="collection-visibility-control">
+              <span>{t.visibility}</span>
+              {t.private}
+              <input
+                type="checkbox"
+                role="switch"
+                aria-label={t.published}
+                aria-describedby="collection-visibility-help"
+                checked={isPublic}
+                disabled={action.isPending}
+                onChange={(event) => setPublic(event.target.checked)}
+              />
+              {t.published}
+            </div>
+            <p id="collection-visibility-help">
+              {isPublic ? t.visibleToLearners : t.onlyYou}
+            </p>
+            <div className="form-actions">
+              <button
+                className="primary"
+                disabled={action.isPending || !name.trim()}
+              >
+                {mode === "create" ? t.create : t.save}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={action.isPending}
+                onClick={cancel}
+              >
+                {t.cancel}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {preview && current && (
+          <div className="collection-panel-form">
+            <h3 ref={focusTarget} tabIndex={-1}>
+              {isPublic ? t.confirm : t.confirmUnpublish}
+            </h3>
+            <p>
+              {isPublic
+                ? preview.private_cards.length
+                  ? t.exposure
+                  : t.none
+                : t.unpublishExposure}
+            </p>
+            {preview.private_cards.length > 0 && (
+              <ul>
+                {preview.private_cards.map((card) => (
+                  <li key={card.id}>
+                    <span lang={card.source_language}>{card.source_text}</span>
+                    {" · "}
+                    <span lang={card.target_language}>{card.target_text}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!isPublic && preview.still_shared_cards?.length > 0 && (
+              <div>
+                <p>{t.stillShared}</p>
+                <ul>
+                  {preview.still_shared_cards.map((card) => (
+                    <li key={card.id}>
+                      <span lang={card.source_language}>
+                        {card.source_text}
+                      </span>
+                      {" · "}
+                      <span lang={card.target_language}>
+                        {card.target_text}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="form-actions">
+              <button
+                className="primary"
+                disabled={action.isPending || action.isError}
+                onClick={confirmVisibility}
+              >
+                {isPublic ? t.confirm : t.confirmUnpublish}
+              </button>
+              <button
+                className="secondary"
+                disabled={action.isPending}
+                onClick={() => {
+                  action.reset();
+                  setPreview(null);
+                }}
+              >
+                {t.backToEdit}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {current && !mode && (
           <button
-            className="secondary"
+            className="collection-delete-link"
             disabled={action.isPending}
-            onClick={() => action.mutate({ method: "DELETE", id: current.id })}
+            onClick={(event) => open("delete", event)}
           >
             {text.deleteCollection}
           </button>
-        </div>
-      )}
-      {action.isError && (
-        <p role="alert" className="error">
-          {text.actionFailed}
-        </p>
-      )}
+        )}
+        {current && mode === "delete" && (
+          <div className="collection-panel-form">
+            <h3>
+              {text.deleteCollection} · {current.name}
+            </h3>
+            <p>{t.deleteEffect}</p>
+            <div className="form-actions">
+              <button
+                ref={focusTarget}
+                className="secondary"
+                disabled={action.isPending}
+                onClick={cancel}
+              >
+                {t.cancel}
+              </button>
+              <button
+                className="secondary danger"
+                disabled={action.isPending}
+                onClick={() =>
+                  action.mutate({ method: "DELETE", path: `/${current.id}` })
+                }
+              >
+                {text.deleteCollection}
+              </button>
+            </div>
+          </div>
+        )}
+        {action.isError && (
+          <p role="alert" className="error">
+            {preview ? t.error : text.actionFailed}
+          </p>
+        )}
+        {(action.isPending || notice) && (
+          <p role="status">{action.isPending ? t.loading : notice}</p>
+        )}
+      </div>
     </details>
   );
 }
