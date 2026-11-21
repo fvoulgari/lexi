@@ -22,6 +22,15 @@ def test_expiry_index_cleanup_preserves_rows_and_is_reversible(test_database):
     with engine.connect() as db:
         tx = db.begin()
         try:
+            # The current schema retires this table. Recreate its old shape
+            # inside the rollback-only test for the historical revision.
+            db.execute(
+                text(
+                    "CREATE TABLE legacy_claim_continuations ("
+                    "secret_hash varchar(64) PRIMARY KEY, token_hash varchar(64) "
+                    "NOT NULL, expires_at timestamptz NOT NULL)"
+                )
+            )
             db.execute(
                 text(
                     "CREATE INDEX ix_gate_sessions_expires_at "
@@ -90,6 +99,15 @@ def test_cleanup_refuses_a_different_index_definition(test_database):
     with engine.connect() as db:
         tx = db.begin()
         try:
+            # The current schema retires this table. Recreate its old shape
+            # inside the rollback-only test for the historical revision.
+            db.execute(
+                text(
+                    "CREATE TABLE legacy_claim_continuations ("
+                    "secret_hash varchar(64) PRIMARY KEY, token_hash varchar(64) "
+                    "NOT NULL, expires_at timestamptz NOT NULL)"
+                )
+            )
             db.execute(
                 text(
                     "CREATE INDEX ix_gate_sessions_expires_at "

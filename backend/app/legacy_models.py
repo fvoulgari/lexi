@@ -31,13 +31,6 @@ class ClaimLink(Base):
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class ClaimContinuation(Base):
-    __tablename__ = "legacy_claim_continuations"
-    secret_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    token_hash: Mapped[str] = mapped_column(String(64))
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-
-
 class LegacyRequest(Base):
     __tablename__ = "legacy_progress_requests"
     __table_args__ = (
@@ -61,27 +54,6 @@ class LegacyRequest(Base):
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolved_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
-
-
-class ResolutionCase(Base):
-    __tablename__ = "legacy_resolution_cases"
-    __table_args__ = (
-        Index(
-            "one_pending_resolution",
-            "account_id",
-            "legacy_profile_id",
-            unique=True,
-            postgresql_where=text("status = 'pending'"),
-        ),
-    )
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id"))
-    legacy_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
-    current_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
-    status: Mapped[str] = mapped_column(String(16), default="pending")
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
 
 
 class SecurityEvent(Base):

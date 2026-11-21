@@ -6,6 +6,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
@@ -51,8 +53,11 @@ def test_runner_rejects_wrong_revision_or_database(test_database, wrong_target):
     )
     engine = create_engine(test_database)
     with engine.connect() as db:
-        assert (
-            db.scalar(text("SELECT version_num FROM alembic_version")) == "c03e95b6c015"
+        scripts = ScriptDirectory.from_config(
+            Config(str(Path(__file__).parents[1] / "alembic.ini"))
+        )
+        assert db.scalar(text("SELECT version_num FROM alembic_version")) == (
+            scripts.get_current_head()
         )
         assert not db.scalar(
             text(

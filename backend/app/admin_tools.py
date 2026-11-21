@@ -6,13 +6,28 @@ Run only against a deliberately selected database after taking a backup.
 import argparse
 import json
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.config import Settings
 from app.database import database
-from app.legacy_claims import profile_report
 from app.legacy_models import SecurityEvent
-from app.models import Account, Profile
+from app.models import Account, LearningProgress, PracticeSession, Profile, ReviewEvent
+
+
+def profile_report(db, profile_id):
+    return {
+        name: db.scalar(
+            select(func.count())
+            .select_from(model)
+            .where(model.profile_id == profile_id)
+            .execution_options(unscoped=True)
+        )
+        for name, model in (
+            ("reviews", ReviewEvent),
+            ("sessions", PracticeSession),
+            ("progress_records", LearningProgress),
+        )
+    }
 
 
 def main():
