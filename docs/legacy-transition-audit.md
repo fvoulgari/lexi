@@ -26,8 +26,9 @@ application runtime.
    temporary identity when finished.
 4. Configure the application with a separate restricted runtime role and
    deploy the reviewed image. Verify schema and retirement startup checks,
-   all four private collection owners, Fofo/Lollo/Spyros access, publication
-   and withdrawal behavior, and unchanged personal history. Verify view
+   all four private collection owners, Fofo/Lollo/Spyros access and unchanged
+   personal history. Exercise publication and withdrawal only with disposable
+   synthetic cards; keep the four migrated collections private. Verify view
    privileges before describing the account directory as operator-only.
 5. Reopen writes only after validation. If validation fails, keep writes
    frozen and assess compatibility before restoring the previous image and
