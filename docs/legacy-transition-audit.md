@@ -3,6 +3,23 @@
 Status: **incomplete; not ready to merge or deploy**. This document records
 the investigation, not approval to change production.
 
+## Final candidate access rehearsal
+
+On the restored copy on 21 November, application code from commit `731398b`
+verified the schema and retirement guard, the three original account/profile
+associations, and private access with the legacy-access flag both true and
+false. Fofo saw 245 cards in one private collection, Lollo 17 cards in three
+private collections, and Spyros no cards or collections. In a rolled-back
+publication simulation, Lollo saw 262 cards and Spyros 245; neither could edit
+Fofo's cards or see her private tags. A full-row digest of learning progress
+was unchanged during the simulation. The final ownership dry run made zero
+changes, and its starting manifest exactly matched the previous rehearsal's
+ending manifest. Its complete protected report is stored in
+`rehearsal_evidence.artifacts` on the restored database as
+`candidate-dry-run-731398b.json`. The simulation used SQL to exercise the
+application's access rules, not the publication HTTP endpoint; the latter is
+covered by synthetic API tests. This copy still shares the production volume.
+
 ## Runtime privilege and cutover preparation
 
 On a disposable local PostgreSQL test database, the account-directory test
