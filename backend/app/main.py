@@ -51,6 +51,7 @@ from app.schemas import (
     VocabularyUpdate,
     WordType,
 )
+from app.timing import RequestTimingMiddleware
 from app.vocabulary_bulk import vocabulary_bulk_router
 from app.vocabulary_deletion import delete_entries
 
@@ -628,4 +629,5 @@ def create_app():
             )
         return FileResponse(index)
 
+    app.add_middleware(RequestTimingMiddleware)
     return app
