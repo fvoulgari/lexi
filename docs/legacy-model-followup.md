@@ -1,54 +1,62 @@
-# Legacy model retirement: staged follow-up
+# Legacy model retirement and account deletion
 
-This is a proposal and isolated rehearsal, not authority to change production.
-Keep PR #76 independent; if it merges first, rebase this branch's Alembic
-revision onto its head, then repeat the restore and compatibility tests.
+This draft is stacked on PR #76. Its migrations must run after #76; do not
+apply them to production without a separately reviewed plan and backup.
 
-## Data retained and temporary compatibility
+## Historical records and compatibility
 
-Keep claim links, recovery requests, resolution cases and security events as
-historical security/recovery evidence. The pending Lollo request predates his
-completed claim (20 November 2026, 22:21 UTC versus 22:47 UTC), refers to his
-currently linked profile, has no note and no pending resolution conflict. It
-appears redundant, but should be explicitly reviewed and marked resolved with
-an operator and timestamp; never silently delete it. This proposal does not
-change it.
+Keep account/profile links, cards, tags, collection memberships, reviews,
+sessions and progress for active accounts. Unit records and existing card
+`unit_id` links are temporary compatibility structures for old API/CSV clients;
+collection-created cards no longer need a Unit. The physical `legacy_access`
+column remains unchanged for compatibility but application provisioning and
+its account ORM no longer use it as a control.
 
-Keep account/profile links, cards, tags, collection memberships and all review,
-session and learning progress data. Units and the vocabulary `unit_id` foreign
-key are compatibility structures: existing values must stay intact while old
-CSV and API clients still use them. New collection cards need not invent a
-Unit. The physical `accounts.legacy_access` column is temporarily retained
-with its existing values even though application provisioning and the account
-ORM no longer use it. It is not an authorization control.
+Claim links, recovery requests, resolution cases and security events record
+historical security actions. Existing records and associations remain unchanged
+for active users. Lollo's request preceded his completed claim and referred to
+his linked profile. On 21 November 2026 the operator rechecked these facts and
+marked the request resolved, recording the reason; neither the request nor the
+completed claim was deleted.
 
-## Deletion dependency: further design required
+## Account deletion and retention
 
-The existing deletion path directly deletes claim links, continuations, requests
-and cases, and blocks deletion if another account's resolution case references
-the profile. Foreign keys from these records to accounts and profiles prevent
-simply removing those queries. Cascading or dropping them would lose evidence;
-merely switching them to SET NULL would lose the original associations and
-could weaken the existing conflict guard.
+Deletion removes the requested account and its profile, owned collections,
+unshared owned cards/tags/Units and its personal reviews, progress and sessions,
+and queues deletion of the authentication-provider identity. The existing
+hashed provider-subject tombstone remains to prevent re-provisioning; its
+provider subject is cleared once external deletion succeeds. Security events
+retain their event and timestamp but their deleted actor link is cleared.
 
-A separate migration should first copy complete claim, request, continuation
-and resolution records, including original IDs and relationships, to a
-permanent, access-restricted audit store, verify row-for-row equality, and
-preserve the cross-account deletion guard against that store. Then make the old
-foreign keys detachable on account/profile deletion while keeping original IDs
-in the audit store; migrate the deletion path to the permanent audit interface.
-Test account deletion for pending and completed cases, other-account conflicts,
-actor deletion, concurrent requests, and audit preservation. Decide and document
-the retention and privacy treatment of notes before implementing this step.
-No table should be dropped until compatibility clients and recovery needs have
-been independently verified. The current branch does not implement that step.
+Recovery records stay as security history but links to a deleted account or
+profile become null; the deleted account's recovery request name is replaced
+with `[deleted]` and its free-text note is erased. Claim hashes and event times
+remain as security audit data; they are not a copy of the profile or the note.
+This policy does not set an expiry for those minimized security records. A
+separate retention policy may later define one; do not silently erase active
+users' audit records. Other accounts' associations remain intact.
 
-## Rehearsal
+The minimal `recovery_case_guards` table retains only case, account and profile
+IDs required to enforce the existing cross-account conflict guard. It contains
+no name, request text or claim token. Its account foreign key cascades on
+account deletion. It is populated from the retired cases once; claim/case
+creation has been disabled. If any other account's case refers to the profile,
+deletion is blocked as before.
 
-A post-cutover production snapshot was restored to an isolated local PostgreSQL
-container. The candidate migration made `vocabulary_entries.unit_id` nullable;
-row/column hash manifests captured before and after matched for every table
-except `alembic_version`, which changed to the new revision. The migration
-does not alter existing card IDs, values, memberships, tags, owners, profile
-links, requests, reviews, sessions or progress. Test results are reported
-separately; this evidence is not a substitute for a fresh pre-cutover backup.
+Deletion is also blocked when an owned card is referenced by another account's
+collection, review, progress or practice snapshot, or when an owned tag is
+attached to another account's card. This preserves other learners' data; an
+operator must resolve those dependencies before deletion. The account and all
+other records remain unchanged on a blocked attempt. It does not automatically
+transfer ownership or publish content.
+
+## Rehearsal and sequencing
+
+A protected post-cutover snapshot was restored to an isolated database and the
+stacked #76 and follow-up migrations applied. Before/after row-and-column hash
+manifests show unchanged existing records; only the Alembic version and the
+new, initially empty guard table differ. A rollback-only test exercised account
+deletion and request anonymization on the restored database. Automated tests
+cover conflict and shared-progress guards; see the draft PR for current suite
+results and remaining review work. Repeat against a fresh backup before any
+production migration.

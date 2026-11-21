@@ -295,9 +295,15 @@ class CollectionEntry(Base):
 class RecoveryCaseGuard(Base):
     __tablename__ = "recovery_case_guards"
     case_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
-    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id", ondelete="CASCADE"))
-    legacy_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="RESTRICT"))
-    current_profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id", ondelete="RESTRICT"))
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE")
+    )
+    legacy_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="RESTRICT")
+    )
+    current_profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="RESTRICT")
+    )
 
 
 class AccountDeletion(Base):

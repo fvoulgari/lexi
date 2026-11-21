@@ -17,8 +17,8 @@ from app.models import (
     LearningProgress,
     PracticeSession,
     Profile,
-    ReviewEvent,
     RecoveryCaseGuard,
+    ReviewEvent,
     SessionCard,
     Tag,
     Unit,
@@ -90,26 +90,50 @@ def delete_local_account(sessions, account_id, subject):
                 },
             )
         # Do not erase another learner's collection or learning history.
-        owned_ids = select(VocabularyEntry.id).where(
-            VocabularyEntry.owner_account_id == account_id
-        ).execution_options(unscoped=True, include_archived=True)
+        owned_ids = (
+            select(VocabularyEntry.id)
+            .where(VocabularyEntry.owner_account_id == account_id)
+            .execution_options(unscoped=True, include_archived=True)
+        )
         shared = (
-            db.scalar(select(CollectionEntry.entry_id).join(Collection).where(
-                CollectionEntry.entry_id.in_(owned_ids),
-                Collection.owner_account_id.is_distinct_from(account_id),
-            ).limit(1).execution_options(unscoped=True))
-            or db.scalar(select(LearningProgress.entry_id).where(
-                LearningProgress.entry_id.in_(owned_ids),
-                LearningProgress.profile_id != profile_id,
-            ).limit(1).execution_options(unscoped=True))
-            or db.scalar(select(ReviewEvent.entry_id).where(
-                ReviewEvent.entry_id.in_(owned_ids),
-                ReviewEvent.profile_id != profile_id,
-            ).limit(1).execution_options(unscoped=True))
-            or db.scalar(select(SessionCard.entry_id).join(PracticeSession).where(
-                SessionCard.entry_id.in_(owned_ids),
-                PracticeSession.profile_id != profile_id,
-            ).limit(1).execution_options(unscoped=True))
+            db.scalar(
+                select(CollectionEntry.entry_id)
+                .join(Collection)
+                .where(
+                    CollectionEntry.entry_id.in_(owned_ids),
+                    Collection.owner_account_id.is_distinct_from(account_id),
+                )
+                .limit(1)
+                .execution_options(unscoped=True)
+            )
+            or db.scalar(
+                select(LearningProgress.entry_id)
+                .where(
+                    LearningProgress.entry_id.in_(owned_ids),
+                    LearningProgress.profile_id != profile_id,
+                )
+                .limit(1)
+                .execution_options(unscoped=True)
+            )
+            or db.scalar(
+                select(ReviewEvent.entry_id)
+                .where(
+                    ReviewEvent.entry_id.in_(owned_ids),
+                    ReviewEvent.profile_id != profile_id,
+                )
+                .limit(1)
+                .execution_options(unscoped=True)
+            )
+            or db.scalar(
+                select(SessionCard.entry_id)
+                .join(PracticeSession)
+                .where(
+                    SessionCard.entry_id.in_(owned_ids),
+                    PracticeSession.profile_id != profile_id,
+                )
+                .limit(1)
+                .execution_options(unscoped=True)
+            )
         )
         # A tag can be shared with cards owned by someone else even when no
         # vocabulary card from this account is in their collection.
@@ -120,13 +144,19 @@ def delete_local_account(sessions, account_id, subject):
             .where(
                 Tag.owner_account_id == account_id,
                 VocabularyEntry.owner_account_id.is_distinct_from(account_id),
-            ).execution_options(unscoped=True, include_archived=True).limit(1)
+            )
+            .execution_options(unscoped=True, include_archived=True)
+            .limit(1)
         )
         if shared:
-            raise HTTPException(409, {
-                "code": "account_deletion_shared_content",
-                "message": "Shared cards have other learners' collections or history; contact an administrator before deleting this account.",
-            })
+            raise HTTPException(
+                409,
+                {
+                    "code": "account_deletion_shared_content",
+                    "message": "Shared cards have other learners' collections or "
+                    "history; contact an administrator before deleting this account.",
+                },
+            )
         db.add(
             AccountDeletion(
                 subject_hash=subject_hash(subject), provider_subject=subject
