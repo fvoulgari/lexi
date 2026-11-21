@@ -81,14 +81,6 @@ class ContentScope:
     )
 
 
-class Unit(ContentScope, Base):
-    __tablename__ = "units"
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    code: Mapped[str] = mapped_column(String(20))
-    title: Mapped[str] = mapped_column(String(160))
-    sort_order: Mapped[int]
-
-
 entry_tags = Table(
     "entry_tags",
     Base.metadata,
@@ -134,10 +126,12 @@ class VocabularyEntry(ContentScope, Base):
     source_text = synonym("italian")
     target_text = synonym("greek")
     word_type: Mapped[str] = mapped_column(String(20), index=True)
-    unit_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("units.id", ondelete="RESTRICT"), index=True
+    source_collection_id: Mapped[uuid.UUID | None] = mapped_column()
+    source_collection: Mapped["Collection | None"] = relationship(
+        primaryjoin="foreign(VocabularyEntry.source_collection_id) == Collection.id",
+        viewonly=True,
+        lazy="joined",
     )
-    unit: Mapped[Unit | None] = relationship(lazy="joined")
     tags: Mapped[list[Tag]] = relationship(
         secondary=entry_tags, lazy="selectin", order_by=Tag.name
     )

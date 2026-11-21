@@ -42,12 +42,13 @@ def export_library(entries):
     writer = csv.writer(output, quoting=csv.QUOTE_ALL)
     writer.writerow(COLUMNS)
     for entry in entries:
+        source = entry.source_collection
         values = {
             **{field: getattr(entry, field, None) for field in COLUMNS},
             "csv_format": FORMAT_VERSION,
-            "unit_code": entry.unit.code if entry.unit else "",
-            "unit_title": entry.unit.title if entry.unit else "",
-            "unit_sort_order": entry.unit.sort_order if entry.unit else "",
+            "unit_code": source.source_unit_code if source else "",
+            "unit_title": source.source_unit_title if source else "",
+            "unit_sort_order": source.source_unit_sort_order if source else "",
             "tags": json.dumps([tag.name for tag in entry.tags], ensure_ascii=False),
         }
         for field in ("italian_gender", "greek_gender"):

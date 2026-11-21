@@ -3,11 +3,11 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 
-from app.access import current_account, require_same_scope, require_write
+from app.access import current_account, require_write
 from app.filters import vocabulary_conditions
-from app.models import Collection, CollectionEntry, Unit, VocabularyEntry
+from app.models import Collection, CollectionEntry, VocabularyEntry
 from app.schemas import VocabularyBulk, WordType
 from app.vocabulary_deletion import delete_entries
 
@@ -114,19 +114,7 @@ def vocabulary_bulk_router(sessions, gate):
                         )
                         position += 1
             elif body.action == "move":
-                if db.get(Unit, body.unit_id) is None:
-                    raise HTTPException(
-                        422,
-                        {"code": "invalid_unit", "message": "Choose an existing unit."},
-                    )
-                destination = db.get(Unit, body.unit_id)
-                for entry in selected:
-                    require_same_scope(entry, destination)
-                db.execute(
-                    update(VocabularyEntry)
-                    .where(VocabularyEntry.id.in_(ids))
-                    .values(unit_id=body.unit_id)
-                )
+                raise HTTPException(422, "Choose a Collection to add cards.")
             else:
                 blocked = missing
                 if blocked:

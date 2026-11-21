@@ -15,7 +15,7 @@ from app.access import current_account, require_write
 from app.csv_format import FORMAT_VERSION, restore_text
 from app.duplicates import normalized_pair
 from app.grammar import clean_grammar
-from app.models import Collection, CollectionEntry, Tag, Unit, VocabularyEntry
+from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
 
 MAX_BYTES = 1_048_576
@@ -129,7 +129,6 @@ def evaluate(db, rows, confirm, destination, collection=None):
                     for field in VocabularyCreate.model_fields
                     if field not in {"unit_id", "tag_ids", "visibility"}
                 },
-                "unit_id": existing.unit_id,
                 "tags": {tag.name for tag in existing.tags},
             }
         )
@@ -220,17 +219,6 @@ def evaluate(db, rows, confirm, destination, collection=None):
                 raise ValueError(
                     "CSV Unit metadata does not match the selected Collection."
                 )
-            conflict = collection is None and bool(
-                (code and code != destination.code)
-                or (title and title != destination.title)
-                or (order and int(order) != destination.sort_order)
-            )
-            if collection is None:
-                unit_spec = UnitCreate(
-                    code=destination.code,
-                    title=destination.title,
-                    sort_order=destination.sort_order,
-                )
             matches = pairs.get(
                 normalized_pair(row.get("italian", ""), row.get("greek", "")), []
             )
@@ -238,7 +226,6 @@ def evaluate(db, rows, confirm, destination, collection=None):
             # Missing legacy genders must be corrected explicitly in this row.
             previous = matches[0]["values"] if len(matches) == 1 else {}
             entry = VocabularyCreate(
-                unit_id=destination.id if collection is None else None,
                 **{**previous, **{k: v or None for k, v in row.items()}},
             )
         except ValidationError as exc:
@@ -285,8 +272,6 @@ def evaluate(db, rows, confirm, destination, collection=None):
                         for key, value in supplied.items()
                         if current["values"][key] != value
                     ]
-                    if collection is None and current["unit_id"] != destination.id:
-                        changed_fields.append("unit_id")
                     if (
                         collection is not None
                         and current["entry"] is not None
@@ -301,13 +286,10 @@ def evaluate(db, rows, confirm, destination, collection=None):
                         current = {
                             "entry": None,
                             "values": values,
-                            "unit_id": destination.id if collection is None else None,
                             "tags": set(names),
                         }
                         pairs[pair] = [current]
                     current["values"].update(supplied)
-                    if collection is None:
-                        current["unit_id"] = destination.id
                     if "tags" in original:
                         current["tags"] = set(names)
                     proposed_tags.update(name for name in names if name not in tags)
@@ -316,7 +298,6 @@ def evaluate(db, rows, confirm, destination, collection=None):
                         if stored is None:
                             stored = VocabularyEntry(
                                 **current["values"],
-                                unit=destination if collection is None else None,
                                 owner_account_id=destination.owner_account_id,
                                 visibility=destination.visibility,
                             )
@@ -327,8 +308,6 @@ def evaluate(db, rows, confirm, destination, collection=None):
                             for key in changed_fields:
                                 if key not in {"unit_id", "tags", "collection_id"}:
                                     setattr(stored, key, supplied[key])
-                            if "unit_id" in changed_fields:
-                                stored.unit = destination
                         if "tags" in original:
                             assigned_tags = []
                             for name in names:
@@ -439,12 +418,7 @@ def import_router(sessions, gate):
                 raise HTTPException(409, "Legacy collection mapping is ambiguous.")
             collection_id = matches[0] if matches else None
             if collection_id is None:
-                # Retain old clients while their Units are being migrated.
-                # This temporary path is removed with the Unit model.
-                destination = db.get(Unit, unit_id)
-                if destination is None:
-                    raise HTTPException(422, "Choose a collection you own.")
-                return None, destination
+                raise HTTPException(422, "Choose a collection you own.")
         return destination_for_collection(db, collection_id, confirm)
 
     @router.get("/example")
@@ -482,7 +456,7 @@ def import_router(sessions, gate):
             # Also blocks normal vocabulary/unit/tag writes until commit.
             db.execute(
                 text(
-                    "LOCK TABLE vocabulary_entries, units, tags, "
+                    "LOCK TABLE vocabulary_entries, tags, "
                     "collections, collection_entries "
                     "IN SHARE ROW EXCLUSIVE MODE"
                 )

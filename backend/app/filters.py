@@ -2,7 +2,7 @@
 
 from sqlalchemy import or_, select
 
-from app.models import Collection, CollectionEntry, Tag, Unit, VocabularyEntry
+from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
 
 
 def category_conditions(unit_ids, no_unit, word_types, tag_ids):
@@ -16,12 +16,15 @@ def category_conditions(unit_ids, no_unit, word_types, tag_ids):
             .join(Collection, Collection.id == CollectionEntry.collection_id)
             .where(Collection.source_unit_id.in_(unit_ids))
         )
-        units = [
-            VocabularyEntry.unit_id.in_(select(Unit.id).where(Unit.id.in_(unit_ids))),
-            VocabularyEntry.id.in_(mapped_cards),
-        ]
+        units = [VocabularyEntry.id.in_(mapped_cards)]
         if no_unit:
-            units.append(VocabularyEntry.unit_id.is_(None))
+            units.append(
+                ~VocabularyEntry.id.in_(
+                    select(CollectionEntry.entry_id).join(
+                        Collection, Collection.id == CollectionEntry.collection_id
+                    )
+                )
+            )
         conditions.append(or_(*units))
     if word_types:
         conditions.append(VocabularyEntry.word_type.in_(word_types))

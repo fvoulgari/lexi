@@ -7,13 +7,13 @@ import pytest
 from alembic.config import Config
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, select, text, update
+from sqlalchemy import create_engine, delete, select, text
 from sqlalchemy.orm import Session
 
 from alembic import command
 from app.auth import AuthGate
 from app.main import create_app
-from app.models import Account, Base, Profile, Unit, VocabularyEntry
+from app.models import Account, Base, Profile
 from app.seed import seed
 
 TEST_CSRF = "supertokens"
@@ -66,12 +66,7 @@ def client(test_database, monkeypatch):
             {"id": admin.id},
         )
         db.commit()
-        # Seeded records model the post-migration private library in request tests.
-        for model in (Unit, VocabularyEntry):
-            db.execute(
-                update(model).values(owner_account_id=admin.id, visibility="private")
-            )
-        db.commit()
+        seed(owner_id=admin.id)
     TEST_SESSIONS.clear()
 
     class VerifiedSession:

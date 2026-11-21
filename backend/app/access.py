@@ -15,7 +15,6 @@ from app.models import (
     Profile,
     ReviewEvent,
     Tag,
-    Unit,
     VocabularyEntry,
 )
 
@@ -127,7 +126,7 @@ def scope_reads(state):
     ):
         return
     statement = state.statement
-    for model in (Unit, Tag, VocabularyEntry):
+    for model in (Tag, VocabularyEntry):
         statement = statement.options(
             with_loader_criteria(model, visible(model, account), include_aliases=True)
         )

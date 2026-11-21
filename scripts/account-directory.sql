@@ -33,7 +33,7 @@ END $$;
 GRANT USAGE ON SCHEMA public TO lexi_app, lexi_operator;
 -- Explicitly enumerate application tables; no grants on future objects or views.
 GRANT SELECT, INSERT, UPDATE, DELETE ON
-  public.accounts, public.account_deletions, public.profiles, public.units, public.tags,
+  public.accounts, public.account_deletions, public.profiles, public.tags,
   public.vocabulary_entries, public.entry_tags, public.collections,
   public.collection_entries, public.practice_sessions, public.session_cards,
   public.review_events, public.learning_progress, public.login_throttles,
