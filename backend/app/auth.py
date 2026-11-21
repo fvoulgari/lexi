@@ -4,6 +4,7 @@ import hashlib
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
+from time import perf_counter
 
 from fastapi import HTTPException, Request, Response
 from sqlalchemy import case, select
@@ -18,6 +19,7 @@ from app.auth_provider import configuration_ready, configure_provider
 from app.ingress import loopback_peer, tunnel_client_ip
 from app.models import Account, AccountDeletion, LoginThrottle, Profile
 from app.password_attempts import PasswordAttemptBusy, PasswordVerificationUnavailable
+from app.timing import add
 
 log = logging.getLogger("lexi.security")
 
@@ -41,24 +43,32 @@ class AuthGate:
 
         # SDK verifies signature, expiry and claims. A Core check on every request
         # is deliberate: revoked access tokens must stop working immediately.
-        return await get_session(
-            request,
-            session_required=required,
-            check_database=True,
-            anti_csrf_check=request.method not in {"GET", "HEAD", "OPTIONS"},
-            **(
-                {"override_global_claim_validators": lambda _v, _s, _c: []}
-                if not required
-                else {}
-            ),
-        )
+        started = perf_counter()
+        try:
+            return await get_session(
+                request,
+                session_required=required,
+                check_database=True,
+                anti_csrf_check=request.method not in {"GET", "HEAD", "OPTIONS"},
+                **(
+                    {"override_global_claim_validators": lambda _v, _s, _c: []}
+                    if not required
+                    else {}
+                ),
+            )
+        finally:
+            add("provider_ms", started)
 
     async def _verified(self, session):
         from supertokens_python.recipe.emailverification.asyncio import (
             is_email_verified,
         )
 
-        return await is_email_verified(session.get_recipe_user_id())
+        started = perf_counter()
+        try:
+            return await is_email_verified(session.get_recipe_user_id())
+        finally:
+            add("provider_ms", started)
 
     def _account(self, subject, display_name="Learner"):
         with self.sessions.begin() as db:
