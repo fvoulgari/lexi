@@ -33,7 +33,7 @@ easy), 18 progress records and seven difficult cards. There is no separate store
 `learned` flag in the inspected model. Protected comparison files contain private
 data and remain outside the repository.
 
-The backend suite passed 298 tests with three skipped; frontend tests passed 276
+The backend suite passed 299 tests with three skipped; frontend tests passed 277
 and frontend lint passed. Before a later production release, freeze writes, take
 and restore-test a fresh protected backup, repeat the comparison and revalidate the
 mapping. The migration fails closed if production has changed incompatibly.

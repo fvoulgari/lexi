@@ -443,11 +443,9 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
                         {text.csvChangedFields}:{" "}
                         {row.changed_fields
                           .map((field) =>
-                            field === "unit_id"
-                              ? text.unit
-                              : field === "tags"
-                                ? text.tags
-                                : text.fields[field] || field,
+                            field === "tags"
+                              ? text.tags
+                              : text.fields[field] || field,
                           )
                           .join(", ")}
                       </p>
