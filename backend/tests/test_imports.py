@@ -40,7 +40,8 @@ def test_collection_import_preserves_card_unit_and_is_idempotent(
     cards = client.get(f"/api/collections/{b['id']}/entries").json()
     assert [card["id"] for card in cards] == [created["id"]]
     after = client.get(f"/api/vocabulary/{created['id']}").json()
-    assert after["unit"]["id"] == created["unit"]["id"]
+    assert after["unit"] is None
+    assert created["unit"] is None
     assert after["notes"] == "keep this"
     account_client("other-import-user")
     assert upload_to("confirm").status_code == 403
@@ -496,3 +497,34 @@ def test_245_row_file_imports_every_card_and_preserves_existing_progress(logged_
     }
     assert upload(client, content, "confirm").json()["counts"]["duplicate"] == 245
     assert client.get("/api/vocabulary").json()["total"] == before + 245
+
+
+def test_collection_csv_preserves_existing_historical_unit_and_adds_unitless_card(
+    client, account_client
+):
+    from test_account_http import create_card, create_unit
+
+    account_client("historical-import-owner")
+    unit = create_unit(client, "OLD")
+    old = create_card(client, unit, italian="ciao", greek="γεια")["entry"]
+    h = headers(client)
+    collection = client.post(
+        "/api/collections", headers=h, json={"name": "CSV destination"}
+    ).json()
+    units_before = client.get("/api/units").json()
+    response = client.post(
+        f"/api/imports/confirm?collection_id={collection['id']}",
+        headers={**h, "Content-Type": "text/csv"},
+        content=(
+            "italian,greek,word_type,unit_code,unit_title\n"
+            "ciao,γεια,expression,OLD,Old group\n"
+            "salve,χαίρετε,expression,OLD,Old group\n"
+        ).encode(),
+    )
+    assert response.status_code == 200, response.text
+    cards = client.get(f"/api/collections/{collection['id']}/entries").json()
+    assert len(cards) == 2
+    assert client.get(f"/api/vocabulary/{old['id']}").json()["unit"]["id"] == unit["id"]
+    new_id = next(card["id"] for card in cards if card["id"] != old["id"])
+    assert client.get(f"/api/vocabulary/{new_id}").json()["unit"] is None
+    assert client.get("/api/units").json() == units_before

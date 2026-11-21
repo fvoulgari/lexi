@@ -1,6 +1,5 @@
 """Test account isolation and retries during deletion."""
 
-
 import asyncio
 from unittest.mock import AsyncMock
 from uuid import UUID
@@ -81,3 +80,273 @@ def test_last_admin_cannot_delete(logged_in, monkeypatch):
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "last_admin"
     assert logged_in.get("/api/auth/session").json()["authenticated"]
+
+
+def test_deletion_anonymizes_recovery_records_and_preserves_completed_claim(
+    client, account_client
+):
+    from datetime import datetime, timedelta, timezone
+
+    from app.legacy_models import ClaimLink, LegacyRequest
+
+    account = account_client("delete-with-claim")
+    now = datetime.now(timezone.utc)
+    sessions = client.app.state.sessions
+    with sessions.begin() as db:
+        request = LegacyRequest(
+            account_id=UUID(account["id"]),
+            profile_name="Personal name",
+            note="Personal note",
+            status="resolved",
+        )
+        db.add(request)
+        db.add(
+            ClaimLink(
+                token_hash="a" * 64,
+                profile_id=UUID(account["profile_id"]),
+                issued_by=UUID(account["id"]),
+                expires_at=now + timedelta(days=1),
+                consumed_at=now,
+            )
+        )
+        db.flush()
+        request_id = request.id
+    response = client.delete("/api/account", headers=headers(client))
+    assert response.status_code == 200, response.text
+    with sessions() as db:
+        request = db.get(LegacyRequest, request_id)
+        claim = db.get(ClaimLink, "a" * 64)
+        assert (request.account_id, request.profile_name, request.note) == (
+            None,
+            "[deleted]",
+            None,
+        )
+        assert (claim.profile_id, claim.issued_by) == (None, None)
+        assert claim.consumed_at is not None
+
+
+def test_deletion_blocks_other_accounts_recovery_conflict(client, account_client):
+    from uuid import uuid4
+
+    from app.models import RecoveryCaseGuard
+
+    other = account_client("case-other")
+    target = account_client("case-target")
+    with client.app.state.sessions.begin() as db:
+        db.add(
+            RecoveryCaseGuard(
+                case_id=uuid4(),
+                account_id=UUID(other["id"]),
+                legacy_profile_id=UUID(target["profile_id"]),
+                current_profile_id=UUID(other["profile_id"]),
+            )
+        )
+    response = client.delete("/api/account", headers=headers(client))
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "account_deletion_conflict"
+    assert client.get("/api/auth/session").json()["account"]["id"] == target["id"]
+
+
+def test_deletion_blocks_when_another_learner_has_progress(client, account_client):
+    from datetime import datetime, timezone
+
+    from app.models import LearningProgress
+
+    other = account_client("progress-other")
+    owner = account_client("progress-owner")
+    unit = create_unit(client, "SHARED")
+    card = create_card(client, unit)["entry"]
+    with client.app.state.sessions.begin() as db:
+        db.add(
+            LearningProgress(
+                profile_id=UUID(other["profile_id"]),
+                entry_id=UUID(card["id"]),
+                direction="greek_to_italian",
+                last_reviewed_at=datetime.now(timezone.utc),
+            )
+        )
+    response = client.delete("/api/account", headers=headers(client))
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "account_deletion_shared_content"
+    with client.app.state.sessions() as db:
+        assert db.get(Account, UUID(owner["id"])) is not None
+        assert (
+            db.get(
+                LearningProgress,
+                (UUID(other["profile_id"]), UUID(card["id"]), "greek_to_italian"),
+            )
+            is not None
+        )
+
+
+def test_deletion_preserves_another_accounts_collection_and_snapshot(
+    client, account_client
+):
+    from app.models import Collection, CollectionEntry, PracticeSession, SessionCard
+
+    other = account_client("collection-other")
+    other_collection = client.post(
+        "/api/collections", headers=headers(client), json={"name": "Other"}
+    ).json()
+    owner = account_client("collection-owner")
+    unit = create_unit(client, "COLLECTION-SHARE")
+    card = create_card(client, unit)["entry"]
+    with client.app.state.sessions.begin() as db:
+        db.add(
+            CollectionEntry(
+                collection_id=UUID(other_collection["id"]),
+                entry_id=UUID(card["id"]),
+                position=0,
+            )
+        )
+        practice = PracticeSession(
+            profile_id=UUID(other["profile_id"]),
+            direction="greek_to_italian",
+            available=1,
+        )
+        db.add(practice)
+        db.flush()
+        session_id = practice.id
+        db.add(
+            SessionCard(
+                session_id=session_id,
+                position=0,
+                entry_id=UUID(card["id"]),
+                snapshot={"italian": "kept"},
+            )
+        )
+    response = client.delete("/api/account", headers=headers(client))
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "account_deletion_shared_content"
+    with client.app.state.sessions() as db:
+        assert db.get(Account, UUID(owner["id"])) is not None
+        assert db.get(Collection, UUID(other_collection["id"])) is not None
+        assert (
+            db.get(CollectionEntry, (UUID(other_collection["id"]), UUID(card["id"])))
+            is not None
+        )
+        assert db.get(SessionCard, (session_id, 0)).snapshot == {"italian": "kept"}
+
+
+def test_concurrent_snapshot_commit_blocks_deletion_and_preserves_data(
+    client, account_client
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    from fastapi import HTTPException
+    from sqlalchemy import event
+
+    from app.account_deletion import delete_local_account
+    from app.models import PracticeSession, SessionCard
+
+    other = account_client("race-snapshot-other")
+    owner = account_client("race-snapshot-owner")
+    card = create_card(client, create_unit(client, "RACE"))["entry"]
+    sessions = client.app.state.sessions
+    with sessions.begin() as db:
+        practice = PracticeSession(
+            profile_id=UUID(other["profile_id"]),
+            direction="greek_to_italian",
+            available=1,
+        )
+        db.add(practice)
+        db.flush()
+        session_id = practice.id
+    inserted, release, lock_started = Event(), Event(), Event()
+
+    def observe_lock(conn, cursor, statement, parameters, context, executemany):
+        if "FROM vocabulary_entries" in statement and "FOR UPDATE" in statement:
+            lock_started.set()
+
+    engine = sessions.kw["bind"]
+    event.listen(engine, "before_cursor_execute", observe_lock)
+
+    def add_snapshot():
+        with sessions.begin() as db:
+            db.add(
+                SessionCard(
+                    session_id=session_id,
+                    position=0,
+                    entry_id=UUID(card["id"]),
+                    snapshot={"italian": "preserved"},
+                )
+            )
+            db.flush()
+            inserted.set()
+            assert release.wait(10)
+
+    def delete_owner():
+        try:
+            delete_local_account(sessions, UUID(owner["id"]), "race-snapshot-owner")
+        except HTTPException as exc:
+            return exc.status_code, exc.detail["code"]
+        return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        writer = pool.submit(add_snapshot)
+        assert inserted.wait(10)
+        deletion = pool.submit(delete_owner)
+        try:
+            assert lock_started.wait(10)
+            assert not deletion.done()
+        finally:
+            release.set()
+        writer.result(timeout=10)
+        assert deletion.result(timeout=10) == (409, "account_deletion_shared_content")
+    event.remove(engine, "before_cursor_execute", observe_lock)
+    with sessions() as db:
+        assert db.get(Account, UUID(owner["id"])) is not None
+        snapshot = db.get(SessionCard, (session_id, 0))
+        assert snapshot.entry_id == UUID(card["id"])
+        assert snapshot.snapshot == {"italian": "preserved"}
+
+
+def test_concurrent_deletions_preserve_cross_account_case_guards(
+    client, account_client
+):
+    from concurrent.futures import ThreadPoolExecutor
+    from uuid import uuid4
+
+    from fastapi import HTTPException
+
+    from app.account_deletion import delete_local_account
+    from app.models import RecoveryCaseGuard
+
+    first = account_client("race-case-first")
+    second = account_client("race-case-second")
+    with client.app.state.sessions.begin() as db:
+        db.add_all(
+            [
+                RecoveryCaseGuard(
+                    case_id=uuid4(),
+                    account_id=UUID(first["id"]),
+                    legacy_profile_id=UUID(second["profile_id"]),
+                    current_profile_id=UUID(first["profile_id"]),
+                ),
+                RecoveryCaseGuard(
+                    case_id=uuid4(),
+                    account_id=UUID(second["id"]),
+                    legacy_profile_id=UUID(first["profile_id"]),
+                    current_profile_id=UUID(second["profile_id"]),
+                ),
+            ]
+        )
+
+    def attempt(account, subject):
+        try:
+            delete_local_account(
+                client.app.state.sessions, UUID(account["id"]), subject
+            )
+        except HTTPException as exc:
+            return exc.status_code, exc.detail["code"]
+        return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        a = pool.submit(attempt, first, "race-case-first")
+        b = pool.submit(attempt, second, "race-case-second")
+        assert a.result(timeout=10) == (409, "account_deletion_conflict")
+        assert b.result(timeout=10) == (409, "account_deletion_conflict")
+    with client.app.state.sessions() as db:
+        assert db.get(Account, UUID(first["id"])) is not None
+        assert db.get(Account, UUID(second["id"])) is not None

@@ -8,13 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import delete, or_, select, text, update
 from starlette.concurrency import run_in_threadpool
 
-from app.legacy_models import (
-    ClaimContinuation,
-    ClaimLink,
-    LegacyRequest,
-    ResolutionCase,
-    SecurityEvent,
-)
+from app.legacy_models import SecurityEvent
 from app.models import (
     Account,
     AccountDeletion,
@@ -23,6 +17,7 @@ from app.models import (
     LearningProgress,
     PracticeSession,
     Profile,
+    RecoveryCaseGuard,
     ReviewEvent,
     SessionCard,
     Tag,
@@ -75,12 +70,12 @@ def delete_local_account(sessions, account_id, subject):
         profile_id = account.profile_id
         # Never remove another account's resolution case as a side effect.
         conflict = db.scalar(
-            select(ResolutionCase.id)
+            select(RecoveryCaseGuard.case_id)
             .where(
-                ResolutionCase.account_id != account_id,
+                RecoveryCaseGuard.account_id != account_id,
                 or_(
-                    ResolutionCase.legacy_profile_id == profile_id,
-                    ResolutionCase.current_profile_id == profile_id,
+                    RecoveryCaseGuard.legacy_profile_id == profile_id,
+                    RecoveryCaseGuard.current_profile_id == profile_id,
                 ),
             )
             .limit(1)
@@ -94,36 +89,90 @@ def delete_local_account(sessions, account_id, subject):
                     "before this account can be deleted.",
                 },
             )
+        # Serialize foreign-key references to owned content with the checks below.
+        # A session snapshot can otherwise be inserted after the check and have
+        # its entry_id silently cleared by ON DELETE SET NULL.
+        for model in (VocabularyEntry, Tag):
+            db.scalars(
+                select(model.id)
+                .where(model.owner_account_id == account_id)
+                .order_by(model.id)
+                .with_for_update()
+                .execution_options(unscoped=True, include_archived=True)
+            ).all()
+        # Do not erase another learner's collection or learning history.
+        owned_ids = (
+            select(VocabularyEntry.id)
+            .where(VocabularyEntry.owner_account_id == account_id)
+            .execution_options(unscoped=True, include_archived=True)
+        )
+        shared = (
+            db.scalar(
+                select(CollectionEntry.entry_id)
+                .join(Collection)
+                .where(
+                    CollectionEntry.entry_id.in_(owned_ids),
+                    Collection.owner_account_id.is_distinct_from(account_id),
+                )
+                .limit(1)
+                .execution_options(unscoped=True)
+            )
+            or db.scalar(
+                select(LearningProgress.entry_id)
+                .where(
+                    LearningProgress.entry_id.in_(owned_ids),
+                    LearningProgress.profile_id != profile_id,
+                )
+                .limit(1)
+                .execution_options(unscoped=True)
+            )
+            or db.scalar(
+                select(ReviewEvent.entry_id)
+                .where(
+                    ReviewEvent.entry_id.in_(owned_ids),
+                    ReviewEvent.profile_id != profile_id,
+                )
+                .limit(1)
+                .execution_options(unscoped=True)
+            )
+            or db.scalar(
+                select(SessionCard.entry_id)
+                .join(PracticeSession)
+                .where(
+                    SessionCard.entry_id.in_(owned_ids),
+                    PracticeSession.profile_id != profile_id,
+                )
+                .limit(1)
+                .execution_options(unscoped=True)
+            )
+        )
+        # A tag can be shared with cards owned by someone else even when no
+        # vocabulary card from this account is in their collection.
+        shared = shared or db.scalar(
+            select(entry_tags.c.tag_id)
+            .join(Tag, Tag.id == entry_tags.c.tag_id)
+            .join(VocabularyEntry, VocabularyEntry.id == entry_tags.c.entry_id)
+            .where(
+                Tag.owner_account_id == account_id,
+                VocabularyEntry.owner_account_id.is_distinct_from(account_id),
+            )
+            .execution_options(unscoped=True, include_archived=True)
+            .limit(1)
+        )
+        if shared:
+            raise HTTPException(
+                409,
+                {
+                    "code": "account_deletion_shared_content",
+                    "message": "Shared cards have other learners' collections or "
+                    "history; contact an administrator before deleting this account.",
+                },
+            )
         db.add(
             AccountDeletion(
                 subject_hash=subject_hash(subject), provider_subject=subject
             )
         )
-        claim_hashes = select(ClaimLink.token_hash).where(
-            or_(ClaimLink.issued_by == account_id, ClaimLink.profile_id == profile_id)
-        )
-        db.execute(
-            delete(ClaimContinuation).where(
-                ClaimContinuation.token_hash.in_(claim_hashes)
-            )
-        )
-        db.execute(
-            delete(ClaimLink).where(
-                or_(
-                    ClaimLink.issued_by == account_id,
-                    ClaimLink.profile_id == profile_id,
-                )
-            )
-        )
-        db.execute(
-            delete(ResolutionCase).where(ResolutionCase.account_id == account_id)
-        )
-        db.execute(
-            update(LegacyRequest)
-            .where(LegacyRequest.resolved_by == account_id)
-            .values(resolved_by=None)
-        )
-        db.execute(delete(LegacyRequest).where(LegacyRequest.account_id == account_id))
         db.execute(
             update(SecurityEvent)
             .where(SecurityEvent.actor_account_id == account_id)

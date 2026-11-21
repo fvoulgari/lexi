@@ -282,26 +282,6 @@ def create_app():
             if entry_id is None and not values.get("unit_id"):
                 if not collection_id:
                     raise HTTPException(422, "Choose a collection for this card.")
-                unit = db.scalar(
-                    select(Unit)
-                    .where(
-                        Unit.owner_account_id == current_account().id,
-                        Unit.visibility == "private",
-                    )
-                    .order_by(Unit.id)
-                    .limit(1)
-                )
-                if unit is None:
-                    unit = Unit(
-                        code="CARDS",
-                        title="Cards",
-                        sort_order=0,
-                        owner_account_id=current_account().id,
-                        visibility="private",
-                    )
-                    db.add(unit)
-                    db.flush()
-                values["unit_id"] = unit.id
             if (
                 values.get("unit_id") is not None
                 and db.get(Unit, values["unit_id"]) is None
@@ -366,7 +346,8 @@ def create_app():
                     )
                 for field, value in values.items():
                     setattr(entry, field, value)
-            require_same_scope(entry, db.get(Unit, entry.unit_id))
+            if entry.unit_id is not None:
+                require_same_scope(entry, db.get(Unit, entry.unit_id))
             if tag_ids is not None:
                 for tag in tags:
                     require_same_scope(entry, tag)
