@@ -7,8 +7,10 @@ conflict guard, learning history and historical session snapshots remain intact.
 
 The Unit table and its references are **not removed**. Card editing, CSV imports,
 filters, practice, compatibility APIs, seed data, and account deletion still use
-Units. Old CSV Unit fields are not yet mapped to Collections. Do not merge or
-deploy this work as a completed Unit retirement.
+Units. An old import destination Unit ID resolves to the owner's mapped
+Collection; destinations without a mapping temporarily retain the old path.
+CSV Unit fields are not yet mapped to Collections. Do not merge or deploy this
+work as a completed Unit retirement.
 
 ## Isolated restore results
 

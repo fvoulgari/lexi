@@ -2,6 +2,55 @@ from csv_fixtures import with_genders
 from test_vocabulary_editing import headers
 
 
+def test_legacy_unit_import_resolves_to_owned_collection(client, account_client):
+    from uuid import UUID, uuid4
+
+    from sqlalchemy import func, select
+
+    from app.models import Collection, Unit
+
+    account_client("legacy-csv-owner")
+    h = headers(client)
+    collection = client.post(
+        "/api/collections", headers=h, json={"name": "Old group"}
+    ).json()
+    old_unit_id = uuid4()
+    with client.app.state.sessions.begin() as db:
+        db.get(Collection, UUID(collection["id"])).source_unit_id = old_unit_id
+        before = db.scalar(select(func.count()).select_from(Unit))
+    response = client.post(
+        f"/api/imports/confirm?unit_id={old_unit_id}",
+        headers={**h, "Content-Type": "text/csv"},
+        content=(
+            "italian,greek,word_type,unit_code,unit_title\n"
+            "ciao,γεια,expression,OLD,Old group\n"
+        ).encode(),
+    )
+    assert response.status_code == 200, response.text
+    cards = client.get(f"/api/collections/{collection['id']}/entries").json()
+    assert len(cards) == 1
+    with client.app.state.sessions() as db:
+        assert db.scalar(select(func.count()).select_from(Unit)) == before
+    duplicate = client.post(
+        "/api/collections", headers=h, json={"name": "Ambiguous"}
+    ).json()
+    with client.app.state.sessions.begin() as db:
+        db.get(Collection, UUID(duplicate["id"])).source_unit_id = old_unit_id
+    ambiguous = client.post(
+        f"/api/imports/confirm?unit_id={old_unit_id}",
+        headers={**h, "Content-Type": "text/csv"},
+        content="italian,greek,word_type\nbye,αντίο,expression\n".encode(),
+    )
+    assert ambiguous.status_code == 409
+    assert client.get(f"/api/collections/{duplicate['id']}/entries").json() == []
+    account_client("other-legacy-csv-user")
+    assert client.post(
+        f"/api/imports/confirm?unit_id={old_unit_id}",
+        headers={**h, "Content-Type": "text/csv"},
+        content="italian,greek,word_type\nbye,αντίο,expression\n".encode(),
+    ).status_code in {403, 422}
+
+
 def test_collection_import_preserves_card_unit_and_is_idempotent(
     client, account_client
 ):

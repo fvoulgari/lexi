@@ -404,6 +404,33 @@ def import_router(sessions, gate):
             raise HTTPException(422, "CSV import requires an Italian–Greek collection.")
         return collection, collection
 
+    def resolve_destination(db, unit_id, collection_id, confirm):
+        if (unit_id is None) == (collection_id is None):
+            raise HTTPException(422, "Choose one destination.")
+        if unit_id is not None:
+            # Old import clients may still send the original Unit ID. The
+            # migration records it on the existing Collection, so it is never
+            # necessary to recreate or query a Unit.
+            matches = list(
+                db.scalars(
+                    select(Collection.id).where(
+                        Collection.source_unit_id == unit_id,
+                        Collection.owner_account_id == current_account().id,
+                    )
+                )
+            )
+            if len(matches) > 1:
+                raise HTTPException(409, "Legacy collection mapping is ambiguous.")
+            collection_id = matches[0] if matches else None
+            if collection_id is None:
+                # Retain old clients while their Units are being migrated.
+                # This temporary path is removed with the Unit model.
+                destination = db.get(Unit, unit_id)
+                if destination is None:
+                    raise HTTPException(422, "Choose a collection you own.")
+                return None, destination
+        return destination_for_collection(db, collection_id, confirm)
+
     @router.get("/example")
     def example():
         sample = json.loads(Path(__file__).with_name("csv_example.json").read_text())
@@ -425,23 +452,10 @@ def import_router(sessions, gate):
     ):
         rows = await read_csv(request)
         with sessions() as db:
-            if collection_id is not None and unit_id is None:
-                collection, destination = destination_for_collection(
-                    db, collection_id, False
-                )
-                return evaluate(db, rows, False, destination, collection)
-            if unit_id is None or collection_id is not None:
-                raise HTTPException(422, "Choose one destination.")
-            destination = db.get(Unit, unit_id)
-            if destination is None:
-                raise HTTPException(
-                    422,
-                    detail={
-                        "code": "invalid_unit",
-                        "message": "Choose an existing destination unit.",
-                    },
-                )
-            return evaluate(db, rows, False, destination)
+            collection, destination = resolve_destination(
+                db, unit_id, collection_id, False
+            )
+            return evaluate(db, rows, False, destination, collection)
 
     @router.post("/confirm", dependencies=[Depends(gate.check_csrf)])
     async def confirm(
@@ -457,22 +471,9 @@ def import_router(sessions, gate):
                     "IN SHARE ROW EXCLUSIVE MODE"
                 )
             )
-            if collection_id is not None and unit_id is None:
-                collection, destination = destination_for_collection(
-                    db, collection_id, True
-                )
-                return evaluate(db, rows, True, destination, collection)
-            if unit_id is None or collection_id is not None:
-                raise HTTPException(422, "Choose one destination.")
-            destination = db.get(Unit, unit_id)
-            if destination is None:
-                raise HTTPException(
-                    422,
-                    detail={
-                        "code": "invalid_unit",
-                        "message": "Choose an existing destination unit.",
-                    },
-                )
-            return evaluate(db, rows, True, destination)
+            collection, destination = resolve_destination(
+                db, unit_id, collection_id, True
+            )
+            return evaluate(db, rows, True, destination, collection)
 
     return router
