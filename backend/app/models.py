@@ -173,7 +173,7 @@ class VocabularyEntry(ContentScope, Base):
 class GateSession(Base):
     __tablename__ = "gate_sessions"
     token_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class LoginThrottle(Base):
