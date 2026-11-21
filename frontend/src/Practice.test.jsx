@@ -240,6 +240,25 @@ test("finishing without a review is defined and reloading starts fresh setup", a
   ).not.toBeInTheDocument();
 });
 
+test("choosing Memory blank before flipping reveals the answer and Continue saves it", async () => {
+  openPractice();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Start practice" }));
+  expect(screen.queryByText("la casa")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
+
+  await user.click(screen.getByRole("button", { name: "Memory blank" }));
+  expect(await screen.findByText("la casa")).toBeVisible();
+  expect(saves).toEqual([]);
+  expect(
+    screen.getByRole("button", { name: "Finish and see summary" }),
+  ).toBeDisabled();
+
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await screen.findByRole("heading", { name: "Session summary" });
+  expect(saves).toEqual([{ direction: "greek_to_italian", rating: "again" }]);
+});
+
 test("ratings stay disabled while reveal or review is saving", async () => {
   let accept;
   server.use(
