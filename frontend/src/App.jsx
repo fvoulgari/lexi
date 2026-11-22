@@ -92,9 +92,15 @@ export default function App() {
   });
   const onAuthenticated = useCallback(async () => {
     await queryClient.cancelQueries();
-    queryClient.clear();
-    const fresh = await request("/api/auth/session");
-    queryClient.setQueryData(["session"], fresh);
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== "session",
+    });
+    queryClient.getMutationCache().clear();
+    const fresh = await queryClient.fetchQuery({
+      queryKey: ["session"],
+      queryFn: () => request("/api/auth/session"),
+      staleTime: 0,
+    });
     notifySessionChanged();
     return fresh;
   }, [queryClient]);

@@ -102,6 +102,111 @@ test("public sign-in offers Google and email/password without revealing private 
   );
 });
 
+test("password sign-in fetches the authenticated session once", async () => {
+  let authenticatedRequests = 0;
+  server.use(
+    http.get("*/api/profiles", () => HttpResponse.json([])),
+    http.get("*/api/auth/session", () => {
+      if (authenticated) authenticatedRequests += 1;
+      return HttpResponse.json({ authenticated, csrf_token: "test-csrf" });
+    }),
+  );
+  passwordSignIn.mockImplementationOnce(async () => {
+    authenticated = true;
+    return { status: "OK" };
+  });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(["private-from-previous-account"], { private: true });
+  renderApp(client);
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText(copy.en.authEmail),
+    "learner@example.com",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "a safe password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  await screen.findByRole("heading", { name: "Welcome to Lexi" });
+  expect(authenticatedRequests).toBe(1);
+  expect(
+    client.getQueryData(["private-from-previous-account"]),
+  ).toBeUndefined();
+});
+
+test("sign-in keeps the notebook locked when the fresh session requires verification", async () => {
+  server.use(
+    http.get("*/api/auth/session", () =>
+      HttpResponse.json({
+        authenticated: false,
+        verification_required: authenticated,
+      }),
+    ),
+  );
+  passwordSignIn.mockImplementationOnce(async () => {
+    authenticated = true;
+    return { status: "OK" };
+  });
+  renderApp();
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText(copy.en.authEmail),
+    "learner@example.com",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "a safe password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  expect(
+    await screen.findByRole("heading", { name: copy.en.authVerify }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Your vocabulary" }),
+  ).not.toBeInTheDocument();
+});
+
+test("sign-in does not expose the notebook when the fresh session check fails", async () => {
+  server.use(
+    http.get("*/api/auth/session", () =>
+      authenticated
+        ? HttpResponse.json(
+            { error: { code: "service_unavailable" } },
+            { status: 503 },
+          )
+        : HttpResponse.json({ authenticated: false }),
+    ),
+  );
+  passwordSignIn.mockImplementationOnce(async () => {
+    authenticated = true;
+    return { status: "OK" };
+  });
+  renderApp();
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText(copy.en.authEmail),
+    "learner@example.com",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "a safe password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Your vocabulary" }),
+  ).not.toBeInTheDocument();
+});
+
 test("provider failure remains recoverable and does not reveal the library", async () => {
   passwordSignIn.mockRejectedValueOnce(new Error("unavailable"));
   renderApp();
