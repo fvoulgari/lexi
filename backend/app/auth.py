@@ -61,13 +61,34 @@ class AuthGate:
             add("session_check_ms", started)
 
     async def _verified(self, session):
+        from supertokens_python.asyncio import get_user
         from supertokens_python.recipe.emailverification.asyncio import (
             is_email_verified,
         )
 
         started = perf_counter()
         try:
-            return await is_email_verified(session.get_recipe_user_id())
+            recipe_user_id = session.get_recipe_user_id()
+            user = await get_user(recipe_user_id.get_as_string())
+            # This matches the configured, default SDK email resolver for
+            # unlinked email-only accounts. Revisit if provider overrides change.
+            if (
+                user is not None
+                and not user.is_primary_user
+                and len(user.login_methods) == 1
+            ):
+                method = user.login_methods[0]
+                if (
+                    method.recipe_user_id.get_as_string()
+                    == recipe_user_id.get_as_string()
+                    and method.recipe_id in {"emailpassword", "thirdparty"}
+                    and bool(method.email)
+                    and method.phone_number is None
+                ):
+                    return method.verified is True
+            # Preserve the SDK's own semantics for linked, unknown, or
+            # ambiguous login methods, including accounts without an email.
+            return await is_email_verified(recipe_user_id)
         finally:
             add("provider_ms", started)
             add("email_check_ms", started)

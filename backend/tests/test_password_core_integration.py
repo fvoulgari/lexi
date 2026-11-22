@@ -7,6 +7,7 @@ Only loopback Core is accepted. The ordinary disposable test DB is used.
 import asyncio
 import os
 import time
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
@@ -14,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 from supertokens_python.supertokens import Supertokens
 
+from app.auth import AuthGate
 from app.auth_email import AuthEmailDelivery
 from app.main import create_app
 
@@ -136,6 +138,30 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
                 == identity["account"]["id"]
             )
             assert a.get("/api/vocabulary").status_code == 200
+            # A still-valid session must lose access immediately when the
+            # provider removes verification, and recover after verification.
+            from supertokens_python.asyncio import get_user
+            from supertokens_python.recipe.emailverification.asyncio import (
+                create_email_verification_token,
+                unverify_email,
+                verify_email_using_token,
+            )
+            from supertokens_python.types import RecipeUserId
+
+            subject = a.post("/api/auth/signin", json=fields()).json()["user"]["id"]
+            recipe_id = RecipeUserId(subject)
+            password_user = asyncio.run(get_user(subject))
+            assert password_user.is_primary_user is False
+            assert len(password_user.login_methods) == 1
+            assert password_user.login_methods[0].phone_number is None
+            assert password_user.login_methods[0].email
+            asyncio.run(unverify_email(recipe_id))
+            assert a.get("/api/vocabulary").status_code == 403
+            verify_token = asyncio.run(
+                create_email_verification_token("public", recipe_id)
+            )
+            asyncio.run(verify_email_using_token("public", verify_token.token, False))
+            assert a.get("/api/vocabulary").status_code == 200
             # Provider-confirmed synthetic Google identity; this is not OAuth E2E.
             from supertokens_python.recipe.thirdparty.asyncio import (
                 manually_create_or_update_user,
@@ -156,6 +182,24 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
                     "public", "google", str(uuid4()), google_only_email, True
                 )
             )
+            google_recipe_id = google_only.user.login_methods[0].recipe_user_id
+            google_fresh = asyncio.run(get_user(google_recipe_id.get_as_string()))
+            assert google_fresh.is_primary_user is False
+            assert len(google_fresh.login_methods) == 1
+            assert google_fresh.login_methods[0].phone_number is None
+            assert google_fresh.login_methods[0].email
+            google_session = SimpleNamespace(
+                get_recipe_user_id=lambda: google_recipe_id
+            )
+            google_gate = AuthGate(None, None, True)
+            assert asyncio.run(google_gate._verified(google_session)) is True
+            asyncio.run(unverify_email(google_recipe_id))
+            assert asyncio.run(google_gate._verified(google_session)) is False
+            verify_token = asyncio.run(
+                create_email_verification_token("public", google_recipe_id)
+            )
+            asyncio.run(verify_email_using_token("public", verify_token.token, False))
+            assert asyncio.run(google_gate._verified(google_session)) is True
             count = len(emails)
             assert a.post(
                 "/api/auth/user/password/reset/token",
@@ -228,8 +272,6 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
                 a.post("/api/auth/user/password/reset", json=body).json()["status"]
                 == "RESET_PASSWORD_INVALID_TOKEN_ERROR"
             )
-            from supertokens_python.asyncio import get_user
-
             google_after_reset = asyncio.run(get_user(google.user.id))
             assert all(
                 method.recipe_id == "thirdparty"
