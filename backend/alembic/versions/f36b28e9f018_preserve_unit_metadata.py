@@ -1,7 +1,8 @@
 """Copy Unit identity and metadata onto matching existing Collections.
 
 The legacy tables remain until runtime dependencies are removed. Fail rather
-than guessing when a Unit has no unique, access-equivalent Collection.
+than guessing when a Unit has no unique matching Collection. Collection
+visibility is authoritative because its owner can change it after migration.
 """
 
 import sqlalchemy as sa
@@ -30,13 +31,11 @@ def upgrade():
             SELECT u.id FROM units u LEFT JOIN collections c
               ON c.owner_account_id = u.owner_account_id
              AND c.title = u.code || ' · ' || u.title
-             AND c.visibility = u.visibility
             GROUP BY u.id HAVING count(c.id) <> 1
           ) OR EXISTS (
             SELECT c.id FROM collections c JOIN units u
               ON c.owner_account_id = u.owner_account_id
              AND c.title = u.code || ' · ' || u.title
-             AND c.visibility = u.visibility
             GROUP BY c.id HAVING count(u.id) <> 1
           ) THEN
             RAISE EXCEPTION 'Unit to Collection mapping is missing or ambiguous';
@@ -44,7 +43,7 @@ def upgrade():
           IF EXISTS (
             SELECT 1 FROM vocabulary_entries v JOIN units u ON u.id = v.unit_id
             JOIN collections c ON c.owner_account_id = u.owner_account_id
-              AND c.title = u.code || ' · ' || u.title AND c.visibility = u.visibility
+              AND c.title = u.code || ' · ' || u.title
             WHERE NOT EXISTS (
               SELECT 1 FROM collection_entries ce
               WHERE ce.collection_id = c.id AND ce.entry_id = v.id
@@ -59,7 +58,7 @@ def upgrade():
           source_unit_code = u.code, source_unit_title = u.title,
           source_unit_sort_order = u.sort_order
         FROM units u WHERE c.owner_account_id = u.owner_account_id
-          AND c.title = u.code || ' · ' || u.title AND c.visibility = u.visibility
+          AND c.title = u.code || ' · ' || u.title
     """)
 
 

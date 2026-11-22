@@ -22,7 +22,6 @@ def upgrade():
             SELECT u.id FROM units u LEFT JOIN collections c
               ON c.source_unit_id = u.id
              AND c.owner_account_id = u.owner_account_id
-             AND c.visibility = u.visibility
              AND c.source_unit_code = u.code
              AND c.source_unit_title = u.title
              AND c.source_unit_sort_order = u.sort_order
@@ -48,7 +47,6 @@ def upgrade():
         UPDATE vocabulary_entries v SET source_collection_id = c.id
         FROM units u JOIN collections c ON c.source_unit_id = u.id
           AND c.owner_account_id = u.owner_account_id
-          AND c.visibility = u.visibility
           AND c.source_unit_code = u.code
           AND c.source_unit_title = u.title
           AND c.source_unit_sort_order = u.sort_order
