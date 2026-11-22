@@ -34,7 +34,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
     queryFn: () => request("/api/collections"),
     refetchOnWindowFocus: "always",
   });
-  const [requestedCollection, setCollectionId] = useState("");
+  const [requestedCollection, setCollectionId] = useState(routeCollectionId);
   const [archived, setArchived] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const cardAction = useMutation({
@@ -122,6 +122,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
   const [filters, setFilters] = useState({
     q: "",
     word_types: [],
+    tag_ids: [],
   });
   function changeFilter(key, value) {
     setSelectedIds([]);
@@ -179,7 +180,10 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
     setSearchParams(next);
   }
 
+  const previousRouteCollection = useRef(routeCollectionId);
   useEffect(() => {
+    if (previousRouteCollection.current === routeCollectionId) return;
+    previousRouteCollection.current = routeCollectionId;
     setCollectionId(routeCollectionId);
     resetCollectionView();
   }, [routeCollectionId, resetCollectionView]);

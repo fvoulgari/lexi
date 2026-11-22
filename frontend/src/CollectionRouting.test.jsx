@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   MemoryRouter,
@@ -109,6 +109,21 @@ function mockApi(requests, list = collections) {
     }),
   );
 }
+
+test("does not refetch the library on an unchanged initial route", async () => {
+  const requests = [];
+  mockApi(requests);
+  renderLibrary("/vocabulary");
+
+  await waitFor(() => expect(requests.length).toBeGreaterThan(0));
+  await waitFor(() =>
+    expect(screen.queryByText(copy.en.loading)).not.toBeInTheDocument(),
+  );
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  expect(requests).toHaveLength(1);
+});
 
 test("opens the clicked collection from the URL and keeps history, filters, and focus state in sync", async () => {
   const requests = [];
