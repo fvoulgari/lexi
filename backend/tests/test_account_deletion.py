@@ -63,7 +63,7 @@ def test_delete_removes_owned_data_and_retries_provider(
         )
     signin(client, "other-learner")
     assert client.get("/api/auth/session").json()["account"]["id"] == other["id"]
-    assert client.get("/api/units").json()[0]["id"] == other_unit["id"]
+    assert client.get("/api/collections").json()[0]["id"] == other_unit["id"]
     remove.side_effect = None
     asyncio.run(process_pending(sessions))
     with sessions() as db:
@@ -80,49 +80,6 @@ def test_last_admin_cannot_delete(logged_in, monkeypatch):
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "last_admin"
     assert logged_in.get("/api/auth/session").json()["authenticated"]
-
-
-def test_deletion_anonymizes_recovery_records_and_preserves_completed_claim(
-    client, account_client
-):
-    from datetime import datetime, timedelta, timezone
-
-    from app.legacy_models import ClaimLink, LegacyRequest
-
-    account = account_client("delete-with-claim")
-    now = datetime.now(timezone.utc)
-    sessions = client.app.state.sessions
-    with sessions.begin() as db:
-        request = LegacyRequest(
-            account_id=UUID(account["id"]),
-            profile_name="Personal name",
-            note="Personal note",
-            status="resolved",
-        )
-        db.add(request)
-        db.add(
-            ClaimLink(
-                token_hash="a" * 64,
-                profile_id=UUID(account["profile_id"]),
-                issued_by=UUID(account["id"]),
-                expires_at=now + timedelta(days=1),
-                consumed_at=now,
-            )
-        )
-        db.flush()
-        request_id = request.id
-    response = client.delete("/api/account", headers=headers(client))
-    assert response.status_code == 200, response.text
-    with sessions() as db:
-        request = db.get(LegacyRequest, request_id)
-        claim = db.get(ClaimLink, "a" * 64)
-        assert (request.account_id, request.profile_name, request.note) == (
-            None,
-            "[deleted]",
-            None,
-        )
-        assert (claim.profile_id, claim.issued_by) == (None, None)
-        assert claim.consumed_at is not None
 
 
 def test_deletion_blocks_other_accounts_recovery_conflict(client, account_client):

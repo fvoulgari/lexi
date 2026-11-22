@@ -3,10 +3,17 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import distinct, func, select
+from sqlalchemy import String, case, cast, distinct, func, or_, select
 
+from app.access import current_account
 from app.languages import DIRECTION_PAIRS
-from app.models import LearningProgress, Profile, ReviewEvent, VocabularyEntry
+from app.models import (
+    Collection,
+    LearningProgress,
+    Profile,
+    ReviewEvent,
+    VocabularyEntry,
+)
 from app.practice import difficult_progress
 
 RATINGS = ("again", "hard", "easy")
@@ -114,8 +121,37 @@ def progress_router(sessions, gate):
                     * 100,
                 }
             # Snapshot dimensions retain the classification used during practice.
-            unit = ReviewEvent.snapshot["unit"]["code"].as_string()
-            unit_title = ReviewEvent.snapshot["unit"]["title"].as_string()
+            snapshot_unit_id = ReviewEvent.snapshot["unit"]["id"].as_string()
+            own_unit = (
+                select(Collection.id)
+                .where(
+                    Collection.owner_account_id == current_account().id,
+                    or_(
+                        cast(Collection.id, String) == snapshot_unit_id,
+                        cast(Collection.source_unit_id, String) == snapshot_unit_id,
+                    ),
+                    Collection.source_unit_code
+                    == ReviewEvent.snapshot["unit"]["code"].as_string(),
+                    Collection.source_unit_title
+                    == ReviewEvent.snapshot["unit"]["title"].as_string(),
+                )
+                .correlate(ReviewEvent)
+                .exists()
+            )
+            unit = case(
+                (
+                    own_unit,
+                    ReviewEvent.snapshot["unit"]["code"].as_string(),
+                ),
+                else_=None,
+            )
+            unit_title = case(
+                (
+                    own_unit,
+                    ReviewEvent.snapshot["unit"]["title"].as_string(),
+                ),
+                else_=None,
+            )
             unit_rows = db.execute(
                 select(unit.label("key"), unit_title.label("title"), *metrics)
                 .where(history, ReviewEvent.entry_id.in_(select(VocabularyEntry.id)))

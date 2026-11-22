@@ -15,21 +15,21 @@ def bulk(client, action, ids, **extra):
     )
 
 
-def test_selection_matches_search_unit_and_type_filters(logged_in):
+def test_selection_matches_search_collection_and_type_filters(logged_in):
     client = logged_in
     for params in (
         {},
         {"q": "casa"},
         {"word_types": ["noun"]},
         {"q": "%"},
-        {"unit_ids": [client.get("/api/units").json()[1]["id"]]},
+        {"collection_id": client.get("/api/collections").json()[1]["id"]},
     ):
         page = client.get("/api/vocabulary", params={**params, "page_size": 100}).json()
         selection = client.get("/api/vocabulary/selection", params=params).json()
         assert set(selection["entry_ids"]) == {card["id"] for card in page["items"]}
 
 
-def test_move_preserves_review_history_and_other_card_fields(logged_in):
+def test_add_to_collection_preserves_review_history_and_other_card_fields(logged_in):
     client = logged_in
     session = start(client).json()
     path = f"/api/sessions/{session['id']}/cards/0"
@@ -46,15 +46,17 @@ def test_move_preserves_review_history_and_other_card_fields(logged_in):
     profile = session["profile_id"]
     before = client.get(f"/api/profiles/{profile}/progress").json()
     original = {card["id"]: card for card in cards(client)}
-    target = client.get("/api/units").json()[1]["id"]
+    target = client.get("/api/collections").json()[1]["id"]
     ids = list(original)
-    result = bulk(client, "move", ids, unit_id=target)
+    result = bulk(client, "add_to_collection", ids, collection_id=target)
     assert result.status_code == 200
-    assert result.json() == {"action": "move", "count": len(ids)}
+    assert result.json() == {"action": "add_to_collection", "count": len(ids)}
     for card in cards(client):
-        assert card["unit"]["id"] == target
+        assert card["id"] in {
+            e["id"] for e in client.get(f"/api/collections/{target}/entries").json()
+        }
         for key, value in original[card["id"]].items():
-            if key not in ("unit", "updated_at"):
+            if key != "updated_at":
                 assert card[key] == value
     assert client.get(f"/api/profiles/{profile}/progress").json() == before
     assert (
@@ -105,17 +107,23 @@ def test_invalid_or_missing_targets_never_partially_write(logged_in):
     client = logged_in
     original = cards(client)
     ids = [original[0]["id"], str(uuid4())]
-    target = client.get("/api/units").json()[1]["id"]
-    for action, extra in [("delete", {}), ("move", {"unit_id": target})]:
+    target = client.get("/api/collections").json()[1]["id"]
+    for action, extra in [
+        ("delete", {}),
+        ("add_to_collection", {"collection_id": target}),
+    ]:
         assert bulk(client, action, ids, **extra).status_code == 409
     assert (
-        bulk(client, "move", [original[0]["id"]], unit_id=str(uuid4())).status_code
-        == 422
+        bulk(
+            client, "add_to_collection", [original[0]["id"]], collection_id=str(uuid4())
+        ).status_code
+        == 403
     )
-    assert bulk(client, "move", [original[0]["id"]]).status_code == 422
+    assert bulk(client, "add_to_collection", [original[0]["id"]]).status_code == 422
     assert bulk(client, "delete", []).status_code == 422
     assert (
-        bulk(client, "delete", [original[0]["id"]], unit_id=target).status_code == 422
+        bulk(client, "delete", [original[0]["id"]], collection_id=target).status_code
+        == 422
     )
     assert cards(client) == original
 

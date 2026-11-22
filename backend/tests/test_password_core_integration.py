@@ -115,7 +115,7 @@ def test_real_core_password_verification_reset_and_sessions(test_database, monke
             assert a.post("/api/auth/signin", json=fields()).json()["status"] == "OK"
             assert a.get("/api/auth/session").json()["verification_required"] is True
             assert a.get("/api/vocabulary").status_code == 403
-            assert a.get("/api/legacy-claims/preview").status_code == 403
+            assert a.get("/api/legacy-claims/preview").status_code == 404
             verified = b.post(
                 "/api/auth/user/email/verify", json={"token": verification}
             )

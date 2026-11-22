@@ -16,7 +16,7 @@ from app.models import (
     Profile,
     ReviewEvent,
     SessionCard,
-    Unit,
+    Tag,
     VocabularyEntry,
 )
 from app.vocabulary_deletion import delete_entries
@@ -54,10 +54,8 @@ def test_private_and_legacy_content_do_not_leak_in_count_or_projection(scoped_db
     db = scoped_db
     a, b = setup_accounts(db)
     units = [
-        Unit(
-            code=str(uuid.uuid4())[:12],
-            title="Scope",
-            sort_order=0,
+        Tag(
+            name=str(uuid.uuid4())[:12],
             owner_account_id=owner,
             visibility=visibility,
         )
@@ -72,14 +70,14 @@ def test_private_and_legacy_content_do_not_leak_in_count_or_projection(scoped_db
     db.flush()
     ids = [u.id for u in units]
     account_context.set(a)
-    assert set(db.scalars(select(Unit.id).where(Unit.id.in_(ids)))) == {ids[0], ids[3]}
+    assert set(db.scalars(select(Tag.id).where(Tag.id.in_(ids)))) == {ids[0], ids[3]}
     assert (
-        db.scalar(select(func.count()).select_from(Unit).where(Unit.id.in_(ids))) == 2
+        db.scalar(select(func.count()).select_from(Tag).where(Tag.id.in_(ids))) == 2
     )
     scoped_db.execute(
         text("UPDATE accounts SET legacy_access = true WHERE id = :id"), {"id": a.id}
     )
-    assert set(db.scalars(select(Unit.id).where(Unit.id.in_(ids)))) == {
+    assert set(db.scalars(select(Tag.id).where(Tag.id.in_(ids)))) == {
         ids[0],
         ids[3],
     }
@@ -94,20 +92,10 @@ def test_private_and_legacy_content_do_not_leak_in_count_or_projection(scoped_db
 def test_archive_retains_card_and_excludes_future_reads(scoped_db):
     db = scoped_db
     a, _ = setup_accounts(db)
-    unit = Unit(
-        code=str(uuid.uuid4())[:12],
-        title="Private",
-        sort_order=0,
-        owner_account_id=a.id,
-        visibility="private",
-    )
-    db.add(unit)
-    db.flush()
     entry = VocabularyEntry(
         italian="ciao",
         greek="γεια",
         word_type="expression",
-        unit_id=unit.id,
         owner_account_id=a.id,
         visibility="private",
     )

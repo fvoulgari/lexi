@@ -1,5 +1,6 @@
 """Collection references share learning state, never ownership or audience."""
 
+import pytest
 from conftest import TEST_CSRF
 
 H = {"X-CSRF-Token": TEST_CSRF}
@@ -48,6 +49,138 @@ def publish(client, c):
             "confirm_private_ids": [e["id"] for e in preview.json()["private_cards"]],
         },
     )
+
+
+def test_export_does_not_expose_private_source_collection_metadata(
+    client, account_client
+):
+    from uuid import UUID
+
+    from app.models import Collection, VocabularyEntry
+
+    account_client("source-metadata-owner")
+    private = collection(client, "Private source")
+    public = collection(client, "Shared")
+    entry = card(client, private)
+    with client.app.state.sessions.begin() as db:
+        source = db.get(Collection, UUID(private["id"]))
+        source.source_unit_code = "PRIVATE-CODE"
+        source.source_unit_title = "PRIVATE-TITLE"
+        db.get(VocabularyEntry, UUID(entry["id"])).source_collection_id = source.id
+    assert add(client, public, entry).status_code == 204
+    assert publish(client, public).status_code == 200
+    reader = account_client("source-metadata-reader")
+    response = client.get("/api/vocabulary/export.csv")
+    assert response.status_code == 200
+    assert "PRIVATE-CODE" not in response.text
+    assert "PRIVATE-TITLE" not in response.text
+    queue = session(client, reader, [public]).json()
+    assert queue["cards"][0]["snapshot"]["unit"] is None
+
+
+def test_renamed_public_collection_does_not_expose_old_private_metadata(
+    client, account_client
+):
+    from uuid import UUID
+
+    from app.models import Collection, VocabularyEntry
+
+    account_client("renamed-source-owner")
+    source = collection(client, "Private title")
+    entry = card(client, source)
+    with client.app.state.sessions.begin() as db:
+        group = db.get(Collection, UUID(source["id"]))
+        group.source_unit_code = "OLD-SECRET"
+        group.source_unit_title = "Old secret title"
+        db.get(VocabularyEntry, UUID(entry["id"])).source_collection_id = group.id
+    assert (
+        client.patch(
+            f"/api/collections/{source['id']}", headers=H, json={"name": "Public title"}
+        ).status_code
+        == 200
+    )
+    assert publish(client, source).status_code == 200
+    reader = account_client("renamed-source-reader")
+    response = client.get("/api/vocabulary/export.csv")
+    assert "OLD-SECRET" not in response.text
+    assert "Old secret title" not in response.text
+    assert (
+        session(client, reader, [source]).json()["cards"][0]["snapshot"]["unit"] is None
+    )
+
+
+@pytest.mark.parametrize("reader_owns_card", [False, True])
+def test_legacy_snapshot_metadata_stays_private_when_card_is_republished(
+    client, account_client, reader_owns_card
+):
+    from uuid import UUID, uuid4
+
+    from sqlalchemy import select
+
+    from app.models import Collection, ReviewEvent, SessionCard, Tag
+
+    account_client("legacy-snapshot-owner")
+    private = collection(client, "Private group")
+    public = collection(client, "Public group")
+    entry = card(client, private)
+    assert add(client, public, entry).status_code == 204
+    assert publish(client, public).status_code == 200
+    unit_id, tag_id = uuid4(), uuid4()
+    with client.app.state.sessions.begin() as db:
+        group = db.get(Collection, UUID(private["id"]))
+        group.source_unit_id = unit_id
+        group.source_unit_code = "SECRET"
+        group.source_unit_title = "Private title"
+        db.add(
+            Tag(
+                id=tag_id,
+                name="Private tag",
+                owner_account_id=group.owner_account_id,
+                visibility="private",
+            )
+        )
+    reader = account_client("legacy-snapshot-reader")
+    destination = collection(client, "Reader group") if reader_owns_card else public
+    if reader_owns_card:
+        card(client, destination)
+    queue = session(client, reader, [destination]).json()
+    secret_unit = {"id": str(unit_id), "code": "SECRET", "title": "Private title"}
+    secret_tag = {"id": str(tag_id), "name": "Private tag"}
+    with client.app.state.sessions.begin() as db:
+        saved = db.get(SessionCard, (UUID(queue["id"]), 0))
+        saved.snapshot = {**saved.snapshot, "unit": secret_unit, "tags": [secret_tag]}
+    path = f"/api/sessions/{queue['id']}/cards/0"
+    assert (
+        client.post(
+            path + "/reveal", headers=H, json={"direction": "italian_to_greek"}
+        ).status_code
+        == 200
+    )
+    review = client.post(
+        path + "/reviews",
+        headers=H,
+        json={"direction": "italian_to_greek", "rating": "hard"},
+    )
+    assert review.status_code == 200
+    for response in (
+        review,
+        client.get(f"/api/sessions/{queue['id']}"),
+        client.get(f"/api/sessions/{queue['id']}/summary"),
+        client.get(f"/api/profiles/{reader['profile_id']}/progress"),
+    ):
+        assert response.status_code == 200
+        assert "Private title" not in response.text
+        assert "Private tag" not in response.text
+        assert "SECRET" not in response.text
+    progress = client.get(f"/api/profiles/{reader['profile_id']}/progress").json()
+    assert progress["total_reviews"] == 1
+    assert progress["difficult_entries"] == 1
+    with client.app.state.sessions() as db:
+        event = db.scalar(
+            select(ReviewEvent).where(ReviewEvent.session_id == UUID(queue["id"]))
+        )
+        assert event.snapshot["unit"] == secret_unit
+        assert event.snapshot["tags"] == [secret_tag]
 
 
 def session(client, account, collections, direction="italian_to_greek", mode="random"):
