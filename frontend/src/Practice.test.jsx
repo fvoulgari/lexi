@@ -243,7 +243,9 @@ test("finishing without a review is defined and reloading starts fresh setup", a
 test("choosing Memory blank before flipping reveals the answer and Continue saves it", async () => {
   openPractice();
   const user = userEvent.setup();
-  await user.click(await screen.findByRole("button", { name: "Start practice" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Start practice" }),
+  );
   expect(screen.queryByText("la casa")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
 
@@ -257,6 +259,48 @@ test("choosing Memory blank before flipping reveals the answer and Continue save
   await user.click(screen.getByRole("button", { name: "Continue" }));
   await screen.findByRole("heading", { name: "Session summary" });
   expect(saves).toEqual([{ direction: "greek_to_italian", rating: "again" }]);
+});
+
+test("Memory blank retries a lost reveal and saves the same rating after a lost review", async () => {
+  let revealAttempts = 0;
+  server.use(
+    http.post("*/api/sessions/s/cards/0/reveal", () => {
+      revealAttempts += 1;
+      return revealAttempts === 1
+        ? HttpResponse.error()
+        : HttpResponse.json({ revealed: true });
+    }),
+    http.post("*/api/sessions/s/cards/0/reviews", async ({ request }) => {
+      saves.push(await request.json());
+      return saves.length === 1
+        ? HttpResponse.error()
+        : HttpResponse.json({ id: "r" });
+    }),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Start practice" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Memory blank" }));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(screen.queryByText("la casa")).not.toBeInTheDocument();
+  expect(saves).toEqual([]);
+
+  await user.click(screen.getByRole("button", { name: "Memory blank" }));
+  expect(await screen.findByText("la casa")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Finish and see summary" }),
+  ).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "Retry" }));
+  await screen.findByRole("heading", { name: "Session summary" });
+  expect(revealAttempts).toBe(2);
+  expect(saves).toEqual([
+    { direction: "greek_to_italian", rating: "again" },
+    { direction: "greek_to_italian", rating: "again" },
+  ]);
 });
 
 test("ratings stay disabled while reveal or review is saving", async () => {
