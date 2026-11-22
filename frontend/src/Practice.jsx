@@ -524,7 +524,6 @@ function Flashcard({
   onBusy,
 }) {
   const [revealed, setRevealed] = useState(false);
-  const [memoryBlank, setMemoryBlank] = useState(false);
   const [pending, setPending] = useState(false);
   const [rating, setRating] = useState(null);
   const [error, setError] = useState(null);
@@ -545,7 +544,7 @@ function Flashcard({
     } else if (error.status === 401) onLocked();
     else setError(error);
   }
-  async function reveal(markMemoryBlank = false) {
+  async function reveal() {
     if (inFlight.current) return;
     inFlight.current = true;
     setPending(true);
@@ -555,15 +554,13 @@ function Flashcard({
       await post(`/api/sessions/${sessionId}/cards/${card.position}/reveal`, {
         direction,
       });
-      setMemoryBlank(markMemoryBlank);
       setRevealed(true);
-      if (!markMemoryBlank) onBusy(false);
     } catch (error) {
-      onBusy(false);
       failed(error);
     } finally {
       inFlight.current = false;
       setPending(false);
+      onBusy(false);
     }
   }
   async function save(value) {
@@ -594,7 +591,7 @@ function Flashcard({
       <Direction
         text={text}
         value={direction}
-        disabled={pending || memoryBlank || !!rating}
+        disabled={pending || !!rating}
         onChange={(value) => {
           onDirection(value);
           setRevealed(false);
@@ -614,7 +611,7 @@ function Flashcard({
             ref={revealButton}
             className="primary"
             disabled={pending}
-            onClick={() => reveal()}
+            onClick={reveal}
           >
             {pending ? text.revealingAnswer : text.revealAnswer}
           </button>
@@ -622,25 +619,15 @@ function Flashcard({
       </PracticeCardView>
 
       <div className="rating-buttons">
-        {memoryBlank ? (
+        {["again", "hard", "easy"].map((value) => (
           <button
-            className="primary"
-            disabled={pending || !!rating}
-            onClick={() => save("again")}
+            key={value}
+            disabled={!revealed || pending || !!rating}
+            onClick={() => save(value)}
           >
-            {text.practiceContinue}
+            {text[value]}
           </button>
-        ) : (
-          ["again", "hard", "easy"].map((value) => (
-            <button
-              key={value}
-              disabled={(!revealed && value !== "again") || pending || !!rating}
-              onClick={() => (revealed ? save(value) : reveal(true))}
-            >
-              {text[value]}
-            </button>
-          ))
-        )}
+        ))}
       </div>
       {pending && rating && <p role="status">{text.savingAnswer}</p>}
       {error && (
