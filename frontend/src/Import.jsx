@@ -9,12 +9,17 @@ import ImportEntryDetails from "./ImportEntryDetails.jsx";
 const PAGE_SIZE = 10;
 
 function isImportDestination(collection) {
+  if (!collection) return false;
+  if (typeof collection.can_import === "boolean") return collection.can_import;
   return (
-    collection?.can_edit &&
-    collection.visibility === "private" &&
+    collection.can_edit &&
     [collection.source_language, collection.target_language].sort().join() ===
       "el,it"
   );
+}
+
+function isPublicDestination(collection, mode, makePublic) {
+  return mode === "new" ? makePublic : collection?.visibility === "published";
 }
 
 const format = (template, values) =>
@@ -35,6 +40,8 @@ export default function Import({
     isImportDestination(selectedCollection) ? selectedCollection.id : "",
   );
   const [name, setName] = useState("");
+  const [makePublic, setMakePublic] = useState(false);
+  const [publicConsent, setPublicConsent] = useState(false);
   const [source, setSource] = useState("el");
   const target = source === "el" ? "it" : "el";
   const [file, setFile] = useState(null);
@@ -69,19 +76,38 @@ export default function Import({
     params.set("new_name", name.trim());
     params.set("source_language", source);
     params.set("target_language", target);
+    if (makePublic) params.set("make_public", "true");
   }
   const destinationKey = params.toString();
   const canPreview = Boolean(destination && file);
   const currentPreview = canPreview && preview?.key === destinationKey;
   const report = currentPreview ? preview.report : null;
+  const publicDestination = isPublicDestination(
+    mode === "new" ? null : existingDestination,
+    mode,
+    makePublic,
+  );
+  const canConfirm =
+    currentPreview && Boolean(report?.counts.valid) && (!publicDestination || publicConsent);
 
   function changeDestination(change, value) {
     setPreview(null);
     setError(null);
+    setPublicConsent(false);
     setFilter("all");
     setPage(1);
     change(value);
   }
+
+  const destinationIds = destinations.map((collection) => collection.id).join(",");
+  useEffect(() => {
+    if (mode !== "existing" || isError || collectionId) return;
+    const authorized = isImportDestination(selectedCollection)
+      ? selectedCollection.id
+      : "";
+    if (authorized && destinationIds.split(",").includes(authorized))
+      setCollectionId(authorized);
+  }, [collectionId, destinationIds, isError, mode, selectedCollection]);
 
   useEffect(() => {
     if (!canPreview || !previewRequested) return;
@@ -124,8 +150,7 @@ export default function Import({
     if (
       submitting.current ||
       !canPreview ||
-      !currentPreview ||
-      !report?.counts.valid
+      !canConfirm
     )
       return;
     submitting.current = true;
@@ -134,6 +159,11 @@ export default function Import({
     let result;
     const confirmParams = new URLSearchParams(destinationKey);
     confirmParams.set("expected_valid", report.counts.valid);
+    if (publicDestination) {
+      confirmParams.set("confirm_public_exposure", "true");
+      if (report.preview_token)
+        confirmParams.set("preview_token", report.preview_token);
+    }
     if (mode === "new") {
       const last = newCollectionRequest.current;
       if (last?.destinationKey !== destinationKey || last.file !== file) {
@@ -275,7 +305,30 @@ export default function Import({
                 <option value="it">{text.italian}</option>
               </select>
             </fieldset>
-            <span className="audience-badge">{t.private}</span>
+            <fieldset className="csv-options csv-visibility">
+              <legend>{t.visibility}</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="csv-visibility"
+                  checked={!makePublic}
+                  onChange={() => changeDestination(setMakePublic, false)}
+                />
+                {t.onlyYou}
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="csv-visibility"
+                  checked={makePublic}
+                  onChange={() => changeDestination(setMakePublic, true)}
+                />
+                {t.published}
+              </label>
+            </fieldset>
+            <p className="csv-visibility-hint">
+              {makePublic ? t.publicVisibilityHint : t.privateVisibilityHint}
+            </p>
           </>
         )}
         {mode === "existing" &&
@@ -340,6 +393,9 @@ export default function Import({
           aria-busy={validating}
         >
           <strong>{destination}</strong>
+          {publicDestination && (
+            <p className="csv-public-notice">{t.publicationExplanation}</p>
+          )}
           <div
             className="csv-filters"
             role="group"
@@ -401,20 +457,33 @@ export default function Import({
           )}
         </section>
       )}
+      {publicDestination && currentPreview && (
+        <label className="csv-public-consent">
+          <input
+            type="checkbox"
+            checked={publicConsent}
+            disabled={importing}
+            onChange={(event) => setPublicConsent(event.target.checked)}
+          />
+          {t.publicImportConsent}
+        </label>
+      )}
       <div className="form-actions csv-dialog-actions">
         {currentPreview ? (
           <button
             type="button"
             className="primary"
-            disabled={importing || !canPreview || !report.counts.valid}
+            disabled={importing || !canConfirm}
             onClick={confirm}
           >
             {importing
               ? text.csvImporting
-              : format(report.counts.valid === 1 ? t.importOne : t.importMany, {
-                  count: report.counts.valid,
-                  name: destination,
-                })}
+              : publicDestination
+                ? t.importAndPublish
+                : format(report.counts.valid === 1 ? t.importOne : t.importMany, {
+                    count: report.counts.valid,
+                    name: destination,
+                  })}
           </button>
         ) : (
           <button

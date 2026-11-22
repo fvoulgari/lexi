@@ -1,6 +1,7 @@
 """CSV preview is read-only; confirmation reparses and serializes library writes."""
 
 import csv
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -11,7 +12,7 @@ from fastapi.responses import Response
 from pydantic import ValidationError
 from sqlalchemy import func, select, text
 
-from app.access import current_account, require_write
+from app.access import collection_capabilities, current_account, require_write
 from app.collections import CollectionBody
 from app.csv_format import FORMAT_VERSION, restore_text
 from app.duplicates import normalized_pair
@@ -101,14 +102,57 @@ async def read_csv(request):
         invalid("Upload a valid UTF-8 CSV file.")
 
 
+def import_preview_token(
+    rows,
+    *,
+    collection_id,
+    new_name,
+    source_language,
+    target_language,
+    fixed_destination,
+    make_public,
+):
+    def normalize(value):
+        if isinstance(value, dict):
+            return {
+                ("__extra__" if key is None else str(key)): normalize(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, (list, tuple)):
+            return [normalize(item) for item in value]
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        return str(value)
+
+    payload = {
+        "rows": normalize(rows),
+        "collection_id": str(collection_id) if collection_id else None,
+        "new_name": new_name,
+        "source_language": source_language,
+        "target_language": target_language,
+        "fixed_destination": bool(fixed_destination),
+        "make_public": bool(make_public),
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
+
+
 def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=False):
     require_write(destination)
+    # Imported cards and tags stay privately owned even when their collection is
+    # public; a published collection shares them through confirmed references.
+    card_visibility = (
+        "private"
+        if destination.owner_account_id == current_account().id
+        else destination.visibility
+    )
     tags = {
         t.name: t
         for t in db.scalars(
             select(Tag).where(
                 Tag.owner_account_id == destination.owner_account_id,
-                Tag.visibility == destination.visibility,
+                Tag.visibility == card_visibility,
             )
         )
     }
@@ -127,7 +171,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
         .where(
             existing_scope,
             VocabularyEntry.owner_account_id == destination.owner_account_id,
-            VocabularyEntry.visibility == destination.visibility,
+            VocabularyEntry.visibility == card_visibility,
             VocabularyEntry.source_language == "it",
             VocabularyEntry.target_language == "el",
         )
@@ -278,10 +322,10 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 )
             if candidates:
                 target = candidates[0]
-                if target.visibility != "private":
-                    raise ValueError("Import into a private Collection first.")
-                if {target.source_language, target.target_language} != {"it", "el"}:
-                    raise ValueError("CSV import requires an Italian–Greek Collection.")
+                if not collection_capabilities(target)["can_import"]:
+                    raise ValueError(
+                        "Choose an Italian–Greek Collection you can import into."
+                    )
             if code:
                 prior = pending_metadata.get(
                     target.id,
@@ -326,20 +370,6 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
             ]
         except (ValueError, TypeError) as exc:
             errors = [str(exc)]
-        publication_forbidden = (
-            not errors
-            and destination.visibility == "published"
-            and current_account().role != "admin"
-            and (
-                not pairs.get(normalized_pair(entry.italian, entry.greek))
-                or any(name not in tags for name in names)
-            )
-        )
-        if publication_forbidden:
-            errors = [
-                "forbidden_new_publication: Ask an administrator to publish "
-                "new shared cards or tags; import drafts into the legacy library."
-            ]
         status = "error" if errors else "valid"
         if not errors and reference is not None:
             members = membership(target)
@@ -353,6 +383,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                             collection_id=target.id,
                             entry_id=reference.id,
                             position=positions[target.id],
+                            publication_confirmed=target.visibility == "published",
                         )
                     )
                     positions[target.id] += 1
@@ -438,7 +469,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                             stored = VocabularyEntry(
                                 **current["values"],
                                 owner_account_id=destination.owner_account_id,
-                                visibility=destination.visibility,
+                                visibility=card_visibility,
                                 source_collection_id=current["source_collection_id"],
                             )
                             db.add(stored)
@@ -463,7 +494,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                                     tags[name] = Tag(
                                         name=name,
                                         owner_account_id=destination.owner_account_id,
-                                        visibility=destination.visibility,
+                                        visibility=card_visibility,
                                     )
                                     db.add(tags[name])
                                 assigned_tags.append(tags[name])
@@ -475,6 +506,8 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                                     collection_id=target.id,
                                     entry_id=stored.id,
                                     position=positions[target.id],
+                                    publication_confirmed=target.visibility
+                                    == "published",
                                 )
                             )
                             positions[target.id] += 1
@@ -496,9 +529,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 "status": status,
                 "changed_fields": changed_fields,
                 "errors": errors,
-                "error_code": "forbidden_new_publication"
-                if publication_forbidden
-                else None,
+                "error_code": None,
                 "entry": entry.model_dump(exclude={"unit_id", "tag_ids", "visibility"})
                 if entry
                 else None,
@@ -507,7 +538,11 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
             }
         )
     return {
-        "destination_collection": {"id": str(collection.id), "name": collection.title},
+        "destination_collection": {
+            "id": str(collection.id),
+            "name": collection.title,
+            "visibility": collection.visibility,
+        },
         "destination_unit": None,
         "unit_conflicts": sum(row["unit_conflict"] for row in results),
         "counts": counts,
@@ -533,11 +568,10 @@ def import_router(sessions, gate):
         )
         if collection is None or collection.owner_account_id != current_account().id:
             raise HTTPException(403, "Choose a collection you own.")
-        if collection.visibility != "private":
-            raise HTTPException(
-                409, "Import into a private collection before publishing it."
-            )
-        if {collection.source_language, collection.target_language} != {"it", "el"}:
+        capabilities = collection_capabilities(collection)
+        if not capabilities["can_edit"]:
+            raise HTTPException(403, "Choose a collection you own.")
+        if not capabilities["can_import"]:
             raise HTTPException(422, "CSV import requires an Italian–Greek collection.")
         return collection, collection
 
@@ -564,9 +598,20 @@ def import_router(sessions, gate):
         return destination_for_collection(db, collection_id, confirm)
 
     def import_destination(
-        db, unit_id, collection_id, new_name, source, target, confirm
+        db,
+        unit_id,
+        collection_id,
+        new_name,
+        source,
+        target,
+        confirm,
+        make_public=False,
     ):
         if new_name is None:
+            if make_public:
+                raise HTTPException(
+                    422, "Choose a new collection to publish it during import."
+                )
             return resolve_destination(db, unit_id, collection_id, confirm)
         if unit_id is not None or collection_id is not None:
             raise HTTPException(422, "Choose one destination.")
@@ -586,9 +631,26 @@ def import_router(sessions, gate):
             owner_account_id=current_account().id,
             source_language=body.source_language,
             target_language=body.target_language,
-            visibility="private",
+            visibility="published" if make_public else "private",
         )
         return collection, collection
+
+    def require_public_consent(collection, consent):
+        if collection.visibility == "published" and not consent:
+            raise HTTPException(
+                409, "Confirm that the imported cards will be publicly visible."
+            )
+
+    def token_for(rows, collection, new_name, source, target, fixed, make_public):
+        return import_preview_token(
+            rows,
+            collection_id=None if new_name is not None else collection.id,
+            new_name=new_name,
+            source_language=source,
+            target_language=target,
+            fixed_destination=fixed,
+            make_public=make_public,
+        )
 
     @router.get("/example")
     def example():
@@ -614,6 +676,7 @@ def import_router(sessions, gate):
         new_name: str | None = None,
         source_language: str = "el",
         target_language: str = "it",
+        make_public: bool = False,
     ):
         rows = await read_csv(request)
         with sessions() as db:
@@ -625,15 +688,27 @@ def import_router(sessions, gate):
                 source_language,
                 target_language,
                 False,
+                make_public,
             )
-            return evaluate(
+            fixed = fixed_destination or new_name is not None
+            report = evaluate(
                 db,
                 rows,
                 False,
                 destination,
                 collection,
-                fixed_destination=fixed_destination or new_name is not None,
+                fixed_destination=fixed,
             )
+            report["preview_token"] = token_for(
+                rows,
+                collection,
+                new_name,
+                source_language,
+                target_language,
+                fixed,
+                make_public,
+            )
+            return report
 
     @router.post("/confirm", dependencies=[Depends(gate.check_csrf)])
     async def confirm(
@@ -644,6 +719,9 @@ def import_router(sessions, gate):
         new_name: str | None = None,
         source_language: str = "el",
         target_language: str = "it",
+        make_public: bool = False,
+        confirm_public_exposure: bool = False,
+        preview_token: str | None = None,
         new_collection_id: UUID | None = None,
         expected_valid: int | None = None,
     ):
@@ -665,8 +743,25 @@ def import_router(sessions, gate):
                 source_language,
                 target_language,
                 True,
+                make_public,
             )
-            fixed_destination = fixed_destination or new_name is not None
+            fixed = fixed_destination or new_name is not None
+            expected_token = token_for(
+                rows,
+                collection,
+                new_name,
+                source_language,
+                target_language,
+                fixed,
+                make_public,
+            )
+            if preview_token is not None and preview_token != expected_token:
+                raise HTTPException(409, "The import preview changed. Preview again.")
+            require_public_consent(collection, confirm_public_exposure)
+            if collection.visibility == "published" and not preview_token:
+                raise HTTPException(
+                    409, "Preview this public import before confirming."
+                )
             if new_collection_id is not None:
                 if new_name is None or expected_valid is None or expected_valid < 1:
                     raise HTTPException(
@@ -676,7 +771,7 @@ def import_router(sessions, gate):
                 if existing is not None:
                     if (
                         existing.owner_account_id != collection.owner_account_id
-                        or existing.visibility != "private"
+                        or existing.visibility != collection.visibility
                         or existing.title != collection.title
                         or existing.source_language != collection.source_language
                         or existing.target_language != collection.target_language
@@ -691,6 +786,7 @@ def import_router(sessions, gate):
                     ):
                         raise HTTPException(409, "Preview the CSV again.")
                     report["counts"]["valid"] = expected_valid
+                    report["preview_token"] = expected_token
                     return report
                 collection.id = new_collection_id
             if new_name is not None:
@@ -702,13 +798,14 @@ def import_router(sessions, gate):
                 True,
                 destination,
                 collection,
-                fixed_destination=fixed_destination,
+                fixed_destination=fixed,
             )
             valid = report["counts"]["valid"]
             if new_name is not None and not valid:
                 raise HTTPException(422, "No valid cards to import.")
             if expected_valid is not None and expected_valid != valid:
                 raise HTTPException(409, "The cards changed. Preview the CSV again.")
+            report["preview_token"] = expected_token
             return report
 
     return router

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { request } from "./api.js";
+import PublicationDialog from "./PublicationDialog.jsx";
 import {
   collectionCopy,
   collectionLabel,
@@ -65,10 +66,20 @@ export default function Collections({
   });
 
   useEffect(() => {
-    if (action.isPending) return;
+    if (preview || action.isPending) return;
     if (mode) focusTarget.current?.focus();
     else if (notice) focusReturn.current?.focus();
   }, [mode, preview, action.isPending, notice]);
+
+  useEffect(() => {
+    if (!preview || !current) return;
+    if (
+      preview.id !== current.id ||
+      preview.card_count !== current.card_count ||
+      preview.visibility !== current.visibility
+    )
+      setPreview(null);
+  }, [current, preview]);
 
   function open(next, event) {
     focusReturn.current = event.currentTarget;
@@ -113,6 +124,7 @@ export default function Collections({
   }
 
   function confirmVisibility() {
+    if (action.isPending) return;
     action.mutate({
       path: `/${current.id}/${isPublic ? "publish" : "unpublish"}`,
       body: isPublic
@@ -234,68 +246,24 @@ export default function Collections({
           </form>
         )}
 
-        {preview && current && (
-          <div className="collection-panel-form">
-            <h3 ref={focusTarget} tabIndex={-1}>
-              {isPublic ? t.confirm : t.confirmUnpublish}
-            </h3>
-            <p>
-              {isPublic
-                ? preview.private_cards.length
-                  ? t.exposure
-                  : t.none
-                : t.unpublishExposure}
-            </p>
-            {preview.private_cards.length > 0 && (
-              <ul>
-                {preview.private_cards.map((card) => (
-                  <li key={card.id}>
-                    <span lang={card.source_language}>{card.source_text}</span>
-                    {" · "}
-                    <span lang={card.target_language}>{card.target_text}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!isPublic && preview.still_shared_cards?.length > 0 && (
-              <div>
-                <p>{t.stillShared}</p>
-                <ul>
-                  {preview.still_shared_cards.map((card) => (
-                    <li key={card.id}>
-                      <span lang={card.source_language}>
-                        {card.source_text}
-                      </span>
-                      {" · "}
-                      <span lang={card.target_language}>
-                        {card.target_text}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div className="form-actions">
-              <button
-                className="primary"
-                disabled={action.isPending || action.isError}
-                onClick={confirmVisibility}
-              >
-                {isPublic ? t.confirm : t.confirmUnpublish}
-              </button>
-              <button
-                className="secondary"
-                disabled={action.isPending}
-                onClick={() => {
-                  action.reset();
-                  setPreview(null);
-                }}
-              >
-                {t.backToEdit}
-              </button>
-            </div>
-          </div>
-        )}
+        <PublicationDialog
+          open={Boolean(preview && current)}
+          title={isPublic ? t.publicationTitle : t.confirmUnpublish}
+          name={preview?.name || current?.name || ""}
+          cardCount={preview?.card_count ?? current?.card_count ?? 0}
+          cardsLabel={t.cards}
+          explanation={
+            isPublic ? t.publicationExplanation : t.unpublishExposure
+          }
+          confirmLabel={isPublic ? t.publishAction : t.confirmUnpublish}
+          cancelLabel={t.cancel}
+          busy={action.isPending}
+          onConfirm={confirmVisibility}
+          onCancel={() => {
+            action.reset();
+            setPreview(null);
+          }}
+        />
 
         {current && mode === "delete" && (
           <div className="collection-panel-form">

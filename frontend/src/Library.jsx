@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   BookOpen,
   ChevronLeft,
@@ -18,14 +19,16 @@ import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
 import {
+  canViewCollection,
   collectionCopy,
   collectionOwner,
-  isMyCollection,
 } from "./collection-copy.js";
 
 export default function Library({ text, csrf, onLocked, language = "en" }) {
   const client = useQueryClient();
   const t = collectionCopy[language];
+  const [searchParams, setSearchParams] = useSearchParams();
+  const routeCollectionId = searchParams.get("collection_id") || "";
   const collections = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
@@ -127,9 +130,12 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
     setPage(1);
   }
   const selectedCollection = collections.data?.find(
-    (item) => item.id === requestedCollection && isMyCollection(item),
+    (item) => item.id === requestedCollection && canViewCollection(item),
   );
   const collectionId = selectedCollection?.id || "";
+  const collectionUnavailable = Boolean(
+    routeCollectionId && collections.data && !selectedCollection,
+  );
   const selectedTitle = selectedCollection?.name || t.allAccessible;
   const legacyPair =
     !selectedCollection?.source_language ||
@@ -151,14 +157,32 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
   params.set("page", page);
   params.set("page_size", "12");
 
-  function selectCollection(id) {
-    setCollectionId(id);
+  const resetCollectionView = useCallback(() => {
     setPage(1);
     setArchived(false);
+    setFilters({ q: "", word_types: [], tag_ids: [] });
     setSelectedIds([]);
     setSelecting(false);
     setOpenCard(null);
+    setEditing(undefined);
+    setDeleting(null);
+    setDeleteError(null);
+    setBulkNotice(null);
+  }, []);
+
+  function selectCollection(id) {
+    setCollectionId(id);
+    resetCollectionView();
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set("collection_id", id);
+    else next.delete("collection_id");
+    setSearchParams(next);
   }
+
+  useEffect(() => {
+    setCollectionId(routeCollectionId);
+    resetCollectionView();
+  }, [routeCollectionId, resetCollectionView]);
   const library = useQuery({
     queryKey: ["vocabulary", page, filters, collectionId, archived],
     queryFn: () => request(`/api/vocabulary?${params}`),
@@ -278,6 +302,12 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
         text={text}
         csrf={csrf}
       />
+      {collectionUnavailable && (
+        <div className="collection-unavailable" role="alert">
+          <p>{t.collectionUnavailable}</p>
+          <Link to="/collections">{t.back}</Link>
+        </div>
+      )}
       {cardAction.isError && (
         <p role="alert" className="error">
           {text.actionFailed}

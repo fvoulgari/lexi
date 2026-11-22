@@ -69,6 +69,22 @@ def can_write(entity, account=None):
     )
 
 
+def collection_capabilities(collection, account=None):
+    """Canonical collection permissions shared by APIs and capability responses."""
+    account = account or current_account()
+    owned = collection.owner_account_id == account.id
+    compatible = {collection.source_language, collection.target_language} == {
+        "el",
+        "it",
+    }
+    return {
+        "can_edit": owned,
+        "can_import": owned and compatible,
+        "can_publish": owned,
+        "can_save": not owned and collection.visibility == "published",
+    }
+
+
 def require_write(entity, account=None):
     if entity is None:
         raise HTTPException(404, "Content not found.")

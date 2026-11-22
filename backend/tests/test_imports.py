@@ -140,14 +140,14 @@ def test_csv_routes_legacy_codes_to_owned_collections_without_duplicate_cards(
     ]
 
 
-def test_csv_does_not_publish_or_misroute_rows_for_published_collection(
+def test_csv_imports_into_public_collection_without_publishing_cards(
     client, account_client
 ):
     from uuid import UUID
 
     from test_shareable_collections import publish
 
-    from app.models import Collection
+    from app.models import Collection, CollectionEntry, VocabularyEntry
 
     account_client("csv-published-target")
     h = headers(client)
@@ -161,16 +161,44 @@ def test_csv_does_not_publish_or_misroute_rows_for_published_collection(
         target.source_unit_title = "Food"
         target.source_unit_sort_order = 0
     assert publish(client, public).status_code == 200
-    data = "italian,greek,word_type,unit_code\nciao,γεια,expression,30\n".encode()
+    data = (
+        "italian,greek,word_type,unit_code,tags\n"
+        "ciao,γεια,expression,30,daily\n"
+    ).encode()
+    path = f"/api/imports/preview?collection_id={private['id']}"
+    preview = client.post(path, headers=h, content=data)
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["preview_token"]
+    assert client.get(f"/api/collections/{public['id']}/entries").json() == []
     response = client.post(
-        f"/api/imports/confirm?collection_id={private['id']}",
+        f"/api/imports/confirm?collection_id={private['id']}"
+        "&confirm_public_exposure=true"
+        f"&preview_token={preview.json()['preview_token']}",
         headers=h,
         content=data,
     )
-    assert response.status_code == 200
-    assert response.json()["counts"]["error"] == 1
+    assert response.status_code == 200, response.text
+    assert response.json()["counts"]["imported"] == 1
+    cards = client.get(f"/api/collections/{public['id']}/entries").json()
+    assert len(cards) == 1
     assert client.get(f"/api/collections/{private['id']}/entries").json() == []
-    assert client.get(f"/api/collections/{public['id']}/entries").json() == []
+    with client.app.state.sessions() as db:
+        card = db.get(VocabularyEntry, UUID(cards[0]["id"]))
+        assert card.visibility == "private"
+        assert all(tag.visibility == "private" for tag in card.tags)
+        reference = db.get(
+            CollectionEntry, (UUID(public["id"]), UUID(cards[0]["id"]))
+        )
+        assert reference.publication_confirmed is True
+    account_client("csv-public-reader")
+    visible = client.get(f"/api/vocabulary/{cards[0]['id']}").json()
+    assert visible["can_edit"] is False
+    assert client.post(
+        f"/api/imports/confirm?collection_id={public['id']}"
+        "&confirm_public_exposure=true",
+        headers=h,
+        content=data,
+    ).status_code == 403
 
 
 def test_csv_unknown_group_preserves_metadata_and_rejects_a_second_group(

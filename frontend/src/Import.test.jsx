@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -30,6 +31,7 @@ const published = {
   id: "published",
   name: "Published",
   visibility: "published",
+  can_import: true,
 };
 const existing = [owned, shared, published];
 const sample = "italian,greek,word_type\nandare,πηγαίνω,verb";
@@ -66,12 +68,14 @@ function openLibrary(language = "en") {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <Library
-        text={copy[language]}
-        language={language}
-        csrf="csrf"
-        onLocked={() => {}}
-      />
+      <MemoryRouter>
+        <Library
+          text={copy[language]}
+          language={language}
+          csrf="csrf"
+          onLocked={() => {}}
+        />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return userEvent.setup();
@@ -86,7 +90,7 @@ async function openImport(user, language = "en") {
   );
 }
 
-test("preselects only an owned, editable private destination", async () => {
+test("preselects an authorized destination and excludes collections without import access", async () => {
   const user = openLibrary();
   const scope = screen.getByRole("combobox", { name: "Collection" });
   await screen.findByRole("option", { name: "Mine" });
@@ -96,7 +100,7 @@ test("preselects only an owned, editable private destination", async () => {
     "mine",
   );
   expect(dialog.queryByRole("option", { name: "Shared" })).toBeNull();
-  expect(dialog.queryByRole("option", { name: "Published" })).toBeNull();
+  expect(dialog.getByRole("option", { name: "Published" })).toBeInTheDocument();
   await user.click(dialog.getAllByRole("button", { name: copy.en.cancel })[0]);
   await user.selectOptions(scope, "shared");
   expect(
@@ -161,7 +165,7 @@ test("keeps the file, refreshes the preview for each destination, and selects ea
     const confirm = await dialog.findByRole("button", {
       name: `Import 1 card into ${name}`,
     });
-    expect(dialog.getByText("Private")).toBeInTheDocument();
+    expect(dialog.getByRole("radio", { name: "Only you" })).toBeChecked();
     expect(
       dialog.getByRole("button", { name: `${copy.en.csvErrorRows} (1)` }),
     ).toBeInTheDocument();
@@ -216,7 +220,7 @@ test("distinguishes loading, unavailable collections, and a retryable error", as
             { status: 503 },
           )
         : HttpResponse.json([
-            published,
+            { ...published, can_import: false },
             shared,
             { ...owned, source_language: "en" },
           ]);
@@ -265,7 +269,7 @@ test("refreshes eligible destinations on open and uses the existing Collection I
   expect(
     await dialog.findByRole("option", { name: recentlyCreated.name }),
   ).toBeInTheDocument();
-  expect(dialog.queryByRole("option", { name: "Published" })).toBeNull();
+  expect(dialog.getByRole("option", { name: "Published" })).toBeInTheDocument();
   expect(dialog.queryByRole("option", { name: "Shared" })).toBeNull();
   expect(
     dialog.queryByRole("group", {
@@ -328,3 +332,111 @@ test("new Collection languages keep positional field mapping and invalidate the 
     ["it", "el"],
   ]);
 });
+
+test("requires visibility, consent, and a matching token for public imports", async () => {
+  const requests = [];
+  server.use(
+    http.post("*/api/imports/preview", ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      requests.push(["preview", Object.fromEntries(params)]);
+      return HttpResponse.json({ ...result, preview_token: "token" });
+    }),
+    http.post("*/api/imports/confirm", ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      requests.push(["confirm", Object.fromEntries(params)]);
+      return HttpResponse.json({ ...result, destination_collection: published });
+    }),
+  );
+  const user = openLibrary();
+  await screen.findByRole("option", { name: "Mine" });
+  let dialog = await openImport(user);
+  await user.click(dialog.getByRole("radio", { name: "New collection" }));
+  expect(dialog.getByRole("radio", { name: "Only you" })).toBeChecked();
+  expect(dialog.getByText(collectionCopy.en.privateVisibilityHint)).toBeInTheDocument();
+  await user.type(
+    dialog.getByRole("textbox", { name: "Collection name" }),
+    "Public import",
+  );
+  await user.upload(dialog.getByLabelText("Choose CSV file"), file);
+  await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
+  let confirm = await dialog.findByRole("button", {
+    name: "Import 1 card into Public import",
+  });
+  expect(confirm).toBeEnabled();
+  expect(dialog.queryByText(collectionCopy.en.publicationExplanation)).toBeNull();
+
+  await user.click(
+    dialog.getByRole("radio", { name: collectionCopy.en.published }),
+  );
+  expect(dialog.getByText(collectionCopy.en.publicVisibilityHint)).toBeInTheDocument();
+  confirm = await dialog.findByRole("button", {
+    name: collectionCopy.en.importAndPublish,
+  });
+  expect(dialog.getByText(collectionCopy.en.publicationExplanation)).toBeInTheDocument();
+  expect(confirm).toBeDisabled();
+  const consent = dialog.getByRole("checkbox", {
+    name: collectionCopy.en.publicImportConsent,
+  });
+  expect(consent).not.toBeChecked();
+  await user.click(consent);
+  expect(confirm).toBeEnabled();
+  await user.click(confirm);
+  await waitFor(() =>
+    expect(requests.some(([action]) => action === "confirm")).toBe(true),
+  );
+  const [, confirmParams] = requests.find(([action]) => action === "confirm");
+  expect(confirmParams).toMatchObject({
+    make_public: "true",
+    confirm_public_exposure: "true",
+    preview_token: "token",
+    expected_valid: "1",
+  });
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: copy.en.toolsImport }),
+    ).toBeNull(),
+  );
+
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Collection" }),
+    "published",
+  );
+  dialog = await openImport(user);
+  await user.upload(dialog.getByLabelText("Choose CSV file"), file);
+  await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
+  confirm = await dialog.findByRole("button", {
+    name: collectionCopy.en.importAndPublish,
+  });
+  expect(confirm).toBeDisabled();
+  expect(
+    dialog.getByText(collectionCopy.en.publicationExplanation),
+  ).toBeInTheDocument();
+  await user.click(
+    dialog.getByRole("checkbox", { name: collectionCopy.en.publicImportConsent }),
+  );
+  expect(confirm).toBeEnabled();
+  await user.click(confirm);
+  await waitFor(() => expect(requests.filter(([a]) => a === "confirm")).toHaveLength(2));
+  const [, existingParams] = requests.filter(([action]) => action === "confirm")[1];
+  expect(existingParams).toMatchObject({
+    collection_id: "published",
+    confirm_public_exposure: "true",
+    preview_token: "token",
+  });
+  expect(existingParams.make_public).toBeUndefined();
+});
+
+test.each(["el", "it"])(
+  "uses the exact empty-state copy in %s",
+  async (language) => {
+    server.use(http.get("*/api/collections", () => HttpResponse.json([])));
+    const user = openLibrary(language);
+    const dialog = await openImport(user, language);
+    expect(
+      await dialog.findByText(collectionCopy[language].noImportCollections),
+    ).toHaveAttribute("role", "status");
+    expect(
+      dialog.getByRole("combobox", { name: copy[language].collection }),
+    ).toBeDisabled();
+  },
+);
