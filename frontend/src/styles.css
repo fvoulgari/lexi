@@ -2539,7 +2539,17 @@ button:disabled {
 .csv-options legend { font-weight: 650; margin-block-end: 0.35rem; }
 .csv-options label { display: flex; gap: 0.4rem; align-items: baseline; }
 .csv-options input { accent-color: #3f5742; }
-.csv-language-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+.csv-language-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.csv-language-fields legend { font-weight: 650; margin-block-end: 0.35rem; }
 .csv-fields .audience-badge { justify-self: start; }
 .csv-file-button { position: relative; cursor: pointer; min-height: 44px; padding: 0.5rem 0.7rem; border: 1px solid #cad9c6; border-radius: 10px; }
 .csv-filename { min-width: 0; overflow-wrap: anywhere; }

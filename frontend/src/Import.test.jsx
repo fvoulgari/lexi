@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import Library from "./Library.jsx";
@@ -113,7 +113,7 @@ test("preselects only an owned, editable private destination", async () => {
   expect(form.queryByRole("option", { name: /Shared/ })).toBeNull();
 });
 
-test("keeps the file and preview when changing destinations, then selects each new Collection", async () => {
+test("keeps the file, refreshes the preview for each destination, and selects each new Collection", async () => {
   const created = [];
   const received = [];
   server.use(
@@ -152,8 +152,8 @@ test("keeps the file and preview when changing destinations, then selects each n
     await user.click(dialog.getByRole("radio", { name: "New collection" }));
     expect(dialog.getByText("cards.csv")).toBeInTheDocument();
     expect(
-      dialog.getByRole("button", { name: "Duplicates (1)" }),
-    ).toBeInTheDocument();
+      dialog.queryByRole("button", { name: "Duplicates (1)" }),
+    ).not.toBeInTheDocument();
     await user.type(
       dialog.getByRole("textbox", { name: "Collection name" }),
       name,
@@ -194,6 +194,137 @@ test.each(["el", "it"])(
     ).toBeInTheDocument();
     await user.click(dialog.getByRole("radio", { name: text.newCollection }));
     expect(dialog.getByLabelText(text.name)).toBeInTheDocument();
-    expect(dialog.getByLabelText(text.sourceLanguage)).toBeInTheDocument();
+    const languages = within(
+      dialog.getByRole("group", { name: text.collectionLanguages }),
+    );
+    expect(languages.getByLabelText(text.sourceLanguage)).toHaveValue("el");
+    expect(languages.getByLabelText(text.targetLanguage)).toHaveValue("it");
+    expect(languages.queryByText(text.sourceLanguage)).not.toBeInTheDocument();
+    expect(languages.queryByText(text.targetLanguage)).not.toBeInTheDocument();
   },
 );
+
+test("distinguishes loading, unavailable collections, and a retryable error", async () => {
+  let reply = "error";
+  server.use(
+    http.get("*/api/collections", async () => {
+      const state = reply;
+      await delay(80);
+      return state === "error"
+        ? HttpResponse.json(
+            { error: { code: "request_failed" } },
+            { status: 503 },
+          )
+        : HttpResponse.json([
+            published,
+            shared,
+            { ...owned, source_language: "en" },
+          ]);
+    }),
+  );
+  const user = openLibrary();
+  const dialog = await openImport(user);
+  expect(dialog.getByRole("status")).toHaveTextContent(
+    collectionCopy.en.loading,
+  );
+  expect(dialog.getByRole("combobox", { name: "Collection" })).toBeDisabled();
+  expect(await dialog.findByRole("alert")).toHaveTextContent(
+    copy.en.errors.request_failed,
+  );
+  reply = "empty";
+  await user.click(dialog.getByRole("button", { name: copy.en.retry }));
+  expect(
+    await dialog.findByText(collectionCopy.en.noImportCollections),
+  ).toHaveAttribute("role", "status");
+  expect(dialog.getByRole("combobox", { name: "Collection" })).toBeDisabled();
+});
+
+test("refreshes eligible destinations on open and uses the existing Collection ID alone", async () => {
+  const recentlyCreated = {
+    ...owned,
+    id: "recent",
+    name: "Recently created",
+    source_language: "it",
+    target_language: "el",
+  };
+  let listed = [owned, shared, published];
+  server.use(
+    http.get("*/api/collections", () => HttpResponse.json(listed)),
+    http.post("*/api/imports/preview", ({ request }) => {
+      expect(Object.fromEntries(new URL(request.url).searchParams)).toEqual({
+        fixed_destination: "true",
+        collection_id: "recent",
+      });
+      return HttpResponse.json(result);
+    }),
+  );
+  const user = openLibrary();
+  await screen.findByRole("option", { name: "Mine" });
+  listed = [...listed, recentlyCreated];
+  const dialog = await openImport(user);
+  expect(
+    await dialog.findByRole("option", { name: recentlyCreated.name }),
+  ).toBeInTheDocument();
+  expect(dialog.queryByRole("option", { name: "Published" })).toBeNull();
+  expect(dialog.queryByRole("option", { name: "Shared" })).toBeNull();
+  expect(
+    dialog.queryByRole("group", {
+      name: collectionCopy.en.collectionLanguages,
+    }),
+  ).toBeNull();
+  await user.selectOptions(
+    dialog.getByRole("combobox", { name: "Collection" }),
+    recentlyCreated.id,
+  );
+  await user.upload(dialog.getByLabelText("Choose CSV file"), file);
+  await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
+  expect(
+    await dialog.findByRole("button", {
+      name: "Import 1 card into Recently created",
+    }),
+  ).toBeEnabled();
+});
+
+test("new Collection languages keep positional field mapping and invalidate the preview when changed", async () => {
+  const requests = [];
+  server.use(
+    http.post("*/api/imports/preview", async ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      const direction = [
+        params.get("source_language"),
+        params.get("target_language"),
+      ];
+      expect(await request.text()).toBe(sample);
+      requests.push(direction);
+      if (direction[0] === "it") await delay(100);
+      return HttpResponse.json(result);
+    }),
+  );
+  const user = openLibrary();
+  const dialog = await openImport(user);
+  await user.click(dialog.getByRole("radio", { name: "New collection" }));
+  await user.type(
+    dialog.getByRole("textbox", { name: "Collection name" }),
+    "Lexi",
+  );
+  const selections = within(
+    dialog.getByRole("group", { name: "Collection languages" }),
+  ).getAllByRole("combobox");
+  expect(selections.map((select) => select.value)).toEqual(["el", "it"]);
+  await user.upload(dialog.getByLabelText("Choose CSV file"), file);
+  await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
+  await dialog.findByRole("button", { name: "Import 1 card into Lexi" });
+  await user.selectOptions(selections[1], "el");
+  expect(selections.map((select) => select.value)).toEqual(["it", "el"]);
+  expect(
+    dialog.queryByRole("button", { name: "Import 1 card into Lexi" }),
+  ).toBeNull();
+  expect(dialog.getByText(file.name)).toBeInTheDocument();
+  expect(
+    await dialog.findByRole("button", { name: "Import 1 card into Lexi" }),
+  ).toBeEnabled();
+  expect(requests).toEqual([
+    ["el", "it"],
+    ["it", "el"],
+  ]);
+});

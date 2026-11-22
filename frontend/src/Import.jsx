@@ -55,12 +55,14 @@ export default function Import({
   } = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
+    refetchOnMount: "always",
   });
   const destinations = collections.filter(isImportDestination);
+  const existingDestination = destinations.find(
+    (collection) => collection.id === collectionId,
+  );
   const destination =
-    mode === "existing"
-      ? destinations.find((collection) => collection.id === collectionId)?.name
-      : name.trim();
+    mode === "existing" ? !isError && existingDestination?.name : name.trim();
   const params = new URLSearchParams({ fixed_destination: "true" });
   if (mode === "existing") params.set("collection_id", collectionId);
   else {
@@ -70,8 +72,16 @@ export default function Import({
   }
   const destinationKey = params.toString();
   const canPreview = Boolean(destination && file);
-  const currentPreview = preview?.key === destinationKey;
-  const report = preview?.report;
+  const currentPreview = canPreview && preview?.key === destinationKey;
+  const report = currentPreview ? preview.report : null;
+
+  function changeDestination(change, value) {
+    setPreview(null);
+    setError(null);
+    setFilter("all");
+    setPage(1);
+    change(value);
+  }
 
   useEffect(() => {
     if (!canPreview || !previewRequested) return;
@@ -196,7 +206,7 @@ export default function Import({
                 type="radio"
                 name="destination-mode"
                 checked={mode === key}
-                onChange={() => setMode(key)}
+                onChange={() => changeDestination(setMode, key)}
               />
               {label}
             </label>
@@ -207,9 +217,11 @@ export default function Import({
             {t.collection}
             <select
               className="collection-select"
-              value={collectionId}
-              disabled={isPending || isError}
-              onChange={(event) => setCollectionId(event.target.value)}
+              value={existingDestination?.id || ""}
+              disabled={isPending || isError || destinations.length === 0}
+              onChange={(event) =>
+                changeDestination(setCollectionId, event.target.value)
+              }
             >
               <option value="">{t.chooseCollection}</option>
               {destinations.map((collection) => (
@@ -227,38 +239,52 @@ export default function Import({
                 value={name}
                 maxLength={160}
                 required
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value.trim() === name.trim()) setName(value);
+                  else changeDestination(setName, value);
+                }}
               />
             </label>
-            <div
-              className="csv-language-fields"
-              role="group"
-              aria-label={t.pair}
-            >
-              {[
-                [source, setSource, t.sourceLanguage],
-                [
-                  target,
-                  (value) => setSource(value === "el" ? "it" : "el"),
-                  t.targetLanguage,
-                ],
-              ].map(([value, change, label]) => (
-                <label className="collection-field" key={label}>
-                  {label}
-                  <select
-                    className="collection-select"
-                    value={value}
-                    onChange={(event) => change(event.target.value)}
-                  >
-                    <option value="el">{text.greek}</option>
-                    <option value="it">{text.italian}</option>
-                  </select>
-                </label>
-              ))}
-            </div>
+            <fieldset className="csv-language-fields">
+              <legend>{t.collectionLanguages}</legend>
+              <select
+                className="collection-select"
+                aria-label={t.sourceLanguage}
+                value={source}
+                onChange={(event) =>
+                  changeDestination(setSource, event.target.value)
+                }
+              >
+                <option value="el">{text.greek}</option>
+                <option value="it">{text.italian}</option>
+              </select>
+              <span aria-hidden="true">↔</span>
+              <select
+                className="collection-select"
+                aria-label={t.targetLanguage}
+                value={target}
+                onChange={(event) =>
+                  changeDestination(
+                    setSource,
+                    event.target.value === "el" ? "it" : "el",
+                  )
+                }
+              >
+                <option value="el">{text.greek}</option>
+                <option value="it">{text.italian}</option>
+              </select>
+            </fieldset>
             <span className="audience-badge">{t.private}</span>
           </>
         )}
+        {mode === "existing" &&
+          !isError &&
+          (isPending || destinations.length === 0) && (
+            <span role="status">
+              {isPending ? t.loading : t.noImportCollections}
+            </span>
+          )}
         {mode === "existing" && isError && (
           <div className="form-actions">
             <span role="alert">{text.errors.request_failed}</span>
@@ -313,7 +339,7 @@ export default function Import({
           aria-label={text.csvPreviewTitle}
           aria-busy={validating}
         >
-          <strong>{destination || report.destination_collection?.name}</strong>
+          <strong>{destination}</strong>
           <div
             className="csv-filters"
             role="group"
