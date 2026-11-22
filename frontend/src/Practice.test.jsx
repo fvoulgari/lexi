@@ -240,28 +240,26 @@ test("finishing without a review is defined and reloading starts fresh setup", a
   ).not.toBeInTheDocument();
 });
 
-test("choosing Memory blank before flipping reveals the answer and Continue saves it", async () => {
+test("Memory blank becomes available after revealing the answer", async () => {
   openPractice();
   const user = userEvent.setup();
   await user.click(
     await screen.findByRole("button", { name: "Start practice" }),
   );
   expect(screen.queryByText("la casa")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
+  const memoryBlank = screen.getByRole("button", { name: "Memory blank" });
+  expect(memoryBlank).toBeDisabled();
 
-  await user.click(screen.getByRole("button", { name: "Memory blank" }));
+  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
   expect(await screen.findByText("la casa")).toBeVisible();
   expect(saves).toEqual([]);
-  expect(
-    screen.getByRole("button", { name: "Finish and see summary" }),
-  ).toBeDisabled();
-
-  await user.click(screen.getByRole("button", { name: "Continue" }));
+  expect(memoryBlank).toBeEnabled();
+  await user.click(memoryBlank);
   await screen.findByRole("heading", { name: "Session summary" });
   expect(saves).toEqual([{ direction: "greek_to_italian", rating: "again" }]);
 });
 
-test("Memory blank retries a lost reveal and saves the same rating after a lost review", async () => {
+test("a lost reveal can be retried before saving Memory blank and retrying a lost review", async () => {
   let revealAttempts = 0;
   server.use(
     http.post("*/api/sessions/s/cards/0/reveal", () => {
@@ -282,14 +280,14 @@ test("Memory blank retries a lost reveal and saves the same rating after a lost 
   await user.click(
     await screen.findByRole("button", { name: "Start practice" }),
   );
-  await user.click(screen.getByRole("button", { name: "Memory blank" }));
+  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
   expect(await screen.findByRole("alert")).toBeInTheDocument();
   expect(screen.queryByText("la casa")).not.toBeInTheDocument();
   expect(saves).toEqual([]);
 
-  await user.click(screen.getByRole("button", { name: "Memory blank" }));
+  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
   expect(await screen.findByText("la casa")).toBeVisible();
-  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await user.click(screen.getByRole("button", { name: "Memory blank" }));
   expect(await screen.findByRole("alert")).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Finish and see summary" }),
