@@ -13,7 +13,7 @@ from sqlalchemy.exc import DBAPIError
 
 
 @pytest.mark.parametrize(
-    "case", ["match", "missing", "ambiguous", "missing_card", "wrong_audience"]
+    "case", ["match", "published", "missing", "ambiguous", "missing_card"]
 )
 def test_unit_metadata_copy_is_lossless_or_fails_closed(test_database, case):
     engine = create_engine(test_database)
@@ -72,7 +72,7 @@ def test_unit_metadata_copy_is_lossless_or_fails_closed(test_database, case):
                     ),
                     {"id": uuid4(), "owner": owner},
                 )
-            if case == "wrong_audience":
+            if case == "published":
                 db.execute(text("UPDATE collections SET visibility='published'"))
             db.execute(
                 text("INSERT INTO vocabulary_entries VALUES (:id,:unit)"),
@@ -83,7 +83,7 @@ def test_unit_metadata_copy_is_lossless_or_fails_closed(test_database, case):
                     text("INSERT INTO collection_entries VALUES (:collection,:card)"),
                     {"collection": collection, "card": card},
                 )
-            if case == "match":
+            if case in {"match", "published"}:
                 with Operations.context(MigrationContext.configure(db)):
                     migration.upgrade()
                 row = db.execute(
@@ -94,6 +94,9 @@ def test_unit_metadata_copy_is_lossless_or_fails_closed(test_database, case):
                 )
                 assert row.one() == (unit, "00", "Welcome", 7)
                 assert db.scalar(text("SELECT count(*) FROM collection_entries")) == 1
+                assert db.scalar(text("SELECT visibility FROM collections")) == (
+                    "published" if case == "published" else "private"
+                )
             else:
                 savepoint = db.begin_nested()
                 with pytest.raises(DBAPIError):
