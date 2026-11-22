@@ -221,10 +221,14 @@ def evaluate(db, rows, confirm, destination, collection):
             code_candidates = [c for c in mapped if code and c.source_unit_code == code]
             candidates = code_candidates
             if title:
-                candidates = [c for c in candidates if c.source_unit_title == title]
+                candidates = [
+                    c for c in candidates if c.source_unit_title in (None, title)
+                ]
             if order:
                 candidates = [
-                    c for c in candidates if c.source_unit_sort_order == int(order)
+                    c
+                    for c in candidates
+                    if c.source_unit_sort_order in (None, int(order))
                 ]
             if len(candidates) > 1:
                 raise ValueError("CSV Unit metadata matches multiple Collections.")
@@ -238,27 +242,30 @@ def evaluate(db, rows, confirm, destination, collection):
                     raise ValueError("Import into a private Collection first.")
                 if {target.source_language, target.target_language} != {"it", "el"}:
                     raise ValueError("CSV import requires an Italian–Greek Collection.")
-            elif code and target.source_unit_code is None:
-                proposed_metadata = (code, title or None, int(order) if order else None)
-                prior = pending_metadata.get(target.id)
-                if prior is not None and prior != proposed_metadata:
+            if code:
+                prior = pending_metadata.get(
+                    target.id,
+                    (
+                        target.source_unit_code,
+                        target.source_unit_title,
+                        target.source_unit_sort_order,
+                    ),
+                )
+                supplied = (code, title or None, int(order) if order else None)
+                if any(
+                    old is not None and new is not None and old != new
+                    for old, new in zip(prior, supplied, strict=True)
+                ):
                     raise ValueError(
-                        "CSV contains another unmapped Unit; "
-                        "select a separate Collection."
+                        "CSV Unit metadata conflicts with the selected Collection."
                     )
-                metadata_is_new = prior is None
-            if (
-                target is not None
-                and target.source_unit_code
-                and (
-                    (code and code != target.source_unit_code)
-                    or (title and title != target.source_unit_title)
-                    or (order and int(order) != target.source_unit_sort_order)
+                merged = tuple(
+                    old if old is not None else new
+                    for old, new in zip(prior, supplied, strict=True)
                 )
-            ):
-                raise ValueError(
-                    "CSV Unit metadata does not match the selected Collection."
-                )
+                metadata_is_new = merged != prior
+                if metadata_is_new:
+                    proposed_metadata = merged
             matches = pairs.get(
                 normalized_pair(row.get("italian", ""), row.get("greek", "")), []
             )
@@ -347,13 +354,14 @@ def evaluate(db, rows, confirm, destination, collection):
                         current["tags"] = set(names)
                     proposed_tags.update(name for name in names if name not in tags)
                     if confirm:
-                        if proposed_metadata and target.source_unit_code is None:
+                        if proposed_metadata:
                             (
                                 target.source_unit_code,
                                 target.source_unit_title,
                                 target.source_unit_sort_order,
                             ) = proposed_metadata
-                            mapped.append(target)
+                            if target not in mapped:
+                                mapped.append(target)
                         stored = current["entry"]
                         if stored is None:
                             stored = VocabularyEntry(

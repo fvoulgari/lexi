@@ -1,3 +1,4 @@
+import pytest
 from csv_fixtures import with_genders
 from test_vocabulary_editing import headers
 
@@ -203,6 +204,41 @@ def test_csv_unknown_group_preserves_metadata_and_rejects_a_second_group(
     assert [(r["unit_code"], r["unit_title"], r["unit_sort_order"]) for r in rows] == [
         ("07", "Domande", "7")
     ]
+
+
+@pytest.mark.parametrize("details_first", [True, False])
+def test_sparse_unit_metadata_preview_matches_confirmation(
+    client, account_client, details_first
+):
+    account_client("csv-sparse-metadata")
+    h = headers(client)
+    group = client.post("/api/collections", headers=h, json={"name": "Import"}).json()
+    full = "ciao,γεια,expression,07,Domande,7\n"
+    sparse = "salve,χαίρετε,expression,07,,\n"
+    data = (
+        "italian,greek,word_type,unit_code,unit_title,unit_sort_order\n"
+        + (full + sparse if details_first else sparse + full)
+    ).encode()
+    path = f"/api/imports/{{}}?collection_id={group['id']}"
+    preview = client.post(path.format("preview"), headers=h, content=data).json()
+    result = client.post(path.format("confirm"), headers=h, content=data).json()
+    assert [row["status"] for row in preview["rows"]] == ["valid", "valid"]
+    assert [row["status"] for row in result["rows"]] == ["valid", "valid"]
+    assert result["counts"]["imported"] == 2
+    import csv
+    import io
+
+    rows = list(
+        csv.DictReader(
+            io.StringIO(client.get("/api/vocabulary/export.csv").text.lstrip("\ufeff"))
+        )
+    )
+    assert len(rows) == 2
+    assert all(
+        (r["unit_code"], r["unit_title"], r["unit_sort_order"])
+        == ("07", "Domande", "7")
+        for r in rows
+    )
 
 
 def test_csv_known_code_with_conflicting_title_never_uses_unmapped_fallback(

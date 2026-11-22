@@ -5,7 +5,7 @@ from random import shuffle
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.access import current_account, lock_owned_profile
 from app.filters import category_conditions
@@ -17,6 +17,7 @@ from app.models import (
     PracticeSession,
     ReviewEvent,
     SessionCard,
+    Tag,
     VocabularyEntry,
 )
 from app.schemas import RevealCard, ReviewCard, SessionCreate, VocabularyOutput
@@ -77,6 +78,75 @@ def practice_router(sessions, gate):
     router = APIRouter(prefix="/api/sessions", dependencies=[Depends(gate.require)])
     writes = [Depends(gate.check_csrf)]
 
+    def metadata_permissions(db, snapshots):
+        unit_ids, tag_ids = set(), set()
+
+        def parse_id(value):
+            try:
+                return UUID(str(value))
+            except ValueError, TypeError:
+                return None
+
+        for snapshot in snapshots:
+            unit = snapshot.get("unit")
+            if isinstance(unit, dict):
+                unit_ids.add(parse_id(unit.get("id")))
+            for tag in snapshot.get("tags") or []:
+                if isinstance(tag, dict):
+                    tag_ids.add(parse_id(tag.get("id")))
+        unit_ids.discard(None)
+        tag_ids.discard(None)
+        units = (
+            db.scalars(
+                select(Collection).where(
+                    Collection.owner_account_id == current_account().id,
+                    or_(
+                        Collection.id.in_(unit_ids),
+                        Collection.source_unit_id.in_(unit_ids),
+                    ),
+                )
+            ).all()
+            if unit_ids
+            else []
+        )
+        tags = (
+            dict(
+                db.execute(
+                    select(Tag.id, Tag.name).where(
+                        Tag.owner_account_id == current_account().id,
+                        Tag.id.in_(tag_ids),
+                    )
+                ).all()
+            )
+            if tag_ids
+            else {}
+        )
+        return units, tags
+
+    def safe_snapshot(snapshot, permissions):
+        # Metadata has its own access rules, independent of card ownership.
+        units, tags = permissions
+        redacted = dict(snapshot)
+        unit = snapshot.get("unit")
+        permitted = isinstance(unit, dict) and any(
+            str(unit.get("id")) in (str(group.id), str(group.source_unit_id))
+            and unit.get("code") == group.source_unit_code
+            and unit.get("title") == group.source_unit_title
+            for group in units
+        )
+        redacted["unit"] = unit if permitted else None
+        redacted["tags"] = [
+            tag
+            for tag in (snapshot.get("tags") or [])
+            if isinstance(tag, dict)
+            and any(
+                str(tag_id) == str(tag.get("id")) and name == tag.get("name")
+                for tag_id, name in tags.items()
+            )
+        ]
+        redacted.pop("unit_id", None)
+        return redacted
+
     def require_profile(db, profile_id):
         return lock_owned_profile(db, profile_id)
 
@@ -100,15 +170,16 @@ def practice_router(sessions, gate):
                 )
             ).all()
         )
-        readable_ids = set(
-            db.scalars(
-                select(VocabularyEntry.id)
+        readable_owners = dict(
+            db.execute(
+                select(VocabularyEntry.id, VocabularyEntry.owner_account_id)
                 .where(
                     VocabularyEntry.id.in_([c.entry_id for c in cards if c.entry_id])
                 )
                 .execution_options(include_archived=True)
             ).all()
         )
+        permissions = metadata_permissions(db, [c.snapshot for c in cards])
         return {
             "id": str(session.id),
             "profile_id": str(session.profile_id),
@@ -120,7 +191,9 @@ def practice_router(sessions, gate):
                 {
                     "position": c.position,
                     "entry_id": str(c.entry_id) if c.entry_id in visible_ids else None,
-                    "snapshot": c.snapshot if c.entry_id in readable_ids else None,
+                    "snapshot": safe_snapshot(c.snapshot, permissions)
+                    if c.entry_id in readable_owners
+                    else None,
                     "skipped": c.entry_id not in visible_ids,
                 }
                 for c in cards
@@ -292,16 +365,21 @@ def practice_router(sessions, gate):
         if set(DIRECTION_PAIRS[direction]) != languages:
             raise HTTPException(422, "Direction does not match this card.")
 
-    def event_output(event):
-        with sessions() as db:
-            accessible = (
-                db.scalar(
-                    select(VocabularyEntry.id)
-                    .where(VocabularyEntry.id == event.entry_id)
-                    .execution_options(include_archived=True)
-                )
-                is not None
-            )
+    def event_output(db, event, permissions=None, accessible_ids=None):
+        if accessible_ids is None:
+            accessible = db.execute(
+                select(VocabularyEntry.owner_account_id)
+                .where(VocabularyEntry.id == event.entry_id)
+                .execution_options(include_archived=True)
+            ).first()
+            accessible_ids = {event.entry_id} if accessible else set()
+        if permissions is None:
+            permissions = metadata_permissions(db, [event.snapshot])
+        snapshot = (
+            safe_snapshot(event.snapshot, permissions)
+            if event.entry_id in accessible_ids
+            else None
+        )
         return {
             "id": str(event.id),
             "session_id": str(event.session_id),
@@ -310,7 +388,7 @@ def practice_router(sessions, gate):
             "entry_id": str(event.entry_id),
             "direction": event.direction,
             "rating": event.rating,
-            "snapshot": event.snapshot if accessible else None,
+            "snapshot": snapshot,
             "created_at": event.created_at.isoformat(),
         }
 
@@ -342,7 +420,7 @@ def practice_router(sessions, gate):
                     raise HTTPException(
                         409, "This card already has a different accepted review."
                     )
-                return event_output(existing)
+                return event_output(db, existing)
             if card.revealed_direction != body.direction:
                 raise HTTPException(409, "Reveal this answer before rating it.")
             require_entry(db, card)
@@ -381,7 +459,7 @@ def practice_router(sessions, gate):
             )
             progress.weight = progress.weight * 0.8 + 1
             progress.last_reviewed_at = event.created_at
-            return event_output(event)
+            return event_output(db, event)
 
     @router.get("/{session_id}/summary")
     def summary(session_id: UUID):
@@ -396,6 +474,14 @@ def practice_router(sessions, gate):
                 rating: sum(e.rating == rating for e in events)
                 for rating in ("again", "hard", "easy")
             }
+            accessible_ids = set(
+                db.scalars(
+                    select(VocabularyEntry.id)
+                    .where(VocabularyEntry.id.in_([e.entry_id for e in events]))
+                    .execution_options(include_archived=True)
+                ).all()
+            )
+            permissions = metadata_permissions(db, [e.snapshot for e in events])
             return {
                 "total": len(events),
                 "counts": counts,
@@ -403,7 +489,9 @@ def practice_router(sessions, gate):
                 if events
                 else 0,
                 "needs_practice": [
-                    event_output(e) for e in events if e.rating != "easy"
+                    event_output(db, e, permissions, accessible_ids)
+                    for e in events
+                    if e.rating != "easy"
                 ],
             }
 
