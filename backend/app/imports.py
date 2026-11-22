@@ -4,7 +4,7 @@ import csv
 import io
 import json
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, text
 
 from app.access import current_account, require_write
+from app.collections import CollectionBody
 from app.csv_format import FORMAT_VERSION, restore_text
 from app.duplicates import normalized_pair
 from app.grammar import clean_grammar
@@ -28,6 +29,9 @@ ALIASES = {
     "gender": "italian_gender",
 }
 COLUMNS = {
+    "entry_id",
+    "source_language",
+    "target_language",
     "italian",
     "greek",
     "word_type",
@@ -97,7 +101,7 @@ async def read_csv(request):
         invalid("Upload a valid UTF-8 CSV file.")
 
 
-def evaluate(db, rows, confirm, destination, collection):
+def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=False):
     require_write(destination)
     tags = {
         t.name: t
@@ -108,11 +112,20 @@ def evaluate(db, rows, confirm, destination, collection):
             )
         )
     }
+    if fixed_destination:
+        existing_scope = VocabularyEntry.id.in_(
+            select(CollectionEntry.entry_id).where(
+                CollectionEntry.collection_id == collection.id
+            )
+        )
+    else:
+        existing_scope = True
     # Keep a simulated library during preview too, so later rows see earlier changes.
     pairs = {}
     for existing in db.scalars(
         select(VocabularyEntry)
         .where(
+            existing_scope,
             VocabularyEntry.owner_account_id == destination.owner_account_id,
             VocabularyEntry.visibility == destination.visibility,
             VocabularyEntry.source_language == "it",
@@ -144,7 +157,7 @@ def evaluate(db, rows, confirm, destination, collection):
     )
     if confirm:
         mapped_query = mapped_query.with_for_update()
-    mapped = list(db.scalars(mapped_query))
+    mapped = [] if fixed_destination else list(db.scalars(mapped_query))
     member_cache, positions, pending_metadata = {}, {}, {}
 
     def membership(target):
@@ -177,6 +190,7 @@ def evaluate(db, rows, confirm, destination, collection):
         target = collection
         proposed_metadata = None
         metadata_is_new = False
+        reference = None
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
@@ -192,6 +206,15 @@ def evaluate(db, rows, confirm, destination, collection):
                     raise ValueError(f"{alias} conflicts with {field}.")
                 if value or (alias_supplied and field not in row):
                     row[field] = value
+            reference_id = row.pop("entry_id", "")
+            languages = {row.pop("source_language", ""), row.pop("target_language", "")}
+            if languages not in (
+                {
+                    "",
+                },
+                {"it", "el"},
+            ):
+                raise ValueError("CSV import requires Italian and Greek cards.")
             code = row.pop("unit_code", "")
             title = row.pop("unit_title", "")
             order = row.pop("unit_sort_order", "")
@@ -210,6 +233,23 @@ def evaluate(db, rows, confirm, destination, collection):
                     TagCreate(name=name).name for name in names if name.strip()
                 )
             )
+            if fixed_destination:
+                code = title = order = ""
+            if reference_id and not fixed_destination:
+                raise ValueError("Choose a fixed destination for card references.")
+            if reference_id:
+                reference = db.get(VocabularyEntry, UUID(reference_id))
+                if reference is None or {
+                    reference.source_language,
+                    reference.target_language,
+                } != {"it", "el"}:
+                    raise ValueError("Card reference is unavailable.")
+                row = {
+                    field: getattr(reference, field)
+                    for field in VocabularyCreate.model_fields
+                    if field not in {"unit_id", "tag_ids", "visibility"}
+                }
+                names = []
             if not code and (title or order):
                 raise ValueError("unit_title/unit_sort_order require unit_code.")
             if code:
@@ -271,10 +311,15 @@ def evaluate(db, rows, confirm, destination, collection):
             )
             # A CSV update may omit gender if the existing card already has it.
             # Missing legacy genders must be corrected explicitly in this row.
-            previous = matches[0]["values"] if len(matches) == 1 else {}
-            entry = VocabularyCreate(
-                **{**previous, **{k: v or None for k, v in row.items()}},
+            previous = (
+                matches[0]["values"]
+                if len(matches) == 1 and not fixed_destination
+                else {}
             )
+            if reference is None:
+                entry = VocabularyCreate(
+                    **{**previous, **{k: v or None for k, v in row.items()}},
+                )
         except ValidationError as exc:
             errors = [
                 ".".join(map(str, e["loc"])) + ": " + e["msg"] for e in exc.errors()
@@ -296,7 +341,22 @@ def evaluate(db, rows, confirm, destination, collection):
                 "new shared cards or tags; import drafts into the legacy library."
             ]
         status = "error" if errors else "valid"
-        if not errors:
+        if not errors and reference is not None:
+            members = membership(target)
+            status = "duplicate" if reference.id in members else "updated"
+            if status == "updated":
+                members.add(reference.id)
+                changed_fields.append("collection_id")
+                if confirm:
+                    db.add(
+                        CollectionEntry(
+                            collection_id=target.id,
+                            entry_id=reference.id,
+                            position=positions[target.id],
+                        )
+                    )
+                    positions[target.id] += 1
+        elif not errors:
             pair = normalized_pair(entry.italian, entry.greek)
             matches = pairs.get(pair, [])
             values = entry.model_dump(exclude={"unit_id", "tag_ids", "visibility"})
@@ -305,6 +365,12 @@ def evaluate(db, rows, confirm, destination, collection):
                 {key: value for key, value in values.items() if key in row},
                 entry.word_type,
             )
+            if fixed_destination:
+                matches = [
+                    match
+                    for match in matches
+                    if match["values"] == values and match["tags"] == set(names)
+                ][:1]
             if len(matches) > 1:
                 status = "error"
                 errors = [
@@ -319,6 +385,8 @@ def evaluate(db, rows, confirm, destination, collection):
                 marker = (
                     current["entry"].id
                     if current and current["entry"]
+                    else ("new", pair, tuple(values.items()), tuple(sorted(names)))
+                    if fixed_destination
                     else ("new", pair)
                 )
                 if current:
@@ -346,7 +414,10 @@ def evaluate(db, rows, confirm, destination, collection):
                             else None,
                             "tags": set(names),
                         }
-                        pairs[pair] = [current]
+                        if fixed_destination:
+                            pairs.setdefault(pair, []).append(current)
+                        else:
+                            pairs[pair] = [current]
                     current["values"].update(supplied)
                     if "collection_provenance" in changed_fields:
                         current["source_collection_id"] = target.id
@@ -492,6 +563,33 @@ def import_router(sessions, gate):
                 raise HTTPException(422, "Choose a collection you own.")
         return destination_for_collection(db, collection_id, confirm)
 
+    def import_destination(
+        db, unit_id, collection_id, new_name, source, target, confirm
+    ):
+        if new_name is None:
+            return resolve_destination(db, unit_id, collection_id, confirm)
+        if unit_id is not None or collection_id is not None:
+            raise HTTPException(422, "Choose one destination.")
+        try:
+            body = CollectionBody(
+                name=new_name, source_language=source, target_language=target
+            )
+        except ValidationError:
+            raise HTTPException(
+                422, "Choose a valid collection name and language pair."
+            ) from None
+        if {body.source_language, body.target_language} != {"it", "el"}:
+            raise HTTPException(422, "CSV import requires an Italian–Greek collection.")
+        collection = Collection(
+            id=uuid4(),
+            title=body.name.strip(),
+            owner_account_id=current_account().id,
+            source_language=body.source_language,
+            target_language=body.target_language,
+            visibility="private",
+        )
+        return collection, collection
+
     @router.get("/example")
     def example():
         sample = json.loads(Path(__file__).with_name("csv_example.json").read_text())
@@ -509,18 +607,45 @@ def import_router(sessions, gate):
 
     @router.post("/preview", dependencies=[Depends(gate.check_csrf)])
     async def preview(
-        request: Request, unit_id: UUID | None = None, collection_id: UUID | None = None
+        request: Request,
+        unit_id: UUID | None = None,
+        collection_id: UUID | None = None,
+        fixed_destination: bool = False,
+        new_name: str | None = None,
+        source_language: str = "el",
+        target_language: str = "it",
     ):
         rows = await read_csv(request)
         with sessions() as db:
-            collection, destination = resolve_destination(
-                db, unit_id, collection_id, False
+            collection, destination = import_destination(
+                db,
+                unit_id,
+                collection_id,
+                new_name,
+                source_language,
+                target_language,
+                False,
             )
-            return evaluate(db, rows, False, destination, collection)
+            return evaluate(
+                db,
+                rows,
+                False,
+                destination,
+                collection,
+                fixed_destination=fixed_destination or new_name is not None,
+            )
 
     @router.post("/confirm", dependencies=[Depends(gate.check_csrf)])
     async def confirm(
-        request: Request, unit_id: UUID | None = None, collection_id: UUID | None = None
+        request: Request,
+        unit_id: UUID | None = None,
+        collection_id: UUID | None = None,
+        fixed_destination: bool = False,
+        new_name: str | None = None,
+        source_language: str = "el",
+        target_language: str = "it",
+        new_collection_id: UUID | None = None,
+        expected_valid: int | None = None,
     ):
         rows = await read_csv(request)
         with sessions.begin() as db:
@@ -532,9 +657,58 @@ def import_router(sessions, gate):
                     "IN SHARE ROW EXCLUSIVE MODE"
                 )
             )
-            collection, destination = resolve_destination(
-                db, unit_id, collection_id, True
+            collection, destination = import_destination(
+                db,
+                unit_id,
+                collection_id,
+                new_name,
+                source_language,
+                target_language,
+                True,
             )
-            return evaluate(db, rows, True, destination, collection)
+            fixed_destination = fixed_destination or new_name is not None
+            if new_collection_id is not None:
+                if new_name is None or expected_valid is None or expected_valid < 1:
+                    raise HTTPException(
+                        422, "Choose a new collection and preview the CSV."
+                    )
+                existing = db.get(Collection, new_collection_id)
+                if existing is not None:
+                    if (
+                        existing.owner_account_id != collection.owner_account_id
+                        or existing.visibility != "private"
+                        or existing.title != collection.title
+                        or existing.source_language != collection.source_language
+                        or existing.target_language != collection.target_language
+                    ):
+                        raise HTTPException(409, "Collection already exists.")
+                    report = evaluate(
+                        db, rows, False, existing, existing, fixed_destination=True
+                    )
+                    if (
+                        report["counts"]["valid"]
+                        or report["counts"]["duplicate"] < expected_valid
+                    ):
+                        raise HTTPException(409, "Preview the CSV again.")
+                    report["counts"]["valid"] = expected_valid
+                    return report
+                collection.id = new_collection_id
+            if new_name is not None:
+                db.add(collection)
+                db.flush()
+            report = evaluate(
+                db,
+                rows,
+                True,
+                destination,
+                collection,
+                fixed_destination=fixed_destination,
+            )
+            valid = report["counts"]["valid"]
+            if new_name is not None and not valid:
+                raise HTTPException(422, "No valid cards to import.")
+            if expected_valid is not None and expected_valid != valid:
+                raise HTTPException(409, "The cards changed. Preview the CSV again.")
+            return report
 
     return router

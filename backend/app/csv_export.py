@@ -37,17 +37,23 @@ COLUMNS = (
 )
 
 
-def export_library(entries, account_id):
+def export_library(entries, account_id, *, include_ids=False):
     output = io.StringIO(newline="")
     writer = csv.writer(output, quoting=csv.QUOTE_ALL)
-    writer.writerow(COLUMNS)
+    columns = (
+        (*COLUMNS, "entry_id", "source_language", "target_language")
+        if include_ids
+        else COLUMNS
+    )
+    writer.writerow(columns)
     for entry in entries:
         source = entry.source_collection
         if source is not None and source.owner_account_id != account_id:
             source = None
         values = {
-            **{field: getattr(entry, field, None) for field in COLUMNS},
+            **{field: getattr(entry, field, None) for field in columns},
             "csv_format": FORMAT_VERSION,
+            "entry_id": str(entry.id),
             "unit_code": source.source_unit_code if source else "",
             "unit_title": source.source_unit_title if source else "",
             "unit_sort_order": source.source_unit_sort_order if source else "",
@@ -56,5 +62,5 @@ def export_library(entries, account_id):
         for field in ("italian_gender", "greek_gender"):
             if values[field] == "common":
                 values[field] = None
-        writer.writerow(spreadsheet_text(values[field]) for field in COLUMNS)
+        writer.writerow(spreadsheet_text(values[field]) for field in columns)
     return output.getvalue().encode("utf-8-sig")

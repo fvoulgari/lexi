@@ -59,7 +59,7 @@ def test_export_full_library_with_unicode_and_metadata(logged_in):
             "pronunciation": "perˈke",
         },
     ).json()["entry"]
-    response = logged_in.get("/api/vocabulary/export.csv?q=missing&page_size=1")
+    response = logged_in.get("/api/vocabulary/export.csv?page_size=1")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
     assert "attachment;" in response.headers["content-disposition"]

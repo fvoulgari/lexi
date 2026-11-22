@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { request } from "./api.js";
-import { collectionCopy } from "./collection-copy.js";
+import {
+  collectionCopy,
+  collectionLabel,
+  isMyCollection,
+} from "./collection-copy.js";
 
 export default function Collections({
   collections,
@@ -14,7 +18,6 @@ export default function Collections({
 }) {
   const client = useQueryClient();
   const t = collectionCopy[language];
-  const [expanded, setExpanded] = useState(false);
   const [mode, setMode] = useState(null);
   const [name, setName] = useState("");
   const [isPublic, setPublic] = useState(false);
@@ -30,6 +33,7 @@ export default function Collections({
         [c.source_language, c.target_language].sort().join() === "el,it"),
   );
   const current = owned?.find((item) => item.id === selected);
+  const available = collections.data?.filter(isMyCollection);
 
   const action = useMutation({
     mutationFn: ({ path = "", method = "POST", body }) =>
@@ -122,13 +126,8 @@ export default function Collections({
   }
 
   return (
-    <details
-      className="collection-panel"
-      onToggle={(event) => setExpanded(event.currentTarget.open)}
-    >
-      <summary>{t.mine}</summary>
-      <div className="collection-panel-content" hidden={!expanded}>
-        {collections.isPending && <p role="status">{t.loading}</p>}
+    <div className="collection-controls">
+      <div className="collection-panel-content">
         {collections.isError && (
           <div className="form-actions">
             <p role="alert">{text.actionFailed}</p>
@@ -138,37 +137,31 @@ export default function Collections({
           </div>
         )}
         <div className="collection-panel-toolbar">
-          <label className="sr-only" htmlFor="collection-filter">
-            {t.mine}
-          </label>
-          <select
-            ref={selector}
-            id="collection-filter"
-            value={current?.id ?? ""}
-            disabled={action.isPending || !owned}
-            onChange={(event) => {
-              setMode(null);
-              setPreview(null);
-              setNotice("");
-              action.reset();
-              onSelect(event.target.value);
-            }}
-          >
-            <option value="">{text.allCollections}</option>
-            {owned?.map((collection) => {
-              const count =
-                collection.card_count ?? collection.entry_ids?.length ?? 0;
-              return (
+          <label className="collection-field">
+            {t.collection}
+            <select
+              className="collection-select"
+              ref={selector}
+              value={selected}
+              disabled={action.isPending || !available}
+              onChange={(event) => {
+                setMode(null);
+                setPreview(null);
+                setNotice("");
+                action.reset();
+                onSelect(event.target.value);
+              }}
+            >
+              <option value="">{t.allAccessible}</option>
+              {available?.map((collection) => (
                 <option value={collection.id} key={collection.id}>
-                  {collection.name} · {count}{" "}
-                  {count === 1 ? t.oneCard : t.cards} ·{" "}
-                  {t[collection.visibility ?? "private"]}
+                  {collectionLabel(collection, t)}
                 </option>
-              );
-            })}
-          </select>
+              ))}
+            </select>
+          </label>
           <button
-            className="primary"
+            className="secondary"
             disabled={action.isPending}
             onClick={(event) => open("create", event)}
           >
@@ -206,16 +199,12 @@ export default function Collections({
                 type="checkbox"
                 role="switch"
                 aria-label={t.published}
-                aria-describedby="collection-visibility-help"
                 checked={isPublic}
                 disabled={action.isPending}
                 onChange={(event) => setPublic(event.target.checked)}
               />
               {t.published}
             </div>
-            <p id="collection-visibility-help">
-              {isPublic ? t.visibleToLearners : t.onlyYou}
-            </p>
             <div className="form-actions">
               <button
                 className="primary"
@@ -231,6 +220,16 @@ export default function Collections({
               >
                 {t.cancel}
               </button>
+              {mode === "edit" && (
+                <button
+                  type="button"
+                  className="collection-delete-link"
+                  disabled={action.isPending}
+                  onClick={(event) => open("delete", event)}
+                >
+                  {text.deleteCollection}
+                </button>
+              )}
             </div>
           </form>
         )}
@@ -298,15 +297,6 @@ export default function Collections({
           </div>
         )}
 
-        {current && !mode && (
-          <button
-            className="collection-delete-link"
-            disabled={action.isPending}
-            onClick={(event) => open("delete", event)}
-          >
-            {text.deleteCollection}
-          </button>
-        )}
         {current && mode === "delete" && (
           <div className="collection-panel-form">
             <h3>
@@ -343,7 +333,7 @@ export default function Collections({
           <p role="status">{action.isPending ? t.loading : notice}</p>
         )}
       </div>
-    </details>
+    </div>
   );
 }
 
@@ -404,7 +394,10 @@ export function CollectionMembership({
           </select>
         </label>
       )}
-      {selected && (
+      {collections.some(
+        (collection) =>
+          collection.id === selected && collection.can_edit !== false,
+      ) && (
         <button
           className="secondary"
           disabled={action.isPending}

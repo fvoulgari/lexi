@@ -14,6 +14,7 @@ import {
 } from "vitest";
 import App from "./App.jsx";
 import { copy } from "./copy.js";
+import { collectionCopy } from "./collection-copy.js";
 
 const server = setupServer(
   http.get("*/api/collections", () => HttpResponse.json([])),
@@ -68,12 +69,19 @@ test.each(["el", "en", "it"])(
     expect(
       await screen.findByRole("heading", { name: text.empty }),
     ).toBeVisible();
-    expect(screen.getByLabelText(text.csvFile)).not.toBeVisible();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: text.toolsImport }));
-    expect(screen.getByLabelText(text.csvFile)).toBeVisible();
+    expect(
+      screen.getByLabelText(collectionCopy[language].chooseCsv),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: text.csvPreview }),
     ).toBeDisabled();
+    await user.click(
+      within(screen.getByRole("dialog")).getAllByRole("button", {
+        name: text.cancel,
+      })[0],
+    );
     await user.click(screen.getByRole("button", { name: text.addEntry }));
     expect(screen.getByLabelText(`${text.fields.italian} *`)).toHaveFocus();
     expect(screen.getByLabelText(`${text.fields.greek} *`)).toBeRequired();

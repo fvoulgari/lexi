@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -13,6 +13,7 @@ import {
   expect,
 } from "vitest";
 import App from "./App.jsx";
+import Practice from "./Practice.jsx";
 import { copy } from "./copy.js";
 let saves;
 let fail;
@@ -1258,4 +1259,50 @@ test("failed review preserves the card for an identical retry", async () => {
     await screen.findByRole("heading", { name: copy.en.sessionSummary }),
   ).toBeVisible();
   expect(saves).toEqual([{ direction: "greek_to_italian", rating: "hard" }]);
+});
+
+test("practice labels saved public Collections and drops a withdrawn selection", async () => {
+  const saved = {
+    id: "saved",
+    name: "Greetings",
+    can_edit: false,
+    saved: true,
+    visibility: "published",
+    owner_name: "Alba",
+  };
+  const discoverable = { ...saved, id: "other", name: "Other", saved: false };
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  server.use(
+    http.get("*/api/collections", () =>
+      HttpResponse.json([saved, discoverable]),
+    ),
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <Practice text={copy.en} csrf="csrf" onLocked={() => {}} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("radio", { name: "With filters", exact: true }),
+  );
+  const selection = await screen.findByRole("checkbox", {
+    name: "Greetings · By Alba",
+  });
+  expect(
+    screen.queryByRole("checkbox", { name: "Other · By Alba" }),
+  ).toBeNull();
+  await user.click(selection);
+  expect(selection).toBeChecked();
+  act(() => client.setQueryData(["collections"], [discoverable]));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("checkbox", { name: "Greetings · By Alba" }),
+    ).toBeNull(),
+  );
+  expect(screen.getByRole("button", { name: "Start practice" })).toBeDisabled();
 });

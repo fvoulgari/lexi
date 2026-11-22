@@ -1,32 +1,46 @@
-import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { beforeAll, afterAll, afterEach, test, expect } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import Library from "./Library.jsx";
-import csvExample from "../../backend/app/csv_example.json";
 import { copy } from "./copy.js";
-const report = {
-  counts: { imported: 0, valid: 1, skipped: 1, duplicate: 0, error: 1 },
-  proposed_units: [{ code: "07", title: "Domande", sort_order: 0 }],
-  proposed_tags: ["questions"],
+import { collectionCopy } from "./collection-copy.js";
+
+const owned = {
+  id: "mine",
+  name: "Mine",
+  visibility: "private",
+  can_edit: true,
+  source_language: "el",
+  target_language: "it",
+};
+const shared = {
+  ...owned,
+  id: "shared",
+  name: "Shared",
+  visibility: "published",
+  can_edit: false,
+  saved: true,
+  owner_name: "Alba",
+};
+const published = {
+  ...owned,
+  id: "published",
+  name: "Published",
+  visibility: "published",
+};
+const existing = [owned, shared, published];
+const sample = "italian,greek,word_type\nandare,πηγαίνω,verb";
+const file = new File([sample], "cards.csv", { type: "text/csv" });
+const result = {
+  counts: { imported: 1, valid: 1, duplicate: 1, error: 1 },
   rows: [
+    { row: 2, italian: "andare", greek: "πηγαίνω", status: "valid" },
+    { row: 3, italian: "andare", greek: "πηγαίνω", status: "duplicate" },
     {
-      row: 2,
-      italian: "il perché",
-      greek: "το γιατί",
-      status: "valid",
-      entry: {
-        word_type: "noun",
-        italian_gender: "masculine",
-        pronunciation: "perˈke",
-      },
-      errors: [],
-    },
-    {
-      row: 3,
+      row: 4,
       italian: "bad",
       greek: "",
       status: "error",
@@ -35,402 +49,151 @@ const report = {
   ],
 };
 const server = setupServer(
-  http.get("*/api/collections", () =>
-    HttpResponse.json([
-      {
-        id: "u",
-        name: "Domande",
-        can_edit: true,
-        visibility: "private",
-        source_language: "it",
-        target_language: "el",
-      },
-    ]),
-  ),
-  http.patch("*/api/account", async ({ request }) =>
-    HttpResponse.json(await request.json()),
-  ),
-  http.get("*/api/profiles", () => HttpResponse.json([])),
-  http.get("*/api/units", () =>
-    HttpResponse.json([{ id: "u", code: "07", title: "Domande" }]),
-  ),
-  http.get("*/api/tags", () => HttpResponse.json([])),
+  http.get("*/api/collections", () => HttpResponse.json(existing)),
   http.get("*/api/vocabulary", () =>
     HttpResponse.json({ items: [], total: 0 }),
   ),
-  http.post("*/api/imports/preview", async ({ request }) => {
-    expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
-    expect(await request.text()).toContain("το γιατί");
-    return HttpResponse.json(report);
-  }),
-  http.post("*/api/imports/confirm", () =>
-    HttpResponse.json({
-      ...report,
-      counts: { ...report.counts, imported: 1 },
-    }),
-  ),
+  http.get("*/api/tags", () => HttpResponse.json([])),
 );
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterAll(() => server.close());
 afterEach(() => server.resetHandlers());
-test("upload previews rows and proposed metadata before explicit confirmation", async () => {
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <MemoryRouter>
-        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Import CSV" }));
-  await user.upload(
-    screen.getByLabelText("CSV file"),
-    new File(
-      ["italian,greek,word_type\nil perché,το γιατί,noun\n"],
-      "vocabulary.csv",
-      { type: "text/csv" },
-    ),
-  );
-  expect(
-    screen.queryByRole("button", { name: "Import 1 card" }),
-  ).not.toBeInTheDocument();
-  await user.selectOptions(screen.getByLabelText("Import destination"), "u");
-  await user.click(screen.getByRole("button", { name: "Preview" }));
-  expect(await screen.findByText("greek: required")).toBeInTheDocument();
-  expect(
-    screen.getByRole("combobox", { name: "Import destination" }),
-  ).toHaveValue("u");
-  expect(screen.getByText("questions")).toBeInTheDocument();
-  await user.click(screen.getByText("Card details"));
-  expect(screen.getByText("Italian gender")).toBeInTheDocument();
-  expect(screen.getByText("Italian pronunciation")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Import 1 card" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
-  await user.click(screen.getByRole("button", { name: "Import CSV" }));
-  expect(screen.getByRole("status", { hidden: true })).not.toBeVisible();
-  await user.click(screen.getByRole("button", { name: "Import CSV" }));
-  expect(screen.getByRole("status")).toHaveTextContent("Imported: 1");
-  expect(
-    screen.queryByRole("button", { name: "Import 1 card" }),
-  ).not.toBeInTheDocument();
-});
 
-test("failed confirmation retains preview for retry and changing file clears it", async () => {
-  server.use(http.post("*/api/imports/confirm", () => HttpResponse.error()));
+function openLibrary(language = "en") {
   render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <MemoryRouter>
-        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
-      </MemoryRouter>
+      <Library
+        text={copy[language]}
+        language={language}
+        csrf="csrf"
+        onLocked={() => {}}
+      />
     </QueryClientProvider>,
   );
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Import CSV" }));
-  const file = new File(
-    ["italian,greek,word_type\nil perché,το γιατί,noun\n"],
-    "test.csv",
-    { type: "text/csv" },
-  );
-  await user.upload(screen.getByLabelText("CSV file"), file);
-  await user.selectOptions(screen.getByLabelText("Import destination"), "u");
-  await user.click(screen.getByRole("button", { name: "Preview" }));
+  return userEvent.setup();
+}
+
+async function openImport(user, language = "en") {
   await user.click(
-    await screen.findByRole("button", { name: "Import 1 card" }),
+    screen.getByRole("button", { name: copy[language].toolsImport }),
   );
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Check your connection",
+  return within(
+    screen.getByRole("dialog", { name: copy[language].toolsImport }),
   );
-  await user.click(screen.getByRole("button", { name: "Open preview" }));
-  expect(screen.getByRole("button", { name: "Import 1 card" })).toBeEnabled();
-  await user.upload(
-    screen.getByLabelText("CSV file"),
-    new File(["new"], "new.csv", { type: "text/csv" }),
+}
+
+test("preselects only an owned, editable private destination", async () => {
+  const user = openLibrary();
+  const scope = screen.getByRole("combobox", { name: "Collection" });
+  await screen.findByRole("option", { name: "Mine" });
+  await user.selectOptions(scope, "mine");
+  const dialog = await openImport(user);
+  expect(dialog.getByRole("combobox", { name: "Collection" })).toHaveValue(
+    "mine",
   );
+  expect(dialog.queryByRole("option", { name: "Shared" })).toBeNull();
+  expect(dialog.queryByRole("option", { name: "Published" })).toBeNull();
+  await user.click(dialog.getAllByRole("button", { name: copy.en.cancel })[0]);
+  await user.selectOptions(scope, "shared");
   expect(
-    screen.queryByRole("button", { name: "Import 1 card" }),
-  ).not.toBeInTheDocument();
+    screen.getByRole("option", { name: "Shared · By Alba" }).selected,
+  ).toBe(true);
+  expect(screen.getByRole("button", { name: copy.en.addEntry })).toBeDisabled();
+  const next = await openImport(user);
+  expect(next.getByRole("combobox", { name: "Collection" })).toHaveValue("");
+  expect(next.getByRole("button", { name: copy.en.csvPreview })).toBeDisabled();
+  await user.click(next.getAllByRole("button", { name: copy.en.cancel })[0]);
+  await user.selectOptions(scope, "");
+  await user.click(screen.getByRole("button", { name: copy.en.addEntry }));
+  const form = within(screen.getByRole("form", { name: copy.en.addEntry }));
+  expect(form.queryByRole("option", { name: /Shared/ })).toBeNull();
 });
 
-test("interface language changes retain the file and preview", async () => {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  const view = (text) => (
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <Library text={text} csrf="csrf" onLocked={() => {}} />
-      </MemoryRouter>
-    </QueryClientProvider>
-  );
-  const rendered = render(view(copy.en));
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Import CSV" }));
-  await user.upload(
-    screen.getByLabelText("CSV file"),
-    new File(
-      ["italian,greek,word_type\nil perché,το γιατί,noun\n"],
-      "test.csv",
-      { type: "text/csv" },
-    ),
-  );
-  await user.selectOptions(screen.getByLabelText("Import destination"), "u");
-  await user.click(screen.getByRole("button", { name: "Preview" }));
-  await screen.findByRole("button", { name: "Import 1 card" });
-  rendered.rerender(view(copy.el));
-  expect(
-    screen.getByRole("button", { name: "Εισαγωγή 1 κάρτας" }),
-  ).toBeEnabled();
-  expect(screen.getByLabelText("Αρχείο CSV").files[0].name).toBe("test.csv");
-  rendered.rerender(view(copy.it));
-  expect(
-    screen.getByRole("button", { name: "Importa 1 scheda" }),
-  ).toBeEnabled();
-});
-
-test.each(["success", "error"])(
-  "a pending preview reopens the panel on %s",
-  async (outcome) => {
-    let finish;
-    const pending = new Promise((resolve) => {
-      finish = resolve;
-    });
-    server.use(
-      http.post("*/api/imports/preview", async () => {
-        await pending;
-        return outcome === "success"
-          ? HttpResponse.json(report)
-          : HttpResponse.json(
-              { error: { code: "invalid_csv", message: "Invalid row" } },
-              { status: 422 },
-            );
-      }),
-    );
-    render(
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <MemoryRouter>
-          <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    const user = userEvent.setup();
-    const toggle = screen.getByRole("button", { name: "Import CSV" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    const panel = document.getElementById(toggle.getAttribute("aria-controls"));
-    expect(panel).not.toBeVisible();
-    await user.click(toggle);
-    expect(
-      screen.getByText("CSV format and requirements").closest("details"),
-    ).not.toHaveAttribute("open");
-    expect(screen.getByRole("button", { name: "Preview" })).toBeDisabled();
-    const file = new File(
-      ["italian,greek,word_type\nil perché,το γιατί,noun\n"],
-      "pending.csv",
-      { type: "text/csv" },
-    );
-    await user.upload(screen.getByLabelText("CSV file"), file);
-    await user.selectOptions(screen.getByLabelText("Import destination"), "u");
-    await user.click(screen.getByRole("button", { name: "Preview" }));
-    await user.click(toggle);
-    expect(panel).not.toBeVisible();
-    finish();
-    if (outcome === "success") {
-      expect(
-        await screen.findByRole("button", { name: "Import 1 card" }),
-      ).toBeVisible();
-      await waitFor(() =>
-        expect(
-          screen.getByRole("heading", { name: "Import preview" }),
-        ).toHaveFocus(),
-      );
-    } else {
-      expect(await screen.findByRole("alert")).toHaveTextContent("Invalid row");
-    }
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(panel).toBeVisible();
-    expect(screen.getByLabelText("CSV file").files[0]).toBe(file);
-  },
-);
-
-test.each(["el", "en", "it"])(
-  "inline CSV example toggles without changing headers or selected file in %s",
-  async (language) => {
-    const text = copy[language];
-    render(
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <MemoryRouter>
-          <Library text={text} csrf="csrf" onLocked={() => {}} />
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: text.toolsImport }));
-    const toggle = screen.getByRole("button", { name: text.csvViewExample });
-    const example = document.getElementById(
-      toggle.getAttribute("aria-controls"),
-    );
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(example).not.toBeVisible();
-    const file = new File(
-      ["italian,greek,word_type\ncasa,σπίτι,noun"],
-      "cards.csv",
-      { type: "text/csv" },
-    );
-    await user.upload(screen.getByLabelText(text.csvFile), file);
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(example).toBeVisible();
-    const { within } = await import("@testing-library/react");
-    const table = within(example).getByRole("table");
-    expect(
-      within(table)
-        .getAllByRole("columnheader")
-        .map((cell) => cell.textContent),
-    ).toEqual(csvExample.headers);
-    expect(
-      within(table)
-        .getAllByRole("cell")
-        .map((cell) => cell.textContent),
-    ).toEqual(csvExample.rows.flat());
-    expect(screen.getByRole("link", { name: text.csvExample })).toHaveAttribute(
-      "href",
-      "/api/imports/example",
-    );
-    expect(screen.getByRole("link", { name: text.csvExample })).toHaveAttribute(
-      "download",
-    );
-    await user.click(toggle);
-    expect(example).not.toBeVisible();
-    expect(screen.getByLabelText(text.csvFile).files[0]).toBe(file);
-  },
-);
-
-test("CSV destination conflicts are visible without any profile assignment", async () => {
-  localStorage.setItem("notebook-profile", "f");
+test("keeps the file and preview when changing destinations, then selects each new Collection", async () => {
+  const created = [];
+  const received = [];
   server.use(
-    http.get("*/api/profiles", () =>
-      HttpResponse.json([
-        { id: "f", display_name: "Foteini", practice_unit_ids: [] },
-      ]),
+    http.get("*/api/collections", () =>
+      HttpResponse.json([...existing, ...created]),
     ),
-    http.post("*/api/imports/preview", ({ request }) => {
-      expect(new URL(request.url).searchParams.get("collection_id")).toBe("u");
+    http.post("*/api/imports/preview", async ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      expect(params.get("fixed_destination")).toBe("true");
+      expect(await request.text()).toBe(sample);
+      return HttpResponse.json(result);
+    }),
+    http.post("*/api/imports/confirm", async ({ request }) => {
+      const params = new URL(request.url).searchParams;
+      expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
+      expect(await request.text()).toBe(sample);
+      const name = params.get("new_name");
+      received.push(name);
+      created.push({ ...owned, id: name, name, card_count: 1 });
       return HttpResponse.json({
-        ...report,
-        destination_collection: { id: "u", name: "Domande" },
-        unit_conflicts: 1,
+        ...result,
+        destination_collection: { id: name, name },
       });
     }),
   );
-  render(
-    <MemoryRouter>
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
-        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
-      </QueryClientProvider>
-    </MemoryRouter>,
-  );
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Import CSV" }));
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "Import destination" }),
-    "u",
-  );
-  await user.upload(
-    screen.getByLabelText("CSV file"),
-    new File(["italian,greek,word_type\ncasa,σπίτι,noun\n"], "cards.csv", {
-      type: "text/csv",
-    }),
-  );
-  await user.click(screen.getByRole("button", { name: "Preview" }));
-  expect(await screen.findByText(copy.en.csvUnitConflict)).toBeInTheDocument();
-  expect(
-    screen.getByText("Domande", { selector: "strong" }),
-  ).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Import 1 card" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Imported: 1");
-  expect(
-    screen.queryByRole("button", { name: /Enable this unit/ }),
-  ).not.toBeInTheDocument();
-  localStorage.removeItem("notebook-profile");
+  const user = openLibrary();
+  for (const name of ["Lezione 01", "Verbi"]) {
+    const dialog = await openImport(user);
+    await user.upload(dialog.getByLabelText("Choose CSV file"), file);
+    await user.selectOptions(
+      await dialog.findByRole("combobox", { name: "Collection" }),
+      "mine",
+    );
+    await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
+    await dialog.findByRole("button", { name: "Import 1 card into Mine" });
+    await user.click(dialog.getByRole("radio", { name: "New collection" }));
+    expect(dialog.getByText("cards.csv")).toBeInTheDocument();
+    expect(
+      dialog.getByRole("button", { name: "Duplicates (1)" }),
+    ).toBeInTheDocument();
+    await user.type(
+      dialog.getByRole("textbox", { name: "Collection name" }),
+      name,
+    );
+    const confirm = await dialog.findByRole("button", {
+      name: `Import 1 card into ${name}`,
+    });
+    expect(dialog.getByText("Private")).toBeInTheDocument();
+    expect(
+      dialog.getByRole("button", { name: `${copy.en.csvErrorRows} (1)` }),
+    ).toBeInTheDocument();
+    await user.dblClick(confirm);
+    await screen.findByRole("heading", { name, exact: true });
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Collection" })).toHaveValue(
+        name,
+      ),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      `Imported into ${name}`,
+    );
+  }
+  expect(received).toEqual(["Lezione 01", "Verbi"]);
 });
 
-test("an update-only CSV shows changed fields and can be confirmed", async () => {
-  const updates = {
-    ...report,
-    counts: {
-      imported: 0,
-      updated: 1,
-      valid: 1,
-      skipped: 0,
-      duplicate: 0,
-      error: 0,
-    },
-    rows: [
-      {
-        ...report.rows[0],
-        status: "updated",
-        changed_fields: ["pronunciation"],
-      },
-    ],
-  };
-  server.use(
-    http.post("*/api/imports/preview", () => HttpResponse.json(updates)),
-    http.post("*/api/imports/confirm", () => HttpResponse.json(updates)),
-  );
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <MemoryRouter>
-        <Library text={copy.en} csrf="csrf" onLocked={() => {}} />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Import CSV" }));
-  await user.upload(
-    screen.getByLabelText("CSV file"),
-    new File(
-      [
-        "italian,greek,word_type,pronunciation\nil perché,το γιατί,noun,perˈke\n",
-      ],
-      "updates.csv",
-      { type: "text/csv" },
-    ),
-  );
-  await user.selectOptions(
-    await screen.findByLabelText("Import destination"),
-    "u",
-  );
-  await user.click(screen.getByRole("button", { name: "Preview" }));
-  expect(
-    await screen.findByText("Changed fields: Italian pronunciation"),
-  ).toBeInTheDocument();
-  expect(screen.queryByText(/Imported:/)).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Import 1 card" })).toBeEnabled();
-  await user.click(screen.getByRole("button", { name: "Import 1 card" }));
-  expect(await screen.findByRole("status")).toHaveTextContent(
-    "Imported: 0 · Updated: 1",
-  );
-});
+test.each(["el", "it"])(
+  "localizes the upload and destination controls in %s",
+  async (language) => {
+    const user = openLibrary(language);
+    const dialog = await openImport(user, language);
+    const text = collectionCopy[language];
+    expect(dialog.getByLabelText(text.chooseCsv)).toHaveAttribute(
+      "type",
+      "file",
+    );
+    expect(
+      dialog.getByRole("option", { name: text.chooseCollection }),
+    ).toBeInTheDocument();
+    await user.click(dialog.getByRole("radio", { name: text.newCollection }));
+    expect(dialog.getByLabelText(text.name)).toBeInTheDocument();
+    expect(dialog.getByLabelText(text.sourceLanguage)).toBeInTheDocument();
+  },
+);

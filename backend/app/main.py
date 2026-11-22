@@ -1,6 +1,7 @@
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -179,6 +180,16 @@ def create_app():
     app.post("/api/auth/logout")(gate.logout)
     app.post("/api/auth/logout-all")(gate.logout_all)
 
+    def collection_membership(db, collection_id):
+        collection = db.get(Collection, collection_id)
+        if collection is None:
+            raise HTTPException(404, "Collection not found.")
+        return collection, VocabularyEntry.id.in_(
+            select(CollectionEntry.entry_id).where(
+                CollectionEntry.collection_id == collection_id
+            )
+        )
+
     @app.get(
         "/api/vocabulary",
         response_model=VocabularyPage,
@@ -194,25 +205,20 @@ def create_app():
         tag_ids: list[UUID] = Query(default=[]),
         collection_id: UUID | None = None,
         archived: bool = False,
+        all_languages: bool = False,
     ):
         conditions = vocabulary_conditions(q, unit_ids, no_unit, word_types, tag_ids)
-        conditions.extend(
-            [
-                VocabularyEntry.source_language == "it",
-                VocabularyEntry.target_language == "el",
-            ]
-        )
+        if not all_languages:
+            conditions.extend(
+                [
+                    VocabularyEntry.source_language == "it",
+                    VocabularyEntry.target_language == "el",
+                ]
+            )
         with sessions() as db:
             if collection_id is not None:
-                if db.get(Collection, collection_id) is None:
-                    raise HTTPException(404, "Collection not found.")
-                conditions.append(
-                    VocabularyEntry.id.in_(
-                        select(CollectionEntry.entry_id).where(
-                            CollectionEntry.collection_id == collection_id
-                        )
-                    )
-                )
+                _, membership = collection_membership(db, collection_id)
+                conditions.append(membership)
             if archived:
                 conditions.append(VocabularyEntry.archived_at.is_not(None))
             total = db.scalar(
@@ -241,21 +247,38 @@ def create_app():
         dependencies=[Depends(gate.require)],
         response_class=Response,
     )
-    def export_vocabulary():
+    def export_vocabulary(
+        collection_id: UUID | None = None,
+        q: str = Query("", max_length=500),
+        word_types: list[WordType] = Query(default=[]),
+        tag_ids: list[UUID] = Query(default=[]),
+        include_ids: bool = False,
+        archived: bool = False,
+    ):
+        conditions = vocabulary_conditions(q, [], False, word_types, tag_ids)
+        if archived:
+            conditions.append(VocabularyEntry.archived_at.is_not(None))
         with sessions() as db:
+            filename = "italian-notebook.csv"
+            if collection_id is not None:
+                collection, membership = collection_membership(db, collection_id)
+                conditions.append(membership)
+                filename = f"{collection.title}.csv"
             entries = db.scalars(
                 select(VocabularyEntry)
-                .where(
-                    VocabularyEntry.source_language == "it",
-                    VocabularyEntry.target_language == "el",
-                )
+                .where(*conditions)
+                .execution_options(include_archived=archived)
                 .order_by(VocabularyEntry.italian, VocabularyEntry.id)
             ).all()
             return Response(
-                export_library(entries, current_account().id),
+                export_library(entries, current_account().id, include_ids=include_ids),
                 media_type="text/csv; charset=utf-8",
                 headers={
-                    "Content-Disposition": 'attachment; filename="italian-notebook.csv"'
+                    "Content-Disposition": (
+                        f"attachment; filename*=UTF-8''{quote(filename, safe='')}"
+                        if collection_id is not None
+                        else 'attachment; filename="italian-notebook.csv"'
+                    )
                 },
             )
 

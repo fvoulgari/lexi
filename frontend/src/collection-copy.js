@@ -1,5 +1,20 @@
 export const collectionCopy = {
   en: {
+    saveReference: "Add to my collections",
+    removeReference: "Remove from my collections",
+    saved: "Saved",
+    owner: "By {name}",
+    sourceLanguage: "Source language",
+    targetLanguage: "Target language",
+    collection: "Collection",
+    allAccessible: "All accessible cards",
+    filteredResults: "Current filtered results",
+    existingCollection: "Existing collection",
+    chooseCollection: "Choose collection",
+    chooseCsv: "Choose CSV file",
+    importOne: "Import {count} card into {name}",
+    importMany: "Import {count} cards into {name}",
+    importedInto: "Imported into {name}",
     newCollection: "New collection",
     oneCard: "card",
     onlyYou: "Only you",
@@ -44,7 +59,8 @@ export const collectionCopy = {
     publish: "Publish collection",
     unpublish: "Unpublish collection",
     confirm: "Confirm publication",
-    publishExposure: "Publishing makes these private cards visible to all signed-in learners.",
+    publishExposure:
+      "Publishing makes these private cards visible to all signed-in learners.",
     exposure:
       "These private cards will become visible to all signed-in learners. Their creator keeps editing rights. This confirms sharing through this collection only. Access ends when its last confirmed publication in a collection owned by the card creator is removed.",
     none: "No additional private cards will be shared by this collection.",
@@ -75,6 +91,21 @@ export const collectionCopy = {
     loading: "Loading…",
   },
   el: {
+    saveReference: "Προσθήκη στις συλλογές μου",
+    removeReference: "Αφαίρεση από τις συλλογές μου",
+    saved: "Αποθηκευμένη",
+    owner: "Από {name}",
+    sourceLanguage: "Γλώσσα προέλευσης",
+    targetLanguage: "Γλώσσα στόχου",
+    collection: "Συλλογή",
+    allAccessible: "Όλες οι προσβάσιμες κάρτες",
+    filteredResults: "Τρέχοντα φιλτραρισμένα αποτελέσματα",
+    existingCollection: "Υπάρχουσα συλλογή",
+    chooseCollection: "Επίλεξε συλλογή",
+    chooseCsv: "Επίλεξε αρχείο CSV",
+    importOne: "Εισαγωγή {count} κάρτας στη συλλογή {name}",
+    importMany: "Εισαγωγή {count} καρτών στη συλλογή {name}",
+    importedInto: "Η εισαγωγή στη συλλογή {name} ολοκληρώθηκε",
     newCollection: "Νέα συλλογή",
     oneCard: "κάρτα",
     onlyYou: "Μόνο εσύ",
@@ -121,7 +152,8 @@ export const collectionCopy = {
     publish: "Δημοσίευση συλλογής",
     unpublish: "Απόσυρση συλλογής",
     confirm: "Επιβεβαίωση δημοσίευσης",
-    publishExposure: "Με τη δημοσίευση, αυτές οι ιδιωτικές κάρτες γίνονται ορατές σε όλους τους συνδεδεμένους μαθητές.",
+    publishExposure:
+      "Με τη δημοσίευση, αυτές οι ιδιωτικές κάρτες γίνονται ορατές σε όλους τους συνδεδεμένους μαθητές.",
     exposure:
       "Αυτές οι ιδιωτικές κάρτες θα είναι ορατές σε όλους τους συνδεδεμένους μαθητές. Ο δημιουργός διατηρεί την επεξεργασία. Η επιβεβαίωση ισχύει μόνο για αυτή τη συλλογή. Η πρόσβαση λήγει όταν αφαιρεθεί η τελευταία επιβεβαιωμένη δημοσίευση σε συλλογή του δημιουργού της κάρτας.",
     none: "Δεν θα κοινοποιηθούν επιπλέον ιδιωτικές κάρτες μέσω αυτής της συλλογής.",
@@ -152,6 +184,21 @@ export const collectionCopy = {
     loading: "Φόρτωση…",
   },
   it: {
+    saveReference: "Aggiungi alle mie raccolte",
+    removeReference: "Rimuovi dalle mie raccolte",
+    saved: "Salvata",
+    owner: "Di {name}",
+    sourceLanguage: "Lingua di partenza",
+    targetLanguage: "Lingua di arrivo",
+    collection: "Raccolta",
+    allAccessible: "Tutte le schede accessibili",
+    filteredResults: "Risultati filtrati attuali",
+    existingCollection: "Raccolta esistente",
+    chooseCollection: "Scegli una raccolta",
+    chooseCsv: "Scegli un file CSV",
+    importOne: "Importa {count} scheda in {name}",
+    importMany: "Importa {count} schede in {name}",
+    importedInto: "Importazione in {name} completata",
     newCollection: "Nuova raccolta",
     oneCard: "scheda",
     onlyYou: "Solo tu",
@@ -197,7 +244,8 @@ export const collectionCopy = {
     publish: "Pubblica raccolta",
     unpublish: "Ritira raccolta",
     confirm: "Conferma pubblicazione",
-    publishExposure: "La pubblicazione rende queste schede private visibili a tutti gli studenti autenticati.",
+    publishExposure:
+      "La pubblicazione rende queste schede private visibili a tutti gli studenti autenticati.",
     exposure:
       "Queste schede private saranno visibili a tutti gli studenti autenticati. Il creatore mantiene il diritto di modifica. La conferma vale solo per questa raccolta. L’accesso termina quando viene rimossa l’ultima pubblicazione confermata in una raccolta del creatore della scheda.",
     none: "Nessuna ulteriore scheda privata sarà condivisa da questa raccolta.",
@@ -230,3 +278,21 @@ export const collectionCopy = {
     loading: "Caricamento…",
   },
 };
+
+export function isMyCollection(collection) {
+  return (
+    collection.can_edit !== false ||
+    (collection.saved && collection.visibility === "published")
+  );
+}
+
+export function collectionOwner(collection, text) {
+  return collection.owner_name
+    ? text.owner.replace("{name}", () => collection.owner_name)
+    : "";
+}
+
+export function collectionLabel(collection, text) {
+  const owner = collectionOwner(collection, text);
+  return owner ? `${collection.name} · ${owner}` : collection.name;
+}

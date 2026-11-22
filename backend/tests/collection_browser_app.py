@@ -25,7 +25,7 @@ def factory():
         def get_user_id(self):
             return self.subject
 
-    async def session(self, request, required=True):
+    async def session(self, request, required=True, enforce_claims=None):
         subject = request.cookies.get("collection_test_user")
         if not subject and required:
             raise HTTPException(401, "Synthetic session required.")
@@ -43,5 +43,5 @@ def factory():
     AuthGate._verified = verified
     AuthGate.check_csrf = csrf
     app = create_app()
-    app.state.gate.ready = True
+    app.state.auth_gate.ready = True
     return app

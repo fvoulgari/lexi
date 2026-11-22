@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
   Plus,
-  SlidersHorizontal,
   Upload,
   Download,
 } from "lucide-react";
@@ -14,19 +13,27 @@ import Collections, { CollectionMembership } from "./Collections.jsx";
 import BulkVocabularyActions from "./BulkVocabularyActions.jsx";
 import CardActions from "./CardActions.jsx";
 import Import from "./Import.jsx";
+import CsvDialog from "./CsvDialog.jsx";
 import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
-import { collectionCopy } from "./collection-copy.js";
+import {
+  collectionCopy,
+  collectionOwner,
+  isMyCollection,
+} from "./collection-copy.js";
 
 export default function Library({ text, csrf, onLocked, language = "en" }) {
   const client = useQueryClient();
+  const t = collectionCopy[language];
   const collections = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
+    refetchOnWindowFocus: "always",
   });
-  const [collectionId, setCollectionId] = useState("");
+  const [requestedCollection, setCollectionId] = useState("");
   const [archived, setArchived] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const cardAction = useMutation({
     mutationFn: ({ id }) =>
       request(`/api/vocabulary/${id}/restore`, {
@@ -34,29 +41,50 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
         headers: { "X-CSRF-Token": csrf },
         body: "{}",
       }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["vocabulary"] }),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: ["vocabulary"] }),
+        client.invalidateQueries({ queryKey: ["collections"] }),
+      ]),
   });
   const [importOpen, setImportOpen] = useState(false);
-  const importPanelId = useId();
-  const showImport = useCallback(() => setImportOpen(true), []);
   function restoreFocus(target) {
     if (!target?.isConnected) return;
     const disclosure = target.closest("details");
     if (disclosure) disclosure.open = true;
     target.focus();
   }
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFiltered, setExportFiltered] = useState(false);
   const [exportState, setExportState] = useState("idle");
   const [exportError, setExportError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const exportLock = useRef(false);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
   async function exportCsv() {
+    if (exportLock.current) return;
+    exportLock.current = true;
     setExportState("pending");
     setExportError(null);
     try {
-      await downloadLibrary();
-      setExportState("success");
+      const exportParams = new URLSearchParams(
+        exportFiltered ? filterParams : scopeParams,
+      );
+      exportParams.set("include_ids", "true");
+      await downloadLibrary(exportParams, selectedCollection?.name);
+      setToast({ message: text.exportStarted });
+      setExportOpen(false);
     } catch (error) {
-      setExportState("error");
       setExportError(error);
       if (error.status === 401) onLocked();
+    } finally {
+      exportLock.current = false;
+      setExportState("idle");
     }
   }
   const [openCard, setOpenCard] = useState(null);
@@ -98,29 +126,100 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
     setFilters((current) => ({ ...current, [key]: value }));
     setPage(1);
   }
-  const params = new URLSearchParams({
-    page: String(page),
-    page_size: "12",
-    q: filters.q,
-  });
-  if (collectionId) params.set("collection_id", collectionId);
-  if (archived) params.set("archived", "true");
-  for (const value of filters.word_types) params.append("word_types", value);
+  const selectedCollection = collections.data?.find(
+    (item) => item.id === requestedCollection && isMyCollection(item),
+  );
+  const collectionId = selectedCollection?.id || "";
+  const selectedTitle = selectedCollection?.name || t.allAccessible;
+  const legacyPair =
+    !selectedCollection?.source_language ||
+    [selectedCollection.source_language, selectedCollection.target_language]
+      .sort()
+      .join() === "el,it";
+  const scopeParams = new URLSearchParams();
+  if (collectionId) scopeParams.set("collection_id", collectionId);
+  const filterParams = new URLSearchParams(scopeParams);
+  if (filters.q.trim()) filterParams.set("q", filters.q.trim());
+  for (const value of filters.word_types)
+    filterParams.append("word_types", value);
+  for (const value of filters.tag_ids || [])
+    filterParams.append("tag_ids", value);
+  if (archived) filterParams.set("archived", "true");
+  const hasFilters = filterParams.toString() !== scopeParams.toString();
+  const params = new URLSearchParams(filterParams);
+  params.set("all_languages", "true");
+  params.set("page", page);
+  params.set("page_size", "12");
+
+  function selectCollection(id) {
+    setCollectionId(id);
+    setPage(1);
+    setArchived(false);
+    setSelectedIds([]);
+    setSelecting(false);
+    setOpenCard(null);
+  }
   const library = useQuery({
     queryKey: ["vocabulary", page, filters, collectionId, archived],
     queryFn: () => request(`/api/vocabulary?${params}`),
   });
+  const wholeScope = useQuery({
+    queryKey: ["vocabulary", "scope", collectionId],
+    queryFn: () =>
+      request(`/api/vocabulary?${scopeParams}&all_languages=true&page_size=1`),
+    enabled: hasFilters,
+  });
+  const tags = useQuery({
+    queryKey: ["tags"],
+    queryFn: () => request("/api/tags"),
+    enabled: filtersOpen,
+  });
+  const wholeTotal =
+    (hasFilters ? wholeScope.data?.total : library.data?.total) ??
+    selectedCollection?.card_count;
+  const filteredTotal = library.data?.total;
+
+  function onImported(report) {
+    const destination = report.destination_collection;
+    selectCollection(destination.id);
+    setFilters({ q: "", word_types: [] });
+    setImportOpen(false);
+    const counts = report.counts;
+    setToast({
+      message: `${t.importedInto.replace("{name}", () => destination.name)} · ${counts.valid} ${counts.valid === 1 ? t.oneCard : t.cards}`,
+    });
+    for (const key of [
+      "collections",
+      "collection-cards",
+      "collection-search",
+      "collection-progress",
+      "vocabulary",
+      "tags",
+      "progress",
+      "difficult-entries",
+      "progress-difficult",
+      "practice-summary",
+    ]) {
+      client.invalidateQueries({ queryKey: [key] });
+    }
+  }
   useEffect(() => {
     if (
       [library.error, collections.error].some((error) => error?.status === 401)
     )
       onLocked();
   }, [library.error, collections.error, onLocked]);
-  const filterCount = filters.word_types.length;
+  const filterCount =
+    filters.word_types.length +
+    (filters.tag_ids?.length || 0) +
+    Number(archived);
   const pages = Math.max(1, Math.ceil((library.data?.total || 0) / 12));
 
   async function refreshLibrary() {
-    await client.invalidateQueries({ queryKey: ["vocabulary"] });
+    await Promise.all([
+      client.invalidateQueries({ queryKey: ["vocabulary"] }),
+      client.invalidateQueries({ queryKey: ["collections"] }),
+    ]);
     // Read the refreshed total for the active filters, including off-page deletions.
     const current = client.getQueryData([
       "vocabulary",
@@ -175,53 +274,162 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
         language={language}
         collections={collections}
         selected={collectionId}
-        onSelect={(id) => {
-          setCollectionId(id);
-          setPage(1);
-          setSelectedIds([]);
-        }}
+        onSelect={selectCollection}
         text={text}
         csrf={csrf}
       />
-      <label className="check-option">
-        <input
-          type="checkbox"
-          checked={archived}
-          onChange={(event) => {
-            setArchived(event.target.checked);
-            setPage(1);
-            setSelectedIds([]);
-            setSelecting(false);
-          }}
-        />
-        {text.archiveFilter}
-      </label>
       {cardAction.isError && (
         <p role="alert" className="error">
           {text.actionFailed}
         </p>
       )}
-      <div className="page-heading">
+      <div className="collection-heading">
         <div>
-          <h1>{text.libraryTitle}</h1>
+          <h1>{selectedTitle}</h1>
+          <div className="collection-heading-meta">
+            <span className="library-count">
+              {wholeTotal ?? "—"}{" "}
+              <small>{wholeTotal === 1 ? t.oneCard : t.cards}</small>
+            </span>
+            {selectedCollection && (
+              <span className="audience-badge">
+                {t[selectedCollection.visibility]}
+              </span>
+            )}
+            {selectedCollection?.saved && (
+              <span className="audience-badge">{t.saved}</span>
+            )}
+            {selectedCollection?.owner_name && (
+              <small>{collectionOwner(selectedCollection, t)}</small>
+            )}
+          </div>
         </div>
-        <span className="library-count">
-          {library.data?.total ?? "—"}{" "}
-          <small>{library.data?.total === 1 ? text.entry : text.entries}</small>
-        </span>
-        <button
-          className="primary"
-          id="add-entry"
-          disabled={isSaving || deletePending || selecting || bulkBusy}
-          onClick={() => {
-            setSaved(null);
-            setEditing(null);
-          }}
-        >
-          <Plus size={18} aria-hidden="true" />
-          {text.addEntry}
-        </button>
+        <div className="collection-actions">
+          <button
+            className="primary"
+            id="add-entry"
+            disabled={
+              isSaving ||
+              deletePending ||
+              selecting ||
+              bulkBusy ||
+              !legacyPair ||
+              selectedCollection?.can_edit === false
+            }
+            onClick={() => {
+              setSaved(null);
+              setEditing(null);
+            }}
+          >
+            <Plus size={18} aria-hidden="true" /> {text.addEntry}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            aria-haspopup="dialog"
+            onClick={() => setImportOpen(true)}
+          >
+            <Upload size={17} aria-hidden="true" /> {text.toolsImport}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            aria-haspopup="dialog"
+            disabled={Boolean(collectionId && !selectedCollection)}
+            onClick={() => {
+              setExportFiltered(false);
+              setExportError(null);
+              setExportOpen(true);
+            }}
+          >
+            <Download size={17} aria-hidden="true" /> {text.toolsExport}
+          </button>
+        </div>
       </div>
+      {toast && (
+        <div className="csv-toast" role="status">
+          {toast.message}
+        </div>
+      )}
+      {importOpen && (
+        <Import
+          text={text}
+          csrf={csrf}
+          onLocked={onLocked}
+          language={language}
+          selectedCollection={selectedCollection}
+          onClose={() => setImportOpen(false)}
+          onImported={onImported}
+        />
+      )}
+      {exportOpen && (
+        <CsvDialog
+          title={text.toolsExport}
+          cancelLabel={text.cancel}
+          busy={exportState === "pending"}
+          onClose={() => setExportOpen(false)}
+        >
+          {hasFilters ? (
+            <fieldset
+              className="csv-options export-options"
+              disabled={exportState === "pending"}
+            >
+              <legend className="sr-only">{text.toolsExport}</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="export-scope"
+                  checked={!exportFiltered}
+                  onChange={() => setExportFiltered(false)}
+                />
+                {selectedTitle} · {wholeTotal ?? "—"}{" "}
+                {wholeTotal === 1 ? t.oneCard : t.cards}
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="export-scope"
+                  checked={exportFiltered}
+                  onChange={() => setExportFiltered(true)}
+                />
+                {t.filteredResults} · {filteredTotal ?? "—"}{" "}
+                {filteredTotal === 1 ? t.oneCard : t.cards}
+              </label>
+            </fieldset>
+          ) : (
+            <p>
+              {selectedTitle} · {wholeTotal ?? "—"}{" "}
+              {wholeTotal === 1 ? t.oneCard : t.cards}
+            </p>
+          )}
+          {exportError && (
+            <p role="alert" className="error">
+              {text.errors[exportError.code] || text.errors.request_failed}
+            </p>
+          )}
+          <div className="form-actions csv-dialog-actions">
+            <button
+              type="button"
+              className="secondary"
+              disabled={exportState === "pending"}
+              onClick={() => setExportOpen(false)}
+            >
+              {text.cancel}
+            </button>
+            <button
+              type="button"
+              className="primary"
+              disabled={
+                exportState === "pending" ||
+                (exportFiltered ? filteredTotal : wholeTotal) == null
+              }
+              onClick={exportCsv}
+            >
+              {exportState === "pending" ? text.exporting : text.toolsExport}
+            </button>
+          </div>
+        </CsvDialog>
+      )}
       <section className="library-filters" aria-label={text.filters}>
         <label className="search-field">
           {text.search}
@@ -233,14 +441,13 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
             onChange={(event) => changeFilter("q", event.target.value)}
           />
         </label>
-        <details>
+        <details onToggle={(event) => setFiltersOpen(event.currentTarget.open)}>
           <summary>
             {text.filters}
             {filterCount > 0 && (
               <span className="filter-count">{filterCount}</span>
             )}
           </summary>
-          <p>{text.filterHint}</p>
           <Choices
             legend={text.filterType}
             disabled={bulkBusy}
@@ -255,6 +462,32 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
             selected={filters.word_types}
             onChange={(value) => changeFilter("word_types", value)}
           />
+          {tags.data?.length > 0 && (
+            <Choices
+              legend={text.tags}
+              disabled={bulkBusy}
+              options={tags.data.map((tag) => ({
+                id: tag.id,
+                label: tag.name,
+              }))}
+              selected={filters.tag_ids || []}
+              onChange={(value) => changeFilter("tag_ids", value)}
+            />
+          )}
+          <label className="check-option">
+            <input
+              type="checkbox"
+              checked={archived}
+              disabled={bulkBusy}
+              onChange={(event) => {
+                setArchived(event.target.checked);
+                setPage(1);
+                setSelectedIds([]);
+                setSelecting(false);
+              }}
+            />
+            {text.archiveFilter}
+          </label>
         </details>
         {(filters.q || filterCount > 0) && (
           <button
@@ -264,6 +497,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
               setSelectedIds([]);
               setBulkNotice(null);
               setFilters({ q: "", word_types: [] });
+              setArchived(false);
               setPage(1);
             }}
           >
@@ -271,56 +505,11 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
           </button>
         )}
       </section>
-      <section
-        className="library-tools"
-        aria-labelledby="library-tools-heading"
-      >
-        <h2 id="library-tools-heading">
-          <SlidersHorizontal size={17} aria-hidden="true" />
-          {text.libraryTools}
-        </h2>
-        <div className="library-tools-buttons">
-          <button
-            type="button"
-            className="secondary"
-            aria-expanded={importOpen}
-            aria-controls={importPanelId}
-            onClick={() => setImportOpen((open) => !open)}
-          >
-            <Upload size={17} aria-hidden="true" />
-            {text.toolsImport}
-          </button>
-          <button
-            className="secondary"
-            disabled={exportState === "pending"}
-            onClick={exportCsv}
-            aria-label={
-              exportState === "pending" ? text.exporting : text.exportLibrary
-            }
-          >
-            <Download size={17} aria-hidden="true" />
-            {exportState === "pending" ? text.exporting : text.toolsExport}
-          </button>
-        </div>
-        {exportState === "success" && <p role="status">{text.exportStarted}</p>}
-        {exportState === "error" && (
-          <p role="alert" className="error">
-            {text.errors[exportError?.code] || text.errors.request_failed}
-          </p>
-        )}
-        <div id={importPanelId} hidden={!importOpen}>
-          <Import
-            text={text}
-            csrf={csrf}
-            onLocked={onLocked}
-            onAttention={showImport}
-          />
-        </div>
-      </section>
       {editing !== undefined && (
         <VocabularyForm
           key={editing?.id || "new"}
           entry={editing}
+          initialCollectionId={selectedCollection?.can_edit ? collectionId : ""}
           text={text}
           csrf={csrf}
           onSavingChange={setIsSaving}
@@ -335,7 +524,11 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
             setSaved(result);
             setEditing(undefined);
             if (wasEditing) await refreshLibrary();
-            else await client.invalidateQueries({ queryKey: ["vocabulary"] });
+            else
+              await Promise.all([
+                client.invalidateQueries({ queryKey: ["vocabulary"] }),
+                client.invalidateQueries({ queryKey: ["collections"] }),
+              ]);
             document.getElementById("add-entry")?.focus();
           }}
         />
@@ -448,16 +641,9 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
             setSelectedIds([]);
             setSelecting(false);
             await refreshLibrary();
-            await client.invalidateQueries({ queryKey: ["collections"] });
           }}
         />
       )}
-      <div className="library-caption">
-        <span>
-          {text.italian} <span aria-hidden="true">↔</span> {text.greek}
-        </span>
-        <span>{text.libraryNote}</span>
-      </div>
       {library.isPending ? (
         <p className="status" role="status">
           {text.loading}
@@ -517,8 +703,8 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                     {text[entry.word_type] || text.other}
                   </span>
                 </div>
-                <h2 lang="it">{entry.italian}</h2>
-                <p lang="el">{entry.greek}</p>
+                <h2 lang={entry.source_language || "it"}>{entry.italian}</h2>
+                <p lang={entry.target_language || "el"}>{entry.greek}</p>
                 <CardActions
                   entry={entry}
                   busy={isSaving || deletePending || selecting || bulkBusy}
@@ -526,6 +712,11 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                   open={openCard === entry.id}
                   onOpenChange={(open) => setOpenCard(open ? entry.id : null)}
                   editDisabled={
+                    (entry.source_language &&
+                      entry.target_language &&
+                      ![entry.source_language, entry.target_language].every(
+                        (value) => value === "it" || value === "el",
+                      )) ||
                     !entry.can_edit ||
                     Boolean(entry.archived_at) ||
                     isSaving ||
@@ -563,22 +754,26 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                     {text.restore}
                   </button>
                 )}
-                {!entry.archived_at && entry.visibility !== "private" && (
-                  <button
-                    className="secondary"
-                    onClick={() => {
-                      setEditing({
-                        ...entry,
-                        id: undefined,
-                        unit: null,
-                        tags: [],
-                        visibility: "private",
-                      });
-                    }}
-                  >
-                    {text.personalVariant}
-                  </button>
-                )}
+                {!entry.archived_at &&
+                  entry.visibility !== "private" &&
+                  (!entry.source_language ||
+                    (entry.source_language === "it" &&
+                      entry.target_language === "el")) && (
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        setEditing({
+                          ...entry,
+                          id: undefined,
+                          unit: null,
+                          tags: [],
+                          visibility: "private",
+                        });
+                      }}
+                    >
+                      {text.personalVariant}
+                    </button>
+                  )}
                 <CollectionMembership
                   entry={entry}
                   collections={collections.data || []}

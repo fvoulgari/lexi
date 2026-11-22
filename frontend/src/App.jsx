@@ -362,6 +362,7 @@ export default function App() {
                   element={
                     <Practice
                       text={text}
+                      language={language}
                       csrf={session.data.csrf_token}
                       onLocked={lockNotebook}
                     />

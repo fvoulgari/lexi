@@ -39,14 +39,15 @@ export async function request(path, options = {}) {
   return body;
 }
 
-export async function downloadLibrary() {
-  const blob = await request("/api/vocabulary/export.csv", {
+export async function downloadLibrary(params, collectionName) {
+  const blob = await request(`/api/vocabulary/export.csv?${params}`, {
     responseType: "blob",
   });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "italian-notebook.csv";
+  const name = collectionName?.replace(/[<>:"/\\|?*]/g, "-").trim();
+  link.download = name ? `${name}.csv` : "italian-notebook.csv";
   document.body.append(link);
   try {
     link.click();
