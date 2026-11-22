@@ -1,5 +1,8 @@
 export const collectionCopy = {
   en: {
+    collectionLanguages: "Collection languages",
+    noImportCollections:
+      "No private Italian–Greek collections available for import.",
     saveReference: "Add to my collections",
     removeReference: "Remove from my collections",
     saved: "Saved",
@@ -91,6 +94,9 @@ export const collectionCopy = {
     loading: "Loading…",
   },
   el: {
+    collectionLanguages: "Γλώσσες συλλογής",
+    noImportCollections:
+      "Δεν υπάρχουν διαθέσιμες ιδιωτικές συλλογές Ιταλικών–Ελληνικών για εισαγωγή.",
     saveReference: "Προσθήκη στις συλλογές μου",
     removeReference: "Αφαίρεση από τις συλλογές μου",
     saved: "Αποθηκευμένη",
@@ -184,6 +190,9 @@ export const collectionCopy = {
     loading: "Φόρτωση…",
   },
   it: {
+    collectionLanguages: "Lingue della raccolta",
+    noImportCollections:
+      "Nessuna raccolta privata italiano–greco disponibile per l’importazione.",
     saveReference: "Aggiungi alle mie raccolte",
     removeReference: "Rimuovi dalle mie raccolte",
     saved: "Salvata",
