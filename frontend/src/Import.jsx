@@ -431,6 +431,7 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
                       {row.entry?.word_type && (
                         <span>{text[row.entry.word_type]}</span>
                       )}
+                      {row.collection_name && <span>{row.collection_name}</span>}
                     </div>
                     <p className="csv-row-words">
                       <span lang="it">{row.italian}</span> →{" "}
@@ -442,11 +443,9 @@ export default function Import({ text, csrf, onLocked, onAttention }) {
                         {text.csvChangedFields}:{" "}
                         {row.changed_fields
                           .map((field) =>
-                            field === "unit_id"
-                              ? text.unit
-                              : field === "tags"
-                                ? text.tags
-                                : text.fields[field] || field,
+                            field === "tags"
+                              ? text.tags
+                              : text.fields[field] || field,
                           )
                           .join(", ")}
                       </p>

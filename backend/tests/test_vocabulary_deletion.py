@@ -100,7 +100,7 @@ def test_concurrent_review_and_archive_preserve_any_accepted_history(logged_in):
             "/api/vocabulary",
             json={
                 "visibility": "private",
-                "unit_id": logged_in.get("/api/units").json()[0]["id"],
+                "collection_id": logged_in.get("/api/collections").json()[0]["id"],
                 "italian": f"accidentale {number}",
                 "greek": f"λάθος {number}",
                 "word_type": "other",

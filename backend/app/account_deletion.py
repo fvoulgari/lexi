@@ -21,7 +21,6 @@ from app.models import (
     ReviewEvent,
     SessionCard,
     Tag,
-    Unit,
     VocabularyEntry,
     entry_tags,
 )
@@ -214,7 +213,6 @@ def delete_local_account(sessions, account_id, subject):
             )
         )
         db.execute(delete(Tag).where(Tag.owner_account_id == account_id))
-        db.execute(delete(Unit).where(Unit.owner_account_id == account_id))
         db.execute(delete(Account).where(Account.id == account_id))
         db.execute(delete(Profile).where(Profile.id == profile_id))
 

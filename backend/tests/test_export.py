@@ -10,17 +10,27 @@ def rows(response):
     return list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
 
 
+def historical_collection(client, code, title, order):
+    from uuid import UUID
+
+    from app.models import Collection
+
+    result = client.post(
+        "/api/collections", headers=headers(client), json={"name": f"{code} · {title}"}
+    )
+    assert result.status_code == 201
+    group = result.json()
+    with client.app.state.sessions.begin() as db:
+        stored = db.get(Collection, UUID(group["id"]))
+        stored.source_unit_id = stored.id
+        stored.source_unit_code = code
+        stored.source_unit_title = title
+        stored.source_unit_sort_order = order
+    return group
+
+
 def test_export_full_library_with_unicode_and_metadata(logged_in):
-    unit = logged_in.post(
-        "/api/units",
-        headers=headers(logged_in),
-        json={
-            "visibility": "private",
-            "code": "007",
-            "title": "Έβδομο",
-            "sort_order": 7,
-        },
-    ).json()
+    unit = historical_collection(logged_in, "007", "Έβδομο", 7)
     tag = logged_in.post(
         "/api/tags",
         headers=headers(logged_in),
@@ -37,7 +47,7 @@ def test_export_full_library_with_unicode_and_metadata(logged_in):
             "italian": "il perché",
             "greek": "το γιατί",
             "word_type": "noun",
-            "unit_id": unit["id"],
+            "collection_id": unit["id"],
             "tag_ids": [tag["id"]],
             "italian_gender": "masculine",
             "greek_gender": "neuter",
@@ -97,7 +107,7 @@ def test_export_neutralizes_formulas_and_preserves_literal_apostrophes(logged_in
             headers=headers(logged_in),
             json={
                 "visibility": "private",
-                "unit_id": logged_in.get("/api/units").json()[0]["id"],
+                "collection_id": logged_in.get("/api/collections").json()[0]["id"],
                 "italian": value.strip() or "literal",
                 "greek": "δοκιμή",
                 "word_type": "expression",
@@ -131,16 +141,7 @@ def test_export_requires_admission_and_handles_empty_library(logged_in):
 
 
 def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
-    unit = logged_in.post(
-        "/api/units",
-        headers=headers(logged_in),
-        json={
-            "visibility": "private",
-            "code": "=007",
-            "title": "+title",
-            "sort_order": -7,
-        },
-    ).json()
+    unit = historical_collection(logged_in, "=007", "+title", -7)
     tag = logged_in.post(
         "/api/tags",
         headers=headers(logged_in),
@@ -159,7 +160,7 @@ def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
             "italian": "＠formula",
             "greek": "＝τύπος",
             "word_type": "noun",
-            "unit_id": unit["id"],
+            "collection_id": unit["id"],
             "tag_ids": [tag["id"]],
             "italian_plural": "-plural",
             "greek_plural": "+πληθυντικός",
@@ -200,16 +201,7 @@ def test_export_escapes_every_free_text_column_and_json_encodes_tags(logged_in):
 
 
 def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in):
-    unit = logged_in.post(
-        "/api/units",
-        headers=headers(logged_in),
-        json={
-            "visibility": "private",
-            "code": "007",
-            "title": "=Έβδομο",
-            "sort_order": -7,
-        },
-    ).json()
+    unit = historical_collection(logged_in, "007", "=Έβδομο", -7)
     tag = logged_in.post(
         "/api/tags",
         headers=headers(logged_in),
@@ -226,7 +218,7 @@ def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in
             "italian": "'=literal",
             "greek": "=τύπος",
             "word_type": "noun",
-            "unit_id": unit["id"],
+            "collection_id": unit["id"],
             "tag_ids": [tag["id"]],
             "italian_gender": "masculine",
             "greek_gender": "neuter",
@@ -242,15 +234,15 @@ def test_export_round_trip_restores_text_metadata_and_duplicate_policy(logged_in
 
     def upload(action):
         return logged_in.post(
-            f"/api/imports/{action}?unit_id={unit['id']}",
+            f"/api/imports/{action}?collection_id={unit['id']}",
             content=content,
             headers={**headers(logged_in), "Content-Type": "text/csv"},
         )
 
     preview = upload("preview")
     assert preview.status_code == 200
-    assert preview.json()["counts"]["duplicate"] == 1
-    assert preview.json()["counts"]["updated"] == 10
+    assert preview.json()["counts"]["duplicate"] == 11
+    assert preview.json()["counts"]["updated"] == 0
     for entry in logged_in.get("/api/vocabulary?page_size=100").json()["items"]:
         assert (
             logged_in.delete(
@@ -294,8 +286,8 @@ def test_versioned_import_validates_tags_and_leaves_legacy_text_unchanged(logged
         writer.writerow(["italian", "greek", "word_type", "csv_format", "tags"])
         writer.writerow(row)
         return logged_in.post(
-            "/api/imports/preview?unit_id="
-            + logged_in.get("/api/units").json()[0]["id"],
+            "/api/imports/preview?collection_id="
+            + logged_in.get("/api/collections").json()[0]["id"],
             content=with_genders(content.getvalue()),
             headers={**headers(logged_in), "Content-Type": "text/csv"},
         ).json()

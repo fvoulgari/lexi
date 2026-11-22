@@ -1,10 +1,8 @@
-"""Required card units and freely chosen session filters."""
+"""Collection destinations and independently chosen session filters."""
 
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import IntegrityError
 
 
 def headers(client):
@@ -25,7 +23,70 @@ def start(client, profile, mode="random", **extra):
     )
 
 
-def test_required_units_for_manual_cards_and_csv(logged_in):
+def test_legacy_unit_filter_includes_cards_in_mapped_collection(client, account_client):
+    from uuid import UUID
+
+    from app.models import Collection
+
+    account = account_client("mapped-practice-owner")
+    old_unit = uuid4()
+    collection = client.post(
+        "/api/collections", headers=headers(client), json={"name": "Mapped"}
+    ).json()
+    with client.app.state.sessions.begin() as db:
+        db.get(Collection, UUID(collection["id"])).source_unit_id = old_unit
+    created = client.post(
+        "/api/vocabulary",
+        headers=headers(client),
+        json={
+            "collection_id": collection["id"],
+            "italian": "ciao",
+            "greek": "γεια",
+            "word_type": "expression",
+        },
+    ).json()["entry"]
+    result = start(client, account["profile_id"], unit_ids=[str(old_unit)])
+    assert result.status_code == 201, result.text
+    assert {card["entry_id"] for card in result.json()["cards"]} == {created["id"]}
+
+
+def test_legacy_unit_filter_does_not_expose_private_collection_membership(
+    client, account_client
+):
+    from uuid import UUID
+
+    from test_shareable_collections import add, collection, publish
+
+    from app.models import Collection
+
+    account_client("private-map-owner")
+    private = collection(client, "Private")
+    public = collection(client, "Public")
+    old_unit = uuid4()
+    with client.app.state.sessions.begin() as db:
+        db.get(Collection, UUID(private["id"])).source_unit_id = old_unit
+    entry = client.post(
+        "/api/vocabulary",
+        headers=headers(client),
+        json={
+            "collection_id": private["id"],
+            "italian": "ciao",
+            "greek": "γεια",
+            "word_type": "expression",
+        },
+    ).json()["entry"]
+    assert add(client, public, entry).status_code == 204
+    assert publish(client, public).status_code == 200
+    other = account_client("private-map-reader")
+    assert client.get("/api/vocabulary").json()["total"] == 1
+    filtered = client.get(f"/api/vocabulary?unit_ids={old_unit}").json()
+    assert filtered["total"] == 0
+    assert (
+        start(client, other["profile_id"], unit_ids=[str(old_unit)]).status_code == 409
+    )
+
+
+def test_required_collections_for_manual_cards_and_csv(logged_in):
     client = logged_in
     body = {
         "italian_adjective_gender": "masculine",
@@ -66,10 +127,10 @@ def test_required_units_for_manual_cards_and_csv(logged_in):
 
 
 @pytest.mark.parametrize("mode", ["random", "mixed", "difficult"])
-def test_session_unit_choices_apply_without_profile_assignment(logged_in, mode):
+def test_session_collection_choices_apply_without_profile_assignment(logged_in, mode):
     client = logged_in
     profile = client.get("/api/profiles").json()[0]["id"]
-    other_unit = client.get("/api/units").json()[1]["id"]
+    other_unit = client.get("/api/collections").json()[1]["id"]
     assert (
         client.post(
             "/api/vocabulary",
@@ -80,7 +141,7 @@ def test_session_unit_choices_apply_without_profile_assignment(logged_in, mode):
                 "italian": "nuovo",
                 "greek": "νέο",
                 "word_type": "adjective",
-                "unit_id": other_unit,
+                "collection_id": other_unit,
             },
             headers=headers(client),
         ).status_code
@@ -106,9 +167,9 @@ def test_session_unit_choices_apply_without_profile_assignment(logged_in, mode):
             ).status_code
             == 200
         )
-    for unit in client.get("/api/units").json():
-        allowed = {c["id"] for c in cards if c["unit"]["id"] == unit["id"]}
-        result = start(client, profile, mode, unit_ids=[unit["id"]])
+    for unit in client.get("/api/collections").json():
+        allowed = set(unit["entry_ids"])
+        result = start(client, profile, mode, collection_ids=[unit["id"]])
         assert result.status_code == 201
         assert {c["entry_id"] for c in result.json()["cards"]} == allowed
     assert len(start(client, profile, mode).json()["cards"]) == len(cards)
@@ -117,16 +178,11 @@ def test_session_unit_choices_apply_without_profile_assignment(logged_in, mode):
     ] == len(cards)
 
 
-def test_new_profile_can_practise_new_unit_immediately(logged_in, test_database):
+def test_new_profile_can_practise_new_collection_immediately(logged_in):
     client = logged_in
     unit = client.post(
-        "/api/units",
-        json={
-            "visibility": "private",
-            "code": "NEW",
-            "title": "New shared unit",
-            "sort_order": 0,
-        },
+        "/api/collections",
+        json={"name": "New Collection"},
         headers=headers(client),
     ).json()
     card = client.post(
@@ -138,15 +194,18 @@ def test_new_profile_can_practise_new_unit_immediately(logged_in, test_database)
             "italian": "nuovo",
             "greek": "νέο",
             "word_type": "adjective",
-            "unit_id": unit["id"],
+            "collection_id": unit["id"],
         },
         headers=headers(client),
     ).json()["entry"]
     profile = client.get("/api/profiles").json()[0]
     assert "practice_unit_ids" not in profile
-    session = start(client, profile["id"], "mixed", unit_ids=[unit["id"]]).json()
+    session = start(client, profile["id"], "mixed", collection_ids=[unit["id"]]).json()
     assert [c["entry_id"] for c in session["cards"]] == [card["id"]]
-    engine = create_engine(test_database)
-    with pytest.raises(IntegrityError), engine.begin() as connection:
-        connection.execute(text("DELETE FROM units WHERE id = :id"), {"id": unit["id"]})
-    engine.dispose()
+    assert (
+        client.delete(
+            f"/api/collections/{unit['id']}", headers=headers(client)
+        ).status_code
+        == 204
+    )
+    assert client.get(f"/api/vocabulary/{card['id']}").status_code == 200

@@ -50,13 +50,15 @@ migrate: ## Apply migrations in the Docker backend
 	$(COMPOSE) exec backend python -m alembic upgrade head
 
 seed: ## Explicitly seed the Docker database
-	$(COMPOSE) exec backend python -m app.seed
+	@test -n "$(SEED_OWNER_ACCOUNT_ID)" || (echo 'Set SEED_OWNER_ACCOUNT_ID to your local account ID' >&2; exit 1)
+	$(COMPOSE) exec backend python -m app.seed --owner-account-id "$(SEED_OWNER_ACCOUNT_ID)"
 
 migrate-local: ## Apply migrations using backend/.env or exported environment variables
 	cd backend && $(BACKEND_PYTHON) -m alembic upgrade head
 
 seed-local: ## Explicitly seed the native development database
-	cd backend && $(BACKEND_PYTHON) -m app.seed
+	@test -n "$(SEED_OWNER_ACCOUNT_ID)" || (echo 'Set SEED_OWNER_ACCOUNT_ID to your local account ID' >&2; exit 1)
+	cd backend && $(BACKEND_PYTHON) -m app.seed --owner-account-id "$(SEED_OWNER_ACCOUNT_ID)"
 
 test-db-up: ## Create or start disposable PostgreSQL on localhost:55432 and wait for readiness
 	$(PYTHON) scripts/test-db.py $(TEST_DB_CONTAINER)

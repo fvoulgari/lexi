@@ -390,7 +390,7 @@ def test_concurrent_conflicting_reviews_accept_one_and_replay_after_wording_edit
 def test_category_queue_combines_library_filters_and_persists(logged_in):
     client = logged_in
     csrf = headers(client)
-    units = client.get("/api/units").json()
+    units = client.get("/api/collections").json()
     tag_ids = [
         client.post(
             "/api/tags", json={"visibility": "private", "name": name}, headers=csrf
@@ -407,14 +407,12 @@ def test_category_queue_combines_library_filters_and_persists(logged_in):
                 "greek_gender": "neuter",
                 "italian_adjective_gender": "masculine",
                 "greek_adjective_gender": "masculine",
-                "unit_id": units[0]["id"],
                 "word_type": "noun" if index < 2 else "verb",
                 "tag_ids": tag_ids if index == 0 else [tag_ids[1]],
             },
         )
     filters = {
-        "unit_ids": [units[0]["id"]],
-        "no_unit": True,
+        "collection_ids": [units[0]["id"]],
         "word_types": ["noun"],
         "tag_ids": tag_ids,
     }
@@ -464,7 +462,7 @@ def test_category_queue_combines_library_filters_and_persists(logged_in):
         json={
             "profile_id": profile,
             "direction": "greek_to_italian",
-            "unit_ids": [units[1]["id"]],
+            "collection_ids": [units[1]["id"]],
         },
     )
     assert empty.status_code == 409
@@ -489,7 +487,7 @@ def test_category_queue_size_all_and_filter_validation(logged_in):
                 "greek_gender": "neuter",
                 "italian_adjective_gender": "masculine",
                 "greek_adjective_gender": "masculine",
-                "unit_id": client.get("/api/units").json()[0]["id"],
+                "collection_id": client.get("/api/collections").json()[0]["id"],
                 "italian": f"voce {index}",
                 "greek": f"λέξη {index}",
                 "word_type": "noun" if index < 6 else "verb",
@@ -593,7 +591,7 @@ def test_mixed_quotas_overlap_and_recent_boundary(
                     "visibility": "private",
                     "italian_gender": "masculine",
                     "greek_gender": "neuter",
-                    "unit_id": client.get("/api/units").json()[0]["id"],
+                    "collection_id": client.get("/api/collections").json()[0]["id"],
                     "italian": f"entry {index}",
                     "greek": f"έννοια {index}",
                     "word_type": "noun",
@@ -685,7 +683,7 @@ def test_mixed_isolation_excluded_times_and_partial_backfill(
                 "visibility": "private",
                 "italian_gender": "masculine",
                 "greek_gender": "neuter",
-                "unit_id": client.get("/api/units").json()[0]["id"],
+                "collection_id": client.get("/api/collections").json()[0]["id"],
                 "italian": f"aaa entry {index - 12 if index >= 27 else index:02}",
                 "greek": f"έννοια {index}",
                 "word_type": "noun",

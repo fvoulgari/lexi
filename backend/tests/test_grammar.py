@@ -21,7 +21,7 @@ def create(client, **values):
         "/api/vocabulary",
         json={
             "visibility": "private",
-            "unit_id": client.get("/api/units").json()[0]["id"],
+            "collection_id": client.get("/api/collections").json()[0]["id"],
             "italian": "il biglietto",
             "greek": "το εισιτήριο",
             "word_type": "noun",
@@ -147,7 +147,7 @@ def test_adjective_csv_round_trip_and_legacy_plural_compatibility(
     logged_in,
 ):
     client = logged_in
-    unit = client.get("/api/units").json()[0]["id"]
+    unit = client.get("/api/collections").json()[0]["id"]
     content = (
         "italian,greek,word_type,italian_feminine_singular,"
         "italian_masculine_plural,italian_feminine_plural\n"
@@ -157,7 +157,7 @@ def test_adjective_csv_round_trip_and_legacy_plural_compatibility(
     def upload(content, action):
         content = with_genders(content)
         return client.post(
-            f"/api/imports/{action}?unit_id={unit}",
+            f"/api/imports/{action}?collection_id={unit}",
             content=content.encode(),
             headers=headers(client),
         ).json()
@@ -352,7 +352,7 @@ def test_legacy_common_opens_unset_and_can_be_corrected_without_losing_progress(
 
 def test_csv_rejects_removed_genders_and_preserves_greek_neuter(logged_in):
     client = logged_in
-    unit = client.get("/api/units").json()[0]["id"]
+    unit = client.get("/api/collections").json()[0]["id"]
     for field, value, valid in [
         ("italian_gender", "common", False),
         ("greek_gender", "common", False),
@@ -366,7 +366,7 @@ def test_csv_rejects_removed_genders_and_preserves_greek_neuter(logged_in):
         )
         for action in ("preview", "confirm"):
             result = client.post(
-                f"/api/imports/{action}?unit_id={unit}",
+                f"/api/imports/{action}?collection_id={unit}",
                 content=content.encode(),
                 headers=headers(client),
             ).json()
@@ -445,7 +445,7 @@ def test_independent_adjective_genders_and_free_text_pronunciations(
 
 def test_bilingual_csv_round_trip_and_old_pronunciation_column(logged_in):
     client = logged_in
-    unit = client.get("/api/units").json()[0]["id"]
+    unit = client.get("/api/collections").json()[0]["id"]
     content = (
         "italian,greek,word_type,italian_adjective_gender,greek_adjective_gender,"
         "italian_masculine_singular,italian_masculine_plural,"
@@ -456,7 +456,7 @@ def test_bilingual_csv_round_trip_and_old_pronunciation_column(logged_in):
 
     def upload(content, action):
         return client.post(
-            f"/api/imports/{action}?unit_id={unit}",
+            f"/api/imports/{action}?collection_id={unit}",
             content=content.encode(),
             headers=headers(client),
         ).json()

@@ -3,11 +3,11 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 
-from app.access import current_account, require_same_scope, require_write
+from app.access import current_account, require_write
 from app.filters import vocabulary_conditions
-from app.models import Collection, CollectionEntry, Unit, VocabularyEntry
+from app.models import Collection, CollectionEntry, VocabularyEntry
 from app.schemas import VocabularyBulk, WordType
 from app.vocabulary_deletion import delete_entries
 
@@ -22,13 +22,25 @@ def vocabulary_bulk_router(sessions, gate):
         no_unit: bool = False,
         word_types: list[WordType] = Query(default=[]),
         tag_ids: list[UUID] = Query(default=[]),
+        collection_id: UUID | None = None,
     ):
         with sessions() as db:
+            conditions = vocabulary_conditions(
+                q, unit_ids, no_unit, word_types, tag_ids
+            )
+            if collection_id is not None:
+                if db.get(Collection, collection_id) is None:
+                    raise HTTPException(404, "Collection not found.")
+                conditions.append(
+                    VocabularyEntry.id.in_(
+                        select(CollectionEntry.entry_id).where(
+                            CollectionEntry.collection_id == collection_id
+                        )
+                    )
+                )
             ids = db.scalars(
                 select(VocabularyEntry.id)
-                .where(
-                    *vocabulary_conditions(q, unit_ids, no_unit, word_types, tag_ids)
-                )
+                .where(*conditions)
                 .order_by(VocabularyEntry.id)
             ).all()
             return {"entry_ids": [str(id) for id in ids]}
@@ -114,19 +126,7 @@ def vocabulary_bulk_router(sessions, gate):
                         )
                         position += 1
             elif body.action == "move":
-                if db.get(Unit, body.unit_id) is None:
-                    raise HTTPException(
-                        422,
-                        {"code": "invalid_unit", "message": "Choose an existing unit."},
-                    )
-                destination = db.get(Unit, body.unit_id)
-                for entry in selected:
-                    require_same_scope(entry, destination)
-                db.execute(
-                    update(VocabularyEntry)
-                    .where(VocabularyEntry.id.in_(ids))
-                    .values(unit_id=body.unit_id)
-                )
+                raise HTTPException(422, "Choose a Collection to add cards.")
             else:
                 blocked = missing
                 if blocked:
