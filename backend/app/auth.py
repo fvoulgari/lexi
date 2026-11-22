@@ -34,7 +34,7 @@ class AuthGate:
         self.sessions = sessions
         self.ready = ready
 
-    async def _session(self, request, required=True):
+    async def _session(self, request, required=True, enforce_claims=None):
         if not self.ready:
             if required:
                 fail(503, "authentication_unavailable", "Sign-in is not configured.")
@@ -52,12 +52,13 @@ class AuthGate:
                 anti_csrf_check=request.method not in {"GET", "HEAD", "OPTIONS"},
                 **(
                     {"override_global_claim_validators": lambda _v, _s, _c: []}
-                    if not required
+                    if not required and not enforce_claims
                     else {}
                 ),
             )
         finally:
             add("provider_ms", started)
+            add("session_check_ms", started)
 
     async def _verified(self, session):
         from supertokens_python.recipe.emailverification.asyncio import (
@@ -69,6 +70,7 @@ class AuthGate:
             return await is_email_verified(session.get_recipe_user_id())
         finally:
             add("provider_ms", started)
+            add("email_check_ms", started)
 
     def _account(self, subject, display_name="Learner"):
         with self.sessions.begin() as db:
@@ -134,19 +136,35 @@ class AuthGate:
         await self.require(request)
 
     async def state(self, request: Request, response: Response):
+        from supertokens_python.recipe.session.exceptions import InvalidClaimsError
+
         response.headers["Cache-Control"] = "no-store"
-        session = await self._session(request, required=False)
         result = {
             "authenticated": False,
             "auth_available": self.ready,
             "csrf_token": "supertokens",
         }
+        try:
+            # Validate the same global claims and revocation check used by
+            # protected routes, while allowing the absence of a session.
+            session = await self._session(request, required=False, enforce_claims=True)
+        except InvalidClaimsError:
+            # An unverified identity needs the verification UI, but a different
+            # invalid claim must never result in an authenticated account.
+            session = await self._session(request, required=False)
+            if session is not None and not await self._verified(session):
+                result["verification_required"] = True
+                return result
+            raise
         if session is None:
             return result
         if not await self._verified(session):
             result["verification_required"] = True
             return result
-        account = await self.require(request)
+        account = await run_in_threadpool(self._account, session.get_user_id())
+        request.state.account = account
+        request.state.auth_session = session
+        account_context.set(account)
         with self.sessions() as db:
             profile = db.get(Profile, account.profile_id)
             display_name = profile.display_name if profile else "Learner"
