@@ -14,7 +14,13 @@ import { request } from "./api.js";
 import Choices from "./Choices.jsx";
 import PracticeCardView from "./PracticeCardView.jsx";
 
-export default function Practice({ text, csrf, onLocked }) {
+import {
+  collectionCopy,
+  collectionLabel,
+  isMyCollection,
+} from "./collection-copy.js";
+
+export default function Practice({ text, csrf, onLocked, language = "en" }) {
   const profiles = useQuery({
     queryKey: ["profiles"],
     queryFn: () => request("/api/profiles"),
@@ -133,6 +139,7 @@ export default function Practice({ text, csrf, onLocked }) {
         <Setup
           key={profile?.id || "none"}
           text={text}
+          language={language}
           profile={profile}
           pending={pending}
           onStart={start}
@@ -166,6 +173,7 @@ function Direction({ text, value, onChange, disabled = false }) {
 }
 function Setup({
   text,
+  language,
   profile,
   pending,
   onStart,
@@ -186,10 +194,19 @@ function Setup({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
     enabled: type === "category",
+    refetchOnWindowFocus: "always",
   });
   useEffect(() => {
     if (collections.error?.status === 401) onLocked();
   }, [collections.error, onLocked]);
+  const availableCollections = (collections.data || []).filter(isMyCollection);
+  const selectedCollections = filters.collection_ids.filter((id) =>
+    availableCollections.some((collection) => collection.id === id),
+  );
+  const collectionSelectionUnavailable =
+    type === "category" &&
+    filters.collection_ids.length > 0 &&
+    selectedCollections.length === 0;
   const filterError = type === "category" && collections.isError;
   const filterLoading = type === "category" && collections.isPending;
   const changeFilter = (key, value) =>
@@ -222,7 +239,11 @@ function Setup({
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onStart(direction, size === "all" ? null : Number(size), type, filters);
+        if (collectionSelectionUnavailable) return;
+        onStart(direction, size === "all" ? null : Number(size), type, {
+          ...filters,
+          collection_ids: selectedCollections,
+        });
       }}
     >
       <SetupOptions
@@ -270,11 +291,11 @@ function Setup({
           <Choices
             legend={text.practiceCollections}
             disabled={pending || filterLoading || filterError}
-            options={(collections.data || []).map((collection) => ({
+            options={availableCollections.map((collection) => ({
               id: collection.id,
-              label: collection.name,
+              label: collectionLabel(collection, collectionCopy[language]),
             }))}
-            selected={filters.collection_ids}
+            selected={selectedCollections}
             onChange={(values) => changeFilter("collection_ids", values)}
           />
           <Choices
@@ -379,7 +400,13 @@ function Setup({
       )}
       <button
         className="primary setup-start"
-        disabled={!profile || pending || filterLoading || filterError}
+        disabled={
+          !profile ||
+          pending ||
+          filterLoading ||
+          filterError ||
+          collectionSelectionUnavailable
+        }
       >
         {pending ? text.loadingCards : text.startPractice}
         <ArrowRight size={18} aria-hidden="true" />

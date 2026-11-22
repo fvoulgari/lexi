@@ -4,7 +4,11 @@ import { Link } from "react-router-dom";
 import { request } from "./api.js";
 import { useAccount } from "./AccountContext.jsx";
 import { practiceSides, cardLanguages } from "./card-sides.js";
-import { collectionCopy } from "./collection-copy.js";
+import {
+  collectionCopy,
+  collectionOwner,
+  isMyCollection,
+} from "./collection-copy.js";
 
 const LANGUAGES = ["el", "it", "en", "da"];
 function directionKey(a, b) {
@@ -49,18 +53,26 @@ export default function SharedCollections({ language = "en", csrf }) {
   const list = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
+    refetchOnWindowFocus: "always",
   });
   const collections = (list.data || []).filter(
     (c) =>
       [c.source_language, c.target_language].sort().join() ===
       [...pair].sort().join(),
   );
-  const current = collections.find((c) => c.id === selected);
+  const listed = collections.filter((c) =>
+    tab === "mine" ? isMyCollection(c) : c.visibility === "published",
+  );
+  const current = listed.find((c) => c.id === selected);
+  const availableChosen = chosen.filter((id) =>
+    collections.some((c) => c.id === id),
+  );
   const entries = useQuery({
     queryKey: ["collection-cards", selected],
     queryFn: () => request(`/api/collections/${selected}/entries`),
     enabled: !!current,
   });
+  const readableEntries = entries.isError ? undefined : entries.data;
   const results = useQuery({
     queryKey: ["collection-search", selected, search],
     queryFn: () =>
@@ -123,7 +135,7 @@ export default function SharedCollections({ language = "en", csrf }) {
         path: "/api/sessions",
         body: {
           profile_id: account.profile_id,
-          collection_ids: chosen,
+          collection_ids: availableChosen,
           direction,
           mode: difficult ? "difficult" : "random",
           size: null,
@@ -312,48 +324,70 @@ export default function SharedCollections({ language = "en", csrf }) {
             </p>
           )}
           <div className="collection-grid">
-            {collections
-              .filter((c) =>
-                tab === "mine" ? c.can_edit : c.visibility === "published",
-              )
-              .map((c) => (
-                <article className="collection-box" key={c.id}>
-                  <h2>{c.name}</h2>
-                  <p>
-                    {pairLabel} · {c.card_count} {t.cards} · {t[c.visibility]}
-                  </p>
-                  <div className="collection-actions">
+            {listed.map((c) => (
+              <article className="collection-box" key={c.id}>
+                <h2>{c.name}</h2>
+                <p>
+                  {pairLabel} · {c.card_count} {t.cards} · {t[c.visibility]}
+                </p>
+                <div className="collection-owner">
+                  {c.saved && <span className="audience-badge">{t.saved}</span>}
+                  {c.owner_name && <small>{collectionOwner(c, t)}</small>}
+                </div>
+                <div className="collection-actions">
+                  <button
+                    disabled={busy}
+                    aria-pressed={selected === c.id}
+                    onClick={() => {
+                      setSelected(c.id);
+                      setPreview(null);
+                      setPendingAdd(null);
+                      setEditor(null);
+                      write.reset();
+                    }}
+                  >
+                    {t.open}
+                  </button>
+                  {!c.can_edit && (
                     <button
+                      type="button"
                       disabled={busy}
-                      aria-pressed={selected === c.id}
-                      onClick={() => {
-                        setSelected(c.id);
-                        setPreview(null);
-                        setPendingAdd(null);
-                        setEditor(null);
-                        write.reset();
-                      }}
+                      onClick={() =>
+                        act(
+                          {
+                            path: `/api/collections/${c.id}/saved`,
+                            method: c.saved ? "DELETE" : "PUT",
+                          },
+                          () => {
+                            if (c.saved)
+                              setChosen((ids) =>
+                                ids.filter((id) => id !== c.id),
+                              );
+                          },
+                        )
+                      }
                     >
-                      {t.open}
+                      {c.saved ? t.removeReference : t.saveReference}
                     </button>
-                    <label>
-                      <input
-                        type="checkbox"
-                        aria-label={`${t.selected}: ${c.name}`}
-                        checked={chosen.includes(c.id)}
-                        onChange={(e) =>
-                          setChosen((ids) =>
-                            e.target.checked
-                              ? [...ids, c.id]
-                              : ids.filter((id) => id !== c.id),
-                          )
-                        }
-                      />
-                      {t.selected}
-                    </label>
-                  </div>
-                </article>
-              ))}
+                  )}
+                  <label>
+                    <input
+                      type="checkbox"
+                      aria-label={`${t.selected}: ${c.name}`}
+                      checked={chosen.includes(c.id)}
+                      onChange={(e) =>
+                        setChosen((ids) =>
+                          e.target.checked
+                            ? [...ids, c.id]
+                            : ids.filter((id) => id !== c.id),
+                        )
+                      }
+                    />
+                    {t.selected}
+                  </label>
+                </div>
+              </article>
+            ))}
           </div>
           <form
             className="collection-box collection-form"
@@ -418,7 +452,7 @@ export default function SharedCollections({ language = "en", csrf }) {
             </label>
             <button
               className="primary"
-              disabled={busy || !chosen.length}
+              disabled={busy || !availableChosen.length}
               onClick={start}
             >
               {t.practise}
@@ -531,7 +565,8 @@ export default function SharedCollections({ language = "en", csrf }) {
                     preview.private_cards.length === 0 && (
                       <p>{t.unpublishNone}</p>
                     )}
-                  {(preview.unpublishing || current.visibility === "published") &&
+                  {(preview.unpublishing ||
+                    current.visibility === "published") &&
                     preview.private_cards.length > 0 && (
                       <ul>
                         {preview.private_cards.map((c) => (
@@ -706,7 +741,7 @@ export default function SharedCollections({ language = "en", csrf }) {
                 </p>
               )}
               <ol className="collection-card-list">
-                {entries.data?.map((c, i) => (
+                {readableEntries?.map((c, i) => (
                   <li key={c.id}>
                     <div>
                       <strong>{c.source_text}</strong> — {c.target_text}
@@ -779,7 +814,7 @@ export default function SharedCollections({ language = "en", csrf }) {
                   </li>
                 ))}
               </ol>
-              {entries.data?.length === 0 && <p>{t.empty}</p>}
+              {readableEntries?.length === 0 && <p>{t.empty}</p>}
               {current.can_edit &&
                 current.unavailable_entry_ids?.map((id) => (
                   <button

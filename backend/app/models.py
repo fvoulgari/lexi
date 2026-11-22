@@ -284,6 +284,16 @@ class CollectionEntry(Base):
     )
 
 
+class SavedCollection(Base):
+    __tablename__ = "saved_collections"
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("accounts.id", ondelete="CASCADE"), primary_key=True
+    )
+    collection_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+
+
 class RecoveryCaseGuard(Base):
     __tablename__ = "recovery_case_guards"
     case_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)

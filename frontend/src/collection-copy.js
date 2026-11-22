@@ -1,5 +1,9 @@
 export const collectionCopy = {
   en: {
+    saveReference: "Add to my collections",
+    removeReference: "Remove from my collections",
+    saved: "Saved",
+    owner: "By {name}",
     sourceLanguage: "Source language",
     targetLanguage: "Target language",
     collection: "Collection",
@@ -87,6 +91,10 @@ export const collectionCopy = {
     loading: "Loading…",
   },
   el: {
+    saveReference: "Προσθήκη στις συλλογές μου",
+    removeReference: "Αφαίρεση από τις συλλογές μου",
+    saved: "Αποθηκευμένη",
+    owner: "Από {name}",
     sourceLanguage: "Γλώσσα προέλευσης",
     targetLanguage: "Γλώσσα στόχου",
     collection: "Συλλογή",
@@ -176,6 +184,10 @@ export const collectionCopy = {
     loading: "Φόρτωση…",
   },
   it: {
+    saveReference: "Aggiungi alle mie raccolte",
+    removeReference: "Rimuovi dalle mie raccolte",
+    saved: "Salvata",
+    owner: "Di {name}",
     sourceLanguage: "Lingua di partenza",
     targetLanguage: "Lingua di arrivo",
     collection: "Raccolta",
@@ -266,3 +278,21 @@ export const collectionCopy = {
     loading: "Caricamento…",
   },
 };
+
+export function isMyCollection(collection) {
+  return (
+    collection.can_edit !== false ||
+    (collection.saved && collection.visibility === "published")
+  );
+}
+
+export function collectionOwner(collection, text) {
+  return collection.owner_name
+    ? text.owner.replace("{name}", () => collection.owner_name)
+    : "";
+}
+
+export function collectionLabel(collection, text) {
+  const owner = collectionOwner(collection, text);
+  return owner ? `${collection.name} · ${owner}` : collection.name;
+}

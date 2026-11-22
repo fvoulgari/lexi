@@ -22,6 +22,8 @@ const shared = {
   name: "Shared",
   visibility: "published",
   can_edit: false,
+  saved: true,
+  owner_name: "Alba",
 };
 const published = {
   ...owned,
@@ -97,9 +99,18 @@ test("preselects only an owned, editable private destination", async () => {
   expect(dialog.queryByRole("option", { name: "Published" })).toBeNull();
   await user.click(dialog.getAllByRole("button", { name: copy.en.cancel })[0]);
   await user.selectOptions(scope, "shared");
+  expect(
+    screen.getByRole("option", { name: "Shared · By Alba" }).selected,
+  ).toBe(true);
+  expect(screen.getByRole("button", { name: copy.en.addEntry })).toBeDisabled();
   const next = await openImport(user);
   expect(next.getByRole("combobox", { name: "Collection" })).toHaveValue("");
   expect(next.getByRole("button", { name: copy.en.csvPreview })).toBeDisabled();
+  await user.click(next.getAllByRole("button", { name: copy.en.cancel })[0]);
+  await user.selectOptions(scope, "");
+  await user.click(screen.getByRole("button", { name: copy.en.addEntry }));
+  const form = within(screen.getByRole("form", { name: copy.en.addEntry }));
+  expect(form.queryByRole("option", { name: /Shared/ })).toBeNull();
 });
 
 test("keeps the file and preview when changing destinations, then selects each new Collection", async () => {

@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { request } from "./api.js";
-import { collectionCopy } from "./collection-copy.js";
+import {
+  collectionCopy,
+  collectionLabel,
+  isMyCollection,
+} from "./collection-copy.js";
 
 export default function Collections({
   collections,
@@ -29,7 +33,7 @@ export default function Collections({
         [c.source_language, c.target_language].sort().join() === "el,it"),
   );
   const current = owned?.find((item) => item.id === selected);
-  const available = collections.data;
+  const available = collections.data?.filter(isMyCollection);
 
   const action = useMutation({
     mutationFn: ({ path = "", method = "POST", body }) =>
@@ -151,7 +155,7 @@ export default function Collections({
               <option value="">{t.allAccessible}</option>
               {available?.map((collection) => (
                 <option value={collection.id} key={collection.id}>
-                  {collection.name}
+                  {collectionLabel(collection, t)}
                 </option>
               ))}
             </select>

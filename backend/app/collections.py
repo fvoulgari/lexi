@@ -7,13 +7,17 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert
 
 from app.access import collection_grant, current_account, require_write
 from app.languages import pair
 from app.models import (
+    Account,
     Collection,
     CollectionEntry,
     LearningProgress,
+    Profile,
+    SavedCollection,
     VocabularyEntry,
 )
 from app.schemas import Direction, EntryText
@@ -152,7 +156,7 @@ def collection_router(sessions, gate):
             "exposure_token": card_token(card),
         }
 
-    def output(db, collection):
+    def output(db, collection, *, saved=False, owner_name=None):
         accessible = cards(db, collection)
         references = list(
             db.scalars(
@@ -169,6 +173,8 @@ def collection_router(sessions, gate):
             "target_language": collection.target_language,
             "visibility": collection.visibility,
             "can_edit": collection.owner_account_id == current_account().id,
+            "saved": saved,
+            "owner_name": owner_name,
             "entry_ids": [str(c.id) for c in accessible],
             "card_count": len(accessible),
             "unavailable_entry_ids": [str(e) for e in references if e not in readable]
@@ -244,7 +250,78 @@ def collection_router(sessions, gate):
                 )
             if published:
                 query = query.where(Collection.visibility == "published")
-            return [output(db, c) for c in db.scalars(query)]
+            account_id = current_account().id
+            visible_collections = list(db.scalars(query))
+            saved_ids = set(
+                db.scalars(
+                    select(SavedCollection.collection_id).where(
+                        SavedCollection.account_id == account_id
+                    )
+                )
+            )
+            owner_ids = {
+                c.owner_account_id
+                for c in visible_collections
+                if c.visibility == "published" and c.owner_account_id != account_id
+            }
+            accounts, profiles = Account.__table__, Profile.__table__
+            # Only public Collection authors' display names are exposed here.
+            owners = (
+                dict(
+                    db.execute(
+                        select(accounts.c.id, profiles.c.display_name)
+                        .join(profiles, accounts.c.profile_id == profiles.c.id)
+                        .where(accounts.c.id.in_(owner_ids))
+                    ).all()
+                )
+                if owner_ids
+                else {}
+            )
+            return [
+                output(
+                    db,
+                    c,
+                    saved=c.id in saved_ids,
+                    owner_name=owners.get(c.owner_account_id),
+                )
+                for c in visible_collections
+            ]
+
+    @router.put("/{collection_id}/saved", status_code=204, dependencies=writes)
+    def save_reference(collection_id: UUID):
+        with sessions.begin() as db:
+            account_id = current_account().id
+            collection = db.scalar(
+                select(Collection)
+                .where(
+                    Collection.id == collection_id, Collection.visibility == "published"
+                )
+                .with_for_update(read=True)
+            )
+            if collection is None:
+                raise HTTPException(404, "Collection not found.")
+            if collection.owner_account_id == account_id:
+                raise HTTPException(422, "You already own this collection.")
+            db.execute(
+                insert(SavedCollection)
+                .values(account_id=account_id, collection_id=collection_id)
+                .on_conflict_do_nothing(
+                    index_elements=[
+                        SavedCollection.account_id,
+                        SavedCollection.collection_id,
+                    ]
+                )
+            )
+
+    @router.delete("/{collection_id}/saved", status_code=204, dependencies=writes)
+    def remove_reference(collection_id: UUID):
+        with sessions.begin() as db:
+            db.execute(
+                delete(SavedCollection).where(
+                    SavedCollection.account_id == current_account().id,
+                    SavedCollection.collection_id == collection_id,
+                )
+            )
 
     @router.post("", status_code=201, dependencies=writes)
     def create(body: CreateCollectionBody):

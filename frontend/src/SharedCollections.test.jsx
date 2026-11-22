@@ -433,3 +433,52 @@ test("requesting Public during creation still creates private and previews befor
   );
   await waitFor(() => expect(published).toBe(true));
 });
+
+test("saving and removing a public Collection updates My collections without owner controls", async () => {
+  const user = userEvent.setup();
+  const shared = {
+    ...own,
+    can_edit: false,
+    visibility: "published",
+    owner_name: "Alba",
+  };
+  let saved = false;
+  const methods = [];
+  open("en", shared, { ...card, can_edit: false });
+  server.use(
+    http.get("*/api/collections", () =>
+      HttpResponse.json([{ ...shared, saved }]),
+    ),
+    http.put("*/api/collections/one/saved", ({ request }) => {
+      expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
+      methods.push("PUT");
+      saved = true;
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.delete("*/api/collections/one/saved", () => {
+      methods.push("DELETE");
+      saved = false;
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+  await user.click(screen.getByRole("button", { name: "Shared library" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Add to my collections" }),
+  );
+  await screen.findByRole("button", { name: "Remove from my collections" });
+  await user.click(screen.getByRole("button", { name: "My collections" }));
+  expect(screen.getByText("By Alba")).toBeInTheDocument();
+  expect(screen.getByText("Saved")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Open", exact: true }));
+  expect(screen.queryByRole("button", { name: "Edit collection" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Delete collection" }),
+  ).toBeNull();
+  await user.click(
+    screen.getByRole("button", { name: "Remove from my collections" }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole("heading", { name: "Greetings" })).toBeNull(),
+  );
+  expect(methods).toEqual(["PUT", "DELETE"]);
+});

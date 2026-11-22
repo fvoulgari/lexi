@@ -17,7 +17,11 @@ import CsvDialog from "./CsvDialog.jsx";
 import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
-import { collectionCopy } from "./collection-copy.js";
+import {
+  collectionCopy,
+  collectionOwner,
+  isMyCollection,
+} from "./collection-copy.js";
 
 export default function Library({ text, csrf, onLocked, language = "en" }) {
   const client = useQueryClient();
@@ -25,8 +29,9 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
   const collections = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
+    refetchOnWindowFocus: "always",
   });
-  const [collectionId, setCollectionId] = useState("");
+  const [requestedCollection, setCollectionId] = useState("");
   const [archived, setArchived] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const cardAction = useMutation({
@@ -122,8 +127,9 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
     setPage(1);
   }
   const selectedCollection = collections.data?.find(
-    (item) => item.id === collectionId,
+    (item) => item.id === requestedCollection && isMyCollection(item),
   );
+  const collectionId = selectedCollection?.id || "";
   const selectedTitle = selectedCollection?.name || t.allAccessible;
   const legacyPair =
     !selectedCollection?.source_language ||
@@ -289,6 +295,12 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
               <span className="audience-badge">
                 {t[selectedCollection.visibility]}
               </span>
+            )}
+            {selectedCollection?.saved && (
+              <span className="audience-badge">{t.saved}</span>
+            )}
+            {selectedCollection?.owner_name && (
+              <small>{collectionOwner(selectedCollection, t)}</small>
             )}
           </div>
         </div>
