@@ -12,7 +12,9 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import DBAPIError
 
 
-@pytest.mark.parametrize("case", ["match", "missing_membership", "foreign_duplicate"])
+@pytest.mark.parametrize(
+    "case", ["match", "published", "missing_membership", "foreign_duplicate"]
+)
 def test_drop_units_preserves_collection_provenance_or_rolls_back(test_database, case):
     engine = create_engine(test_database)
     schema = "remove_units_" + uuid4().hex
@@ -67,6 +69,8 @@ def test_drop_units_preserves_collection_provenance_or_rolls_back(test_database,
                 ),
                 {"c": collection, "o": owner, "u": unit},
             )
+            if case == "published":
+                db.execute(text("UPDATE collections SET visibility='published'"))
             db.execute(
                 text("INSERT INTO vocabulary_entries VALUES (:c,:u)"),
                 {"c": card, "u": unit},
@@ -103,6 +107,10 @@ def test_drop_units_preserves_collection_provenance_or_rolls_back(test_database,
                 else:
                     module.upgrade()
                     assert not inspect(db).has_table("units")
+                    assert db.scalar(
+                        text("SELECT visibility FROM collections WHERE id=:id"),
+                        {"id": collection},
+                    ) == ("published" if case == "published" else "private")
                     assert db.execute(
                         text("SELECT id,source_collection_id FROM vocabulary_entries")
                     ).one() == (card, collection)
