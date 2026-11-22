@@ -102,6 +102,111 @@ test("public sign-in offers Google and email/password without revealing private 
   );
 });
 
+test("password sign-in fetches the authenticated session once", async () => {
+  let authenticatedRequests = 0;
+  server.use(
+    http.get("*/api/profiles", () => HttpResponse.json([])),
+    http.get("*/api/auth/session", () => {
+      if (authenticated) authenticatedRequests += 1;
+      return HttpResponse.json({ authenticated, csrf_token: "test-csrf" });
+    }),
+  );
+  passwordSignIn.mockImplementationOnce(async () => {
+    authenticated = true;
+    return { status: "OK" };
+  });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(["private-from-previous-account"], { private: true });
+  renderApp(client);
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText(copy.en.authEmail),
+    "learner@example.com",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "a safe password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  await screen.findByRole("heading", { name: "Welcome to Lexi" });
+  expect(authenticatedRequests).toBe(1);
+  expect(
+    client.getQueryData(["private-from-previous-account"]),
+  ).toBeUndefined();
+});
+
+test("sign-in keeps the notebook locked when the fresh session requires verification", async () => {
+  server.use(
+    http.get("*/api/auth/session", () =>
+      HttpResponse.json({
+        authenticated: false,
+        verification_required: authenticated,
+      }),
+    ),
+  );
+  passwordSignIn.mockImplementationOnce(async () => {
+    authenticated = true;
+    return { status: "OK" };
+  });
+  renderApp();
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText(copy.en.authEmail),
+    "learner@example.com",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "a safe password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  expect(
+    await screen.findByRole("heading", { name: copy.en.authVerify }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Your vocabulary" }),
+  ).not.toBeInTheDocument();
+});
+
+test("sign-in does not expose the notebook when the fresh session check fails", async () => {
+  server.use(
+    http.get("*/api/auth/session", () =>
+      authenticated
+        ? HttpResponse.json(
+            { error: { code: "service_unavailable" } },
+            { status: 503 },
+          )
+        : HttpResponse.json({ authenticated: false }),
+    ),
+  );
+  passwordSignIn.mockImplementationOnce(async () => {
+    authenticated = true;
+    return { status: "OK" };
+  });
+  renderApp();
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText(copy.en.authEmail),
+    "learner@example.com",
+  );
+  await user.type(
+    screen.getByLabelText(copy.en.authPassword),
+    "a safe password example",
+  );
+  await user.click(
+    screen.getByRole("button", { name: copy.en.authAction_signin }),
+  );
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("heading", { name: "Your vocabulary" }),
+  ).not.toBeInTheDocument();
+});
+
 test("provider failure remains recoverable and does not reveal the library", async () => {
   passwordSignIn.mockRejectedValueOnce(new Error("unavailable"));
   renderApp();
@@ -534,6 +639,104 @@ test("Google callback completes even when an earlier account session already exi
     ).toBeVisible();
     expect(finishAuthentication).toHaveBeenCalledOnce();
   } finally {
+    window.history.replaceState(null, "", "/");
+  }
+});
+
+test("Google callback locks the previous account while checking the new session", async () => {
+  let releaseFresh;
+  let calls = 0;
+  finishAuthentication.mockResolvedValueOnce(undefined);
+  window.history.replaceState(null, "", "/auth/callback/google");
+  server.use(
+    http.get("*/api/auth/session", () => {
+      calls += 1;
+      if (calls === 1)
+        return HttpResponse.json({
+          authenticated: true,
+          account: { id: "old" },
+        });
+      return new Promise((resolve) => {
+        releaseFresh = () =>
+          resolve(
+            HttpResponse.json({
+              authenticated: false,
+              verification_required: true,
+            }),
+          );
+      });
+    }),
+  );
+  try {
+    renderApp(undefined, "/auth/callback/google");
+    await waitFor(() => expect(releaseFresh).toBeDefined());
+    expect(
+      screen.queryByRole("button", { name: "Sign out" }),
+    ).not.toBeInTheDocument();
+    releaseFresh();
+    expect(
+      await screen.findByRole("heading", { name: copy.en.authVerify }),
+    ).toBeInTheDocument();
+  } finally {
+    window.history.replaceState(null, "", "/");
+  }
+});
+
+test("cancelling an old session refetch never restores the previous identity", async () => {
+  let releaseFresh;
+  let finishCallback;
+  let calls = 0;
+  let locked = false;
+  let restored = false;
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(["session"], {
+    authenticated: true,
+    account: { id: "old" },
+  });
+  const unsubscribe = client.getQueryCache().subscribe((event) => {
+    if (event.query?.queryKey[0] !== "session") return;
+    const session = event.query.state.data;
+    if (session?.authenticated === false) locked = true;
+    if (locked && session?.authenticated === true) restored = true;
+  });
+  finishAuthentication.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishCallback = resolve;
+      }),
+  );
+  window.history.replaceState(null, "", "/auth/callback/google");
+  server.use(
+    http.get("*/api/auth/session", () => {
+      calls += 1;
+      if (calls === 1) {
+        finishCallback();
+        return new Promise(() => {});
+      }
+      return new Promise((resolve) => {
+        releaseFresh = () =>
+          resolve(
+            HttpResponse.json({
+              authenticated: false,
+              verification_required: true,
+            }),
+          );
+      });
+    }),
+  );
+  try {
+    renderApp(client, "/auth/callback/google");
+    await waitFor(() => expect(releaseFresh).toBeDefined());
+    expect(locked).toBe(true);
+    expect(restored).toBe(false);
+    releaseFresh();
+    expect(
+      await screen.findByRole("heading", { name: copy.en.authVerify }),
+    ).toBeInTheDocument();
+  } finally {
+    unsubscribe();
     window.history.replaceState(null, "", "/");
   }
 });

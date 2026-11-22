@@ -91,10 +91,19 @@ export default function App() {
     networkMode: "always",
   });
   const onAuthenticated = useCallback(async () => {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    const fresh = await request("/api/auth/session");
-    queryClient.setQueryData(["session"], fresh);
+    queryClient.setQueryData(["session"], { authenticated: false });
+    await queryClient.cancelQueries(undefined, { revert: false });
+    // Keep the session locked until the new identity has been checked.
+    queryClient.setQueryData(["session"], { authenticated: false });
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== "session",
+    });
+    queryClient.getMutationCache().clear();
+    const fresh = await queryClient.fetchQuery({
+      queryKey: ["session"],
+      queryFn: () => request("/api/auth/session"),
+      staleTime: 0,
+    });
     notifySessionChanged();
     return fresh;
   }, [queryClient]);
