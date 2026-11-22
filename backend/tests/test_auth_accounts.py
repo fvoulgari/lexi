@@ -2,7 +2,7 @@
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -76,6 +76,89 @@ def test_verified_session_always_checks_provider_revocation(monkeypatch):
         "check_database": True,
         "anti_csrf_check": True,
     }
+
+
+def test_optional_session_can_enforce_claims_without_skipping_core(monkeypatch):
+    import supertokens_python.recipe.session.asyncio as provider
+
+    mock = AsyncMock(return_value=None)
+    monkeypatch.setattr(provider, "get_session", mock)
+    gate = AuthGate(settings(), None, ready=True)
+    request = SimpleNamespace(method="GET")
+    asyncio.run(gate._session(request, required=False, enforce_claims=True))
+    asyncio.run(gate._session(request, required=False, enforce_claims=True))
+    assert mock.await_count == 2
+    assert mock.call_args.kwargs == {
+        "session_required": False,
+        "check_database": True,
+        "anti_csrf_check": False,
+    }
+
+
+def test_authenticated_state_checks_session_and_verification_once():
+    profile_id = uuid4()
+    account = SimpleNamespace(
+        id=uuid4(), profile_id=profile_id, role="learner", interface_language="en"
+    )
+    session = SimpleNamespace(get_user_id=lambda: "subject")
+    db = MagicMock()
+    db.get.return_value = SimpleNamespace(display_name="Learner")
+    sessions = MagicMock()
+    sessions.return_value.__enter__.return_value = db
+    gate = AuthGate(settings(), sessions, ready=True)
+    gate._session = AsyncMock(return_value=session)
+    gate._verified = AsyncMock(return_value=True)
+    gate._account = MagicMock(return_value=account)
+    request = SimpleNamespace(state=SimpleNamespace())
+    response = SimpleNamespace(headers={})
+    result = asyncio.run(gate.state(request, response))
+    assert result["authenticated"] is True
+    gate._session.assert_awaited_once_with(request, required=False, enforce_claims=True)
+    gate._verified.assert_awaited_once_with(session)
+
+
+def test_state_unverified_user_gets_verification_screen_after_invalid_claim():
+    from supertokens_python.recipe.session.exceptions import InvalidClaimsError
+
+    session = SimpleNamespace()
+    gate = AuthGate(settings(), None, ready=True)
+    gate._session = AsyncMock(side_effect=[InvalidClaimsError("invalid", []), session])
+    gate._verified = AsyncMock(return_value=False)
+    response = SimpleNamespace(headers={})
+    result = asyncio.run(gate.state(SimpleNamespace(state=SimpleNamespace()), response))
+    assert result["authenticated"] is False
+    assert result["verification_required"] is True
+
+
+def test_state_other_invalid_claim_never_authenticates():
+    from supertokens_python.recipe.session.exceptions import InvalidClaimsError
+
+    error = InvalidClaimsError("invalid", [])
+    gate = AuthGate(settings(), None, ready=True)
+    gate._session = AsyncMock(side_effect=[error, SimpleNamespace()])
+    gate._verified = AsyncMock(return_value=True)
+    with pytest.raises(InvalidClaimsError):
+        asyncio.run(
+            gate.state(
+                SimpleNamespace(state=SimpleNamespace()), SimpleNamespace(headers={})
+            )
+        )
+
+
+def test_revoked_state_session_is_never_provisioned():
+    from supertokens_python.recipe.session.exceptions import UnauthorisedError
+
+    gate = AuthGate(settings(), None, ready=True)
+    gate._session = AsyncMock(side_effect=UnauthorisedError("revoked"))
+    gate._account = MagicMock()
+    with pytest.raises(UnauthorisedError):
+        asyncio.run(
+            gate.state(
+                SimpleNamespace(state=SimpleNamespace()), SimpleNamespace(headers={})
+            )
+        )
+    gate._session.assert_awaited_once()
+    gate._account.assert_not_called()
 
 
 def test_logout_revokes_session_and_all_sessions(monkeypatch):

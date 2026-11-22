@@ -14,11 +14,14 @@ def test_request_timing_is_bounded_and_does_not_log_query_data(logged_in, caplog
     ]
     assert len(records) == 1
     assert re.fullmatch(
-        r"request_timing operation=profiles status=200 total_ms=\d+\.\d "
-        r"provider_ms=\d+\.\d db_query_ms=\d+\.\d",
+        r"request_timing id=[0-9a-f]{32} operation=profiles "
+        r"status=200 total_ms=\d+\.\d "
+        r"provider_ms=\d+\.\d session_check_ms=\d+\.\d "
+        r"email_check_ms=\d+\.\d db_query_ms=\d+\.\d",
         records[0],
     )
     assert "secret-marker" not in records[0]
+    assert response.headers["x-lexi-timing-id"] in records[0]
     assert float(records[0].split("db_query_ms=")[1]) > 0
 
 
@@ -55,3 +58,4 @@ def test_operation_labels_exclude_other_methods():
     assert operation_for("/api/vocabulary", "POST") is None
     assert operation_for("/api/sessions", "GET") is None
     assert operation_for("/api/sessions", "POST") == "practice_start"
+    assert operation_for("/api/auth/signinup", "POST") == "thirdparty_signin"
