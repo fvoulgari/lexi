@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { http, HttpResponse } from "msw";
@@ -88,7 +88,11 @@ test("a personal variant starts a new private card and does not retain a shared 
   expect(
     screen.queryByRole("combobox", { name: "Unit *" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByLabelText(text.cardCollection)).toHaveValue("");
+  expect(
+    within(screen.getByRole("form", { name: text.editEntry })).getByLabelText(
+      text.cardCollection,
+    ),
+  ).toHaveValue("");
   expect(screen.getByRole("button", { name: "Save card" })).toBeInTheDocument();
 });
 test("private collection membership accepts a 204 response and refetches membership", async () => {

@@ -38,6 +38,7 @@ const optionalFields = textFields.filter(
 
 export default function VocabularyForm({
   entry,
+  initialCollectionId = "",
   text,
   csrf,
   onSaved,
@@ -62,7 +63,7 @@ export default function VocabularyForm({
       ]),
     ),
   );
-  const [collectionId, setCollectionId] = useState("");
+  const [collectionId, setCollectionId] = useState(initialCollectionId);
   const [confirmExposure, setConfirmExposure] = useState(false);
   const collections = useQuery({
     queryKey: ["collections"],
@@ -220,6 +221,7 @@ export default function VocabularyForm({
     <>
       <form
         className="vocabulary-form vocabulary-card-form"
+        aria-labelledby="vocabulary-card-form-heading"
         noValidate
         onSubmit={(event) => {
           event.preventDefault();
@@ -241,7 +243,9 @@ export default function VocabularyForm({
           save.mutate();
         }}
       >
-        <h2>{entry ? text.editEntry : text.addEntry}</h2>
+        <h2 id="vocabulary-card-form-heading">
+          {entry ? text.editEntry : text.addEntry}
+        </h2>
         <p id="meaning-hint">{entry ? text.cardEditHint : text.meaningHint}</p>
         <p id="card-required-hint" className="card-required-hint">
           {text.cardRequiredHint}
@@ -416,6 +420,7 @@ export default function VocabularyForm({
 }
 VocabularyForm.propTypes = {
   entry: PropTypes.object,
+  initialCollectionId: PropTypes.string,
   text: PropTypes.object.isRequired,
   csrf: PropTypes.string.isRequired,
   onSaved: PropTypes.func.isRequired,

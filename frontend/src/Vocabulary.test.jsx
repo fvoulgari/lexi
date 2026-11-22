@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -115,7 +115,12 @@ test("add a complete bilingual meaning and edit it from the library", async () =
   await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "il perché");
   await user.type(screen.getByLabelText("Greek *"), "το γιατί");
-  await user.selectOptions(await screen.findByLabelText("Collection"), "c");
+  await user.selectOptions(
+    await within(
+      screen.getByRole("form", { name: "New card" }),
+    ).findByLabelText("Collection"),
+    "c",
+  );
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
   await user.selectOptions(
     screen.getByLabelText("Italian gender"),
@@ -185,7 +190,12 @@ test("required fields are identified and failed saves keep the draft for retry",
   expect(screen.getByLabelText("Italian *")).toHaveFocus();
   await user.type(screen.getByLabelText("Italian *"), "è");
   await user.type(screen.getByLabelText("Greek *"), "είναι");
-  await user.selectOptions(await screen.findByLabelText("Collection"), "c");
+  await user.selectOptions(
+    await within(
+      screen.getByRole("form", { name: "New card" }),
+    ).findByLabelText("Collection"),
+    "c",
+  );
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
   await user.click(screen.getByRole("button", { name: "Save card" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -222,7 +232,12 @@ test("matching-pair warnings appear after save and all interface languages retai
   await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "la casa");
   await user.type(screen.getByLabelText("Greek *"), "το σπίτι");
-  await user.selectOptions(await screen.findByLabelText("Collection"), "c");
+  await user.selectOptions(
+    await within(
+      screen.getByRole("form", { name: "New card" }),
+    ).findByLabelText("Collection"),
+    "c",
+  );
   await user.selectOptions(screen.getByLabelText("Word type *"), "noun");
   await user.selectOptions(
     screen.getByLabelText("Italian gender"),
@@ -423,7 +438,9 @@ test("floating card actions support one open menu, keyboard navigation and dismi
   expect(screen.getAllByRole("menu")).toHaveLength(1);
   expect(house).toHaveAttribute("aria-expanded", "false");
   expect(book).toHaveAttribute("aria-expanded", "true");
-  await user.click(screen.getByRole("heading", { name: "Your vocabulary" }));
+  await user.click(
+    screen.getByRole("heading", { name: "All accessible cards" }),
+  );
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(book).toHaveFocus();
   await user.click(book);
@@ -446,7 +463,12 @@ test("choosing a collection preserves the card draft", async () => {
   await user.click(await screen.findByRole("button", { name: "New card" }));
   await user.type(screen.getByLabelText("Italian *"), "nuovo");
   await user.type(screen.getByLabelText("Greek *"), "νέο");
-  await user.selectOptions(await screen.findByLabelText("Collection"), "c");
+  await user.selectOptions(
+    await within(
+      screen.getByRole("form", { name: "New card" }),
+    ).findByLabelText("Collection"),
+    "c",
+  );
   expect(screen.getByLabelText("Italian *")).toHaveValue("nuovo");
   expect(screen.getByLabelText("Greek *")).toHaveValue("νέο");
 });

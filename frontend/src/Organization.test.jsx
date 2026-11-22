@@ -1,6 +1,6 @@
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -14,6 +14,7 @@ const server = setupServer(
       {
         id: "c",
         name: "Travel",
+        card_count: 13,
         can_edit: true,
         source_language: "it",
         target_language: "el",
@@ -31,7 +32,8 @@ const server = setupServer(
   ),
   http.get("*/api/tags", () => HttpResponse.json([{ id: "t", name: "Daily" }])),
   http.get("*/api/vocabulary", ({ request }) => {
-    lastParams = new URL(request.url).searchParams;
+    const params = new URL(request.url).searchParams;
+    if (params.get("page_size") !== "1") lastParams = params;
     return HttpResponse.json({
       items: [
         {
@@ -70,17 +72,19 @@ function open(text = copy.en) {
 test("combined filters persist through pages and changing search resets page", async () => {
   open();
   const user = userEvent.setup();
-  await user.click(screen.getByText("My collections", { selector: "summary" }));
-  await user.selectOptions(await screen.findByLabelText("My collections"), "c");
+  const collection = screen.getByRole("combobox", {
+    name: "Collection",
+    exact: true,
+  });
+  await within(collection).findByRole("option", { name: "Travel" });
+  await user.selectOptions(collection, "c");
   await user.click(screen.getByText("Filters", { exact: true }));
   await user.click(screen.getByRole("checkbox", { name: "Noun" }));
   await user.click(screen.getByRole("checkbox", { name: "Expression" }));
   expect(
     screen.getByText("Filters", { exact: false, selector: "summary" }),
   ).toHaveTextContent("2");
-  expect(
-    screen.queryByRole("checkbox", { name: "Daily" }),
-  ).not.toBeInTheDocument();
+  await user.click(await screen.findByRole("checkbox", { name: "Daily" }));
   await user.click(await screen.findByRole("button", { name: "Next page" }));
   expect(
     await screen.findByRole("heading", { name: "due" }),
@@ -88,7 +92,7 @@ test("combined filters persist through pages and changing search resets page", a
   expect(lastParams.get("collection_id")).toBe("c");
   expect(lastParams.has("unit_ids")).toBe(false);
   expect(lastParams.getAll("word_types")).toEqual(["noun", "expression"]);
-  expect(lastParams.has("tag_ids")).toBe(false);
+  expect(lastParams.getAll("tag_ids")).toEqual(["t"]);
   await user.type(screen.getByLabelText("Search Italian or Greek"), "σπίτι");
   await waitFor(() => expect(lastParams.get("q")).toBe("σπίτι"));
   expect(lastParams.get("page")).toBe("1");
@@ -134,7 +138,9 @@ test("new cards use collections while tag controls remain hidden", async () => {
   await user.type(screen.getByLabelText("Greek *"), "ταξιδεύω");
   await user.selectOptions(screen.getByLabelText("Word type *"), "verb");
   await user.selectOptions(
-    await screen.findByLabelText(copy.en.cardCollection),
+    await within(
+      screen.getByRole("form", { name: copy.en.addEntry }),
+    ).findByLabelText(copy.en.cardCollection),
     "c",
   );
   expect(

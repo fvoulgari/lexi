@@ -83,7 +83,7 @@ test("public sign-in offers Google and email/password without revealing private 
   );
   expect(startGoogle).toHaveBeenCalledOnce();
   expect(
-    screen.queryByRole("heading", { name: "Your vocabulary" }),
+    screen.queryByRole("heading", { name: "All accessible cards" }),
   ).not.toBeInTheDocument();
   await user.type(
     screen.getByLabelText(copy.en.authEmail),
@@ -169,7 +169,7 @@ test("sign-in keeps the notebook locked when the fresh session requires verifica
     await screen.findByRole("heading", { name: copy.en.authVerify }),
   ).toBeInTheDocument();
   expect(
-    screen.queryByRole("heading", { name: "Your vocabulary" }),
+    screen.queryByRole("heading", { name: "All accessible cards" }),
   ).not.toBeInTheDocument();
 });
 
@@ -203,7 +203,7 @@ test("sign-in does not expose the notebook when the fresh session check fails", 
   );
   expect(await screen.findByRole("alert")).toBeInTheDocument();
   expect(
-    screen.queryByRole("heading", { name: "Your vocabulary" }),
+    screen.queryByRole("heading", { name: "All accessible cards" }),
   ).not.toBeInTheDocument();
 });
 
@@ -229,7 +229,7 @@ test("provider failure remains recoverable and does not reveal the library", asy
     screen.getByRole("button", { name: copy.en.authAction_signin }),
   ).toBeEnabled();
   expect(
-    screen.queryByRole("heading", { name: "Your vocabulary" }),
+    screen.queryByRole("heading", { name: "All accessible cards" }),
   ).not.toBeInTheDocument();
 });
 
@@ -282,7 +282,7 @@ test("locking the notebook removes the authenticated library", async () => {
   await user.click(await screen.findByRole("button", { name: "Sign out" }));
   expect(await screen.findByLabelText("Email address")).toBeInTheDocument();
   expect(
-    screen.queryByRole("heading", { name: "Your vocabulary" }),
+    screen.queryByRole("heading", { name: "All accessible cards" }),
   ).not.toBeInTheDocument();
 });
 
@@ -326,12 +326,12 @@ test("a revoked session returns the learner to the gate", async () => {
 test("interface language can change independently of vocabulary languages", async () => {
   authenticated = true;
   renderApp();
-  await screen.findByRole("heading", { name: "Your vocabulary" });
+  await screen.findByRole("heading", { name: "All accessible cards" });
   await userEvent
     .setup()
     .selectOptions(screen.getByLabelText("Interface language"), "it");
   expect(
-    screen.getByRole("heading", { name: "Il tuo vocabolario" }),
+    screen.getByRole("heading", { name: "Tutte le schede accessibili" }),
   ).toBeInTheDocument();
   expect(localStorage.getItem("notebook-language")).toBe("it");
   expect(document.documentElement.lang).toBe("it");
@@ -776,7 +776,7 @@ test("a delayed preference write from account A cannot replace account B identit
     defaultOptions: { queries: { retry: false } },
   });
   renderApp(client);
-  await screen.findByRole("heading", { name: "Your vocabulary" });
+  await screen.findByRole("heading", { name: "All accessible cards" });
   await userEvent.selectOptions(screen.getByLabelText(copy.en.language), "it");
   await waitFor(() => expect(release).toBeTypeOf("function"));
   identity = "b";
