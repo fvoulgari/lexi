@@ -2,7 +2,7 @@ export const collectionCopy = {
   en: {
     collectionLanguages: "Collection languages",
     noImportCollections:
-      "No private Italian–Greek collections available for import.",
+      "You have no collections you can add cards to.",
     saveReference: "Add to my collections",
     removeReference: "Remove from my collections",
     saved: "Saved",
@@ -22,6 +22,17 @@ export const collectionCopy = {
     oneCard: "card",
     onlyYou: "Only you",
     visibleToLearners: "Visible to other learners.",
+    privateVisibilityHint: "Only you can see this collection.",
+    publicVisibilityHint:
+      "Other users will be able to see this collection and its cards.",
+    publicationTitle: "Publish collection",
+    publishAction: "Publish",
+    publicationExplanation:
+      "The collection and its cards will be visible to other users. You can keep editing them.",
+    publicImportConsent: "I understand this import will be publicly visible.",
+    importAndPublish: "Import and publish",
+    publishNotAllowed: "You do not have permission to publish this collection.",
+    collectionUnavailable: "This collection is no longer available.",
     savedCollection: "Collection saved.",
     deletedCollection: "Collection deleted.",
     backToEdit: "Back to edit",
@@ -46,6 +57,7 @@ export const collectionCopy = {
     name: "Collection name",
     create: "Create collection",
     open: "Open",
+    details: "Details",
     private: "Private",
     published: "Public",
     cards: "cards",
@@ -96,7 +108,7 @@ export const collectionCopy = {
   el: {
     collectionLanguages: "Γλώσσες συλλογής",
     noImportCollections:
-      "Δεν υπάρχουν διαθέσιμες ιδιωτικές συλλογές Ιταλικών–Ελληνικών για εισαγωγή.",
+      "Δεν έχεις συλλογές στις οποίες μπορείς να προσθέσεις κάρτες.",
     saveReference: "Προσθήκη στις συλλογές μου",
     removeReference: "Αφαίρεση από τις συλλογές μου",
     saved: "Αποθηκευμένη",
@@ -116,6 +128,18 @@ export const collectionCopy = {
     oneCard: "κάρτα",
     onlyYou: "Μόνο εσύ",
     visibleToLearners: "Ορατή σε άλλους μαθητές.",
+    privateVisibilityHint: "Μόνο εσύ θα βλέπεις αυτή τη συλλογή.",
+    publicVisibilityHint:
+      "Άλλοι χρήστες θα μπορούν να βλέπουν αυτή τη συλλογή και τις κάρτες της.",
+    publicationTitle: "Δημοσίευση συλλογής",
+    publishAction: "Δημοσίευση",
+    publicationExplanation:
+      "Η συλλογή και οι κάρτες της θα είναι ορατές στους άλλους χρήστες. Θα μπορείς να συνεχίσεις να τις επεξεργάζεσαι.",
+    publicImportConsent:
+      "Κατανοώ ότι αυτή η εισαγωγή θα είναι δημόσια ορατή.",
+    importAndPublish: "Εισαγωγή και δημοσίευση",
+    publishNotAllowed: "Δεν έχεις άδεια να δημοσιεύσεις αυτή τη συλλογή.",
+    collectionUnavailable: "Αυτή η συλλογή δεν είναι πλέον διαθέσιμη.",
     savedCollection: "Η συλλογή αποθηκεύτηκε.",
     deletedCollection: "Η συλλογή διαγράφηκε.",
     backToEdit: "Πίσω στην επεξεργασία",
@@ -142,6 +166,7 @@ export const collectionCopy = {
     name: "Όνομα συλλογής",
     create: "Δημιουργία συλλογής",
     open: "Άνοιγμα",
+    details: "Λεπτομέρειες",
     private: "Ιδιωτική",
     published: "Δημόσια",
     cards: "κάρτες",
@@ -192,7 +217,7 @@ export const collectionCopy = {
   it: {
     collectionLanguages: "Lingue della raccolta",
     noImportCollections:
-      "Nessuna raccolta privata italiano–greco disponibile per l’importazione.",
+      "Non hai raccolte in cui puoi aggiungere schede.",
     saveReference: "Aggiungi alle mie raccolte",
     removeReference: "Rimuovi dalle mie raccolte",
     saved: "Salvata",
@@ -212,6 +237,17 @@ export const collectionCopy = {
     oneCard: "scheda",
     onlyYou: "Solo tu",
     visibleToLearners: "Visibile agli altri studenti.",
+    privateVisibilityHint: "Solo tu puoi vedere questa raccolta.",
+    publicVisibilityHint:
+      "Altri utenti potranno vedere questa raccolta e le sue schede.",
+    publicationTitle: "Pubblica raccolta",
+    publishAction: "Pubblica",
+    publicationExplanation:
+      "La raccolta e le sue schede saranno visibili agli altri utenti. Potrai continuare a modificarle.",
+    publicImportConsent: "Capisco che questa importazione sarà visibile pubblicamente.",
+    importAndPublish: "Importa e pubblica",
+    publishNotAllowed: "Non hai il permesso di pubblicare questa raccolta.",
+    collectionUnavailable: "Questa raccolta non è più disponibile.",
     savedCollection: "Raccolta salvata.",
     deletedCollection: "Raccolta eliminata.",
     backToEdit: "Torna alla modifica",
@@ -237,6 +273,7 @@ export const collectionCopy = {
     name: "Nome della raccolta",
     create: "Crea raccolta",
     open: "Apri",
+    details: "Dettagli",
     private: "Privata",
     published: "Pubblica",
     cards: "schede",
@@ -292,6 +329,13 @@ export function isMyCollection(collection) {
   return (
     collection.can_edit !== false ||
     (collection.saved && collection.visibility === "published")
+  );
+}
+
+export function canViewCollection(collection) {
+  return Boolean(
+    collection &&
+      (collection.can_edit !== false || collection.visibility === "published"),
   );
 }
 

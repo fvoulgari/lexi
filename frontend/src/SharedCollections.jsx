@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { request } from "./api.js";
+import PublicationDialog from "./PublicationDialog.jsx";
 import { useAccount } from "./AccountContext.jsx";
 import { practiceSides, cardLanguages } from "./card-sides.js";
 import {
@@ -64,6 +65,15 @@ export default function SharedCollections({ language = "en", csrf }) {
     tab === "mine" ? isMyCollection(c) : c.visibility === "published",
   );
   const current = listed.find((c) => c.id === selected);
+  useEffect(() => {
+    if (!preview || !current) return;
+    if (
+      preview.id !== current.id ||
+      preview.card_count !== current.card_count ||
+      preview.visibility !== current.visibility
+    )
+      setPreview(null);
+  }, [current, preview]);
   const availableChosen = chosen.filter((id) =>
     collections.some((c) => c.id === id),
   );
@@ -335,9 +345,27 @@ export default function SharedCollections({ language = "en", csrf }) {
                   {c.owner_name && <small>{collectionOwner(c, t)}</small>}
                 </div>
                 <div className="collection-actions">
+                  <Link
+                    className="collection-open-link"
+                    to={`/vocabulary?collection_id=${encodeURIComponent(c.id)}`}
+                    aria-disabled={busy}
+                    onClick={(event) => {
+                      if (busy) {
+                        event.preventDefault();
+                        return;
+                      }
+                      setPreview(null);
+                      setPendingAdd(null);
+                      setEditor(null);
+                      write.reset();
+                    }}
+                  >
+                    {t.open}
+                  </Link>
                   <button
-                    disabled={busy}
+                    type="button"
                     aria-pressed={selected === c.id}
+                    disabled={busy}
                     onClick={() => {
                       setSelected(c.id);
                       setPreview(null);
@@ -346,7 +374,7 @@ export default function SharedCollections({ language = "en", csrf }) {
                       write.reset();
                     }}
                   >
-                    {t.open}
+                    {t.details}
                   </button>
                   {!c.can_edit && (
                     <button
@@ -540,81 +568,45 @@ export default function SharedCollections({ language = "en", csrf }) {
                   </button>
                 </div>
               )}
-              {preview && (
-                <div
-                  className="publication-preview"
-                  role="region"
-                  aria-label={
-                    preview.unpublishing ? t.confirmUnpublish : t.confirm
-                  }
-                >
-                  <h3>{preview.name}</h3>
-                  <p>
-                    {pairLabel} · {preview.card_count} {t.cards}
-                  </p>
-                  <p>
-                    {preview.unpublishing
-                      ? t.unpublishExposure
-                      : preview.private_cards.length
-                        ? current.visibility === "published"
-                          ? t.exposure
-                          : t.publishExposure
-                        : t.none}
-                  </p>
-                  {preview.unpublishing &&
-                    preview.private_cards.length === 0 && (
-                      <p>{t.unpublishNone}</p>
-                    )}
-                  {(preview.unpublishing ||
-                    current.visibility === "published") &&
-                    preview.private_cards.length > 0 && (
-                      <ul>
-                        {preview.private_cards.map((c) => (
-                          <li key={c.id}>
-                            {c.source_text} — {c.target_text}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  {preview.unpublishing &&
-                    preview.still_shared_cards?.length > 0 && (
-                      <>
-                        <p>{t.stillShared}</p>
-                        <ul>
-                          {preview.still_shared_cards.map((c) => (
-                            <li key={c.id}>
-                              {c.source_text} — {c.target_text}
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                  <div className="collection-actions">
-                    <button
-                      className="primary"
-                      disabled={busy}
-                      onClick={() =>
-                        act(
-                          preview.unpublishing
-                            ? { path: `${base}/unpublish` }
-                            : {
-                                path: `${base}/publish`,
-                                body: {
-                                  preview_token: preview.preview_token,
-                                  confirm_private_ids:
-                                    preview.private_cards.map((c) => c.id),
-                                },
-                              },
-                          () => setPreview(null),
-                        )
-                      }
-                    >
-                      {preview.unpublishing ? t.confirmUnpublish : t.confirm}
-                    </button>
-                    <button onClick={() => setPreview(null)}>{t.cancel}</button>
-                  </div>
-                </div>
-              )}
+              <PublicationDialog
+                open={Boolean(preview)}
+                title={
+                  preview?.unpublishing
+                    ? t.confirmUnpublish
+                    : t.publicationTitle
+                }
+                name={preview?.name || current?.name || ""}
+                cardCount={preview?.card_count ?? current?.card_count ?? 0}
+                cardsLabel={t.cards}
+                explanation={
+                  preview?.unpublishing
+                    ? t.unpublishExposure
+                    : t.publicationExplanation
+                }
+                confirmLabel={
+                  preview?.unpublishing ? t.confirmUnpublish : t.publishAction
+                }
+                cancelLabel={t.cancel}
+                busy={busy}
+                onCancel={() => setPreview(null)}
+                onConfirm={() => {
+                  if (busy) return;
+                  act(
+                    preview.unpublishing
+                      ? { path: `${base}/unpublish` }
+                      : {
+                          path: `${base}/publish`,
+                          body: {
+                            preview_token: preview.preview_token,
+                            confirm_private_ids: preview.private_cards.map(
+                              (c) => c.id,
+                            ),
+                          },
+                        },
+                    () => setPreview(null),
+                  );
+                }}
+              />
               {editor && (
                 <form
                   className="collection-form publication-preview"
@@ -665,6 +657,9 @@ export default function SharedCollections({ language = "en", csrf }) {
                       {visibilityControl(
                         current.visibility === "published",
                         (value) => reviewVisibility(current, value),
+                      )}
+                      {current.can_publish === false && (
+                        <p role="note">{t.publishNotAllowed}</p>
                       )}
                       <label>
                         {t.name}

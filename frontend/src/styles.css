@@ -2345,6 +2345,53 @@ button:disabled {
   margin: 1rem 0;
   overflow-wrap: anywhere;
 }
+.publication-dialog {
+  inset: 0;
+  width: min(28rem, calc(100% - 1.5rem));
+  height: fit-content;
+  margin: auto;
+  max-height: calc(100dvh - 1.5rem);
+  overflow: auto;
+  padding: 1.2rem;
+  border: 1px solid #cad9c6;
+  border-radius: 1.25rem;
+  background: #fbfaf4;
+  color: inherit;
+  box-shadow: 0 18px 60px #26382b36;
+}
+.publication-dialog::backdrop { background: #23372970; }
+.publication-dialog h2 { margin: 0 0 0.8rem; font-size: 1.4rem; }
+.publication-dialog p { line-height: 1.55; }
+.publication-details {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #d8e0ce;
+  border-radius: 0.7rem;
+  background: #f0f3e8;
+}
+.publication-actions { justify-content: flex-end; }
+.publication-actions button { min-height: 44px; }
+.collection-open-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 9px 13px;
+  border: 1px solid #cad9c6;
+  border-radius: 10px;
+  background: #fffdf8;
+  color: inherit;
+}
+.collection-open-link[aria-disabled="true"] { opacity: 0.55; pointer-events: none; }
+.collection-open-link:focus-visible { outline: 2px solid #405b43; outline-offset: 2px; }
+.collection-unavailable {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #d8b4a0;
+  border-radius: 0.8rem;
+  background: #fff4ec;
+}
 .collection-card-list {
   padding-left: 1.4rem;
 }
@@ -2551,6 +2598,16 @@ button:disabled {
 }
 .csv-language-fields legend { font-weight: 650; margin-block-end: 0.35rem; }
 .csv-fields .audience-badge { justify-self: start; }
+.csv-visibility { display: grid; }
+.csv-visibility-hint, .csv-public-notice, .csv-public-consent { margin: 0.2rem 0; line-height: 1.45; }
+.csv-public-notice {
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #dbc6a5;
+  border-radius: 0.7rem;
+  background: #fff7e7;
+}
+.csv-public-consent { display: flex; align-items: flex-start; gap: 0.5rem; }
+.csv-public-consent input { margin-top: 0.2rem; accent-color: #3f5742; }
 .csv-file-button { position: relative; cursor: pointer; min-height: 44px; padding: 0.5rem 0.7rem; border: 1px solid #cad9c6; border-radius: 10px; }
 .csv-filename { min-width: 0; overflow-wrap: anywhere; }
 .csv-file-button:focus-within, .collection-select:focus-visible, .csv-dialog :is(button, summary, input, a):focus-visible {

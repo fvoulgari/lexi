@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { http, HttpResponse } from "msw";
@@ -72,7 +72,7 @@ test("publication summarizes sharing without listing cards and sends the preview
   );
   open();
   await user.click(
-    await screen.findByRole("button", { name: "Open", exact: true }),
+    await screen.findByRole("button", { name: "Details", exact: true }),
   );
   await user.click(
     await screen.findByRole("button", {
@@ -81,13 +81,30 @@ test("publication summarizes sharing without listing cards and sends the preview
     }),
   );
   expect(confirmation).toBeUndefined();
-  const preview = await screen.findByRole("region", {
-    name: "Confirm publication",
+  const preview = await screen.findByRole("dialog", {
+    name: collectionCopy.en.publicationTitle,
   });
-  expect(preview).toHaveTextContent(collectionCopy.en.publishExposure);
+  expect(preview).toHaveTextContent("Greetings");
+  expect(preview).toHaveTextContent("1 cards");
+  expect(preview).toHaveTextContent(collectionCopy.en.publicationExplanation);
   expect(preview).not.toHaveTextContent("γεια — ciao");
+  expect(
+    within(preview).getByRole("button", {
+      name: collectionCopy.en.publishAction,
+      exact: true,
+    }),
+  ).toBeInTheDocument();
+  expect(
+    within(preview).getByRole("button", {
+      name: collectionCopy.en.cancel,
+      exact: true,
+    }),
+  ).toBeInTheDocument();
   await user.click(
-    screen.getByRole("button", { name: "Confirm publication", exact: true }),
+    within(preview).getByRole("button", {
+      name: collectionCopy.en.publishAction,
+      exact: true,
+    }),
   );
   await waitFor(() =>
     expect(confirmation).toEqual({
@@ -119,7 +136,7 @@ test("a reader can discover and practise without collection or card editing acti
     screen.getByRole("button", { name: "Shared library", exact: true }),
   );
   await user.click(
-    await screen.findByRole("button", { name: "Open", exact: true }),
+    await screen.findByRole("button", { name: "Details", exact: true }),
   );
   expect(
     screen.queryByRole("button", { name: "Publish collection", exact: true }),
@@ -159,10 +176,17 @@ test.each(["el", "it"])(
       screen.getByRole("button", { name: t.create, exact: true }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole("button", { name: t.open, exact: true }),
+      await screen.findByRole("link", { name: t.open, exact: true }),
     ).toBeInTheDocument();
   },
 );
+test("Open stays an addressable link to the collection-scoped Vocabulary view", async () => {
+  open();
+  const link = await screen.findByRole("link", { name: "Open", exact: true });
+  expect(link).toHaveAttribute("href", "/vocabulary?collection_id=one");
+  expect(link).toHaveAttribute("aria-disabled", "false");
+});
+
 test("a failed publication remains visible and can be retried without closing the preview", async () => {
   const user = userEvent.setup();
   server.use(
@@ -179,7 +203,7 @@ test("a failed publication remains visible and can be retried without closing th
   );
   open();
   await user.click(
-    await screen.findByRole("button", { name: "Open", exact: true }),
+    await screen.findByRole("button", { name: "Details", exact: true }),
   );
   await user.click(
     await screen.findByRole("button", {
@@ -187,9 +211,12 @@ test("a failed publication remains visible and can be retried without closing th
       exact: true,
     }),
   );
+  const preview = await screen.findByRole("dialog", {
+    name: collectionCopy.en.publicationTitle,
+  });
   await user.click(
-    await screen.findByRole("button", {
-      name: "Confirm publication",
+    within(preview).getByRole("button", {
+      name: collectionCopy.en.publishAction,
       exact: true,
     }),
   );
@@ -197,7 +224,7 @@ test("a failed publication remains visible and can be retried without closing th
     collectionCopy.en.error,
   );
   expect(
-    screen.getByRole("region", { name: "Confirm publication" }),
+    screen.getByRole("dialog", { name: collectionCopy.en.publicationTitle }),
   ).toBeInTheDocument();
 });
 
@@ -268,7 +295,7 @@ test("creating an Italian–Greek card sends the language IDs matching the form 
   );
   open();
   await user.click(
-    await screen.findByRole("button", { name: "Open", exact: true }),
+    await screen.findByRole("button", { name: "Details", exact: true }),
   );
   await user.click(
     await screen.findByRole("button", { name: "Create card", exact: true }),
@@ -299,6 +326,7 @@ test("unpublish preview distinguishes lost access from another valid owner publi
     http.get("*/api/collections/one/unpublish-preview", () =>
       HttpResponse.json({
         ...own,
+        visibility: "published",
         private_cards: [card],
         still_shared_cards: [
           { ...card, id: "another", source_text: "casa", target_text: "σπίτι" },
@@ -312,21 +340,24 @@ test("unpublish preview distinguishes lost access from another valid owner publi
   );
   open("en", { ...own, visibility: "published" });
   await user.click(
-    await screen.findByRole("button", { name: "Open", exact: true }),
+    await screen.findByRole("button", { name: "Details", exact: true }),
   );
   await user.click(
     screen.getByRole("button", { name: "Unpublish collection", exact: true }),
   );
-  const preview = await screen.findByRole("region", {
+  const preview = await screen.findByRole("dialog", {
     name: "Confirm unpublishing",
   });
   expect(preview).toHaveTextContent("will be hidden from other learners");
-  expect(preview).toHaveTextContent(
+  expect(preview).not.toHaveTextContent(
     "remain accessible through another published collection",
   );
   expect(unpublished).toBe(false);
   await user.click(
-    screen.getByRole("button", { name: "Confirm unpublishing", exact: true }),
+    within(preview).getByRole("button", {
+      name: "Confirm unpublishing",
+      exact: true,
+    }),
   );
   await waitFor(() => expect(unpublished).toBe(true));
 });
@@ -352,7 +383,7 @@ test("create defaults private and edit visibility requires publication confirmat
     screen.getByRole("switch", { name: "Collection visibility" }),
   ).not.toBeChecked();
   await user.click(
-    await screen.findByRole("button", { name: "Open", exact: true }),
+    await screen.findByRole("button", { name: "Details", exact: true }),
   );
   await user.click(
     screen.getByRole("button", { name: "Edit collection", exact: true }),
@@ -362,13 +393,16 @@ test("create defaults private and edit visibility requires publication confirmat
   });
   expect(switches).toHaveLength(2);
   await user.click(switches[1]);
-  const preview = await screen.findByRole("region", {
-    name: "Confirm publication",
+  const preview = await screen.findByRole("dialog", {
+    name: collectionCopy.en.publicationTitle,
   });
   expect(preview).not.toHaveTextContent("γεια");
   expect(published).toBe(false);
   await user.click(
-    screen.getByRole("button", { name: "Confirm publication", exact: true }),
+    within(preview).getByRole("button", {
+      name: collectionCopy.en.publishAction,
+      exact: true,
+    }),
   );
   await waitFor(() => expect(published).toBe(true));
 });
@@ -380,7 +414,7 @@ test("nonowners have no collection edit or visibility action", async () => {
     screen.getByRole("button", { name: "Shared library", exact: true }),
   );
   await user.click(
-    await screen.findByRole("button", { name: "Open", exact: true }),
+    await screen.findByRole("button", { name: "Details", exact: true }),
   );
   expect(
     screen.queryByRole("button", { name: "Edit collection", exact: true }),
@@ -422,14 +456,17 @@ test("requesting Public during creation still creates private and previews befor
   await user.click(
     screen.getByRole("button", { name: "Create collection", exact: true }),
   );
-  const preview = await screen.findByRole("region", {
-    name: "Confirm publication",
+  const preview = await screen.findByRole("dialog", {
+    name: collectionCopy.en.publicationTitle,
   });
   expect(preview).not.toHaveTextContent("γεια");
   expect(createdBody).not.toHaveProperty("visibility");
   expect(published).toBe(false);
   await user.click(
-    screen.getByRole("button", { name: "Confirm publication", exact: true }),
+    within(preview).getByRole("button", {
+      name: collectionCopy.en.publishAction,
+      exact: true,
+    }),
   );
   await waitFor(() => expect(published).toBe(true));
 });
@@ -469,7 +506,7 @@ test("saving and removing a public Collection updates My collections without own
   await user.click(screen.getByRole("button", { name: "My collections" }));
   expect(screen.getByText("By Alba")).toBeInTheDocument();
   expect(screen.getByText("Saved")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Open", exact: true }));
+  await user.click(screen.getByRole("button", { name: "Details", exact: true }));
   expect(screen.queryByRole("button", { name: "Edit collection" })).toBeNull();
   expect(
     screen.queryByRole("button", { name: "Delete collection" }),

@@ -9,7 +9,12 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from app.access import collection_grant, current_account, require_write
+from app.access import (
+    collection_capabilities,
+    collection_grant,
+    current_account,
+    require_write,
+)
 from app.languages import pair
 from app.models import (
     Account,
@@ -172,7 +177,7 @@ def collection_router(sessions, gate):
             "source_language": collection.source_language,
             "target_language": collection.target_language,
             "visibility": collection.visibility,
-            "can_edit": collection.owner_account_id == current_account().id,
+            **collection_capabilities(collection),
             "saved": saved,
             "owner_name": owner_name,
             "entry_ids": [str(c.id) for c in accessible],
