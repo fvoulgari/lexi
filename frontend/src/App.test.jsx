@@ -643,6 +643,104 @@ test("Google callback completes even when an earlier account session already exi
   }
 });
 
+test("Google callback locks the previous account while checking the new session", async () => {
+  let releaseFresh;
+  let calls = 0;
+  finishAuthentication.mockResolvedValueOnce(undefined);
+  window.history.replaceState(null, "", "/auth/callback/google");
+  server.use(
+    http.get("*/api/auth/session", () => {
+      calls += 1;
+      if (calls === 1)
+        return HttpResponse.json({
+          authenticated: true,
+          account: { id: "old" },
+        });
+      return new Promise((resolve) => {
+        releaseFresh = () =>
+          resolve(
+            HttpResponse.json({
+              authenticated: false,
+              verification_required: true,
+            }),
+          );
+      });
+    }),
+  );
+  try {
+    renderApp(undefined, "/auth/callback/google");
+    await waitFor(() => expect(releaseFresh).toBeDefined());
+    expect(
+      screen.queryByRole("button", { name: "Sign out" }),
+    ).not.toBeInTheDocument();
+    releaseFresh();
+    expect(
+      await screen.findByRole("heading", { name: copy.en.authVerify }),
+    ).toBeInTheDocument();
+  } finally {
+    window.history.replaceState(null, "", "/");
+  }
+});
+
+test("cancelling an old session refetch never restores the previous identity", async () => {
+  let releaseFresh;
+  let finishCallback;
+  let calls = 0;
+  let locked = false;
+  let restored = false;
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(["session"], {
+    authenticated: true,
+    account: { id: "old" },
+  });
+  const unsubscribe = client.getQueryCache().subscribe((event) => {
+    if (event.query?.queryKey[0] !== "session") return;
+    const session = event.query.state.data;
+    if (session?.authenticated === false) locked = true;
+    if (locked && session?.authenticated === true) restored = true;
+  });
+  finishAuthentication.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishCallback = resolve;
+      }),
+  );
+  window.history.replaceState(null, "", "/auth/callback/google");
+  server.use(
+    http.get("*/api/auth/session", () => {
+      calls += 1;
+      if (calls === 1) {
+        finishCallback();
+        return new Promise(() => {});
+      }
+      return new Promise((resolve) => {
+        releaseFresh = () =>
+          resolve(
+            HttpResponse.json({
+              authenticated: false,
+              verification_required: true,
+            }),
+          );
+      });
+    }),
+  );
+  try {
+    renderApp(client, "/auth/callback/google");
+    await waitFor(() => expect(releaseFresh).toBeDefined());
+    expect(locked).toBe(true);
+    expect(restored).toBe(false);
+    releaseFresh();
+    expect(
+      await screen.findByRole("heading", { name: copy.en.authVerify }),
+    ).toBeInTheDocument();
+  } finally {
+    unsubscribe();
+    window.history.replaceState(null, "", "/");
+  }
+});
+
 test("a delayed preference write from account A cannot replace account B identity or permissions", async () => {
   authenticated = true;
   let identity = "a",
