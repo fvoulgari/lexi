@@ -26,10 +26,6 @@ import {
   isMyCollection,
 } from "./collection-copy.js";
 
-// Standard Vocabulary practice stays Italian–Greek; every direction option
-// still comes from the language registry rather than a literal pair branch.
-const LEGACY_DIRECTIONS = pairDirections("el", "it");
-
 export default function Practice({ text, csrf, onLocked, language = "en" }) {
   const profiles = useQuery({
     queryKey: ["profiles"],
@@ -199,6 +195,7 @@ function Setup({
   onProfileUnavailable,
 }) {
   const [searchParams] = useSearchParams();
+  const legacyDirections = pairDirections("el", "it");
   const [type, setType] = useState(
     searchParams.get("mode") === "difficult" ? "difficult" : "random",
   );
@@ -230,11 +227,11 @@ function Setup({
     setFilters((current) => ({ ...current, [key]: value }));
   const [direction, setDirection] = useState(() => {
     const requested = searchParams.get("direction");
-    if (LEGACY_DIRECTIONS.includes(requested)) return requested;
+    if (legacyDirections.includes(requested)) return requested;
     const preferred = profile?.preferred_direction;
-    return LEGACY_DIRECTIONS.includes(preferred)
+    return legacyDirections.includes(preferred)
       ? preferred
-      : LEGACY_DIRECTIONS[0];
+      : legacyDirections[0];
   });
   const difficult = useQuery({
     queryKey: ["difficult-entries", profile?.id, direction],
@@ -347,7 +344,7 @@ function Setup({
         onChange={setDirection}
         disabled={pending}
         className="setup-direction-options"
-        options={LEGACY_DIRECTIONS.map((key) => ({
+        options={legacyDirections.map((key) => ({
           value: key,
           label: directionLabel(key, (code) =>
             practiceLanguageLabel(text, code),

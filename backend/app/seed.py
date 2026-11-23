@@ -11,7 +11,12 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.config import Settings
 from app.database import database
-from app.languages import DIRECTION_PAIRS, LANGUAGE_LABELS, LANGUAGES
+from app.languages import (
+    DIRECTION_PAIRS,
+    LANGUAGE_LABELS,
+    LANGUAGES,
+    LEGACY_DIRECTIONS,
+)
 from app.models import (
     Account,
     Collection,
@@ -24,6 +29,14 @@ from app.models import (
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 
+# Bootstrap curation: script, text direction and enhanced-grammar support.
+BOOTSTRAP_METADATA = {
+    "da": ("Latn", "ltr", False),
+    "el": ("Grek", "ltr", True),
+    "en": ("Latn", "ltr", False),
+    "it": ("Latn", "ltr", True),
+}
+
 
 def seed_id(name):
     return uuid5(NAMESPACE_URL, "italian-notebook/seed/" + name)
@@ -34,15 +47,28 @@ def seed(owner_id=None):
     initial = json.loads((DATA / "initial_setup.json").read_text(encoding="utf-8"))
     with sessions.begin() as db:
         for code in LANGUAGES:
+            script, text_direction, enhanced = BOOTSTRAP_METADATA[code]
             db.execute(
                 insert(Language)
-                .values(id=code, display_name=LANGUAGE_LABELS[code])
+                .values(
+                    id=code,
+                    display_name=LANGUAGE_LABELS[code],
+                    script=script,
+                    text_direction=text_direction,
+                    enhanced=enhanced,
+                    publicly_available=True,
+                )
                 .on_conflict_do_nothing()
             )
         for name, (prompt, answer) in DIRECTION_PAIRS.items():
             db.execute(
                 insert(PracticeDirection)
-                .values(name=name, prompt_language=prompt, answer_language=answer)
+                .values(
+                    name=name,
+                    prompt_language=prompt,
+                    answer_language=answer,
+                    legacy=name in LEGACY_DIRECTIONS,
+                )
                 .on_conflict_do_nothing()
             )
         for name in initial["profiles"]:
