@@ -8,15 +8,8 @@ import {
   directionLanguages,
   directionLabel,
   isLegacyDirection,
+  languageLabel,
 } from "./languages.js";
-
-function practiceLanguageLabel(text, language, code) {
-  if (code === "el") return text.greek;
-  if (code === "it") return text.italian;
-  return (
-    new Intl.DisplayNames([language], { type: "language" }).of(code) || code
-  );
-}
 
 function difficultPracticeUrl(direction) {
   if (!direction) return "/practice?mode=difficult";
@@ -24,12 +17,7 @@ function difficultPracticeUrl(direction) {
   return `${page}?mode=difficult&direction=${encodeURIComponent(direction)}`;
 }
 
-export default function Progress({
-  text,
-  onLocked,
-  detailed = false,
-  language = "en",
-}) {
+export default function Progress({ text, onLocked, detailed = false }) {
   const profiles = useQuery({
     queryKey: ["profiles"],
     queryFn: () => request("/api/profiles"),
@@ -70,7 +58,6 @@ export default function Progress({
         profiles={profiles}
         history={history}
         onLocked={onLocked}
-        language={language}
       />
     );
 
@@ -281,7 +268,6 @@ function DetailedProgress({
   profiles,
   history,
   onLocked,
-  language,
 }) {
   const data = history.data;
   const error = profiles.error || history.error;
@@ -378,11 +364,7 @@ function DetailedProgress({
               columnLabel={text.detailDirectionColumn}
               rows={data.directions}
               text={text}
-              label={(key) =>
-                directionLabel(key, (code) =>
-                  practiceLanguageLabel(text, language, code),
-                )
-              }
+              label={(key) => directionLabel(key, languageLabel)}
             />
             <Breakdown
               title={text.detailTypeBreakdown}
@@ -411,7 +393,6 @@ function DetailedProgress({
                   direction={row.key}
                   count={row.difficult_entries}
                   onLocked={onLocked}
-                  language={language}
                 />
               ))}
             {!data.difficult_entries && (
@@ -515,10 +496,8 @@ function DifficultEntries({
   direction,
   count,
   onLocked,
-  language,
 }) {
   const [promptCode, answerCode] = directionLanguages(direction);
-  const label = (code) => practiceLanguageLabel(text, language, code);
   const entries = useQuery({
     queryKey: ["progress-difficult", profileId, direction],
     queryFn: () =>
@@ -540,7 +519,7 @@ function DifficultEntries({
     <div className="detail-difficult-group">
       <div className="detail-difficult-heading">
         <h3>
-          {directionLabel(direction, label)}{" "}
+          {directionLabel(direction, languageLabel)}{" "}
           <span className="detail-count-badge">{count}</span>
         </h3>
 

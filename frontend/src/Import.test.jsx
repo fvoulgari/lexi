@@ -9,6 +9,16 @@ import Library from "./Library.jsx";
 import { copy } from "./copy.js";
 import { collectionCopy } from "./collection-copy.js";
 
+async function chooseLanguage(user, input, query, label) {
+  await user.click(input);
+  await user.type(input, query);
+  await user.click(
+    within(input.closest(".language-combobox")).getByRole("option", {
+      name: label,
+    }),
+  );
+}
+
 const owned = {
   id: "mine",
   name: "Mine",
@@ -201,8 +211,8 @@ test.each(["el", "it"])(
     const languages = within(
       dialog.getByRole("group", { name: text.collectionLanguages }),
     );
-    expect(languages.getByLabelText(text.sourceLanguage)).toHaveValue("el");
-    expect(languages.getByLabelText(text.targetLanguage)).toHaveValue("it");
+    expect(languages.getByLabelText(text.sourceLanguage)).toHaveValue("Greek");
+    expect(languages.getByLabelText(text.targetLanguage)).toHaveValue("Italian");
     expect(languages.queryByText(text.sourceLanguage)).not.toBeInTheDocument();
     expect(languages.queryByText(text.targetLanguage)).not.toBeInTheDocument();
   },
@@ -222,7 +232,7 @@ test("distinguishes loading, unavailable collections, and a retryable error", as
         : HttpResponse.json([
             { ...published, can_import: false },
             shared,
-            { ...owned, source_language: "en" },
+            { ...owned, can_import: false },
           ]);
     }),
   );
@@ -314,12 +324,12 @@ test("new Collection languages keep positional field mapping and invalidate the 
   const selections = within(
     dialog.getByRole("group", { name: "Collection languages" }),
   ).getAllByRole("combobox");
-  expect(selections.map((select) => select.value)).toEqual(["el", "it"]);
+  expect(selections.map((select) => select.value)).toEqual(["Greek", "Italian"]);
   await user.upload(dialog.getByLabelText("Choose CSV file"), file);
   await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
   await dialog.findByRole("button", { name: "Import 1 card into Lexi" });
-  await user.selectOptions(selections[1], "el");
-  expect(selections.map((select) => select.value)).toEqual(["it", "el"]);
+  await chooseLanguage(user, selections[1], "Greek", "Greek");
+  expect(selections.map((select) => select.value)).toEqual(["Italian", "Greek"]);
   expect(
     dialog.queryByRole("button", { name: "Import 1 card into Lexi" }),
   ).toBeNull();

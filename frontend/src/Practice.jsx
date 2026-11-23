@@ -17,6 +17,7 @@ import { cardLanguageIds, practiceSides } from "./card-sides.js";
 import {
   directionLanguages,
   directionLabel,
+  languageLabel,
   pairDirections,
 } from "./languages.js";
 
@@ -157,12 +158,6 @@ export default function Practice({ text, csrf, onLocked, language = "en" }) {
     </section>
   );
 }
-function practiceLanguageLabel(text, code) {
-  if (code === "el") return text.greek;
-  if (code === "it") return text.italian;
-  return code;
-}
-
 function Direction({ text, value, languages, onChange, disabled = false }) {
   const options = pairDirections(...languages);
   const choices = options.includes(value) ? options : [value, ...options];
@@ -177,7 +172,7 @@ function Direction({ text, value, languages, onChange, disabled = false }) {
       >
         {choices.map((key) => (
           <option key={key} value={key}>
-            {directionLabel(key, (code) => practiceLanguageLabel(text, code))}
+            {directionLabel(key, languageLabel)}
           </option>
         ))}
       </select>
@@ -346,9 +341,7 @@ function Setup({
         className="setup-direction-options"
         options={legacyDirections.map((key) => ({
           value: key,
-          label: directionLabel(key, (code) =>
-            practiceLanguageLabel(text, code),
-          ),
+          label: directionLabel(key, languageLabel),
         }))}
       />
       {type === "difficult" && profile && (

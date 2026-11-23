@@ -61,6 +61,11 @@ export function languageIds() {
   return [...registry().ids];
 }
 
+/** Full curated catalogue rows for searchable pickers. */
+export function languageOptions() {
+  return [...registry().languages];
+}
+
 export function languageInfo(code) {
   return registry().byId.get(code);
 }

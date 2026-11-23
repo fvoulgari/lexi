@@ -8,6 +8,17 @@ import { afterAll, afterEach, beforeAll, expect, test } from "vitest";
 import { AccountContext } from "./AccountContext.jsx";
 import SharedCollections from "./SharedCollections.jsx";
 import { collectionCopy } from "./collection-copy.js";
+
+async function chooseLanguage(user, input, query, label) {
+  await user.click(input);
+  await user.type(input, query);
+  await user.click(
+    within(input.closest(".language-combobox")).getByRole("option", {
+      name: label,
+    }),
+  );
+}
+
 const own = {
   id: "one",
   name: "Greetings",
@@ -558,8 +569,8 @@ test("a non-legacy Collection exposes CSV v2 import with language-keyed preview 
   const languagePair = screen.getAllByRole("combobox", {
     name: /Language pair/,
   });
-  await user.selectOptions(languagePair[0], "en");
-  await user.selectOptions(languagePair[1], "da");
+  await chooseLanguage(user, languagePair[0], "en", "English");
+  await chooseLanguage(user, languagePair[1], "da", "Danish");
   await user.click(
     await screen.findByRole("button", { name: "Details", exact: true }),
   );
@@ -613,8 +624,8 @@ test("an en/da workspace derives controls from the registry and creates cards by
   window.history.pushState({}, "", "/collections?direction=en_to_da");
   open("en", englishDanish);
   const pair = screen.getAllByRole("combobox", { name: /Language pair/ });
-  expect(pair[0]).toHaveValue("en");
-  expect(pair[1]).toHaveValue("da");
+  expect(pair[0]).toHaveValue("English");
+  expect(pair[1]).toHaveValue("Danish");
   const direction = screen.getByRole("combobox", {
     name: /^Practice direction/,
   });
