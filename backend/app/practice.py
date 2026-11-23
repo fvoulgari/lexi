@@ -9,7 +9,7 @@ from sqlalchemy import func, or_, select
 
 from app.access import current_account, lock_owned_profile
 from app.filters import category_conditions
-from app.languages import DIRECTION_PAIRS
+from app.languages import direction_languages, same_pair
 from app.models import (
     Collection,
     CollectionEntry,
@@ -212,7 +212,7 @@ def practice_router(sessions, gate):
             collection_ids = set(body.collection_ids)
             if body.collection_id:
                 collection_ids.add(body.collection_id)
-            prompt, answer = DIRECTION_PAIRS[body.direction]
+            prompt, answer = direction_languages(body.direction)
             selection = selection.where(
                 (
                     (VocabularyEntry.source_language == prompt)
@@ -232,7 +232,12 @@ def practice_router(sessions, gate):
                 if len(collections) != len(collection_ids):
                     raise HTTPException(404, "Collection not found.")
                 if any(
-                    {c.source_language, c.target_language} != {prompt, answer}
+                    not same_pair(
+                        c.source_language,
+                        c.target_language,
+                        prompt,
+                        answer,
+                    )
                     for c in collections
                 ):
                     raise HTTPException(
@@ -358,11 +363,13 @@ def practice_router(sessions, gate):
             )
 
     def validate_direction(card, direction):
-        languages = {
+        prompt, answer = direction_languages(direction)
+        if not same_pair(
             card.snapshot.get("source_language", "it"),
             card.snapshot.get("target_language", "el"),
-        }
-        if set(DIRECTION_PAIRS[direction]) != languages:
+            prompt,
+            answer,
+        ):
             raise HTTPException(422, "Direction does not match this card.")
 
     def event_output(db, event, permissions=None, accessible_ids=None):

@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, synonym
 
-from app.languages import DIRECTION_PAIRS
+from app.languages import DIRECTION_PAIRS, LANGUAGES
 
 
 class Base(DeclarativeBase):
@@ -104,6 +104,9 @@ class Tag(ContentScope, Base):
     name: Mapped[str] = mapped_column(String(80))
 
 
+LANGUAGE_IDS = ", ".join(repr(language) for language in LANGUAGES)
+
+
 class VocabularyEntry(ContentScope, Base):
     __tablename__ = "vocabulary_entries"
     __table_args__ = (
@@ -111,6 +114,12 @@ class VocabularyEntry(ContentScope, Base):
         CheckConstraint(
             "word_type IN ('noun','verb','adjective','adverb','expression','other')",
             name="valid_word_type",
+        ),
+        CheckConstraint(
+            f"source_language IN ({LANGUAGE_IDS}) AND "
+            f"target_language IN ({LANGUAGE_IDS}) AND "
+            "source_language <> target_language",
+            name="vocabulary_card_languages",
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

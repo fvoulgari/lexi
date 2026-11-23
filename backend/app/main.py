@@ -29,6 +29,7 @@ from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
 from app.grammar import clean_grammar, missing_gender_fields
 from app.imports import import_router
+from app.languages import same_pair
 from app.models import (
     Collection,
     CollectionEntry,
@@ -400,9 +401,12 @@ def create_app():
                     raise HTTPException(
                         422, "New collection cards must be owned private cards."
                     )
-                if sorted(
-                    [collection.source_language, collection.target_language]
-                ) != sorted([entry.source_language, entry.target_language]):
+                if not same_pair(
+                    collection.source_language,
+                    collection.target_language,
+                    entry.source_language,
+                    entry.target_language,
+                ):
                     raise HTTPException(
                         422, "Card language pair differs from collection."
                     )
