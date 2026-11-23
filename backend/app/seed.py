@@ -11,7 +11,16 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.config import Settings
 from app.database import database
-from app.models import Account, Collection, CollectionEntry, Profile, VocabularyEntry
+from app.languages import DIRECTION_PAIRS, LANGUAGE_LABELS, LANGUAGES
+from app.models import (
+    Account,
+    Collection,
+    CollectionEntry,
+    Language,
+    PracticeDirection,
+    Profile,
+    VocabularyEntry,
+)
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 
@@ -24,6 +33,18 @@ def seed(owner_id=None):
     engine, sessions = database(Settings().database_url)
     initial = json.loads((DATA / "initial_setup.json").read_text(encoding="utf-8"))
     with sessions.begin() as db:
+        for code in LANGUAGES:
+            db.execute(
+                insert(Language)
+                .values(id=code, display_name=LANGUAGE_LABELS[code])
+                .on_conflict_do_nothing()
+            )
+        for name, (prompt, answer) in DIRECTION_PAIRS.items():
+            db.execute(
+                insert(PracticeDirection)
+                .values(name=name, prompt_language=prompt, answer_language=answer)
+                .on_conflict_do_nothing()
+            )
         for name in initial["profiles"]:
             db.execute(
                 insert(Profile)
