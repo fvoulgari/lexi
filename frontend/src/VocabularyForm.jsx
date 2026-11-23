@@ -7,6 +7,7 @@ import {
   adjectiveFormFields,
   adjectiveGenderFields,
   adjectiveGroups,
+  grammarLanguages,
   isRelevantField,
   cleanGrammar,
   requiredGenderFields,
@@ -102,10 +103,9 @@ export default function VocabularyForm({
         headers: { "X-CSRF-Token": csrf },
         body: JSON.stringify({
           ...Object.fromEntries(
-            Object.entries(cleanGrammar(values)).map(([key, value]) => [
-              key,
-              value?.trim() || null,
-            ]),
+            Object.entries(cleanGrammar(values, grammarLanguages(entry))).map(
+              ([key, value]) => [key, value?.trim() || null],
+            ),
           ),
           ...(!entry?.id
             ? {
@@ -229,7 +229,10 @@ export default function VocabularyForm({
             (field) => !values[field].trim(),
           );
           missing.push(
-            ...requiredGenderFields(values.word_type).filter(
+            ...requiredGenderFields(
+              values.word_type,
+              grammarLanguages(entry),
+            ).filter(
               (field) => !values[field],
             ),
           );

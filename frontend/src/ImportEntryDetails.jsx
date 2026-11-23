@@ -1,31 +1,40 @@
 import PropTypes from "prop-types";
-import { adjectiveGroups, grammarFieldsFor } from "./grammar.js";
+import {
+  GRAMMAR_DEFINITIONS,
+  adjectiveGroups,
+  grammarFieldsFor,
+  languageOfField,
+  legacyLanguageName,
+} from "./grammar.js";
 
 export default function ImportEntryDetails({ row, text }) {
   const { entry } = row;
   const grammar = (language) => {
+    const definition = GRAMMAR_DEFINITIONS[language];
+    if (!definition) return [];
+    const legacy = legacyLanguageName(language);
     const fields =
       entry.word_type === "adjective"
         ? [
-            `${language}_adjective_gender`,
+            definition.adjectiveGender,
             ...adjectiveGroups(entry, language).flat(),
-            `${language}_${entry[`${language}_adjective_gender`]}_singular`,
+            definition.forms[`${entry[definition.adjectiveGender]}_singular`],
           ]
-        : grammarFieldsFor(entry.word_type).filter((field) =>
-            field.startsWith(language),
-          );
+        : grammarFieldsFor(entry.word_type, [language]);
     return fields.filter(
       (field) =>
+        field &&
         entry[field] &&
         entry[field] !== "common" &&
-        !(field.endsWith("_singular") && entry[field] === row[language]),
+        !(field.endsWith("_singular") && entry[field] === row[legacy]),
     );
   };
   const groups = [
-    grammar("italian"),
-    grammar("greek"),
-    ["pronunciation", "greek_pronunciation"],
-    ["italian_example", "greek_example"],
+    ...Object.keys(GRAMMAR_DEFINITIONS).map(grammar),
+    Object.values(GRAMMAR_DEFINITIONS).map(
+      (definition) => definition.pronunciation,
+    ),
+    Object.values(GRAMMAR_DEFINITIONS).map((definition) => definition.example),
   ]
     .map((fields) => fields.filter((field) => entry[field]))
     .filter((fields) => fields.length);
@@ -43,14 +52,10 @@ export default function ImportEntryDetails({ row, text }) {
                   lang={
                     field.includes("pronunciation") || field.endsWith("_gender")
                       ? undefined
-                      : field.startsWith("italian")
-                        ? "it"
-                        : "el"
+                      : languageOfField(field)
                   }
                 >
-                  {field.endsWith("_gender")
-                    ? text[entry[field]]
-                    : entry[field]}
+                  {field.endsWith("_gender") ? text[entry[field]] : entry[field]}
                 </dd>
               </div>
             ))}

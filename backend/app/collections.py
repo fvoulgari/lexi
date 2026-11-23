@@ -15,10 +15,20 @@ from app.access import (
     current_account,
     require_write,
 )
+from app.grammar import (
+    GRAMMAR_FIELDS,
+    card_grammar_fields,
+    clean_grammar,
+    gender_field_language,
+    grammar_fields,
+    invalid_grammar_fields,
+    missing_gender_fields,
+)
 from app.languages import (
     card_slots,
     card_text,
     direction_languages,
+    language_label,
     pair,
     pair_mismatch_message,
     same_pair,
@@ -32,7 +42,7 @@ from app.models import (
     SavedCollection,
     VocabularyEntry,
 )
-from app.schemas import Direction, EntryText
+from app.schemas import Direction, EntryText, GrammarFields, WordType
 
 
 class CollectionBody(BaseModel):
@@ -103,10 +113,30 @@ class OrderBody(BaseModel):
     entry_ids: list[UUID] = Field(max_length=5000)
 
 
-class CardBody(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+def grammar_fields_for(languages, word_type):
+    if word_type is None:
+        return set(GRAMMAR_FIELDS)
+    return set(grammar_fields(languages, word_type))
+
+
+def gender_message(fields):
+    return "Choose the card's gender for: " + ", ".join(
+        language_label(gender_field_language(field)) for field in fields
+    )
+
+
+class CardBody(GrammarFields):
     source_text: EntryText
     target_text: EntryText
+    word_type: WordType = "expression"
+    source_language: str | None = None
+    target_language: str | None = None
+    confirm_exposure: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def discard_incompatible_grammar(cls, values):
+        return cls.clean_grammar_input(values)
 
     @field_validator("source_text", "target_text")
     @classmethod
@@ -115,18 +145,27 @@ class CardBody(BaseModel):
             raise ValueError("Text contains invalid Unicode.")
         return value
 
-    source_language: str | None = None
-    target_language: str | None = None
-    confirm_exposure: bool = False
-
     @model_validator(mode="after")
     def valid_languages(self):
+        languages = ("it", "el")
         if self.source_language is not None or self.target_language is not None:
             pair(self.source_language, self.target_language)
+            languages = (self.source_language, self.target_language)
+        # Grammar exists only where a language definition and word type allow
+        # it. Legacy columns outside this card's IDs are never accepted.
+        for field in GRAMMAR_FIELDS:
+            if field not in grammar_fields_for(languages, self.word_type):
+                setattr(self, field, None)
+        invalid = invalid_grammar_fields(self.model_dump(), languages)
+        if invalid:
+            raise ValueError(
+                "Invalid grammar for: " + ", ".join(invalid) + "."
+            )
         return self
 
 
 class CardUpdate(CardBody):
+    word_type: WordType | None = None
     withdraw: bool = False
 
 
@@ -184,6 +223,8 @@ def collection_router(sessions, gate):
             "target_language": card.target_language,
             "source_text": card_text(card, card.source_language),
             "target_text": card_text(card, card.target_language),
+            "word_type": card.word_type,
+            **card_grammar_fields(card, (card.source_language, card.target_language)),
             "visibility": card.visibility,
             "shared_via_collection": shared_elsewhere(db, card),
             "requires_confirmation": card.owner_account_id == current_account().id
@@ -640,14 +681,48 @@ def collection_router(sessions, gate):
             source, target, source_text, target_text = card_slots(
                 source, target, body.source_text, body.target_text
             )
+            values = clean_grammar(
+                body.model_dump(exclude={"confirm_exposure"}),
+                body.word_type,
+                (source, target),
+            )
+            values.pop("source_text", None)
+            values.pop("target_text", None)
+            values.pop("source_language", None)
+            values.pop("target_language", None)
+            values.pop("word_type", None)
+            languages = (source, target)
+            invalid = invalid_grammar_fields(values, languages)
+            if invalid:
+                raise HTTPException(
+                    422,
+                    detail={
+                        "code": "invalid_input",
+                        "message": "Check grammar for: " + ", ".join(invalid) + ".",
+                        "fields": invalid,
+                    },
+                )
+            missing = missing_gender_fields(
+                {**values, "word_type": body.word_type}, languages
+            )
+            if missing:
+                raise HTTPException(
+                    422,
+                    detail={
+                        "code": "invalid_input",
+                        "message": gender_message(missing),
+                        "fields": missing,
+                    },
+                )
             entry = VocabularyEntry(
                 source_language=source,
                 target_language=target,
                 source_text=source_text,
                 target_text=target_text,
-                word_type="expression",
+                word_type=body.word_type,
                 owner_account_id=current_account().id,
                 visibility="private",
+                **values,
             )
             db.add(entry)
             db.flush()
@@ -678,8 +753,41 @@ def collection_router(sessions, gate):
                 body.source_language,
                 body.target_language,
             ) != (entry.source_language, entry.target_language):
-                raise HTTPException(422, "Card language order cannot be changed.")
+                raise HTTPException(
+                    422, "Card language IDs cannot be changed after creation."
+                )
             entry.source_text, entry.target_text = body.source_text, body.target_text
+            languages = (entry.source_language, entry.target_language)
+            word_type = body.word_type or entry.word_type
+            values = {
+                field: getattr(entry, field)
+                for field in GRAMMAR_FIELDS
+                if hasattr(entry, field)
+            }
+            values.update(
+                {
+                    field: value
+                    for field, value in body.model_dump(exclude_unset=True).items()
+                    if field in GRAMMAR_FIELDS
+                }
+            )
+            values = clean_grammar(values, word_type, languages)
+            missing = missing_gender_fields(
+                {**values, "word_type": word_type}, languages
+            )
+            if missing:
+                raise HTTPException(
+                    422,
+                    detail={
+                        "code": "invalid_input",
+                        "message": gender_message(missing),
+                        "fields": missing,
+                    },
+                )
+            for field, value in values.items():
+                setattr(entry, field, value)
+            if body.word_type is not None:
+                entry.word_type = word_type
             if body.withdraw:
                 db.execute(
                     update(CollectionEntry)

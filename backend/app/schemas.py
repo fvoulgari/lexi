@@ -157,10 +157,10 @@ ItalianGender = Literal["masculine", "feminine"]
 GreekGender = Literal["masculine", "feminine", "neuter"]
 
 
-class VocabularyFields(BaseModel):
+class GrammarFields(BaseModel):
+    """Optional grammar values, stored in legacy language-named columns."""
+
     model_config = ConfigDict(extra="forbid")
-    unit_id: UUID | None = None
-    tag_ids: list[UUID] = []
     italian_gender: ItalianGender | None = None
     greek_gender: GreekGender | None = None
     italian_plural: PluralText | None = None
@@ -183,9 +183,8 @@ class VocabularyFields(BaseModel):
     greek_pronunciation: OptionalText | None = None
     pronunciation: OptionalText | None = None
 
-    @model_validator(mode="before")
     @classmethod
-    def discard_incompatible_grammar(cls, values):
+    def clean_grammar_input(cls, values):
         if isinstance(values, dict) and values.get("word_type"):
             return clean_grammar(values, values["word_type"])
         return values
@@ -221,6 +220,16 @@ class VocabularyFields(BaseModel):
         ):
             raise ValueError("Text contains invalid Unicode characters.")
         return value
+
+
+class VocabularyFields(GrammarFields):
+    unit_id: UUID | None = None
+    tag_ids: list[UUID] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def discard_incompatible_grammar(cls, values):
+        return cls.clean_grammar_input(values)
 
 
 class VocabularyCreate(VocabularyFields):
@@ -270,6 +279,10 @@ class VocabularyUpdate(VocabularyFields):
     italian: EntryText | None = None
     greek: EntryText | None = None
     word_type: WordType | None = None
+    # Accepted only to reject an attempted language-ID change with an explicit
+    # error; a different pair requires a new card.
+    source_language: str | None = None
+    target_language: str | None = None
 
     @field_validator("italian", "greek", "word_type", "unit_id", mode="before")
     @classmethod
@@ -277,6 +290,12 @@ class VocabularyUpdate(VocabularyFields):
         if value is None:
             raise ValueError("Italian, Greek and word type cannot be null.")
         return value
+
+    @model_validator(mode="after")
+    def card_language_ids_are_immutable(self):
+        if self.source_language is not None or self.target_language is not None:
+            raise ValueError("Card language IDs cannot be changed after creation.")
+        return self
 
 
 class VocabularyBulk(BaseModel):
