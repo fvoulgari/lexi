@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { request } from "./api.js";
 import { copy } from "./copy.js";
 import Import from "./Import.jsx";
+import LanguagePicker from "./LanguagePicker.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
 import { useAccount } from "./AccountContext.jsx";
 import {
@@ -18,6 +19,7 @@ import {
   isSupportedLanguage,
   languageIds,
   languageLabel,
+  languageOptions,
   LEGACY_PAIR,
   pairDirections,
   samePair,
@@ -326,24 +328,15 @@ export default function SharedCollections({
           <fieldset className="collection-pair">
             <legend>{t.pair}</legend>
             {pair.map((value, i) => (
-              <label key={i}>
-                <span className="sr-only">
-                  {t.pair} {i + 1}
-                </span>
-                <select
-                  disabled={busy}
-                  value={value}
-                  onChange={(e) => changePair(i, e.target.value)}
-                >
-                  {languageIds()
-                    .filter((code) => code !== pair[1 - i])
-                    .map((code) => (
-                      <option value={code} key={code}>
-                        {languageLabel(code)}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              <LanguagePicker
+                key={i}
+                label={`${t.pair} ${i + 1}`}
+                value={value}
+                options={languageOptions()}
+                exclude={[pair[1 - i]]}
+                disabled={busy}
+                onChange={(code) => changePair(i, code)}
+              />
             ))}
           </fieldset>
           <div className="collection-actions">

@@ -19,7 +19,7 @@ import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
 import { cardLanguageIds, cardText } from "./card-sides.js";
-import { isLegacyPair } from "./languages.js";
+import { isLegacyPair, languageIds } from "./languages.js";
 import {
   canViewCollection,
   collectionCopy,
@@ -404,7 +404,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
           csrf={csrf}
           onLocked={onLocked}
           language={language}
-          languages={["el", "it"]}
+          languages={languageIds()}
           selectedCollection={selectedCollection}
           onClose={() => setImportOpen(false)}
           onImported={onImported}
