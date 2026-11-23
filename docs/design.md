@@ -64,6 +64,8 @@ Italian pronunciation retains the existing `pronunciation` field; Greek uses ind
 
 Draft grammar survives category switches; API and CSV saves clear incompatible grammar for the saved card. The additive nullable-column migration does not rewrite legacy metadata or infer adjective forms from generic plurals. Card and preview displays filter by part of speech and answer language, omitting empty details.
 
+Optional grammar is defined in a store keyed by language ID (`it`, `el`). Each definition maps generic gender, plural, adjective-form, example and pronunciation fields onto the historical language-named columns; no new text column is introduced. Backend validation and frontend rendering use the card's explicit language IDs to select definitions, so English and Danish cards expose common fields only, a mixed pair uses only its defined side, and adding a language needs no per-pair implementation. A card's language IDs are immutable after creation; a different pair requires a new card.
+
 The add/edit form orders part of speech and Unit before the main entries. Italian and Greek grammar stay in separate labelled groups within the single optional-details section; adjective groups use a short gender heading with paired Singular/Plural inputs. Examples and single-line pronunciation inputs render in shared rows after both grammar groups, so unequal group lengths do not misalign the fields. Mobile rows stack without horizontal overflow.
 
 Shared adjective card rendering uses a compact selected-gender/plural line, then one remaining-gender line with singular / plural. A lone form is labelled Singular or Plural without a slash. Empty rows are omitted, answer details remain concealed before reveal, and noun metadata and reveal-button styling are unchanged.

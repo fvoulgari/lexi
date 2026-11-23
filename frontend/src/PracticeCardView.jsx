@@ -1,6 +1,10 @@
 import PropTypes from "prop-types";
-import { practiceSides } from "./card-sides.js";
-import { adjectiveGroups } from "./grammar.js";
+import { directionLanguages, practiceSides } from "./card-sides.js";
+import {
+  adjectiveGroups,
+  grammarDefinition,
+  languageOfField,
+} from "./grammar.js";
 
 export default function PracticeCardView({
   entry,
@@ -11,22 +15,21 @@ export default function PracticeCardView({
   children,
 }) {
   const sides = practiceSides(entry, direction);
-  const front = direction === "greek_to_italian" ? "greek" : "italian";
-  const back = front === "greek" ? "italian" : "greek";
+  const [promptLanguage, answerLanguage] = directionLanguages(direction);
+  const answerGrammar = grammarDefinition(answerLanguage);
+  const answerName = answerGrammar?.legacyName || answerLanguage;
   const populated = (fields) =>
     fields.filter(
       (field) =>
         entry[field] &&
         !(field.endsWith("_gender") && entry[field] === "common"),
     );
-  const adjective = entry.word_type === "adjective";
-  const adjectiveForms = adjective ? adjectiveGroups(entry, back) : [];
+  const adjective = entry.word_type === "adjective" && answerGrammar;
+  const adjectiveForms = adjective ? adjectiveGroups(entry, answerLanguage) : [];
   const mainGender =
     adjective &&
-    ["masculine", "feminine", ...(back === "greek" ? ["neuter"] : [])].includes(
-      entry[`${back}_adjective_gender`],
-    )
-      ? entry[`${back}_adjective_gender`]
+    answerGrammar.genders.includes(entry[answerGrammar.adjectiveGender])
+      ? entry[answerGrammar.adjectiveGender]
       : null;
   const mainPlural = adjective ? entry[adjectiveForms[0][0]] : null;
   const remaining = adjectiveForms
@@ -39,11 +42,13 @@ export default function PracticeCardView({
     .filter((row) => row.singular || row.plural);
   const hasAdjectiveMetadata = mainGender || mainPlural || remaining.length > 0;
   const grammar =
-    entry.word_type === "noun" ? [[`${back}_gender`, `${back}_plural`]] : [];
+    entry.word_type === "noun" && answerGrammar
+      ? [[answerGrammar.nounGender, answerGrammar.nounPlural]]
+      : [];
   const groups = [
     ...grammar.map(populated),
-    populated([`${back}_example`]),
-    populated([back === "italian" ? "pronunciation" : "greek_pronunciation"]),
+    populated(answerGrammar ? [answerGrammar.example] : []),
+    populated(answerGrammar ? [answerGrammar.pronunciation] : []),
   ].filter((fields) => fields.length);
   function label(field) {
     if (field === "pronunciation" || field === "greek_pronunciation")
@@ -58,15 +63,15 @@ export default function PracticeCardView({
       <div className="card-metadata">
         {entry.word_type && <span>{text[entry.word_type]}</span>}
       </div>
-      <p lang={front === "greek" ? "el" : "it"} className="card-prompt">
+      <p lang={promptLanguage} className="card-prompt">
         {sides.prompt}
       </p>
       {children}
       {revealed && (
         <div className="card-answer" ref={answerRef} tabIndex={-1}>
-          <h2 lang={back === "greek" ? "el" : "it"}>{sides.answer}</h2>
+          <h2 lang={answerLanguage}>{sides.answer}</h2>
           {(groups.length > 0 || hasAdjectiveMetadata) && (
-            <div className="card-detail-groups" aria-label={text[back]}>
+            <div className="card-detail-groups" aria-label={text[answerName]}>
               {hasAdjectiveMetadata && (
                 <div className="adjective-metadata">
                   {(mainGender || mainPlural) && (
@@ -80,9 +85,7 @@ export default function PracticeCardView({
                       {mainPlural && (
                         <div>
                           <dt>{text.cardDetailLabels.plural}</dt>
-                          <dd lang={back === "greek" ? "el" : "it"}>
-                            {mainPlural}
-                          </dd>
+                          <dd lang={answerLanguage}>{mainPlural}</dd>
                         </div>
                       )}
                     </dl>
@@ -91,7 +94,7 @@ export default function PracticeCardView({
                     <dl key={row.gender} className="adjective-gender-line">
                       <div>
                         <dt>{text[row.gender]}</dt>
-                        <dd lang={back === "greek" ? "el" : "it"}>
+                        <dd lang={answerLanguage}>
                           {row.singular && row.plural ? (
                             <>
                               <span>{row.singular}</span>
@@ -126,9 +129,7 @@ export default function PracticeCardView({
                           field === "greek_pronunciation" ||
                           field === "notes"
                             ? undefined
-                            : back === "italian"
-                              ? "it"
-                              : "el"
+                            : languageOfField(field) || answerLanguage
                         }
                       >
                         {field.endsWith("_gender")

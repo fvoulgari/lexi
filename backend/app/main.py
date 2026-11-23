@@ -29,7 +29,7 @@ from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
 from app.grammar import clean_grammar, missing_gender_fields
 from app.imports import import_router
-from app.languages import pair_mismatch_message, same_pair
+from app.languages import card_languages, pair_mismatch_message, same_pair
 from app.models import (
     Collection,
     CollectionEntry,
@@ -355,7 +355,10 @@ def create_app():
                 if entry is None:
                     raise HTTPException(404, detail="Vocabulary entry not found.")
                 require_write(entry)
-                values = clean_grammar(values, values.get("word_type", entry.word_type))
+                languages = card_languages(entry)
+                values = clean_grammar(
+                    values, values.get("word_type", entry.word_type), languages
+                )
                 missing = missing_gender_fields(
                     {
                         "word_type": entry.word_type,
@@ -369,7 +372,8 @@ def create_app():
                             )
                         },
                         **values,
-                    }
+                    },
+                    languages,
                 )
                 if missing:
                     raise HTTPException(

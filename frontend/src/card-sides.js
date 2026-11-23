@@ -5,16 +5,17 @@ export function cardText(card, language) {
     : (card.target_text ?? card.greek);
 }
 
+export function directionLanguages(direction) {
+  if (direction === "greek_to_italian") return ["el", "it"];
+  if (direction === "italian_to_greek") return ["it", "el"];
+  return direction.split("_to_");
+}
+
 export function practiceSides(card, direction) {
-  const languages =
-    direction === "greek_to_italian"
-      ? ["el", "it"]
-      : direction === "italian_to_greek"
-        ? ["it", "el"]
-        : direction.split("_to_");
+  const [prompt, answer] = directionLanguages(direction);
   return {
-    prompt: cardText(card, languages[0]),
-    answer: cardText(card, languages[1]),
+    prompt: cardText(card, prompt),
+    answer: cardText(card, answer),
   };
 }
 
