@@ -16,6 +16,7 @@ import {
   languageIds,
   languageLabel,
   languageOptions,
+  languageTextProps,
   LEGACY_PAIR,
   pairDirections,
   samePair,
@@ -156,8 +157,8 @@ export default function SharedCollections({
     const [source, target] = cardLanguageIds(card);
     return (
       <>
-        <span lang={source}>{cardText(card, source)}</span> —{" "}
-        <span lang={target}>{cardText(card, target)}</span>
+        <span {...languageTextProps(source)}>{cardText(card, source)}</span> —{" "}
+        <span {...languageTextProps(target)}>{cardText(card, target)}</span>
       </>
     );
   }
@@ -262,10 +263,13 @@ export default function SharedCollections({
                 <p>
                   {position + 1} / {session.cards.length}
                 </p>
-                <h3 lang={sideLanguages[0]}>{sides.prompt}</h3>
+                <h3 {...languageTextProps(sideLanguages[0])}>{sides.prompt}</h3>
                 {revealed ? (
                   <>
-                    <p className="collection-answer" lang={sideLanguages[1]}>
+                    <p
+                      className="collection-answer"
+                      {...languageTextProps(sideLanguages[1])}
+                    >
                       {sides.answer}
                     </p>
                     <div className="collection-actions">

@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { cardLanguageIds, cardText } from "./card-sides.js";
+import { languageTextProps } from "./languages.js";
 import {
   GRAMMAR_DEFINITIONS,
   adjectiveGroups,
@@ -50,11 +51,11 @@ export default function ImportEntryDetails({ row, text }) {
               <div key={field}>
                 <dt>{text.fields[field]}</dt>
                 <dd
-                  lang={
+                  {...languageTextProps(
                     field.includes("pronunciation") || field.endsWith("_gender")
                       ? undefined
-                      : languageOfField(field)
-                  }
+                      : languageOfField(field),
+                  )}
                 >
                   {field.endsWith("_gender") ? text[entry[field]] : entry[field]}
                 </dd>

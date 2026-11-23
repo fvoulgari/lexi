@@ -74,6 +74,43 @@ export function languageLabel(code) {
   return registry().byId.get(code)?.label || String(code);
 }
 
+function registryInfo(code) {
+  if (!code) return undefined;
+  try {
+    return languageInfo(code);
+  } catch {
+    // A card may be rendered before the catalogue arrives or may reference an
+    // unregistered legacy code. Its own ID is still valid as a `lang` value.
+    return undefined;
+  }
+}
+
+/** Text direction for one language, always supplied by the registry. */
+export function languageDirection(code) {
+  const direction = registryInfo(code)?.text_direction;
+  return direction === "rtl" || direction === "ltr" ? direction : undefined;
+}
+
+/** Script code for one language, used for script-level font fallbacks. */
+export function languageScript(code) {
+  return registryInfo(code)?.script || undefined;
+}
+
+/** Metadata attributes for any element containing text in one language.
+ *
+ * Spreading these keeps `lang`, `dir` and the script hint together, so mixed
+ * pairs render each side with its own direction without per-language branches.
+ * Interface text passes no language and therefore gets no attributes.
+ */
+export function languageTextProps(code) {
+  if (!code) return {};
+  return {
+    lang: String(code),
+    dir: languageDirection(code),
+    "data-script": languageScript(code),
+  };
+}
+
 export function isSupportedLanguage(code) {
   return registry().byId.has(code);
 }

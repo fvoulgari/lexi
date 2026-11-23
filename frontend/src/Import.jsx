@@ -7,7 +7,11 @@ import CsvDialog from "./CsvDialog.jsx";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
 import LanguagePicker from "./LanguagePicker.jsx";
 import { cardLanguageIds, cardText } from "./card-sides.js";
-import { languageOptions, LEGACY_PAIR } from "./languages.js";
+import {
+  languageOptions,
+  languageTextProps,
+  LEGACY_PAIR,
+} from "./languages.js";
 
 const PAGE_SIZE = 10;
 
@@ -440,8 +444,13 @@ export default function Import({
                       {text.csvRow} {row.row} · {text.csvCounts[row.status]}
                     </div>
                     <p className="csv-row-words">
-                      <span lang={source}>{cardText(row, source)}</span>{" "}
-                      → <span lang={target}>{cardText(row, target)}</span>
+                      <span {...languageTextProps(source)}>
+                        {cardText(row, source)}
+                      </span>{" "}
+                      →{" "}
+                      <span {...languageTextProps(target)}>
+                        {cardText(row, target)}
+                      </span>
                     </p>
                     {row.entry && <ImportEntryDetails row={row} text={text} />}
                     {row.errors?.map((message, index) => (

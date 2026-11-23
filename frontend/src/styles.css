@@ -16,6 +16,32 @@
 * {
   box-sizing: border-box;
 }
+/* Direction, script and language always come from registry metadata on the
+ * element itself. Interface chrome is unaffected: no document-level `dir`. */
+[dir] {
+  unicode-bidi: isolate;
+  text-align: start;
+}
+[data-script="Arab"],
+[data-script="Hebr"] {
+  font-family:
+    "Noto Sans Arabic", "Geeza Pro", "Traditional Arabic", ui-sans-serif,
+    system-ui, sans-serif;
+}
+[data-script="Jpan"],
+[data-script="Hani"],
+[data-script="Kana"],
+[data-script="Hang"] {
+  font-family:
+    "Noto Sans CJK JP", "Hiragino Sans", "Yu Gothic", "PingFang SC",
+    "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+}
+[data-script="Deva"],
+[data-script="Beng"],
+[data-script="Thai"] {
+  font-family: "Noto Sans Devanagari", "Nirmala UI", ui-sans-serif, system-ui,
+    sans-serif;
+}
 body {
   margin: 0;
   min-width: 320px;
@@ -958,7 +984,7 @@ main {
   display: flex;
   flex-wrap: wrap;
   gap: 12px 24px;
-  text-align: left;
+  text-align: start;
 }
 .card-answer dl > div {
   display: flex;
@@ -1007,7 +1033,7 @@ main {
 .session-summary .summary-practice ul { list-style: none; padding: 0; margin: 0; }
 .session-summary .summary-practice li { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; padding: 12px 0; border-top: 1px solid #e4e9df; font-size: 14px; line-height: 1.5; }
 .session-summary .summary-card-words { flex: 1 1 170px; min-width: 0; }
-.session-summary .summary-card-words [lang="el"] { color: #697761; }
+.session-summary .summary-card-words span:last-child { color: #697761; }
 .session-summary .summary-rating { padding: 3px 8px; border-radius: 8px; background: #edf1e7; color: #486044; font-size: 12px; overflow-wrap: normal; word-break: normal; }
 .session-summary .summary-rating[data-rating="again"] { background: #f1e9de; color: #795b38; }
 .session-summary .summary-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
@@ -1796,7 +1822,7 @@ button:disabled {
 .progress-detail .detail-difficult-heading a { gap: 8px; font-size: 13px; color: #526e52; text-underline-offset: 4px; }
 .progress-detail .detail-difficult-group ul { list-style: none; padding: 0; margin: 8px 0 0; }
 .progress-detail .detail-difficult-group li { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px 0; border-top: 1px solid #e8ecdf; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
-.progress-detail .detail-difficult-group li span[lang="el"] { color: #697761; }
+.progress-detail .detail-difficult-group li span:last-child { color: #697761; }
 @media (max-width: 760px) {
   .progress-detail .detail-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .progress-detail .detail-overview { grid-template-columns: 1fr; }

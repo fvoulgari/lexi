@@ -18,6 +18,7 @@ import {
   directionLanguages,
   directionLabel,
   languageLabel,
+  languageTextProps,
   pairDirections,
 } from "./languages.js";
 
@@ -776,9 +777,13 @@ function Summary({
                   return (
                     <li key={e.id}>
                       <div className="summary-card-words">
-                        <span lang={promptLanguage}>{sides.prompt}</span>
+                        <span {...languageTextProps(promptLanguage)}>
+                          {sides.prompt}
+                        </span>
                         <span aria-hidden="true"> → </span>
-                        <span lang={answerLanguage}>{sides.answer}</span>
+                        <span {...languageTextProps(answerLanguage)}>
+                          {sides.answer}
+                        </span>
                       </div>
                       <span className="summary-rating" data-rating={e.rating}>
                         {text[e.rating]}

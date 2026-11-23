@@ -6,7 +6,10 @@ import {
   hydrateLanguages,
   isLegacyDirection,
   isLegacyPair,
+  languageDirection,
   languageIds,
+  languageScript,
+  languageTextProps,
   pairDirections,
   resetLanguages,
   samePair,
@@ -91,7 +94,21 @@ test("labels and direction metadata come from the registry response", () => {
   expect(samePair("zz", "en", "en", "zz")).toBe(true);
   expect(isLegacyPair("zz", "en")).toBe(false);
   expect(pairDirections("el", "it")).toEqual([]);
+  expect(languageDirection("zz")).toBe("rtl");
+  expect(languageScript("zz")).toBe("Arab");
+  expect(languageTextProps("zz")).toEqual({
+    lang: "zz",
+    dir: "rtl",
+    "data-script": "Arab",
+  });
+  expect(languageTextProps("en")).toEqual({
+    lang: "en",
+    dir: "ltr",
+    "data-script": "Latn",
+  });
+  expect(languageTextProps(undefined)).toEqual({});
   resetLanguages();
   expect(() => languageIds()).toThrow("not been loaded");
+  expect(languageTextProps("zz")).toEqual({ lang: "zz", dir: undefined, "data-script": undefined });
   hydrateLanguages(REGISTRY_PAYLOAD);
 });

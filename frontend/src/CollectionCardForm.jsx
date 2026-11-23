@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import CardPreview from "./CardPreview.jsx";
 import { CommonFields, GrammarFields, WordTypeField } from "./CardFields.jsx";
 import { cardLanguages } from "./card-sides.js";
-import { languageLabel } from "./languages.js";
+import { languageLabel, languageTextProps } from "./languages.js";
 import {
   fromStructuredGrammar,
   grammarFields,
@@ -107,7 +107,7 @@ export default function CollectionCardForm({
           id={idFor(field)}
           required
           maxLength={500}
-          lang={language}
+          {...languageTextProps(language)}
           value={values[field]}
           aria-invalid={invalid.includes(field)}
           aria-describedby={invalid.includes(field) ? "card-errors" : undefined}

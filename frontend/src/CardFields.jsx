@@ -10,6 +10,7 @@ import PropTypes from "prop-types";
 import Choices from "./Choices.jsx";
 import { useQuery } from "@tanstack/react-query";
 import { request } from "./api.js";
+import { languageTextProps } from "./languages.js";
 import {
   grammarFieldLabel,
   grammarOptionLabel,
@@ -86,7 +87,7 @@ function TextField({
         {...fieldProps(field, { values, change, invalid, idFor, errorId })}
         maxLength={field.spec.max_length || 500}
         rows={multiline ? 2 : undefined}
-        lang={pronunciation ? undefined : field.language}
+        {...languageTextProps(pronunciation ? undefined : field.language)}
         aria-label={
           displayLabel || pronunciation
             ? grammarFieldLabel(field, text)
