@@ -8,13 +8,17 @@ from app.languages import (
     DIRECTION_PAIRS,
     LANGUAGE_LABELS,
     LANGUAGES,
+    card_directions,
+    card_languages,
     card_slots,
     card_text,
     direction_key,
     direction_languages,
     language_label,
     pair,
+    pair_directions,
     same_pair,
+    validate_card_direction,
 )
 
 
@@ -123,3 +127,36 @@ def test_reversed_legacy_snapshot_text_follows_its_own_language_ids():
     assert card_text(snapshot, "el") == "γεια"
     assert card_text(snapshot, "it") == "ciao"
     assert card_text(snapshot, "da") is None
+
+
+@pytest.mark.parametrize("a,b", [("en", "da"), ("en", "el"), ("it", "el")])
+def test_pair_directions_derives_both_keys_from_the_registry(a, b):
+    assert pair_directions(a, b) == pair_directions(b, a)
+    assert set(pair_directions(a, b)) == {direction_key(a, b), direction_key(b, a)}
+    assert set(pair_directions(a, b)) <= set(DIRECTION_PAIRS)
+
+
+@pytest.mark.parametrize(
+    "card,expected",
+    [
+        ({"source_language": "da", "target_language": "en"}, ("da", "en")),
+        ({"source_language": "el", "target_language": "it"}, ("el", "it")),
+        ({"source_language": None, "target_language": None}, ("it", "el")),
+        ({}, ("it", "el")),
+    ],
+)
+def test_card_directions_use_explicit_ids_or_legacy_context(card, expected):
+    assert card_languages(card) == expected
+    assert card_directions(card) == pair_directions(*expected)
+    for direction in card_directions(card):
+        validate_card_direction(card, direction)
+
+
+@pytest.mark.parametrize("direction", ["en_to_da", "da_to_en"])
+def test_card_direction_rejects_another_pair_or_unsupported_key(direction):
+    card = {"source_language": "it", "target_language": "el"}
+    with pytest.raises(ValueError, match="does not match this card"):
+        validate_card_direction(card, direction)
+    with pytest.raises(ValueError, match="Unsupported practice direction"):
+        validate_card_direction(card, "xx_to_el")
+    assert card_directions({"source_language": "xx", "target_language": "it"}) == ()

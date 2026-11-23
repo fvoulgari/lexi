@@ -9,7 +9,12 @@ from sqlalchemy import func, or_, select
 
 from app.access import current_account, lock_owned_profile
 from app.filters import category_conditions
-from app.languages import direction_languages, same_pair
+from app.languages import (
+    card_directions,
+    direction_languages,
+    same_pair,
+    validate_card_direction,
+)
 from app.models import (
     Collection,
     CollectionEntry,
@@ -281,6 +286,8 @@ def practice_router(sessions, gate):
                 entries = db.scalars(
                     selection.order_by(func.random()).limit(body.size)
                 ).all()
+            if any(body.direction not in card_directions(entry) for entry in entries):
+                raise HTTPException(422, "Direction does not match this card.")
             session = PracticeSession(
                 profile_id=body.profile_id,
                 direction=body.direction,
@@ -363,14 +370,10 @@ def practice_router(sessions, gate):
             )
 
     def validate_direction(card, direction):
-        prompt, answer = direction_languages(direction)
-        if not same_pair(
-            card.snapshot.get("source_language", "it"),
-            card.snapshot.get("target_language", "el"),
-            prompt,
-            answer,
-        ):
-            raise HTTPException(422, "Direction does not match this card.")
+        try:
+            validate_card_direction(card.snapshot, direction)
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
 
     def event_output(db, event, permissions=None, accessible_ids=None):
         if accessible_ids is None:
