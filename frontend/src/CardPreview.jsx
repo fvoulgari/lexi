@@ -7,10 +7,6 @@ import {
   pairDirections,
 } from "./languages.js";
 
-// The standard Vocabulary form is Italian–Greek; preview options still derive
-// from the registry so labels and keys use explicit language IDs.
-const DIRECTIONS = pairDirections("el", "it");
-
 export default function CardPreview({
   entry,
   text,
@@ -22,6 +18,9 @@ export default function CardPreview({
   const [direction, setDirection] = useState("greek_to_italian");
   const [revealed, setRevealed] = useState(false);
   const id = useId();
+  // The standard Vocabulary form is Italian–Greek; the keys themselves come
+  // from the hydrated registry rather than a frontend language list.
+  const directions = pairDirections("el", "it");
   return (
     <div className="card-preview">
       {open && onClose ? (
@@ -62,7 +61,7 @@ export default function CardPreview({
               setRevealed(false);
             }}
           >
-            {DIRECTIONS.map((key) => (
+            {directions.map((key) => (
               <option key={key} value={key}>
                 {directionLabel(key, (code) =>
                   code === "el" ? text.greek : text.italian,

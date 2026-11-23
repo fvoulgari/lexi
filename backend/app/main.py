@@ -30,6 +30,7 @@ from app.filters import vocabulary_conditions
 from app.grammar import clean_grammar, missing_gender_fields
 from app.imports import import_router
 from app.languages import card_languages, pair_mismatch_message, same_pair
+from app.languages_api import language_router
 from app.models import (
     Collection,
     CollectionEntry,
@@ -40,6 +41,7 @@ from app.models import (
 )
 from app.practice import difficult_progress, practice_router
 from app.progress import progress_router
+from app.registry import refresh_registry
 from app.schemas import (
     Direction,
     ProfileOutput,
@@ -66,6 +68,8 @@ def create_app():
     async def lifespan(app):
         from app.account_deletion import deletion_worker
 
+        with sessions() as db:
+            refresh_registry(db)
         worker = asyncio.create_task(deletion_worker(sessions)) if gate.ready else None
         try:
             yield
@@ -78,9 +82,15 @@ def create_app():
                     pass
             engine.dispose()
 
+    def refresh_catalogue():
+        # Refresh per request so data-only registry changes are visible at once.
+        with sessions() as db:
+            refresh_registry(db)
+
     app = FastAPI(
         title="Italian Notebook",
         lifespan=lifespan,
+        dependencies=[Depends(refresh_catalogue)],
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -179,6 +189,7 @@ def create_app():
             "ingress_mode": settings.auth_ingress_mode,
         }
 
+    app.include_router(language_router(sessions))
     app.include_router(account_router(sessions, gate))
     app.include_router(collection_router(sessions, gate))
     app.include_router(practice_router(sessions, gate))

@@ -6,11 +6,11 @@ import { collectionCopy } from "./collection-copy.js";
 import CsvDialog from "./CsvDialog.jsx";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
 import { cardLanguageIds, cardText } from "./card-sides.js";
+import { LEGACY_PAIR } from "./languages.js";
 
 const PAGE_SIZE = 10;
-const LEGACY_LANGUAGES = ["el", "it"];
 
-function isImportDestination(collection, languages = LEGACY_LANGUAGES) {
+function isImportDestination(collection, languages = LEGACY_PAIR) {
   if (!collection) return false;
   const pair = [collection.source_language, collection.target_language];
   const supported =
@@ -37,7 +37,7 @@ export default function Import({
   onImported,
   selectedCollection,
   language,
-  languages = LEGACY_LANGUAGES,
+  languages = LEGACY_PAIR,
 }) {
   const t = collectionCopy[language];
   const displayNames = new Intl.DisplayNames([language], {

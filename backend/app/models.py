@@ -26,12 +26,35 @@ class Base(DeclarativeBase):
 
 
 class Language(Base):
-    """A registered learning language; adding one needs data, not schema changes."""
+    """A registered learning language; adding one needs data, not schema changes.
+
+    ``publicly_available`` separates registry support from the curated UI
+    catalogue. ``script``, ``text_direction`` and ``enhanced`` describe the
+    language so clients never need per-language branches.
+    """
 
     __tablename__ = "languages"
-    __table_args__ = (CheckConstraint("id <> ''", name="language_id_not_blank"),)
+    __table_args__ = (
+        CheckConstraint("id <> ''", name="language_id_not_blank"),
+        CheckConstraint("script <> ''", name="language_script_not_blank"),
+        CheckConstraint(
+            "text_direction IN ('ltr', 'rtl')", name="valid_language_text_direction"
+        ),
+    )
     id: Mapped[str] = mapped_column(String(16), primary_key=True)
     display_name: Mapped[str] = mapped_column(String(80))
+    publicly_available: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    script: Mapped[str] = mapped_column(
+        String(16), default="Latn", server_default="Latn"
+    )
+    text_direction: Mapped[str] = mapped_column(
+        String(3), default="ltr", server_default="ltr"
+    )
+    enhanced: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
 
 
 class PracticeDirection(Base):
@@ -49,6 +72,9 @@ class PracticeDirection(Base):
     )
     answer_language: Mapped[str] = mapped_column(
         ForeignKey("languages.id", name="fk_direction_answer_language")
+    )
+    legacy: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
     )
 
 
