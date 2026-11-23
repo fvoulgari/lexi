@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import PracticeCardView from "./PracticeCardView.jsx";
 import {
   directionLabel,
+  languageLabel,
   pairDirections,
 } from "./languages.js";
 
@@ -63,9 +64,7 @@ export default function CardPreview({
           >
             {directions.map((key) => (
               <option key={key} value={key}>
-                {directionLabel(key, (code) =>
-                  code === "el" ? text.greek : text.italian,
-                )}
+                {directionLabel(key, languageLabel)}
               </option>
             ))}
           </select>

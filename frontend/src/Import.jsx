@@ -5,8 +5,9 @@ import { request } from "./api.js";
 import { collectionCopy } from "./collection-copy.js";
 import CsvDialog from "./CsvDialog.jsx";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
+import LanguagePicker from "./LanguagePicker.jsx";
 import { cardLanguageIds, cardText } from "./card-sides.js";
-import { LEGACY_PAIR } from "./languages.js";
+import { languageOptions, LEGACY_PAIR } from "./languages.js";
 
 const PAGE_SIZE = 10;
 
@@ -40,14 +41,6 @@ export default function Import({
   languages = LEGACY_PAIR,
 }) {
   const t = collectionCopy[language];
-  const displayNames = new Intl.DisplayNames([language], {
-    type: "language",
-  });
-  const languageLabel = (code) =>
-    (code === "el" && text.greek) ||
-    (code === "it" && text.italian) ||
-    displayNames.of(code) ||
-    code;
   const destinationFor = (collection) =>
     isImportDestination(collection, languages);
   const [mode, setMode] = useState("existing");
@@ -59,7 +52,7 @@ export default function Import({
   const [publicConsent, setPublicConsent] = useState(false);
   const initialPair = destinationFor(selectedCollection)
     ? [selectedCollection.source_language, selectedCollection.target_language]
-    : languages;
+    : LEGACY_PAIR;
   const [source, setSource] = useState(initialPair[0] || "el");
   const [target, setTarget] = useState(
     initialPair[1] || languages.find((code) => code !== initialPair[0]),
@@ -119,16 +112,16 @@ export default function Import({
     change(value);
   }
 
+  // Choosing the other side's language swaps the pair, keeping the two
+  // positions distinct for every curated language, not only the legacy pair.
   function changeSource(value) {
     changeDestination(setSource, value);
-    if (target === value)
-      setTarget(languages.find((code) => code !== value) || "");
+    if (target === value) setTarget(source);
   }
 
   function changeTarget(value) {
     changeDestination(setTarget, value);
-    if (source === value)
-      setSource(languages.find((code) => code !== value) || "");
+    if (source === value) setSource(target);
   }
 
   const destinationIds = destinations.map((collection) => collection.id).join(",");
@@ -310,31 +303,21 @@ export default function Import({
             </label>
             <fieldset className="csv-language-fields">
               <legend>{t.collectionLanguages}</legend>
-              <select
+              <LanguagePicker
                 className="collection-select"
-                aria-label={t.sourceLanguage}
+                label={t.sourceLanguage}
                 value={source}
-                onChange={(event) => changeSource(event.target.value)}
-              >
-                {languages.map((code) => (
-                  <option key={code} value={code}>
-                    {languageLabel(code)}
-                  </option>
-                ))}
-              </select>
+                options={languageOptions()}
+                onChange={changeSource}
+              />
               <span aria-hidden="true">↔</span>
-              <select
+              <LanguagePicker
                 className="collection-select"
-                aria-label={t.targetLanguage}
+                label={t.targetLanguage}
                 value={target}
-                onChange={(event) => changeTarget(event.target.value)}
-              >
-                {languages.map((code) => (
-                  <option key={code} value={code}>
-                    {languageLabel(code)}
-                  </option>
-                ))}
-              </select>
+                options={languageOptions()}
+                onChange={changeTarget}
+              />
             </fieldset>
             <fieldset className="csv-options csv-visibility">
               <legend>{t.visibility}</legend>
