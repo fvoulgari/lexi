@@ -14,6 +14,7 @@ from alembic import command
 from app.auth import AuthGate
 from app.main import create_app
 from app.models import Account, Base, Profile
+from app.registry import refresh_registry
 from app.seed import seed
 
 TEST_CSRF = "supertokens"
@@ -42,6 +43,10 @@ def test_database(tmp_path_factory):
     (static / "index.html").write_text('<html><div id="root"></div></html>')
     os.environ["STATIC_DIR"] = str(static)
     command.upgrade(Config(str(Path(__file__).parents[1] / "alembic.ini")), "head")
+    registry_engine = create_engine(url)
+    with Session(registry_engine) as db:
+        refresh_registry(db)
+    registry_engine.dispose()
     return url
 
 

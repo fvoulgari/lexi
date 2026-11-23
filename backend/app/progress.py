@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import String, case, cast, distinct, func, or_, select
 
 from app.access import current_account
-from app.languages import DIRECTION_PAIRS
 from app.models import (
     Collection,
     LearningProgress,
@@ -15,10 +14,9 @@ from app.models import (
     VocabularyEntry,
 )
 from app.practice import difficult_progress
+from app.registry import get_registry
 
 RATINGS = ("again", "hard", "easy")
-
-DIRECTIONS = tuple(DIRECTION_PAIRS)
 
 
 def progress_router(sessions, gate):
@@ -29,6 +27,8 @@ def progress_router(sessions, gate):
         with sessions() as db:
             if db.get(Profile, profile_id) is None:
                 raise HTTPException(404, "Learner profile not found.")
+            registry = get_registry()
+            directions = tuple(registry.directions)
             history = ReviewEvent.profile_id == profile_id
             metrics = [
                 func.count().label("total_reviews"),
@@ -74,10 +74,10 @@ def progress_router(sessions, gate):
                     difficult_progress(profile_id, direction).with_only_columns(
                         LearningProgress.entry_id, LearningProgress.direction
                     )
-                    for direction in DIRECTIONS
+                    for direction in directions
                 ]
             ).subquery()
-            directions = [
+            direction_rows = [
                 {
                     "key": direction,
                     **aggregate(ReviewEvent.direction == direction),
@@ -87,8 +87,8 @@ def progress_router(sessions, gate):
                         .where(difficult.c.direction == direction)
                     ),
                 }
-                for direction in DIRECTIONS
-                if direction in ("greek_to_italian", "italian_to_greek")
+                for direction in directions
+                if registry.directions[direction].legacy
                 or db.scalar(
                     select(func.count())
                     .select_from(ReviewEvent)
@@ -167,7 +167,7 @@ def progress_router(sessions, gate):
                 "difficult_entries": db.scalar(
                     select(func.count(distinct(difficult.c.entry_id)))
                 ),
-                "directions": directions,
+                "directions": direction_rows,
                 "word_types": breakdown(ReviewEvent.snapshot["word_type"].as_string()),
                 "units": [
                     {"key": row.key, "title": row.title, **output(row)}
