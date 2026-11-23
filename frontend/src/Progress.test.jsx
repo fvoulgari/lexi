@@ -287,6 +287,67 @@ test.each([
   },
 );
 
+test("detailed progress labels a generic non-legacy direction from language IDs", async () => {
+  const generic = {
+    ...history,
+    difficult_entries: 2,
+    directions: [
+      {
+        key: "en_to_da",
+        total_reviews: 2,
+        entries_practised: 1,
+        difficult_entries: 1,
+        counts: { again: 0, hard: 1, easy: 1 },
+      },
+    ],
+  };
+  server.use(
+    http.get("*/api/profiles/:id/progress", () => HttpResponse.json(generic)),
+    http.get("*/api/profiles/:id/difficult-entries", () =>
+      HttpResponse.json([
+        {
+          entry: {
+            id: "house",
+            source_language: "en",
+            target_language: "da",
+            source_text: "house",
+            target_text: "hus",
+            italian: "house",
+            greek: "hus",
+          },
+        },
+      ]),
+    ),
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MemoryRouter initialEntries={["/progress"]}>
+        <App />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await screen.findByRole("heading", { name: copy.en.detailResponses });
+  expect(
+    within(
+      screen.getByRole("region", {
+        name: copy.en.detailDirectionBreakdown,
+      }),
+    ).getByRole("rowheader", { name: "English → Danish" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: copy.en.practiseDifficult }),
+  ).toHaveAttribute(
+    "href",
+    "/collections?mode=difficult&direction=en_to_da",
+  );
+  expect(await screen.findByText("house")).toHaveAttribute("lang", "en");
+  expect(screen.getByText("hus")).toHaveAttribute("lang", "da");
+});
+
 test("detailed difficult-card retry preserves language pairs and direction link", async () => {
   let fail = true;
   let revoked = false;

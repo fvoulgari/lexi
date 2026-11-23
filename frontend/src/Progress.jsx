@@ -3,8 +3,33 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { request } from "./api.js";
+import { cardText } from "./card-sides.js";
+import {
+  directionLanguages,
+  directionLabel,
+  isLegacyDirection,
+} from "./languages.js";
 
-export default function Progress({ text, onLocked, detailed = false }) {
+function practiceLanguageLabel(text, language, code) {
+  if (code === "el") return text.greek;
+  if (code === "it") return text.italian;
+  return (
+    new Intl.DisplayNames([language], { type: "language" }).of(code) || code
+  );
+}
+
+function difficultPracticeUrl(direction) {
+  if (!direction) return "/practice?mode=difficult";
+  const page = isLegacyDirection(direction) ? "/practice" : "/collections";
+  return `${page}?mode=difficult&direction=${encodeURIComponent(direction)}`;
+}
+
+export default function Progress({
+  text,
+  onLocked,
+  detailed = false,
+  language = "en",
+}) {
   const profiles = useQuery({
     queryKey: ["profiles"],
     queryFn: () => request("/api/profiles"),
@@ -27,15 +52,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
     data?.directions?.find((row) => row.difficult_entries > 0)?.key ||
     profile?.preferred_direction;
 
-  const difficultPracticeUrl =
-    difficultDirection &&
-    !["greek_to_italian", "italian_to_greek"].includes(difficultDirection)
-      ? `/collections?mode=difficult&direction=${encodeURIComponent(difficultDirection)}`
-      : difficultDirection
-        ? `/practice?mode=difficult&direction=${encodeURIComponent(
-            difficultDirection,
-          )}`
-        : "/practice?mode=difficult";
+  const difficultLink = difficultPracticeUrl(difficultDirection);
 
   useEffect(() => {
     if (
@@ -53,6 +70,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
         profiles={profiles}
         history={history}
         onLocked={onLocked}
+        language={language}
       />
     );
 
@@ -222,7 +240,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
                 <strong>{data.difficult_entries}</strong>
               </span>
 
-              <Link className="home-difficult-button" to={difficultPracticeUrl}>
+              <Link className="home-difficult-button" to={difficultLink}>
                 {text.practiseDifficult}
                 <span aria-hidden="true">→</span>
               </Link>
@@ -239,7 +257,7 @@ export default function Progress({ text, onLocked, detailed = false }) {
         )}
 
         {detailed && profile && data?.difficult_entries > 0 && (
-          <Link className="secondary" to={difficultPracticeUrl}>
+          <Link className="secondary" to={difficultLink}>
             {text.practiseDifficult}
           </Link>
         )}
@@ -257,7 +275,14 @@ export default function Progress({ text, onLocked, detailed = false }) {
   );
 }
 
-function DetailedProgress({ text, profile, profiles, history, onLocked }) {
+function DetailedProgress({
+  text,
+  profile,
+  profiles,
+  history,
+  onLocked,
+  language,
+}) {
   const data = history.data;
   const error = profiles.error || history.error;
   const metrics = data
@@ -353,7 +378,11 @@ function DetailedProgress({ text, profile, profiles, history, onLocked }) {
               columnLabel={text.detailDirectionColumn}
               rows={data.directions}
               text={text}
-              label={(key) => directionLabel(text, key)}
+              label={(key) =>
+                directionLabel(key, (code) =>
+                  practiceLanguageLabel(text, language, code),
+                )
+              }
             />
             <Breakdown
               title={text.detailTypeBreakdown}
@@ -382,6 +411,7 @@ function DetailedProgress({ text, profile, profiles, history, onLocked }) {
                   direction={row.key}
                   count={row.difficult_entries}
                   onLocked={onLocked}
+                  language={language}
                 />
               ))}
             {!data.difficult_entries && (
@@ -479,7 +509,16 @@ function Breakdown({ title, columnLabel, rows, text, label }) {
   );
 }
 
-function DifficultEntries({ text, profileId, direction, count, onLocked }) {
+function DifficultEntries({
+  text,
+  profileId,
+  direction,
+  count,
+  onLocked,
+  language,
+}) {
+  const [promptCode, answerCode] = directionLanguages(direction);
+  const label = (code) => practiceLanguageLabel(text, language, code);
   const entries = useQuery({
     queryKey: ["progress-difficult", profileId, direction],
     queryFn: () =>
@@ -501,13 +540,11 @@ function DifficultEntries({ text, profileId, direction, count, onLocked }) {
     <div className="detail-difficult-group">
       <div className="detail-difficult-heading">
         <h3>
-          {directionLabel(text, direction)}{" "}
+          {directionLabel(direction, label)}{" "}
           <span className="detail-count-badge">{count}</span>
         </h3>
 
-        <Link
-          to={`${["greek_to_italian", "italian_to_greek"].includes(direction) ? "/practice" : "/collections"}?mode=difficult&direction=${encodeURIComponent(direction)}`}
-        >
+        <Link to={difficultPracticeUrl(direction)}>
           {text.practiseDifficult}
           <ArrowRight size={16} aria-hidden="true" />
         </Link>
@@ -531,24 +568,12 @@ function DifficultEntries({ text, profileId, direction, count, onLocked }) {
         <ul>
           {entries.data.map((item) => (
             <li key={item.entry.id}>
-              <span lang={item.entry.source_language || "it"}>
-                {item.entry.italian}
-              </span>
-              <span lang={item.entry.target_language || "el"}>
-                {item.entry.greek}
-              </span>
+              <span lang={promptCode}>{cardText(item.entry, promptCode)}</span>
+              <span lang={answerCode}>{cardText(item.entry, answerCode)}</span>
             </li>
           ))}
         </ul>
       )}
     </div>
   );
-}
-
-function directionLabel(text, direction) {
-  if (!direction.includes("italian") && !direction.includes("greek"))
-    return direction.replace("_to_", " → ").toUpperCase();
-  return direction === "greek_to_italian"
-    ? `${text.greek} → ${text.italian}`
-    : `${text.italian} → ${text.greek}`;
 }

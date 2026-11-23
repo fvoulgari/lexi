@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import PropTypes from "prop-types";
 import CardPreview from "./CardPreview.jsx";
 import { request } from "./api.js";
+import { isLegacyPair } from "./languages.js";
 import {
   adjectiveFormFields,
   adjectiveGenderFields,
@@ -276,8 +277,7 @@ export default function VocabularyForm({
                     ?.filter(
                       (c) =>
                         c.can_edit &&
-                        [c.source_language, c.target_language].sort().join() ===
-                          "el,it",
+                        isLegacyPair(c.source_language, c.target_language),
                     )
                     .map((c) => (
                       <option key={c.id} value={c.id}>

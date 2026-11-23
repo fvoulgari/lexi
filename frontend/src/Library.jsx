@@ -18,11 +18,23 @@ import CsvDialog from "./CsvDialog.jsx";
 import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
+import { cardLanguageIds, cardText } from "./card-sides.js";
+import { isLegacyPair } from "./languages.js";
 import {
   canViewCollection,
   collectionCopy,
   collectionOwner,
 } from "./collection-copy.js";
+
+function entryWords(entry) {
+  const [source, target] = cardLanguageIds(entry);
+  return (
+    <>
+      <span lang={source}>{cardText(entry, source)}</span> —{" "}
+      <span lang={target}>{cardText(entry, target)}</span>
+    </>
+  );
+}
 
 export default function Library({ text, csrf, onLocked, language = "en" }) {
   const client = useQueryClient();
@@ -392,6 +404,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
           csrf={csrf}
           onLocked={onLocked}
           language={language}
+          languages={["el", "it"]}
           selectedCollection={selectedCollection}
           onClose={() => setImportOpen(false)}
           onImported={onImported}
@@ -579,8 +592,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
         >
           <h2 id="delete-title">{text.deleteEntry}</h2>
           <p>
-            <span lang="it">{deleting.italian}</span> —{" "}
-            <span lang="el">{deleting.greek}</span>
+            {entryWords(deleting)}
           </p>
           <p>{text.deleteWarning}</p>
           {deleteError && (
@@ -611,8 +623,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
       {saved && (
         <div className="save-notice" role="status">
           <p>
-            {text.entrySaved} <span lang="it">{saved.entry.italian}</span> —{" "}
-            <span lang="el">{saved.entry.greek}</span>
+            {text.entrySaved} {entryWords(saved.entry)}
           </p>
           {saved.duplicate_ids.length > 0 && <p>{text.duplicateWarning}</p>}
         </div>
@@ -725,7 +736,9 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                       }
                     />
                     <span className="sr-only">
-                      {text.bulkSelectCard}: {entry.italian} — {entry.greek}
+                      {text.bulkSelectCard}:{" "}
+                      {cardText(entry, cardLanguageIds(entry)[0])} —{" "}
+                      {cardText(entry, cardLanguageIds(entry)[1])}
                     </span>
                   </label>
                 )}
@@ -738,8 +751,12 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                     {text[entry.word_type] || text.other}
                   </span>
                 </div>
-                <h2 lang={entry.source_language || "it"}>{entry.italian}</h2>
-                <p lang={entry.target_language || "el"}>{entry.greek}</p>
+                <h2 lang={cardLanguageIds(entry)[0]}>
+                  {cardText(entry, cardLanguageIds(entry)[0])}
+                </h2>
+                <p lang={cardLanguageIds(entry)[1]}>
+                  {cardText(entry, cardLanguageIds(entry)[1])}
+                </p>
                 <CardActions
                   entry={entry}
                   busy={isSaving || deletePending || selecting || bulkBusy}
@@ -749,8 +766,9 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                   editDisabled={
                     (entry.source_language &&
                       entry.target_language &&
-                      ![entry.source_language, entry.target_language].every(
-                        (value) => value === "it" || value === "el",
+                      !isLegacyPair(
+                        entry.source_language,
+                        entry.target_language,
                       )) ||
                     !entry.can_edit ||
                     Boolean(entry.archived_at) ||

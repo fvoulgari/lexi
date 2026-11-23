@@ -107,7 +107,7 @@ try {
     await page.getByLabel(`Select for practice: ${greetingsName}`).check();
     await page
       .getByRole("combobox", { name: /^Practice direction/ })
-      .selectOption("reverse");
+      .selectOption("italian_to_greek");
     await page
       .getByRole("button", { name: "Practise selected collections" })
       .click();
@@ -164,7 +164,7 @@ try {
     await second.getByLabel(`Select for practice: ${greetingsName}`).check();
     await second
       .getByRole("combobox", { name: /^Practice direction/ })
-      .selectOption("reverse");
+      .selectOption("italian_to_greek");
     await second.getByLabel("Difficult cards only", { exact: true }).check();
     await second
       .getByRole("button", { name: "Practise selected collections" })

@@ -158,13 +158,13 @@ try {
     await page
       .getByLabel(`Select for practice: ${name}`, { exact: true })
       .check();
-    for (const [option, prompt, answer] of [
-      ["forward", "γεια", "ciao"],
-      ["reverse", "ciao", "γεια"],
+    for (const [direction, prompt, answer] of [
+      ["greek_to_italian", "γεια", "ciao"],
+      ["italian_to_greek", "ciao", "γεια"],
     ]) {
       await page
         .getByRole("combobox", { name: /^Practice direction/ })
-        .selectOption(option);
+        .selectOption(direction);
       await page
         .getByRole("button", {
           name: "Practise selected collections",

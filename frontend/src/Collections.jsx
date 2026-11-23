@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { request } from "./api.js";
+import { cardLanguageIds, cardText } from "./card-sides.js";
+import { samePair } from "./languages.js";
 import PublicationDialog from "./PublicationDialog.jsx";
 import {
   collectionCopy,
@@ -27,12 +29,7 @@ export default function Collections({
   const focusTarget = useRef(null);
   const focusReturn = useRef(null);
   const selector = useRef(null);
-  const owned = collections.data?.filter(
-    (c) =>
-      c.can_edit !== false &&
-      (!c.source_language ||
-        [c.source_language, c.target_language].sort().join() === "el,it"),
-  );
+  const owned = collections.data?.filter((c) => c.can_edit !== false);
   const current = owned?.find((item) => item.id === selected);
   const available = collections.data?.filter(isMyCollection);
 
@@ -331,12 +328,11 @@ export function CollectionMembership({
       collection.can_edit !== false &&
       collection.visibility !== "published" &&
       (!collection.source_language ||
-        [collection.source_language, collection.target_language]
-          .sort()
-          .join() ===
-          [entry.source_language || "it", entry.target_language || "el"]
-            .sort()
-            .join()) &&
+        samePair(
+          collection.source_language,
+          collection.target_language,
+          ...cardLanguageIds(entry),
+        )) &&
       !collection.entry_ids?.includes(entry.id),
   );
   return (
@@ -344,7 +340,8 @@ export function CollectionMembership({
       {available.length > 0 && (
         <label>
           <span className="sr-only">
-            {text.addToCollection}: {entry.italian}
+            {text.addToCollection}:{" "}
+            {cardText(entry, cardLanguageIds(entry)[0])}
           </span>
           <select
             value=""
