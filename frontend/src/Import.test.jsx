@@ -176,9 +176,9 @@ test("keeps the file, refreshes the preview for each destination, and selects ea
         name,
       ),
     );
-    expect(screen.getByRole("status")).toHaveTextContent(
-      `Imported into ${name}`,
-    );
+    expect(
+      screen.getByText(`Imported into ${name} · 1 card`),
+    ).toBeInTheDocument();
   }
   expect(received).toEqual(["Lezione 01", "Verbi"]);
 });
