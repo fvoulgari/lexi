@@ -1,12 +1,15 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import PropTypes from "prop-types";
 import { X } from "lucide-react";
 import PracticeCardView from "./PracticeCardView.jsx";
 import {
   directionLabel,
+  isLegacyPair,
   languageLabel,
+  LEGACY_PAIR,
   pairDirections,
 } from "./languages.js";
+import { cardLanguageIds } from "./card-sides.js";
 
 export default function CardPreview({
   entry,
@@ -14,14 +17,21 @@ export default function CardPreview({
   initiallyOpen = false,
   onClose,
   draft = true,
+  pair,
 }) {
+  const ids = pair || cardLanguageIds(entry);
+  // Historical el/it drafts keep the original Greek-first preview order.
+  const languages = isLegacyPair(...ids) ? LEGACY_PAIR : ids;
+  const directions = pairDirections(...languages);
+  const firstDirection = directions[0];
   const [open, setOpen] = useState(initiallyOpen);
-  const [direction, setDirection] = useState("greek_to_italian");
+  const [direction, setDirection] = useState(firstDirection);
   const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    setDirection(firstDirection);
+    setRevealed(false);
+  }, [firstDirection]);
   const id = useId();
-  // The standard Vocabulary form is Italian–Greek; the keys themselves come
-  // from the hydrated registry rather than a frontend language list.
-  const directions = pairDirections("el", "it");
   return (
     <div className="card-preview">
       {open && onClose ? (
@@ -93,4 +103,5 @@ CardPreview.propTypes = {
   initiallyOpen: PropTypes.bool,
   onClose: PropTypes.func,
   draft: PropTypes.bool,
+  pair: PropTypes.arrayOf(PropTypes.string),
 };

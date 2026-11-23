@@ -3,16 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { request } from "./api.js";
 import { copy } from "./copy.js";
+import CollectionCardForm from "./CollectionCardForm.jsx";
 import Import from "./Import.jsx";
 import LanguagePicker from "./LanguagePicker.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
 import { useAccount } from "./AccountContext.jsx";
-import {
-  cardLanguageIds,
-  cardLanguages,
-  cardText,
-  practiceSides,
-} from "./card-sides.js";
+import { cardLanguageIds, cardText, practiceSides } from "./card-sides.js";
 import {
   directionLanguages,
   directionLabel,
@@ -661,120 +657,44 @@ export default function SharedCollections({
                   }}
                 />
               )}
-              {editor && (
+              {editor?.collection && (
                 <form
                   className="collection-form publication-preview"
                   onSubmit={(e) => {
                     e.preventDefault();
                     act(
-                      editor.collection
-                        ? {
-                            path: base,
-                            method: "PATCH",
-                            body: {
-                              name: editor.name,
-                              source_language: current.source_language,
-                              target_language: current.target_language,
-                            },
-                          }
-                        : {
-                            path: editor.id
-                              ? `/api/collections/cards/${editor.id}`
-                              : `${base}/cards`,
-                            method: editor.id ? "PATCH" : "POST",
-                            body: {
-                              source_text: editor.source_text,
-                              target_text: editor.target_text,
-                              source_language:
-                                editor.source_language ||
-                                cardLanguages(pair)[0],
-                              target_language:
-                                editor.target_language ||
-                                cardLanguages(pair)[1],
-                              confirm_exposure:
-                                editor.confirm_exposure || false,
-                            },
-                          },
+                      {
+                        path: base,
+                        method: "PATCH",
+                        body: {
+                          name: editor.name,
+                          source_language: current.source_language,
+                          target_language: current.target_language,
+                        },
+                      },
                       () => setEditor(null),
                     );
                   }}
                 >
-                  <h3>
-                    {editor.collection
-                      ? t.editCollection
-                      : editor.id
-                        ? t.edit
-                        : t.createCard}
-                  </h3>
-                  {editor.collection ? (
-                    <>
-                      {visibilityControl(
-                        current.visibility === "published",
-                        (value) => reviewVisibility(current, value),
-                      )}
-                      {current.can_publish === false && (
-                        <p role="note">{t.publishNotAllowed}</p>
-                      )}
-                      <label>
-                        {t.name}
-                        <input
-                          required
-                          maxLength={160}
-                          value={editor.name}
-                          onChange={(e) =>
-                            setEditor({ ...editor, name: e.target.value })
-                          }
-                        />
-                      </label>
-                    </>
-                  ) : (
-                    <>
-                      {["source", "target"].map((side, i) => {
-                        const language =
-                          editor[`${side}_language`] || cardLanguages(pair)[i];
-                        return (
-                          <label key={side}>
-                            {languageLabel(language)}
-                            <input
-                              required
-                              maxLength={500}
-                              lang={language}
-                              value={editor[`${side}_text`]}
-                              onChange={(e) =>
-                                setEditor({
-                                  ...editor,
-                                  [`${side}_text`]: e.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                        );
-                      })}
-                      {!editor.id && current.visibility === "published" && (
-                        <>
-                          <p>
-                            {current.name} · {pairLabel} ·{" "}
-                            {current.card_count + 1} {t.cards}
-                          </p>
-                          <p>{t.exposure}</p>
-                          <label>
-                            <input
-                              type="checkbox"
-                              required
-                              checked={editor.confirm_exposure}
-                              onChange={(e) =>
-                                setEditor({
-                                  ...editor,
-                                  confirm_exposure: e.target.checked,
-                                })
-                              }
-                            />
-                            {t.exposureNew}
-                          </label>
-                        </>
-                      )}
-                    </>
+                  <h3>{t.editCollection}</h3>
+                  {visibilityControl(
+                    current.visibility === "published",
+                    (value) => reviewVisibility(current, value),
                   )}
+                  {current.can_publish === false && (
+                    <p role="note">{t.publishNotAllowed}</p>
+                  )}
+                  <label>
+                    {t.name}
+                    <input
+                      required
+                      maxLength={160}
+                      value={editor.name}
+                      onChange={(e) =>
+                        setEditor({ ...editor, name: e.target.value })
+                      }
+                    />
+                  </label>
                   <div className="collection-actions">
                     <button className="primary" disabled={busy}>
                       {t.save}
@@ -784,6 +704,30 @@ export default function SharedCollections({
                     </button>
                   </div>
                 </form>
+              )}
+              {editor && !editor.collection && (
+                <CollectionCardForm
+                  key={`${editor.id || "new"}-${pair.join("-")}`}
+                  card={editor}
+                  pair={pair}
+                  collection={current}
+                  text={copy[language]}
+                  t={t}
+                  busy={busy}
+                  onCancel={() => setEditor(null)}
+                  onSubmit={(body) =>
+                    act(
+                      {
+                        path: editor.id
+                          ? `/api/collections/cards/${editor.id}`
+                          : `${base}/cards`,
+                        method: editor.id ? "PATCH" : "POST",
+                        body,
+                      },
+                      () => setEditor(null),
+                    )
+                  }
+                />
               )}
               {entries.isError && (
                 <p role="alert">
