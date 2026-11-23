@@ -29,7 +29,10 @@ const card = {
 };
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  window.history.pushState({}, "", "/");
+});
 afterAll(() => server.close());
 function open(language = "en", collection = own, entry = card) {
   server.use(
@@ -259,7 +262,7 @@ for (const reverse of [false, true]) {
     if (reverse)
       await user.selectOptions(
         screen.getByRole("combobox", { name: /^Practice direction/ }),
-        "reverse",
+        "italian_to_greek",
       );
     await user.click(
       screen.getByRole("button", {
@@ -587,4 +590,176 @@ test("a non-legacy Collection exposes CSV v2 import with language-keyed preview 
     "lang",
     "da",
   );
+});
+
+test("an en/da workspace derives controls from the registry and creates cards by language ID", async () => {
+  const user = userEvent.setup();
+  let submitted;
+  const englishDanish = {
+    ...own,
+    source_language: "en",
+    target_language: "da",
+  };
+  server.use(
+    http.post("*/api/collections/one/cards", async ({ request }) => {
+      submitted = await request.json();
+      return HttpResponse.json({
+        ...card,
+        source_language: "en",
+        target_language: "da",
+      });
+    }),
+  );
+  window.history.pushState({}, "", "/collections?direction=en_to_da");
+  open("en", englishDanish);
+  const pair = screen.getAllByRole("combobox", { name: /Language pair/ });
+  expect(pair[0]).toHaveValue("en");
+  expect(pair[1]).toHaveValue("da");
+  const direction = screen.getByRole("combobox", {
+    name: /^Practice direction/,
+  });
+  expect([...direction.options].map((option) => option.value)).toEqual([
+    "en_to_da",
+    "da_to_en",
+  ]);
+  expect(direction).toHaveDisplayValue("English → Danish");
+
+  await user.click(
+    await screen.findByRole("button", { name: "Details", exact: true }),
+  );
+  await user.click(
+    await screen.findByRole("button", { name: "Create card", exact: true }),
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "Danish", exact: true }),
+    "hus",
+  );
+  await user.type(
+    screen.getByRole("textbox", { name: "English", exact: true }),
+    "house",
+  );
+  await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+  await waitFor(() =>
+    expect(submitted).toMatchObject({
+      source_language: "da",
+      target_language: "en",
+      source_text: "hus",
+      target_text: "house",
+    }),
+  );
+});
+
+test("an en/el workspace practises both directions with language-ID text mapping", async () => {
+  const user = userEvent.setup();
+  const directions = [];
+  const englishGreek = {
+    ...own,
+    source_language: "en",
+    target_language: "el",
+  };
+  const englishGreekCard = {
+    ...card,
+    source_language: "en",
+    target_language: "el",
+    source_text: "house",
+    target_text: "σπίτι",
+  };
+  server.use(
+    http.post("*/api/sessions", async ({ request }) => {
+      const body = await request.json();
+      directions.push(body.direction);
+      return HttpResponse.json({
+        id: "s",
+        cards: [
+          {
+            position: 0,
+            snapshot: englishGreekCard,
+          },
+        ],
+      });
+    }),
+    http.post("*/api/sessions/s/cards/0/reveal", () =>
+      HttpResponse.json({ revealed: true }),
+    ),
+  );
+  window.history.pushState({}, "", "/collections?direction=en_to_el");
+  open("en", englishGreek, englishGreekCard);
+  await user.click(
+    await screen.findByLabelText("Select for practice: Greetings"),
+  );
+  await user.click(
+    screen.getByRole("button", {
+      name: "Practise selected collections",
+      exact: true,
+    }),
+  );
+  expect(await screen.findByRole("heading", { name: "house" })).toHaveAttribute(
+    "lang",
+    "en",
+  );
+  await user.click(screen.getByRole("button", { name: "Show answer" }));
+  expect(
+    await screen.findByText("σπίτι", { selector: ".collection-answer" }),
+  ).toHaveAttribute("lang", "el");
+
+  await user.click(screen.getByRole("button", { name: "Back to collections" }));
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: /^Practice direction/ }),
+    "el_to_en",
+  );
+  await user.click(
+    screen.getByRole("button", {
+      name: "Practise selected collections",
+      exact: true,
+    }),
+  );
+  expect(await screen.findByRole("heading", { name: "σπίτι" })).toHaveAttribute(
+    "lang",
+    "el",
+  );
+  await user.click(screen.getByRole("button", { name: "Show answer" }));
+  expect(
+    await screen.findByText("house", { selector: ".collection-answer" }),
+  ).toHaveAttribute("lang", "en");
+  expect(directions).toEqual(["en_to_el", "el_to_en"]);
+});
+
+test("a reversed legacy snapshot maps prompt and answer by its stored language IDs", async () => {
+  const user = userEvent.setup();
+  const reversed = {
+    ...card,
+    source_language: "el",
+    target_language: "it",
+    source_text: "γεια",
+    target_text: "ciao",
+  };
+  server.use(
+    http.post("*/api/sessions", () =>
+      HttpResponse.json({
+        id: "s",
+        cards: [{ position: 0, snapshot: reversed }],
+      }),
+    ),
+    http.post("*/api/sessions/s/cards/0/reveal", () =>
+      HttpResponse.json({ revealed: true }),
+    ),
+  );
+  open();
+  await user.click(
+    await screen.findByLabelText("Select for practice: Greetings"),
+  );
+  await user.click(
+    screen.getByRole("button", {
+      name: "Practise selected collections",
+      exact: true,
+    }),
+  );
+  expect(await screen.findByRole("heading", { name: "γεια" })).toHaveAttribute(
+    "lang",
+    "el",
+  );
+  await user.click(screen.getByRole("button", { name: "Show answer" }));
+  expect(
+    await screen.findByText("ciao", { selector: ".collection-answer" }),
+  ).toHaveAttribute("lang", "it");
 });

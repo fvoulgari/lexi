@@ -1,14 +1,17 @@
 /** Primary text follows explicit storage language; grammar stays language-named. */
-export function cardText(card, language) {
-  return language === (card.source_language || "it")
-    ? (card.source_text ?? card.italian)
-    : (card.target_text ?? card.greek);
+import { directionLanguages } from "./languages.js";
+
+export { directionLanguages };
+
+export function cardLanguageIds(card) {
+  return [card?.source_language || "it", card?.target_language || "el"];
 }
 
-export function directionLanguages(direction) {
-  if (direction === "greek_to_italian") return ["el", "it"];
-  if (direction === "italian_to_greek") return ["it", "el"];
-  return direction.split("_to_");
+export function cardText(card, language) {
+  const [source, target] = cardLanguageIds(card);
+  if (language === source) return card.source_text ?? card.italian;
+  if (language === target) return card.target_text ?? card.greek;
+  return null;
 }
 
 export function practiceSides(card, direction) {
@@ -19,6 +22,7 @@ export function practiceSides(card, direction) {
   };
 }
 
+/** Canonical text-slot order for one pair; legacy cards keep it/el slots. */
 export function cardLanguages(pair) {
   return pair.includes("el") && pair.includes("it")
     ? ["it", "el"]

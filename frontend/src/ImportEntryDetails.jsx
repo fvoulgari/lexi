@@ -1,18 +1,21 @@
 import PropTypes from "prop-types";
+import { cardLanguageIds, cardText } from "./card-sides.js";
 import {
   GRAMMAR_DEFINITIONS,
   adjectiveGroups,
   grammarFieldsFor,
   languageOfField,
-  legacyLanguageName,
 } from "./grammar.js";
 
 export default function ImportEntryDetails({ row, text }) {
   const { entry } = row;
+  // Only the card's own language IDs select grammar definitions; common-only
+  // languages never borrow Italian/Greek fields by position.
+  const languages = cardLanguageIds(entry).filter(
+    (code) => GRAMMAR_DEFINITIONS[code],
+  );
   const grammar = (language) => {
     const definition = GRAMMAR_DEFINITIONS[language];
-    if (!definition) return [];
-    const legacy = legacyLanguageName(language);
     const fields =
       entry.word_type === "adjective"
         ? [
@@ -26,15 +29,13 @@ export default function ImportEntryDetails({ row, text }) {
         field &&
         entry[field] &&
         entry[field] !== "common" &&
-        !(field.endsWith("_singular") && entry[field] === row[legacy]),
+        !(field.endsWith("_singular") && entry[field] === cardText(row, language)),
     );
   };
   const groups = [
-    ...Object.keys(GRAMMAR_DEFINITIONS).map(grammar),
-    Object.values(GRAMMAR_DEFINITIONS).map(
-      (definition) => definition.pronunciation,
-    ),
-    Object.values(GRAMMAR_DEFINITIONS).map((definition) => definition.example),
+    ...languages.map(grammar),
+    languages.map((code) => GRAMMAR_DEFINITIONS[code].pronunciation),
+    languages.map((code) => GRAMMAR_DEFINITIONS[code].example),
   ]
     .map((fields) => fields.filter((field) => entry[field]))
     .filter((fields) => fields.length);

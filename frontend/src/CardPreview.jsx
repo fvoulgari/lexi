@@ -2,6 +2,14 @@ import { useId, useState } from "react";
 import PropTypes from "prop-types";
 import { X } from "lucide-react";
 import PracticeCardView from "./PracticeCardView.jsx";
+import {
+  directionLabel,
+  pairDirections,
+} from "./languages.js";
+
+// The standard Vocabulary form is Italian–Greek; preview options still derive
+// from the registry so labels and keys use explicit language IDs.
+const DIRECTIONS = pairDirections("el", "it");
 
 export default function CardPreview({
   entry,
@@ -54,12 +62,13 @@ export default function CardPreview({
               setRevealed(false);
             }}
           >
-            <option value="greek_to_italian">
-              {text.greek} → {text.italian}
-            </option>
-            <option value="italian_to_greek">
-              {text.italian} → {text.greek}
-            </option>
+            {DIRECTIONS.map((key) => (
+              <option key={key} value={key}>
+                {directionLabel(key, (code) =>
+                  code === "el" ? text.greek : text.italian,
+                )}
+              </option>
+            ))}
           </select>
           <PracticeCardView
             entry={entry}

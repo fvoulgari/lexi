@@ -5,6 +5,7 @@ import { request } from "./api.js";
 import { collectionCopy } from "./collection-copy.js";
 import CsvDialog from "./CsvDialog.jsx";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
+import { cardLanguageIds, cardText } from "./card-sides.js";
 
 const PAGE_SIZE = 10;
 const LEGACY_LANGUAGES = ["el", "it"];
@@ -448,26 +449,26 @@ export default function Import({
           <ol className="import-rows">
             {filtered
               .slice((activePage - 1) * PAGE_SIZE, activePage * PAGE_SIZE)
-              .map((row) => (
-                <li key={row.row}>
-                  <div className="csv-row-meta">
-                    {text.csvRow} {row.row} · {text.csvCounts[row.status]}
-                  </div>
-                  <p className="csv-row-words">
-                    <span lang={row.source_language || "it"}>
-                      {row.italian}
-                    </span>{" "}
-                    →{" "}
-                    <span lang={row.target_language || "el"}>{row.greek}</span>
-                  </p>
-                  {row.entry && <ImportEntryDetails row={row} text={text} />}
-                  {row.errors?.map((message, index) => (
-                    <p key={index} className="error">
-                      {message}
+              .map((row) => {
+                const [source, target] = cardLanguageIds(row);
+                return (
+                  <li key={row.row}>
+                    <div className="csv-row-meta">
+                      {text.csvRow} {row.row} · {text.csvCounts[row.status]}
+                    </div>
+                    <p className="csv-row-words">
+                      <span lang={source}>{cardText(row, source)}</span>{" "}
+                      → <span lang={target}>{cardText(row, target)}</span>
                     </p>
-                  ))}
-                </li>
-              ))}
+                    {row.entry && <ImportEntryDetails row={row} text={text} />}
+                    {row.errors?.map((message, index) => (
+                      <p key={index} className="error">
+                        {message}
+                      </p>
+                    ))}
+                  </li>
+                );
+              })}
           </ol>
           {pages > 1 && (
             <nav className="pagination" aria-label={text.csvPreviewTitle}>

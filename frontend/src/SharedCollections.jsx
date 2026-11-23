@@ -6,18 +6,39 @@ import { copy } from "./copy.js";
 import Import from "./Import.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
 import { useAccount } from "./AccountContext.jsx";
-import { practiceSides, cardLanguages } from "./card-sides.js";
+import {
+  cardLanguageIds,
+  cardLanguages,
+  cardText,
+  practiceSides,
+} from "./card-sides.js";
+import {
+  directionLanguages,
+  directionLabel,
+  LANGUAGES,
+  LEGACY_PAIR,
+  pairDirections,
+  samePair,
+} from "./languages.js";
 import {
   collectionCopy,
   collectionOwner,
   isMyCollection,
 } from "./collection-copy.js";
 
-const LANGUAGES = ["el", "it", "en", "da"];
-function directionKey(a, b) {
-  if (a === "it" && b === "el") return "italian_to_greek";
-  if (a === "el" && b === "it") return "greek_to_italian";
-  return `${a}_to_${b}`;
+function initialPair() {
+  const requested = new URLSearchParams(window.location.search).get(
+    "direction",
+  );
+  if (requested) {
+    try {
+      const languages = directionLanguages(requested);
+      if (languages.every((code) => LANGUAGES.includes(code))) return languages;
+    } catch {
+      /* Fall back to the legacy pair below. */
+    }
+  }
+  return [...LEGACY_PAIR];
 }
 
 export default function SharedCollections({
@@ -29,16 +50,7 @@ export default function SharedCollections({
   const names = new Intl.DisplayNames([language], { type: "language" });
   const client = useQueryClient();
   const account = useAccount();
-  const [pair, setPair] = useState(() => {
-    const codes = new URLSearchParams(window.location.search)
-      .get("direction")
-      ?.split("_to_");
-    return codes?.length === 2 &&
-      codes.every((c) => LANGUAGES.includes(c)) &&
-      codes[0] !== codes[1]
-      ? codes
-      : ["el", "it"];
-  });
+  const [pair, setPair] = useState(initialPair);
   const [tab, setTab] = useState("mine");
   const [selected, setSelected] = useState("");
   const [chosen, setChosen] = useState([]);
@@ -57,16 +69,15 @@ export default function SharedCollections({
     () =>
       new URLSearchParams(window.location.search).get("mode") === "difficult",
   );
-  const direction = directionKey(...(reverse ? [...pair].reverse() : pair));
+  const directions = pairDirections(pair[0], pair[1]);
+  const direction = reverse ? directions[1] : directions[0];
   const list = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
     refetchOnWindowFocus: "always",
   });
-  const collections = (list.data || []).filter(
-    (c) =>
-      [c.source_language, c.target_language].sort().join() ===
-      [...pair].sort().join(),
+  const collections = (list.data || []).filter((c) =>
+    samePair(c.source_language, c.target_language, pair[0], pair[1]),
   );
   const listed = collections.filter((c) =>
     tab === "mine" ? isMyCollection(c) : c.visibility === "published",
@@ -142,10 +153,20 @@ export default function SharedCollections({
   }
   const base = `/api/collections/${selected}`;
   const pairLabel = pair.map((code) => names.of(code)).join(" – ");
+  function cardWords(card) {
+    const [source, target] = cardLanguageIds(card);
+    return (
+      <>
+        <span lang={source}>{cardText(card, source)}</span> —{" "}
+        <span lang={target}>{cardText(card, target)}</span>
+      </>
+    );
+  }
   const queueCard = session?.cards[position];
   const sides = queueCard?.snapshot
     ? practiceSides(queueCard.snapshot, direction)
     : null;
+  const sideLanguages = directionLanguages(direction);
   async function start() {
     await act(
       {
@@ -242,10 +263,12 @@ export default function SharedCollections({
                 <p>
                   {position + 1} / {session.cards.length}
                 </p>
-                <h3>{sides.prompt}</h3>
+                <h3 lang={sideLanguages[0]}>{sides.prompt}</h3>
                 {revealed ? (
                   <>
-                    <p className="collection-answer">{sides.answer}</p>
+                    <p className="collection-answer" lang={sideLanguages[1]}>
+                      {sides.answer}
+                    </p>
                     <div className="collection-actions">
                       {["again", "hard", "easy"].map((rating) => (
                         <button
@@ -466,15 +489,14 @@ export default function SharedCollections({
             <label>
               {t.direction}
               <select
-                value={reverse ? "reverse" : "forward"}
-                onChange={(e) => setReverse(e.target.value === "reverse")}
+                value={direction}
+                onChange={(e) => setReverse(e.target.value !== directions[0])}
               >
-                <option value="forward">
-                  {names.of(pair[0])} → {names.of(pair[1])}
-                </option>
-                <option value="reverse">
-                  {names.of(pair[1])} → {names.of(pair[0])}
-                </option>
+                {directions.map((key) => (
+                  <option key={key} value={key}>
+                    {directionLabel(key, (code) => names.of(code))}
+                  </option>
+                ))}
               </select>
             </label>
             <label>
@@ -713,25 +735,27 @@ export default function SharedCollections({
                     </>
                   ) : (
                     <>
-                      {["source", "target"].map((side, i) => (
-                        <label key={side}>
-                          {names.of(
-                            editor[`${side}_language`] ||
-                              cardLanguages(pair)[i],
-                          )}
-                          <input
-                            required
-                            maxLength={500}
-                            value={editor[`${side}_text`]}
-                            onChange={(e) =>
-                              setEditor({
-                                ...editor,
-                                [`${side}_text`]: e.target.value,
-                              })
-                            }
-                          />
-                        </label>
-                      ))}
+                      {["source", "target"].map((side, i) => {
+                        const language =
+                          editor[`${side}_language`] || cardLanguages(pair)[i];
+                        return (
+                          <label key={side}>
+                            {names.of(language)}
+                            <input
+                              required
+                              maxLength={500}
+                              lang={language}
+                              value={editor[`${side}_text`]}
+                              onChange={(e) =>
+                                setEditor({
+                                  ...editor,
+                                  [`${side}_text`]: e.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                        );
+                      })}
                       {!editor.id && current.visibility === "published" && (
                         <>
                           <p>
@@ -777,7 +801,7 @@ export default function SharedCollections({
                 {readableEntries?.map((c, i) => (
                   <li key={c.id}>
                     <div>
-                      <strong>{c.source_text}</strong> — {c.target_text}
+                      <strong>{cardWords(c)}</strong>
                     </div>
                     <div className="collection-actions">
                       {current.can_edit && (
@@ -885,7 +909,7 @@ export default function SharedCollections({
                       .map((c) => (
                         <li key={c.id}>
                           <span>
-                            {c.source_text} — {c.target_text} ·{" "}
+                            {cardWords(c)} ·{" "}
                             {c.shared_via_collection
                               ? t.sharedCard
                               : t[c.visibility] || c.visibility}
@@ -915,9 +939,7 @@ export default function SharedCollections({
                         {pairLabel} · {current.card_count + 1} {t.cards}
                       </p>
                       <p>{t.exposure}</p>
-                      <p>
-                        {pendingAdd.source_text} — {pendingAdd.target_text}
-                      </p>
+                      <p>{cardWords(pendingAdd)}</p>
                       <div className="collection-actions">
                         <button
                           className="primary"

@@ -13,12 +13,22 @@ import PropTypes from "prop-types";
 import { request } from "./api.js";
 import Choices from "./Choices.jsx";
 import PracticeCardView from "./PracticeCardView.jsx";
+import { cardLanguageIds, practiceSides } from "./card-sides.js";
+import {
+  directionLanguages,
+  directionLabel,
+  pairDirections,
+} from "./languages.js";
 
 import {
   collectionCopy,
   collectionLabel,
   isMyCollection,
 } from "./collection-copy.js";
+
+// Standard Vocabulary practice stays Italian–Greek; every direction option
+// still comes from the language registry rather than a literal pair branch.
+const LEGACY_DIRECTIONS = pairDirections("el", "it");
 
 export default function Practice({ text, csrf, onLocked, language = "en" }) {
   const profiles = useQuery({
@@ -151,7 +161,15 @@ export default function Practice({ text, csrf, onLocked, language = "en" }) {
     </section>
   );
 }
-function Direction({ text, value, onChange, disabled = false }) {
+function practiceLanguageLabel(text, code) {
+  if (code === "el") return text.greek;
+  if (code === "it") return text.italian;
+  return code;
+}
+
+function Direction({ text, value, languages, onChange, disabled = false }) {
+  const options = pairDirections(...languages);
+  const choices = options.includes(value) ? options : [value, ...options];
   return (
     <>
       <label htmlFor="practice-direction">{text.direction}</label>
@@ -161,12 +179,11 @@ function Direction({ text, value, onChange, disabled = false }) {
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="greek_to_italian">
-          {text.greek} → {text.italian}
-        </option>
-        <option value="italian_to_greek">
-          {text.italian} → {text.greek}
-        </option>
+        {choices.map((key) => (
+          <option key={key} value={key}>
+            {directionLabel(key, (code) => practiceLanguageLabel(text, code))}
+          </option>
+        ))}
       </select>
     </>
   );
@@ -211,13 +228,14 @@ function Setup({
   const filterLoading = type === "category" && collections.isPending;
   const changeFilter = (key, value) =>
     setFilters((current) => ({ ...current, [key]: value }));
-  const [direction, setDirection] = useState(
-    ["greek_to_italian", "italian_to_greek"].includes(
-      searchParams.get("direction"),
-    )
-      ? searchParams.get("direction")
-      : profile?.preferred_direction || "greek_to_italian",
-  );
+  const [direction, setDirection] = useState(() => {
+    const requested = searchParams.get("direction");
+    if (LEGACY_DIRECTIONS.includes(requested)) return requested;
+    const preferred = profile?.preferred_direction;
+    return LEGACY_DIRECTIONS.includes(preferred)
+      ? preferred
+      : LEGACY_DIRECTIONS[0];
+  });
   const difficult = useQuery({
     queryKey: ["difficult-entries", profile?.id, direction],
     queryFn: () =>
@@ -329,16 +347,12 @@ function Setup({
         onChange={setDirection}
         disabled={pending}
         className="setup-direction-options"
-        options={[
-          {
-            value: "greek_to_italian",
-            label: `${text.greek} → ${text.italian}`,
-          },
-          {
-            value: "italian_to_greek",
-            label: `${text.italian} → ${text.greek}`,
-          },
-        ]}
+        options={LEGACY_DIRECTIONS.map((key) => ({
+          value: key,
+          label: directionLabel(key, (code) =>
+            practiceLanguageLabel(text, code),
+          ),
+        }))}
       />
       {type === "difficult" && profile && (
         <section
@@ -530,6 +544,7 @@ function ActivePractice({
         <Summary
           text={text}
           sessionId={session.id}
+          direction={session.direction}
           onProfileUnavailable={onProfileUnavailable}
           onAgain={onAgain}
           onLocked={onLocked}
@@ -618,6 +633,7 @@ function Flashcard({
       <Direction
         text={text}
         value={direction}
+        languages={cardLanguageIds(entry)}
         disabled={pending || !!rating}
         onChange={(value) => {
           onDirection(value);
@@ -677,7 +693,15 @@ function Flashcard({
     </>
   );
 }
-function Summary({ text, sessionId, onAgain, onLocked, onProfileUnavailable }) {
+function Summary({
+  text,
+  sessionId,
+  direction,
+  onAgain,
+  onLocked,
+  onProfileUnavailable,
+}) {
+  const [promptLanguage, answerLanguage] = directionLanguages(direction);
   const summary = useQuery({
     queryKey: ["practice-summary", sessionId],
     queryFn: () => request(`/api/sessions/${sessionId}/summary`),
@@ -757,18 +781,21 @@ function Summary({ text, sessionId, onAgain, onLocked, onProfileUnavailable }) {
                 <ChevronDown size={18} aria-hidden="true" />
               </summary>
               <ul>
-                {summary.data.needs_practice.map((e) => (
-                  <li key={e.id}>
-                    <div className="summary-card-words">
-                      <span lang="it">{e.snapshot.italian}</span>
-                      <span aria-hidden="true"> → </span>
-                      <span lang="el">{e.snapshot.greek}</span>
-                    </div>
-                    <span className="summary-rating" data-rating={e.rating}>
-                      {text[e.rating]}
-                    </span>
-                  </li>
-                ))}
+                {summary.data.needs_practice.map((e) => {
+                  const sides = practiceSides(e.snapshot, direction);
+                  return (
+                    <li key={e.id}>
+                      <div className="summary-card-words">
+                        <span lang={promptLanguage}>{sides.prompt}</span>
+                        <span aria-hidden="true"> → </span>
+                        <span lang={answerLanguage}>{sides.answer}</span>
+                      </div>
+                      <span className="summary-rating" data-rating={e.rating}>
+                        {text[e.rating]}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </details>
           )}

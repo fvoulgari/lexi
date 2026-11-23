@@ -417,7 +417,13 @@ export default function App() {
                 />
                 <Route
                   path="/"
-                  element={<Progress text={text} onLocked={lockNotebook} />}
+                  element={
+                    <Progress
+                      text={text}
+                      language={language}
+                      onLocked={lockNotebook}
+                    />
+                  }
                 />
                 <Route
                   path="/progress"
@@ -425,6 +431,7 @@ export default function App() {
                     <Progress
                       key="detail"
                       text={text}
+                      language={language}
                       onLocked={lockNotebook}
                       detailed
                     />
