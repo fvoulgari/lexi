@@ -15,7 +15,9 @@ import {
 import {
   directionLanguages,
   directionLabel,
-  LANGUAGES,
+  isSupportedLanguage,
+  languageIds,
+  languageLabel,
   LEGACY_PAIR,
   pairDirections,
   samePair,
@@ -33,7 +35,7 @@ function initialPair() {
   if (requested) {
     try {
       const languages = directionLanguages(requested);
-      if (languages.every((code) => LANGUAGES.includes(code))) return languages;
+      if (languages.every(isSupportedLanguage)) return languages;
     } catch {
       /* Fall back to the legacy pair below. */
     }
@@ -47,7 +49,6 @@ export default function SharedCollections({
   onLocked = () => {},
 }) {
   const t = collectionCopy[language];
-  const names = new Intl.DisplayNames([language], { type: "language" });
   const client = useQueryClient();
   const account = useAccount();
   const [pair, setPair] = useState(initialPair);
@@ -152,7 +153,7 @@ export default function SharedCollections({
     }
   }
   const base = `/api/collections/${selected}`;
-  const pairLabel = pair.map((code) => names.of(code)).join(" – ");
+  const pairLabel = pair.map(languageLabel).join(" – ");
   function cardWords(card) {
     const [source, target] = cardLanguageIds(card);
     return (
@@ -334,13 +335,13 @@ export default function SharedCollections({
                   value={value}
                   onChange={(e) => changePair(i, e.target.value)}
                 >
-                  {LANGUAGES.filter((code) => code !== pair[1 - i]).map(
-                    (code) => (
+                  {languageIds()
+                    .filter((code) => code !== pair[1 - i])
+                    .map((code) => (
                       <option value={code} key={code}>
-                        {names.of(code)}
+                        {languageLabel(code)}
                       </option>
-                    ),
-                  )}
+                    ))}
                 </select>
               </label>
             ))}
@@ -494,7 +495,7 @@ export default function SharedCollections({
               >
                 {directions.map((key) => (
                   <option key={key} value={key}>
-                    {directionLabel(key, (code) => names.of(code))}
+                    {directionLabel(key, languageLabel)}
                   </option>
                 ))}
               </select>
@@ -650,7 +651,7 @@ export default function SharedCollections({
                   text={copy[language]}
                   csrf={csrf}
                   language={language}
-                  languages={LANGUAGES}
+                  languages={languageIds()}
                   selectedCollection={current}
                   onLocked={onLocked}
                   onClose={() => setImportOpen(false)}
@@ -740,7 +741,7 @@ export default function SharedCollections({
                           editor[`${side}_language`] || cardLanguages(pair)[i];
                         return (
                           <label key={side}>
-                            {names.of(language)}
+                            {languageLabel(language)}
                             <input
                               required
                               maxLength={500}

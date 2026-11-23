@@ -3,8 +3,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "./api.js";
 import { directionLabel, pairDirections } from "./languages.js";
 
-const PROFILE_DIRECTIONS = pairDirections("el", "it");
-
 export default function Profiles({ text, csrf, onLocked }) {
   const client = useQueryClient();
   const [saved, setSaved] = useState(false);
@@ -65,6 +63,7 @@ function ProfileForm({
   disabled,
   onSavePending,
 }) {
+  const profileDirections = pairDirections("el", "it");
   const [name, setName] = useState(profile?.display_name || "");
   const [direction, setDirection] = useState(
     profile?.preferred_direction || "greek_to_italian",
@@ -137,7 +136,7 @@ function ProfileForm({
                 onChanged();
               }}
             >
-              {PROFILE_DIRECTIONS.map((key) => (
+              {profileDirections.map((key) => (
                 <option key={key} value={key}>
                   {directionLabel(key, (code) =>
                     code === "el" ? text.greek : text.italian,

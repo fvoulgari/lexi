@@ -3,17 +3,21 @@ import {
   directionKey,
   directionLanguages,
   directionLabel,
+  hydrateLanguages,
   isLegacyDirection,
   isLegacyPair,
-  LANGUAGES,
+  languageIds,
   pairDirections,
+  resetLanguages,
   samePair,
 } from "./languages.js";
+import { REGISTRY_PAYLOAD } from "./language-fixtures.js";
 
-test("every supported pair has two distinct directed keys", () => {
+test("every catalogued pair has two distinct directed keys", () => {
+  const ids = languageIds();
   const keys = new Set();
-  for (const first of LANGUAGES) {
-    for (const second of LANGUAGES) {
+  for (const first of ids) {
+    for (const second of ids) {
       if (first === second) continue;
       const directions = pairDirections(first, second);
       expect(directions).toHaveLength(2);
@@ -24,7 +28,7 @@ test("every supported pair has two distinct directed keys", () => {
       });
     }
   }
-  expect(keys.size).toBe(LANGUAGES.length * (LANGUAGES.length - 1));
+  expect(keys.size).toBe(ids.length * (ids.length - 1));
 });
 
 test("legacy direction keys keep their original language order", () => {
@@ -47,9 +51,47 @@ test("pairs are unordered and legacy identity is explicit", () => {
   expect(pairDirections("en", "en")).toEqual([]);
 });
 
-test("labels come from ordered language IDs, not legacy key names", () => {
-  const label = (code) => ({ en: "English", da: "Danish" })[code];
-  expect(directionLabel("en_to_da", label)).toBe("English → Danish");
-  expect(directionLabel("da_to_en", label)).toBe("Danish → English");
-  expect(directionLabel("italian_to_greek", (code) => code)).toBe("it → el");
+test("labels and direction metadata come from the registry response", () => {
+  const payload = {
+    languages: [
+      {
+        id: "zz",
+        label: "Synthetic",
+        script: "Arab",
+        text_direction: "rtl",
+        enhanced: false,
+      },
+      {
+        id: "en",
+        label: "English",
+        script: "Latn",
+        text_direction: "ltr",
+        enhanced: false,
+      },
+    ],
+    directions: [
+      {
+        key: "zz_to_en",
+        prompt_language: "zz",
+        answer_language: "en",
+        legacy: false,
+      },
+      {
+        key: "en_to_zz",
+        prompt_language: "en",
+        answer_language: "zz",
+        legacy: false,
+      },
+    ],
+  };
+  hydrateLanguages(payload);
+  expect(languageIds()).toEqual(["zz", "en"]);
+  expect(directionLanguages("zz_to_en")).toEqual(["zz", "en"]);
+  expect(directionLabel("zz_to_en")).toBe("Synthetic → English");
+  expect(samePair("zz", "en", "en", "zz")).toBe(true);
+  expect(isLegacyPair("zz", "en")).toBe(false);
+  expect(pairDirections("el", "it")).toEqual([]);
+  resetLanguages();
+  expect(() => languageIds()).toThrow("not been loaded");
+  hydrateLanguages(REGISTRY_PAYLOAD);
 });

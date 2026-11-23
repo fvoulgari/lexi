@@ -705,8 +705,10 @@ def test_import_updates_only_changed_supplied_fields_and_keeps_history(logged_in
     assert result["counts"]["imported"] == 0
     updated = client.get(f"/api/vocabulary/{entry['id']}").json()
     assert updated["pronunciation"] == "new pronunciation"
+    # The structured store mirrors the changed compatibility column.
+    assert updated["grammar"]["it"]["pronunciation"] == "new pronunciation"
     for key, value in entry.items():
-        if key not in {"pronunciation", "updated_at"}:
+        if key not in {"pronunciation", "grammar", "updated_at"}:
             assert updated[key] == value
     assert (
         client.get(f"/api/profiles/{session['profile_id']}/progress").json() == before
