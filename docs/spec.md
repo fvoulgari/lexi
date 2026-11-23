@@ -1,3 +1,9 @@
+## Current status (v1.4.0)
+
+The original v1 specification below remains a historical record. [Issue #100](https://github.com/fvoulgari/lexi/issues/100) extends the delivered product so every ordered pair of the supported learning languages (`da`, `el`, `en`, `it`) works in Collections: one explicit pair per Collection, explicit card language IDs, reversed-pair compatibility, both practice directions with per-learner/card/direction progress, common card fields with language-keyed grammar, and CSV v2 for all Collections. Users supply both texts; there is no automatic translation. Standard Vocabulary card creation and existing Italian–Greek data stay Italian–Greek. The original v1 exclusions of additional language pairs and multiple shared Collections are superseded for Collections only; they remain accurate for the original milestone described below.
+
+The confirmed rules, resolved decisions and rule-to-test mapping are in the [multilingual acceptance matrix](multilingual-acceptance.md). Interface language stays independent of learning languages. Release evidence and the operator checklist are in [v1.4.0 release readiness](v140-release-readiness.md); no production migration, deployment or release publication is part of this work. “CSV v2” names a file format, not the release version.
+
 ## Problem Statement
 
 > Historical record. For current behavior and operator procedures, see the [README](../README.md), [authentication guide](authentication.md), and [Railway runbook](railway-release.md).
@@ -113,7 +119,7 @@ Build Italian Notebook, a polished mobile-first flashcard web application with r
 
 ## Testing Decisions
 
-- Proposed test boundaries await the user's check before publication. There is no application code or existing test suite, so no prior testing seams can be reused.
+- Historical: these boundaries were proposed before application code existed. The implemented suites and the v1.4.0 rule-to-test mapping are recorded in the [multilingual acceptance matrix](multilingual-acceptance.md).
 - Prefer external behavior at two necessary public boundaries: FastAPI HTTP requests backed by a real disposable PostgreSQL database, and rendered React pages exercised through user interactions. Avoid tests of ORM internals, component state, hook structure, styling class strings, or private service methods.
 - Use pytest API integration tests to cover vocabulary CRUD, validation, filters/pagination, profile preferences, unit/tag creation, deletion restrictions, retained session snapshots, CSV preview/commit/export, duplicate handling, malformed Unicode/input, and export formula safety. Assert preview performs no writes and confirm handles concurrent library changes.
 - At the same API boundary test session types, shortage/empty behavior, no repeats, mixed quota/backfill behavior, profile/direction isolation, direction attribution, idempotent retries including lost responses and concurrent requests, transaction rollback, summaries, progress counts, and weighted difficulty outcomes. Inject deterministic randomness and time through a small test boundary where necessary, asserting visible results rather than implementation structure.
@@ -126,7 +132,7 @@ Build Italian Notebook, a polished mobile-first flashcard web application with r
 - Individual authentication, private per-profile permissions, sensitive personal data, and public anonymous access.
 - Session resume, offline vocabulary/practice, queued offline reviews, and synchronization across disconnected devices.
 - FSRS, Anki scheduling, due dates, mastery labels, and scientifically validated learning scores.
-- Audio pronunciation, text-to-speech, typed answers, speaking practice, additional language pairs, multiple shared collections, and advanced statistics.
+- Audio pronunciation, text-to-speech, typed answers, speaking practice, and advanced statistics. Additional language pairs and multiple shared Collections were out of scope for the original v1 milestone; the v1.4.0 Collections workspace now supports the supported-language registry as described in the current status above.
 - TypeScript implementation, unnecessary abstractions, gamified dashboards, swipe-only controls, and visual mockups substituting for a working application.
 - Permanent deletion of reviewed entries or automatic overwriting during CSV import.
 

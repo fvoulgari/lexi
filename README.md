@@ -6,15 +6,15 @@ Lexi started with my Italian lessons. I wanted to practise my own vocabulary wit
 
 I built the first version with AI assistance, using React, FastAPI and PostgreSQL. AI helped me turn the idea into a specification and implement the foundation; I chose the stack, tested and reviewed the work, and refined the experience through everyday use.
 
-The current version focuses on **Italian ↔ Greek**, with a calm sage-green and cream interface designed for phones as well as desktop browsers.
+The current version supports **Italian ↔ Greek**, **English ↔ Danish**, **English ↔ Greek** and every other ordered pair from the supported languages, with a calm sage-green and cream interface designed for phones as well as desktop browsers. Standard Vocabulary card creation stays Italian–Greek; other pairs are created and edited in the Collections workspace.
 
 ## Features
 
 - **Your own vocabulary.** Add and edit words or phrases, with examples, pronunciation text and grammatical forms relevant to their part of speech.
 - **An organised library.** Organise cards into Collections and filter Vocabulary by collection. Reuse a card across collections without copying it.
-- **Practice in either direction.** Choose Italian → Greek or Greek → Italian, with random, difficult or mixed sessions and optional collection and card-type filters.
-- **Individual learning records.** Each account has its own preferences and review history. Progress follows the same card ID across collections and is tracked per learning direction.
-- **CSV import and export.** Preview imports before confirming them, download an example, and export the vocabulary accessible to your account.
+- **Practice in either direction.** Choose either direction of a Collection's language pair, with random, difficult or mixed sessions and optional collection and card-type filters.
+- **Individual learning records.** Each account has its own preferences and review history. Progress follows the same card ID across compatible collections and is tracked per learning direction.
+- **CSV import and export.** Preview imports before confirming them, download an example, and export Collections in language-ID-keyed CSV v2 format. Version 1 files remain importable; CSV v2 is a file format, not a release version.
 - **Three interface languages.** Greek, English and Italian.
 - **Home-screen installation.** Install on supported browsers. Vocabulary and practice still require an internet connection.
 
@@ -34,7 +34,7 @@ Collections start private by default. Owners can publish or unpublish them. Publ
 
 See the [authentication guide](docs/authentication.md) and [Collections guide](docs/shareable-collections.md).
 
-Interface language is independent of the languages on the cards. Vocabulary and the standard practice flow focus on Italian and Greek. The Collections workspace also supports English and Danish language pairs. Pronunciation is entered as text; automatic translation and generated speech are not included.
+Interface language is independent of the languages on the cards. Vocabulary card creation focuses on Italian and Greek, while the Collections workspace supports any ordered pair of Italian, Greek, English and Danish. Cards store their language IDs explicitly, so a compatible card can join several Collections and reversed pair order keeps the same text mapping. A populated Collection cannot change pair; practice direction can. Pronunciation is entered as text; automatic translation and generated speech are not included. See the [multilingual acceptance matrix](docs/multilingual-acceptance.md) and [Collections guide](docs/shareable-collections.md).
 
 ## Technology
 
@@ -187,7 +187,7 @@ npm run test:pwa
 npm run test:mobile
 ```
 
-Tests cover authentication and CSRF, profile handling, vocabulary validation, CSV workflows, review retries, progress calculations and rendered UI interactions. Browser suites exercise installation/cache behavior and mobile navigation.
+Tests cover authentication and CSRF, profile handling, vocabulary validation, CSV workflows, review retries, progress calculations and rendered UI interactions. Browser suites exercise installation/cache behavior, mobile navigation and the localized Collections/CSV journeys. The v1.4.0 rule-to-test mapping and rehearsal results are in the [acceptance matrix](docs/multilingual-acceptance.md) and [release readiness record](docs/v140-release-readiness.md).
 
 GitHub Actions runs application tests, lint/build checks and image-publication validation. The separate Playwright suites are not included in that workflow yet.
 
@@ -213,8 +213,11 @@ Successful `main` checks publish a SHA-tagged image. Stable version tags trigger
 ## Documentation
 
 - [Domain glossary](GLOSSARY.md)
-- [Architecture decision](docs/adr/0001-railway-application-and-private-postgresql.md)
+- [Architecture decisions](docs/adr/0001-railway-application-and-private-postgresql.md) ([ADR 0005: card text and grammar](docs/adr/0005-language-agnostic-card-text-and-grammar.md))
+- [Multilingual acceptance matrix](docs/multilingual-acceptance.md)
+- [v1.4.0 release readiness and rehearsal](docs/v140-release-readiness.md)
 - [CSV format](docs/csv-format.md)
+- [Shareable Collections](docs/shareable-collections.md)
 - [Mixed-practice selection](docs/mixed-practice.md)
 - [Design notes](docs/design.md)
 - [Image publication](docs/image-publication.md)

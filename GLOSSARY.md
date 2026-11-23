@@ -34,7 +34,18 @@ A collection its creator has made discoverable and available for signed-in learn
 A card creator's confirmation that one of their published collections may share a private card. Access lasts while at least one such grant remains; another learner's reference cannot extend it.
 
 **Language pair**:
-The two languages a collection's cards express, independent of which language is used as the prompt during practice.
+The two supported languages a collection's cards express, independent of which language is used as the prompt during practice.
+
+**Supported language**:
+A learning language Lexi can express on a card, independent of the interface language. Cards carry one supported language for each of their two texts, fixed when the card is created.
+_Avoid_: Interface language, text position
+
+**Common card field**:
+A card detail meaningful in every language, such as its texts, word type and themes. It needs no language-specific definition when a new learning language is introduced.
+
+**Language-specific grammar**:
+Optional grammatical detail that belongs to one language, such as gender or inflected forms. A card only offers the definitions for its own languages.
+_Avoid_: Generic grammar, grammar column
 
 **CSV format v2**:
 A Collection CSV exchange format whose text and grammar columns are keyed by language ID and whose rows carry card and Collection identity. It round-trips any supported language pair without positional inference while version 1 and legacy aliases remain importable.
