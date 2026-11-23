@@ -1,6 +1,8 @@
 """Versioned CSV exchange preserves text while making spreadsheet cells safe."""
 
 FORMAT_VERSION = "italian-notebook-v1"
+FORMAT_VERSION_V2 = "italian-notebook-v2"
+FORMAT_VERSIONS = (FORMAT_VERSION, FORMAT_VERSION_V2)
 FORMULA_MARKERS = ("=", "+", "-", "@", "＝", "＋", "－", "＠")
 TEXT_PREFIXES = ("'", "\t", "\r", "\n")
 

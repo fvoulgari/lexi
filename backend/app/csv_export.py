@@ -2,7 +2,17 @@ import csv
 import io
 import json
 
-from app.csv_format import FORMAT_VERSION, spreadsheet_text
+from app.csv_format import FORMAT_VERSION, FORMAT_VERSION_V2, spreadsheet_text
+from app.csv_v2 import (
+    COLUMNS as V2_COLUMNS,
+)
+from app.csv_v2 import (
+    encode_grammar,
+    grammar_column,
+    text_column,
+)
+from app.grammar import GRAMMAR_LANGUAGES
+from app.languages import card_languages, card_text
 
 COLUMNS = (
     "italian",
@@ -63,4 +73,45 @@ def export_library(entries, account_id, *, include_ids=False):
             if values[field] == "common":
                 values[field] = None
         writer.writerow(spreadsheet_text(values[field]) for field in columns)
+    return output.getvalue().encode("utf-8-sig")
+
+
+def export_collections(entries, account_id, collection=None):
+    """Export v2 with texts and grammar keyed by each card's language IDs."""
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    writer.writerow(V2_COLUMNS)
+    for entry in entries:
+        source = entry.source_collection
+        if source is not None and source.owner_account_id != account_id:
+            source = None
+        scope = collection or source
+        card_source, card_target = card_languages(entry)
+        values = {
+            "csv_format": FORMAT_VERSION_V2,
+            "entry_id": str(entry.id),
+            "collection_id": str(scope.id) if scope is not None else "",
+            "collection_name": scope.title if scope is not None else "",
+            "source_language": (
+                scope.source_language if scope is not None else card_source
+            ),
+            "target_language": (
+                scope.target_language if scope is not None else card_target
+            ),
+            "card_source_language": card_source,
+            "card_target_language": card_target,
+            "word_type": entry.word_type,
+            "tags": json.dumps([tag.name for tag in entry.tags], ensure_ascii=False),
+            "notes": entry.notes,
+            "unit_code": source.source_unit_code if source else "",
+            "unit_title": source.source_unit_title if source else "",
+            "unit_sort_order": source.source_unit_sort_order if source else "",
+        }
+        for language in (card_source, card_target):
+            values[text_column(language)] = card_text(entry, language)
+        for language in GRAMMAR_LANGUAGES:
+            values[grammar_column(language)] = encode_grammar(entry, language)
+        writer.writerow(
+            spreadsheet_text(values.get(field)) for field in V2_COLUMNS
+        )
     return output.getvalue().encode("utf-8-sig")

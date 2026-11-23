@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import and_, event, or_, select
 from sqlalchemy.orm import Session, with_loader_criteria
 
+from app.languages import pair
 from app.models import (
     Account,
     Collection,
@@ -73,10 +74,11 @@ def collection_capabilities(collection, account=None):
     """Canonical collection permissions shared by APIs and capability responses."""
     account = account or current_account()
     owned = collection.owner_account_id == account.id
-    compatible = {collection.source_language, collection.target_language} == {
-        "el",
-        "it",
-    }
+    try:
+        pair(collection.source_language, collection.target_language)
+        compatible = True
+    except ValueError:
+        compatible = False
     return {
         "can_edit": owned,
         "can_import": owned and compatible,

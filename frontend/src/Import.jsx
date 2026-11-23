@@ -7,15 +7,18 @@ import CsvDialog from "./CsvDialog.jsx";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
 
 const PAGE_SIZE = 10;
+const LEGACY_LANGUAGES = ["el", "it"];
 
-function isImportDestination(collection) {
+function isImportDestination(collection, languages = LEGACY_LANGUAGES) {
   if (!collection) return false;
+  const pair = [collection.source_language, collection.target_language];
+  const supported =
+    pair[0] !== pair[1] &&
+    pair.length === 2 &&
+    pair.every((code) => languages.includes(code));
+  if (languages.length === 2 && !supported) return false;
   if (typeof collection.can_import === "boolean") return collection.can_import;
-  return (
-    collection.can_edit &&
-    [collection.source_language, collection.target_language].sort().join() ===
-      "el,it"
-  );
+  return collection.can_edit && supported;
 }
 
 function isPublicDestination(collection, mode, makePublic) {
@@ -28,22 +31,38 @@ const format = (template, values) =>
 export default function Import({
   text,
   csrf,
-  onLocked,
+  onLocked = () => {},
   onClose,
   onImported,
   selectedCollection,
   language,
+  languages = LEGACY_LANGUAGES,
 }) {
   const t = collectionCopy[language];
+  const displayNames = new Intl.DisplayNames([language], {
+    type: "language",
+  });
+  const languageLabel = (code) =>
+    (code === "el" && text.greek) ||
+    (code === "it" && text.italian) ||
+    displayNames.of(code) ||
+    code;
+  const destinationFor = (collection) =>
+    isImportDestination(collection, languages);
   const [mode, setMode] = useState("existing");
   const [collectionId, setCollectionId] = useState(
-    isImportDestination(selectedCollection) ? selectedCollection.id : "",
+    destinationFor(selectedCollection) ? selectedCollection.id : "",
   );
   const [name, setName] = useState("");
   const [makePublic, setMakePublic] = useState(false);
   const [publicConsent, setPublicConsent] = useState(false);
-  const [source, setSource] = useState("el");
-  const target = source === "el" ? "it" : "el";
+  const initialPair = destinationFor(selectedCollection)
+    ? [selectedCollection.source_language, selectedCollection.target_language]
+    : languages;
+  const [source, setSource] = useState(initialPair[0] || "el");
+  const [target, setTarget] = useState(
+    initialPair[1] || languages.find((code) => code !== initialPair[0]),
+  );
   const [file, setFile] = useState(null);
   const [previewRequested, setPreviewRequested] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -64,7 +83,7 @@ export default function Import({
     queryFn: () => request("/api/collections"),
     refetchOnMount: "always",
   });
-  const destinations = collections.filter(isImportDestination);
+  const destinations = collections.filter(destinationFor);
   const existingDestination = destinations.find(
     (collection) => collection.id === collectionId,
   );
@@ -99,15 +118,27 @@ export default function Import({
     change(value);
   }
 
+  function changeSource(value) {
+    changeDestination(setSource, value);
+    if (target === value)
+      setTarget(languages.find((code) => code !== value) || "");
+  }
+
+  function changeTarget(value) {
+    changeDestination(setTarget, value);
+    if (source === value)
+      setSource(languages.find((code) => code !== value) || "");
+  }
+
   const destinationIds = destinations.map((collection) => collection.id).join(",");
   useEffect(() => {
     if (mode !== "existing" || isError || collectionId) return;
-    const authorized = isImportDestination(selectedCollection)
+    const authorized = isImportDestination(selectedCollection, languages)
       ? selectedCollection.id
       : "";
     if (authorized && destinationIds.split(",").includes(authorized))
       setCollectionId(authorized);
-  }, [collectionId, destinationIds, isError, mode, selectedCollection]);
+  }, [collectionId, destinationIds, isError, languages, mode, selectedCollection]);
 
   useEffect(() => {
     if (!canPreview || !previewRequested) return;
@@ -282,27 +313,26 @@ export default function Import({
                 className="collection-select"
                 aria-label={t.sourceLanguage}
                 value={source}
-                onChange={(event) =>
-                  changeDestination(setSource, event.target.value)
-                }
+                onChange={(event) => changeSource(event.target.value)}
               >
-                <option value="el">{text.greek}</option>
-                <option value="it">{text.italian}</option>
+                {languages.map((code) => (
+                  <option key={code} value={code}>
+                    {languageLabel(code)}
+                  </option>
+                ))}
               </select>
               <span aria-hidden="true">↔</span>
               <select
                 className="collection-select"
                 aria-label={t.targetLanguage}
                 value={target}
-                onChange={(event) =>
-                  changeDestination(
-                    setSource,
-                    event.target.value === "el" ? "it" : "el",
-                  )
-                }
+                onChange={(event) => changeTarget(event.target.value)}
               >
-                <option value="el">{text.greek}</option>
-                <option value="it">{text.italian}</option>
+                {languages.map((code) => (
+                  <option key={code} value={code}>
+                    {languageLabel(code)}
+                  </option>
+                ))}
               </select>
             </fieldset>
             <fieldset className="csv-options csv-visibility">
@@ -424,8 +454,11 @@ export default function Import({
                     {text.csvRow} {row.row} · {text.csvCounts[row.status]}
                   </div>
                   <p className="csv-row-words">
-                    <span lang="it">{row.italian}</span> →{" "}
-                    <span lang="el">{row.greek}</span>
+                    <span lang={row.source_language || "it"}>
+                      {row.italian}
+                    </span>{" "}
+                    →{" "}
+                    <span lang={row.target_language || "el"}>{row.greek}</span>
                   </p>
                   {row.entry && <ImportEntryDetails row={row} text={text} />}
                   {row.errors?.map((message, index) => (

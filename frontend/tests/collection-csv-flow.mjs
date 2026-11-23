@@ -13,6 +13,34 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH,
 });
+function parseCsv(text) {
+  return text
+    .replace(/^\uFEFF/, "")
+    .trimEnd()
+    .split(/\r?\n/)
+    .map((line) => {
+      const cells = [];
+      let cell = "";
+      let quoted = false;
+      for (let index = 0; index < line.length; index += 1) {
+        const character = line[index];
+        if (quoted) {
+          if (character === '"' && line[index + 1] === '"') {
+            cell += '"';
+            index += 1;
+          } else if (character === '"') quoted = false;
+          else cell += character;
+        } else if (character === '"') quoted = true;
+        else if (character === ",") {
+          cells.push(cell);
+          cell = "";
+        } else cell += character;
+      }
+      cells.push(cell);
+      return cells;
+    });
+}
+
 const fields = "italian,greek,word_type\n";
 const lessons = [
   [
@@ -114,7 +142,7 @@ try {
       );
       assert.equal(await dialog.getByText(filename).count(), 1);
       assert.equal(
-        await dialog.getByText("Private", { exact: true }).count(),
+        await dialog.getByText("Only you", { exact: true }).count(),
         1,
       );
       if (name === "Lezione 01" && width !== 320) {
@@ -140,13 +168,21 @@ try {
       await dialog.getByRole("button", { name: "Export CSV" }).click();
       const download = await downloaded;
       assert.equal(download.suggestedFilename(), `${name}.csv`);
-      const csv = await readFile(await download.path(), "utf8");
-      const results = csv.trimEnd().split(/\r?\n/).slice(1);
+      const [header, ...results] = parseCsv(
+        await readFile(await download.path(), "utf8"),
+      );
+      assert.equal(header[header.indexOf("csv_format")], "csv_format");
+      assert.ok(header.includes("text_it"));
+      assert.ok(header.includes("text_el"));
       assert.equal(results.length, rows.length);
       for (const row of rows) {
         const [italian, greek] = row.split(",");
         assert.ok(
-          results.some((line) => line.startsWith(`"${italian}","${greek}"`)),
+          results.some(
+            (cells) =>
+              cells[header.indexOf("text_it")] === italian &&
+              cells[header.indexOf("text_el")] === greek,
+          ),
           row,
         );
       }
@@ -192,18 +228,140 @@ try {
       .check();
     const filteredDownload = page.waitForEvent("download");
     await dialog.getByRole("button", { name: "Export CSV" }).click();
-    const filteredCsv = await readFile(
-      await (await filteredDownload).path(),
-      "utf8",
+    const [filteredHeader, ...filteredRows] = parseCsv(
+      await readFile(await (await filteredDownload).path(), "utf8"),
     );
-    assert.match(filteredCsv, /"buongiorno","καλημέρα"/);
-    assert.doesNotMatch(filteredCsv, /"ciao","γεια"/);
+    assert.equal(filteredRows.length, 1);
+    assert.equal(
+      filteredRows[0][filteredHeader.indexOf("text_it")],
+      "buongiorno",
+    );
+    assert.equal(
+      filteredRows[0][filteredHeader.indexOf("text_el")],
+      "καλημέρα",
+    );
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
       true,
     );
+
+    // CSV v2 round trip in a non-legacy Collection, including formula escaping
+    // and Unicode text, through the Collections workspace.
+    await page.goto(`${origin}/collections?direction=en_to_da`);
+    await page
+      .getByRole("textbox", { name: "Collection name", exact: true })
+      .fill("V2 Roundtrip");
+    await page
+      .getByRole("button", { name: "Create collection", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Details", exact: true }).click();
+    await page.getByRole("button", { name: "Import CSV", exact: true }).click();
+    const v2Dialog = page.getByRole("dialog", { name: "Import CSV" });
+    const v2Fields =
+      "csv_format,source_language,target_language," +
+      "card_source_language,card_target_language,text_en,text_da,word_type\n";
+    await v2Dialog.getByLabel("Choose CSV file").setInputFiles({
+      name: "v2.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        v2Fields +
+          'italian-notebook-v2,en,da,en,da,"\'=1+1","hej — καλημέρα",expression\n',
+      ),
+    });
+    await v2Dialog.getByRole("button", { name: "Preview" }).click();
+    const v2Confirm = v2Dialog.getByRole("button", {
+      name: "Import 1 card into V2 Roundtrip",
+    });
+    await v2Confirm.waitFor();
+    assert.equal(await v2Dialog.getByText("=1+1", { exact: true }).count(), 1);
+    assert.equal(
+      await v2Dialog.getByText("hej — καλημέρα", { exact: true }).count(),
+      1,
+    );
+    await v2Confirm.click();
+    await page.getByRole("link", { name: "Open", exact: true }).click();
+    await page.getByText("=1+1", { exact: true }).waitFor();
+    await page.getByText("hej — καλημέρα", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Export CSV", exact: true }).click();
+    const v2DownloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("dialog", { name: "Export CSV" })
+      .getByRole("button", { name: "Export CSV" })
+      .click();
+    const v2Csv = await readFile(
+      await (await v2DownloadPromise).path(),
+      "utf8",
+    );
+    const [v2Header, ...v2Exported] = parseCsv(v2Csv);
+    assert.equal(v2Exported.length, 1);
+    assert.equal(v2Header[v2Header.indexOf("csv_format")], "csv_format");
+    assert.ok(v2Exported[0][v2Header.indexOf("entry_id")]);
+    assert.equal(v2Exported[0][v2Header.indexOf("text_en")], "'=1+1");
+    assert.equal(v2Exported[0][v2Header.indexOf("text_da")], "hej — καλημέρα");
+    assert.match(v2Csv, /"'=1\+1"/);
+
+    await page.goto(`${origin}/collections?direction=en_to_da`);
+    await page.getByRole("button", { name: "Details", exact: true }).click();
+    await page.getByRole("button", { name: "Import CSV", exact: true }).click();
+    const repeatDialog = page.getByRole("dialog", { name: "Import CSV" });
+    await repeatDialog.getByLabel("Choose CSV file").setInputFiles({
+      name: "roundtrip.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(v2Csv),
+    });
+    await repeatDialog.getByRole("button", { name: "Preview" }).click();
+    await repeatDialog
+      .getByRole("button", { name: "Duplicates (1)" })
+      .waitFor();
+
+    // The same v2 contract round-trips a non-legacy English–Greek Collection.
+    await page.goto(`${origin}/collections?direction=en_to_el`);
+    await page
+      .getByRole("textbox", { name: "Collection name", exact: true })
+      .fill("V2 Greek");
+    await page
+      .getByRole("button", { name: "Create collection", exact: true })
+      .click();
+    await page
+      .locator(".collection-box")
+      .filter({ hasText: "V2 Greek" })
+      .getByRole("button", { name: "Details", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Import CSV", exact: true }).click();
+    const greekDialog = page.getByRole("dialog", { name: "Import CSV" });
+    await greekDialog.getByLabel("Choose CSV file").setInputFiles({
+      name: "v2-el.csv",
+      mimeType: "text/csv",
+      buffer: Buffer.from(
+        "csv_format,source_language,target_language," +
+          "card_source_language,card_target_language,text_en,text_el,word_type\n" +
+          "italian-notebook-v2,en,el,en,el,welcome,καλωσορίσατε,expression\n",
+      ),
+    });
+    await greekDialog.getByRole("button", { name: "Preview" }).click();
+    await greekDialog
+      .getByRole("button", { name: "Import 1 card into V2 Greek" })
+      .click();
+    await page.getByRole("link", { name: "Open", exact: true }).click();
+    await page.getByText("καλωσορίσατε", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Export CSV", exact: true }).click();
+    const greekDownloadPromise = page.waitForEvent("download");
+    await page
+      .getByRole("dialog", { name: "Export CSV" })
+      .getByRole("button", { name: "Export CSV" })
+      .click();
+    const [greekHeader, ...greekExported] = parseCsv(
+      await readFile(await (await greekDownloadPromise).path(), "utf8"),
+    );
+    assert.equal(greekExported.length, 1);
+    assert.equal(greekExported[0][greekHeader.indexOf("text_en")], "welcome");
+    assert.equal(
+      greekExported[0][greekHeader.indexOf("text_el")],
+      "καλωσορίσατε",
+    );
+
     await context.close();
     console.log(`CSV import/export verified at ${width}px`);
   }

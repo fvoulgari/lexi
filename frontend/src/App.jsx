@@ -336,6 +336,7 @@ export default function App() {
                     <SharedCollections
                       language={language}
                       csrf={session.data.csrf_token}
+                      onLocked={lockNotebook}
                     />
                   }
                 />

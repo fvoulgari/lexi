@@ -14,9 +14,19 @@ from sqlalchemy import func, select, text
 
 from app.access import collection_capabilities, current_account, require_write
 from app.collections import CollectionBody
-from app.csv_format import FORMAT_VERSION, restore_text
-from app.duplicates import normalized_pair
-from app.grammar import clean_grammar
+from app.csv_format import FORMAT_VERSION, FORMAT_VERSION_V2, restore_text
+from app.csv_v2 import (
+    COLUMNS as V2_COLUMNS,
+)
+from app.csv_v2 import (
+    GRAMMAR_COLUMNS,
+    TEXT_COLUMNS,
+    decode_grammar,
+    text_column,
+)
+from app.duplicates import normalized_language_pair
+from app.grammar import GRAMMAR_FIELDS, clean_grammar, invalid_grammar_fields
+from app.languages import card_languages, card_slots, pair, same_pair
 from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
 
@@ -63,7 +73,7 @@ COLUMNS = {
     "unit_sort_order",
     "tags",
     "csv_format",
-}
+} | set(V2_COLUMNS)
 
 
 def invalid(message):
@@ -86,10 +96,15 @@ async def read_csv(request):
                 "Unsupported columns: "
                 + ", ".join(sorted(set(fields) - (COLUMNS | ALIASES.keys())))
             )
-        if not {"italian", "greek", "word_type"} <= {
-            ALIASES.get(field, field) for field in fields
-        }:
-            invalid("Required columns: italian, greek, word_type.")
+        canonical = {ALIASES.get(field, field) for field in fields}
+        language_texts = sum(column in canonical for column in TEXT_COLUMNS)
+        if "word_type" not in canonical or not (
+            {"italian", "greek"} <= canonical or language_texts >= 2
+        ):
+            invalid(
+                "Required columns: word_type and either italian/greek "
+                "or language-keyed text columns."
+            )
         rows = []
         for row in reader:
             if len(rows) >= MAX_ROWS:
@@ -138,8 +153,69 @@ def import_preview_token(
     ).hexdigest()
 
 
+def parse_v2_row(row, destination_languages):
+    """Normalize a v2 row into the common (language-named) import fields.
+
+    Returns the card's explicit language IDs. Collection languages are checked
+    against the destination, while texts and grammar are read from columns
+    named after the card's own language IDs.
+    """
+    collection_languages = (
+        row.pop("source_language", ""),
+        row.pop("target_language", ""),
+    )
+    if any(collection_languages) and not all(collection_languages):
+        raise ValueError("Both Collection languages are required.")
+    if all(collection_languages) and not same_pair(
+        *collection_languages, *destination_languages
+    ):
+        raise ValueError("CSV Collection languages do not match the destination.")
+    row.pop("collection_id", "")
+    row.pop("collection_name", "")
+    source = row.pop("card_source_language", "")
+    target = row.pop("card_target_language", "")
+    if not source or not target:
+        raise ValueError("Card language IDs are required.")
+    pair(source, target)
+    if not same_pair(source, target, *destination_languages):
+        raise ValueError("Card language pair does not match the destination.")
+
+    supplied_texts = {column: row.pop(column, "") for column in TEXT_COLUMNS}
+    texts = {}
+    for language in (source, target):
+        texts[language] = supplied_texts[text_column(language)]
+        if not texts[language]:
+            raise ValueError(f"Missing text for {language}.")
+    for column, value in supplied_texts.items():
+        if value and column not in (text_column(source), text_column(target)):
+            raise ValueError(
+                f"Text for {column.removeprefix('text_')} is not in this card."
+            )
+
+    legacy_grammar = {field: row.get(field, "") for field in GRAMMAR_FIELDS}
+    for column in GRAMMAR_COLUMNS:
+        value = row.pop(column, "")
+        language = column.removeprefix("grammar_")
+        fields = decode_grammar(value, language)
+        if fields and language not in (source, target):
+            raise ValueError(f"Grammar for {language} is not in this card.")
+        for field, field_value in fields.items():
+            if legacy_grammar[field] and legacy_grammar[field] != field_value:
+                raise ValueError(f"{field} conflicts with {column}.")
+            row[field] = field_value
+    for field, value in legacy_grammar.items():
+        if value and row.get(field) != value:
+            raise ValueError(f"{field} conflicts with language-keyed grammar.")
+
+    _, _, row["italian"], row["greek"] = card_slots(
+        source, target, texts[source], texts[target]
+    )
+    return source, target
+
+
 def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=False):
     require_write(destination)
+    destination_languages = (destination.source_language, destination.target_language)
     # Imported cards and tags stay privately owned even when their collection is
     # public; a published collection shares them through confirmed references.
     card_visibility = (
@@ -172,13 +248,16 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
             existing_scope,
             VocabularyEntry.owner_account_id == destination.owner_account_id,
             VocabularyEntry.visibility == card_visibility,
-            VocabularyEntry.source_language == "it",
-            VocabularyEntry.target_language == "el",
+            VocabularyEntry.source_language.in_(destination_languages),
+            VocabularyEntry.target_language.in_(destination_languages),
+            VocabularyEntry.source_language != VocabularyEntry.target_language,
         )
         .order_by(VocabularyEntry.id)
     ):
-        pair = normalized_pair(existing.italian, existing.greek)
-        pairs.setdefault(pair, []).append(
+        pair_key = normalized_language_pair(
+            card_languages(existing), (existing.italian, existing.greek)
+        )
+        pairs.setdefault(pair_key, []).append(
             {
                 "entry": existing,
                 "source_collection_id": existing.source_collection_id,
@@ -186,6 +265,10 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                     field: getattr(existing, field)
                     for field in VocabularyCreate.model_fields
                     if field not in {"unit_id", "tag_ids", "visibility"}
+                }
+                | {
+                    "source_language": existing.source_language,
+                    "target_language": existing.target_language,
                 },
                 "tags": {tag.name for tag in existing.tags},
             }
@@ -235,14 +318,30 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
         proposed_metadata = None
         metadata_is_new = False
         reference = None
+        row_languages = ("it", "el")
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
             version = row.pop("csv_format", "")
-            if version and version != FORMAT_VERSION:
+            if version not in ("", FORMAT_VERSION, FORMAT_VERSION_V2):
                 raise ValueError("Unsupported csv_format version.")
             if version:
                 row = {key: restore_text(value) for key, value in row.items()}
+            if version == FORMAT_VERSION_V2:
+                conflicting = [alias for alias in ALIASES if row.get(alias)]
+                if conflicting:
+                    raise ValueError(
+                        "Legacy aliases cannot be used with CSV format v2: "
+                        + ", ".join(sorted(conflicting))
+                    )
+                row_languages = parse_v2_row(row, destination_languages)
+                invalid = invalid_grammar_fields(row, row_languages)
+                if invalid:
+                    raise ValueError(
+                        "Invalid grammar for: " + ", ".join(invalid) + "."
+                    )
+            elif not same_pair(*destination_languages, "it", "el"):
+                raise ValueError("Legacy CSV rows require an Italian–Greek Collection.")
             for alias, field in ALIASES.items():
                 alias_supplied = alias in row
                 value = row.pop(alias, "")
@@ -283,11 +382,11 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 raise ValueError("Choose a fixed destination for card references.")
             if reference_id:
                 reference = db.get(VocabularyEntry, UUID(reference_id))
-                if reference is None or {
-                    reference.source_language,
-                    reference.target_language,
-                } != {"it", "el"}:
+                if reference is None or not same_pair(
+                    *card_languages(reference), *destination_languages
+                ):
                     raise ValueError("Card reference is unavailable.")
+                row_languages = card_languages(reference)
                 row = {
                     field: getattr(reference, field)
                     for field in VocabularyCreate.model_fields
@@ -324,7 +423,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 target = candidates[0]
                 if not collection_capabilities(target)["can_import"]:
                     raise ValueError(
-                        "Choose an Italian–Greek Collection you can import into."
+                        "Choose a Collection you can import into."
                     )
             if code:
                 prior = pending_metadata.get(
@@ -351,7 +450,10 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 if metadata_is_new:
                     proposed_metadata = merged
             matches = pairs.get(
-                normalized_pair(row.get("italian", ""), row.get("greek", "")), []
+                normalized_language_pair(
+                    row_languages, (row.get("italian", ""), row.get("greek", ""))
+                ),
+                [],
             )
             # A CSV update may omit gender if the existing card already has it.
             # Missing legacy genders must be corrected explicitly in this row.
@@ -361,9 +463,10 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 else {}
             )
             if reference is None:
-                entry = VocabularyCreate(
-                    **{**previous, **{k: v or None for k, v in row.items()}},
-                )
+                fields = {**previous, **{k: v or None for k, v in row.items()}}
+                fields.pop("source_language", None)
+                fields.pop("target_language", None)
+                entry = VocabularyCreate(**fields)
         except ValidationError as exc:
             errors = [
                 ".".join(map(str, e["loc"])) + ": " + e["msg"] for e in exc.errors()
@@ -388,9 +491,17 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                     )
                     positions[target.id] += 1
         elif not errors:
-            pair = normalized_pair(entry.italian, entry.greek)
-            matches = pairs.get(pair, [])
-            values = entry.model_dump(exclude={"unit_id", "tag_ids", "visibility"})
+            pair_key = normalized_language_pair(
+                row_languages, (entry.italian, entry.greek)
+            )
+            matches = pairs.get(pair_key, [])
+            values = {
+                **entry.model_dump(
+                    exclude={"unit_id", "tag_ids", "visibility"}
+                ),
+                "source_language": row_languages[0],
+                "target_language": row_languages[1],
+            }
             # An omitted column is not an instruction to erase stored content.
             supplied = clean_grammar(
                 {key: value for key, value in values.items() if key in row},
@@ -405,20 +516,23 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
             if len(matches) > 1:
                 status = "error"
                 errors = [
-                    "Multiple cards match this Italian–Greek pair. "
+                    "Multiple cards match this language pair. "
                     "Edit them individually."
                 ]
             else:
                 if proposed_metadata is not None:
                     pending_metadata[target.id] = proposed_metadata
                 current = matches[0] if matches else None
+                if current and current["entry"]:
+                    row_languages = card_languages(current["entry"])
+                    values["source_language"], values["target_language"] = row_languages
                 members = membership(target)
                 marker = (
                     current["entry"].id
                     if current and current["entry"]
-                    else ("new", pair, tuple(values.items()), tuple(sorted(names)))
+                    else ("new", pair_key, tuple(values.items()), tuple(sorted(names)))
                     if fixed_destination
-                    else ("new", pair)
+                    else ("new", pair_key)
                 )
                 if current:
                     changed_fields = [
@@ -446,9 +560,9 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                             "tags": set(names),
                         }
                         if fixed_destination:
-                            pairs.setdefault(pair, []).append(current)
+                            pairs.setdefault(pair_key, []).append(current)
                         else:
-                            pairs[pair] = [current]
+                            pairs[pair_key] = [current]
                     current["values"].update(supplied)
                     if "collection_provenance" in changed_fields:
                         current["source_collection_id"] = target.id
@@ -524,8 +638,10 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 "unit_conflict": conflict,
                 "collection_name": target.title if target else None,
                 "row": number,
-                "italian": original.get("italian", ""),
-                "greek": original.get("greek", ""),
+                "italian": row.get("italian", original.get("italian", "")),
+                "greek": row.get("greek", original.get("greek", "")),
+                "source_language": row_languages[0],
+                "target_language": row_languages[1],
                 "status": status,
                 "changed_fields": changed_fields,
                 "errors": errors,
@@ -572,7 +688,7 @@ def import_router(sessions, gate):
         if not capabilities["can_edit"]:
             raise HTTPException(403, "Choose a collection you own.")
         if not capabilities["can_import"]:
-            raise HTTPException(422, "CSV import requires an Italian–Greek collection.")
+            raise HTTPException(422, "Choose a collection you can import into.")
         return collection, collection
 
     def resolve_destination(db, unit_id, collection_id, confirm):
@@ -623,8 +739,6 @@ def import_router(sessions, gate):
             raise HTTPException(
                 422, "Choose a valid collection name and language pair."
             ) from None
-        if {body.source_language, body.target_language} != {"it", "el"}:
-            raise HTTPException(422, "CSV import requires an Italian–Greek collection.")
         collection = Collection(
             id=uuid4(),
             title=body.name.strip(),
