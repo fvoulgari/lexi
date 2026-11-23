@@ -15,7 +15,7 @@ from app.access import (
     current_account,
     require_write,
 )
-from app.languages import pair
+from app.languages import card_slots, card_text, direction_languages, pair, same_pair
 from app.models import (
     Account,
     Collection,
@@ -133,7 +133,12 @@ def collection_router(sessions, gate):
     def card_token(card):
         return hashlib.sha256(
             json.dumps(
-                [str(card.id), card.source_text, card.target_text, str(card.updated_at)]
+                [
+                    str(card.id),
+                    card_text(card, card.source_language),
+                    card_text(card, card.target_language),
+                    str(card.updated_at),
+                ]
             ).encode()
         ).hexdigest()
 
@@ -151,8 +156,8 @@ def collection_router(sessions, gate):
             "id": str(card.id),
             "source_language": card.source_language,
             "target_language": card.target_language,
-            "source_text": card.source_text,
-            "target_text": card.target_text,
+            "source_text": card_text(card, card.source_language),
+            "target_text": card_text(card, card.target_language),
             "visibility": card.visibility,
             "shared_via_collection": shared_elsewhere(db, card),
             "requires_confirmation": card.owner_account_id == current_account().id
@@ -191,7 +196,12 @@ def collection_router(sessions, gate):
         payload = {
             "collection": output(db, collection),
             "private": [
-                [str(e.id), e.source_text, e.target_text, str(e.updated_at)]
+                [
+                    str(e.id),
+                    card_text(e, e.source_language),
+                    card_text(e, e.target_language),
+                    str(e.updated_at),
+                ]
                 for e in sorted(private, key=lambda e: str(e.id))
             ],
         }
@@ -472,7 +482,9 @@ def collection_router(sessions, gate):
         )
         if entry is None:
             raise HTTPException(404, "Vocabulary card not found.")
-        if pair(entry.source_language, entry.target_language) != (
+        if not same_pair(
+            entry.source_language,
+            entry.target_language,
             c.source_language,
             c.target_language,
         ):
@@ -573,16 +585,11 @@ def collection_router(sessions, gate):
                 body.source_language or c.source_language,
                 body.target_language or c.target_language,
             )
-            if pair(source, target) != (c.source_language, c.target_language):
+            if not same_pair(source, target, c.source_language, c.target_language):
                 raise HTTPException(422, "Card language pair differs from collection.")
-            source_text, target_text = body.source_text, body.target_text
-            if (source, target) == ("el", "it"):
-                source, target, source_text, target_text = (
-                    "it",
-                    "el",
-                    target_text,
-                    source_text,
-                )
+            source, target, source_text, target_text = card_slots(
+                source, target, body.source_text, body.target_text
+            )
             entry = VocabularyEntry(
                 source_language=source,
                 target_language=target,
@@ -615,7 +622,9 @@ def collection_router(sessions, gate):
             # Shared legacy editorial permission remains governed by existing API.
             if entry.owner_account_id != current_account().id:
                 raise HTTPException(403, "Only the card creator can change it here.")
-            if body.source_language is not None and (
+            if (
+                body.source_language is not None or body.target_language is not None
+            ) and (
                 body.source_language,
                 body.target_language,
             ) != (entry.source_language, entry.target_language):
@@ -632,14 +641,10 @@ def collection_router(sessions, gate):
 
     @router.get("/{collection_id}/progress")
     def collection_progress(collection_id: UUID, direction: Direction):
-        from app.languages import DIRECTION_PAIRS
-
         with sessions() as db:
             c = find(db, collection_id)
-            if set(DIRECTION_PAIRS[direction]) != {
-                c.source_language,
-                c.target_language,
-            }:
+            prompt, answer = direction_languages(direction)
+            if not same_pair(prompt, answer, c.source_language, c.target_language):
                 raise HTTPException(422, "Direction does not match collection.")
             ids = [e.id for e in cards(db, c)]
             records = list(
