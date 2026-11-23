@@ -83,6 +83,35 @@ def _field(card, *names):
     )
 
 
+def pair_directions(a, b):
+    """Both directed practice keys for one unordered supported language pair."""
+    first, second = pair(a, b)
+    return (direction_key(first, second), direction_key(second, first))
+
+
+def card_languages(card):
+    """A card's explicit language IDs, or the legacy Italian/Greek text slots."""
+    return (
+        _field(card, "source_language") or "it",
+        _field(card, "target_language") or "el",
+    )
+
+
+def card_directions(card):
+    """Directions a card can be practised in; empty when its IDs are invalid."""
+    try:
+        return pair_directions(*card_languages(card))
+    except ValueError:
+        return ()
+
+
+def validate_card_direction(card, direction):
+    """Check a practice direction against the card's own language IDs."""
+    direction_languages(direction)
+    if direction not in card_directions(card):
+        raise ValueError("Direction does not match this card.")
+
+
 def card_text(card, language):
     """Primary text by explicit language ID, including reversed legacy snapshots.
 
@@ -90,8 +119,7 @@ def card_text(card, language):
     old snapshot with ``source_language='el'`` is read the same way as a card
     created today; grammar fields keep their historical language names.
     """
-    source = _field(card, "source_language") or "it"
-    target = _field(card, "target_language") or "el"
+    source, target = card_languages(card)
     if language == source:
         return _field(card, "source_text", "italian")
     if language == target:
