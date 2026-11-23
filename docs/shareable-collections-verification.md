@@ -93,9 +93,12 @@ place; IDs, ownership, Italian/Greek grammar, session snapshots and learner/card
 direction progress stay intact. See the migration notes for the explicit
 pre-feature unowned-library provenance assumption and out-of-band data review.
 
-No production backup was inspected or migrated. A real-environment migration and
-restore rehearsal is still required before any future deployment; follow the
-[reviewed migration and rollback procedure](shareable-collections.md#migration-and-rollback).
+No production backup was inspected or migrated for that earlier change. A later
+frozen-backup rehearsal for v1.4.0 is recorded in
+[release readiness](v140-release-readiness.md); it still used a local disposable
+database, not a hosted environment. A real-environment migration and restore
+rehearsal remains required before any future deployment; follow the
+[reviewed migration and rollback procedure](shareable-collections.md#historical-migration-and-rollback-record).
 Automatic downgrade is intentionally disabled to avoid discarding post-cutover
 publications, references or learning history.
 

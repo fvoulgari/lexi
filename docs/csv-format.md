@@ -24,7 +24,7 @@ Absent optional text is blank. IDs, timestamps and learner records are omitted: 
 
 ## Version 2: language-ID-keyed columns
 
-CSV v2 is the exchange format for every Collection, including `it/el`. Every exported row carries `csv_format=italian-notebook-v2`. Request it explicitly with `GET /api/vocabulary/export.csv?collection_id=…&format=v2`; a Collection-scoped export uses v2 by default. The aggregate library export stays v1 unless `format=v2` is supplied.
+CSV v2 is the exchange format for every Collection, including `it/el`. Every exported row carries `csv_format=italian-notebook-v2`. Request it explicitly with `GET /api/vocabulary/export.csv?collection_id=…&format=v2`; a Collection-scoped export uses v2 by default. The aggregate library export stays v1 unless `format=v2` is supplied. “v2” names this file format only: it was introduced in the v1.4.0 release, but v1 files remain importable and the two version numbers are independent. Card language IDs are fixed at creation; a file that changes them is rejected rather than silently remapped. See the [multilingual acceptance matrix](multilingual-acceptance.md) for the tested round-trip rules.
 
 | Column | Meaning |
 | --- | --- |
