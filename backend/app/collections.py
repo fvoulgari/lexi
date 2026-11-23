@@ -17,12 +17,14 @@ from app.access import (
 )
 from app.grammar import (
     GRAMMAR_FIELDS,
+    apply_structured_input,
     card_grammar_fields,
     clean_grammar,
     gender_field_language,
     grammar_fields,
     invalid_grammar_fields,
     missing_gender_fields,
+    sync_entry_grammar,
 )
 from app.languages import (
     card_slots,
@@ -111,6 +113,19 @@ class PublishBody(VisibilityBody):
 class OrderBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
     entry_ids: list[UUID] = Field(max_length=5000)
+
+
+def reject_structured_grammar(errors):
+    raise HTTPException(
+        422,
+        detail={
+            "code": "invalid_input",
+            "message": "; ".join(
+                f"{error['path']}: {error['message']}" for error in errors
+            ),
+            "fields": [error["path"] for error in errors],
+        },
+    )
 
 
 def grammar_fields_for(languages, word_type):
@@ -225,6 +240,7 @@ def collection_router(sessions, gate):
             "target_text": card_text(card, card.target_language),
             "word_type": card.word_type,
             **card_grammar_fields(card, (card.source_language, card.target_language)),
+            "grammar": card.grammar,
             "visibility": card.visibility,
             "shared_via_collection": shared_elsewhere(db, card),
             "requires_confirmation": card.owner_account_id == current_account().id
@@ -686,6 +702,11 @@ def collection_router(sessions, gate):
                 body.word_type,
                 (source, target),
             )
+            errors, grammar = apply_structured_input(
+                values, (source, target), body.word_type, VocabularyEntry
+            )
+            if errors:
+                reject_structured_grammar(errors)
             values.pop("source_text", None)
             values.pop("target_text", None)
             values.pop("source_language", None)
@@ -724,6 +745,7 @@ def collection_router(sessions, gate):
                 visibility="private",
                 **values,
             )
+            sync_entry_grammar(entry, grammar)
             db.add(entry)
             db.flush()
             add_card(
@@ -764,14 +786,22 @@ def collection_router(sessions, gate):
                 for field in GRAMMAR_FIELDS
                 if hasattr(entry, field)
             }
+            body_values = body.model_dump(exclude_unset=True)
             values.update(
                 {
                     field: value
-                    for field, value in body.model_dump(exclude_unset=True).items()
+                    for field, value in body_values.items()
                     if field in GRAMMAR_FIELDS
                 }
             )
+            if "grammar" in body_values:
+                values["grammar"] = body_values["grammar"]
             values = clean_grammar(values, word_type, languages)
+            errors, grammar = apply_structured_input(
+                values, languages, word_type, VocabularyEntry
+            )
+            if errors:
+                reject_structured_grammar(errors)
             missing = missing_gender_fields(
                 {**values, "word_type": word_type}, languages
             )
@@ -786,6 +816,7 @@ def collection_router(sessions, gate):
                 )
             for field, value in values.items():
                 setattr(entry, field, value)
+            sync_entry_grammar(entry, grammar)
             if body.word_type is not None:
                 entry.word_type = word_type
             if body.withdraw:

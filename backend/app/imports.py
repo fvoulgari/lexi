@@ -25,7 +25,12 @@ from app.csv_v2 import (
     text_column,
 )
 from app.duplicates import normalized_language_pair
-from app.grammar import GRAMMAR_FIELDS, clean_grammar, invalid_grammar_fields
+from app.grammar import (
+    GRAMMAR_FIELDS,
+    clean_grammar,
+    invalid_grammar_fields,
+    sync_entry_grammar,
+)
 from app.languages import card_languages, card_slots, pair, same_pair
 from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
@@ -601,6 +606,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                                     setattr(stored, key, supplied[key])
                             if "collection_provenance" in changed_fields:
                                 stored.source_collection_id = target.id
+                        sync_entry_grammar(stored)
                         if "tags" in original:
                             assigned_tags = []
                             for name in names:

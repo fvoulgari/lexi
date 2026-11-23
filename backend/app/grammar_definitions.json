@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "word_types": ["noun", "verb", "adjective", "adverb", "expression", "other"],
+  "languages": {
+    "it": {
+      "legacy_name": "italian",
+      "genders": ["masculine", "feminine"],
+      "fields": {
+        "gender": {
+          "type": "enum",
+          "options": ["masculine", "feminine"],
+          "storage": "italian_gender",
+          "word_types": ["noun"],
+          "required_for": ["noun"],
+          "csv_key": "gender"
+        },
+        "plural": {
+          "type": "text",
+          "max_length": 500,
+          "storage": "italian_plural",
+          "word_types": ["noun"],
+          "csv_key": "plural"
+        },
+        "adjective_gender": {
+          "type": "enum",
+          "options": ["masculine", "feminine"],
+          "storage": "italian_adjective_gender",
+          "word_types": ["adjective"],
+          "required_for": ["adjective"],
+          "csv_key": "adjective_gender"
+        },
+        "forms": {
+          "masculine_singular": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "italian_masculine_singular",
+            "word_types": ["adjective"],
+            "csv_key": "forms.masculine_singular"
+          },
+          "feminine_singular": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "italian_feminine_singular",
+            "word_types": ["adjective"],
+            "csv_key": "forms.feminine_singular"
+          },
+          "masculine_plural": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "italian_masculine_plural",
+            "word_types": ["adjective"],
+            "csv_key": "forms.masculine_plural"
+          },
+          "feminine_plural": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "italian_feminine_plural",
+            "word_types": ["adjective"],
+            "csv_key": "forms.feminine_plural"
+          }
+        },
+        "example": {
+          "type": "long_text",
+          "max_length": 10000,
+          "storage": "italian_example",
+          "word_types": [
+            "noun",
+            "verb",
+            "adjective",
+            "adverb",
+            "expression",
+            "other"
+          ],
+          "csv_key": "example"
+        },
+        "pronunciation": {
+          "type": "long_text",
+          "max_length": 10000,
+          "storage": "pronunciation",
+          "word_types": [
+            "noun",
+            "verb",
+            "adjective",
+            "adverb",
+            "expression",
+            "other"
+          ],
+          "csv_key": "pronunciation"
+        }
+      }
+    },
+    "el": {
+      "legacy_name": "greek",
+      "genders": ["masculine", "feminine", "neuter"],
+      "fields": {
+        "gender": {
+          "type": "enum",
+          "options": ["masculine", "feminine", "neuter"],
+          "storage": "greek_gender",
+          "word_types": ["noun"],
+          "required_for": ["noun"],
+          "csv_key": "gender"
+        },
+        "plural": {
+          "type": "text",
+          "max_length": 500,
+          "storage": "greek_plural",
+          "word_types": ["noun"],
+          "csv_key": "plural"
+        },
+        "adjective_gender": {
+          "type": "enum",
+          "options": ["masculine", "feminine", "neuter"],
+          "storage": "greek_adjective_gender",
+          "word_types": ["adjective"],
+          "required_for": ["adjective"],
+          "csv_key": "adjective_gender"
+        },
+        "forms": {
+          "masculine_singular": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "greek_masculine_singular",
+            "word_types": ["adjective"],
+            "csv_key": "forms.masculine_singular"
+          },
+          "feminine_singular": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "greek_feminine_singular",
+            "word_types": ["adjective"],
+            "csv_key": "forms.feminine_singular"
+          },
+          "neuter_singular": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "greek_neuter_singular",
+            "word_types": ["adjective"],
+            "csv_key": "forms.neuter_singular"
+          },
+          "masculine_plural": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "greek_masculine_plural",
+            "word_types": ["adjective"],
+            "csv_key": "forms.masculine_plural"
+          },
+          "feminine_plural": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "greek_feminine_plural",
+            "word_types": ["adjective"],
+            "csv_key": "forms.feminine_plural"
+          },
+          "neuter_plural": {
+            "type": "text",
+            "max_length": 500,
+            "storage": "greek_neuter_plural",
+            "word_types": ["adjective"],
+            "csv_key": "forms.neuter_plural"
+          }
+        },
+        "example": {
+          "type": "long_text",
+          "max_length": 10000,
+          "storage": "greek_example",
+          "word_types": [
+            "noun",
+            "verb",
+            "adjective",
+            "adverb",
+            "expression",
+            "other"
+          ],
+          "csv_key": "example"
+        },
+        "pronunciation": {
+          "type": "long_text",
+          "max_length": 10000,
+          "storage": "greek_pronunciation",
+          "word_types": [
+            "noun",
+            "verb",
+            "adjective",
+            "adverb",
+            "expression",
+            "other"
+          ],
+          "csv_key": "pronunciation"
+        }
+      }
+    }
+  }
+}

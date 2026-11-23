@@ -220,6 +220,9 @@ class VocabularyEntry(ContentScope, Base):
     greek_adjective_gender: Mapped[str | None] = mapped_column(String(20))
     greek_pronunciation: Mapped[str | None] = mapped_column(Text)
     pronunciation: Mapped[str | None] = mapped_column(Text)
+    # Single structured store for every enhanced language; legacy columns above
+    # remain compatibility aliases and are kept in step on every write.
+    grammar: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
