@@ -13,6 +13,7 @@ from app.access import (
     collection_capabilities,
     collection_grant,
     current_account,
+    require_same_scope,
     require_write,
 )
 from app.grammar import (
@@ -42,9 +43,10 @@ from app.models import (
     LearningProgress,
     Profile,
     SavedCollection,
+    Tag,
     VocabularyEntry,
 )
-from app.schemas import Direction, EntryText, GrammarFields, WordType
+from app.schemas import Direction, EntryText, GrammarFields, TagOutput, WordType
 
 
 class CollectionBody(BaseModel):
@@ -146,6 +148,9 @@ class CardBody(GrammarFields):
     word_type: WordType = "expression"
     source_language: str | None = None
     target_language: str | None = None
+    # Common fields are editable through the same schema-driven form for every
+    # pair, including universal cards that have no grammar definition.
+    tag_ids: list[UUID] = []
     confirm_exposure: bool = False
 
     @model_validator(mode="before")
@@ -247,7 +252,24 @@ def collection_router(sessions, gate):
             and card.visibility == "private",
             "can_edit": card.owner_account_id == current_account().id,
             "exposure_token": card_token(card),
+            "notes": card.notes,
+            "tags": [TagOutput.model_validate(tag) for tag in card.tags],
         }
+
+    def set_card_tags(db, entry, tag_ids):
+        tags = db.scalars(select(Tag).where(Tag.id.in_(set(tag_ids)))).all()
+        if len(tags) != len(set(tag_ids)):
+            raise HTTPException(
+                422,
+                detail={
+                    "code": "invalid_input",
+                    "message": "Choose existing tags.",
+                    "fields": ["tag_ids"],
+                },
+            )
+        for tag in tags:
+            require_same_scope(entry, tag)
+        entry.tags = tags
 
     def output(db, collection, *, saved=False, owner_name=None):
         accessible = cards(db, collection)
@@ -698,7 +720,7 @@ def collection_router(sessions, gate):
                 source, target, body.source_text, body.target_text
             )
             values = clean_grammar(
-                body.model_dump(exclude={"confirm_exposure"}),
+                body.model_dump(exclude={"confirm_exposure", "tag_ids"}),
                 body.word_type,
                 (source, target),
             )
@@ -748,6 +770,8 @@ def collection_router(sessions, gate):
             sync_entry_grammar(entry, grammar)
             db.add(entry)
             db.flush()
+            if body.tag_ids:
+                set_card_tags(db, entry, body.tag_ids)
             add_card(
                 db,
                 c,
@@ -787,6 +811,8 @@ def collection_router(sessions, gate):
                 if hasattr(entry, field)
             }
             body_values = body.model_dump(exclude_unset=True)
+            tag_ids = body_values.pop("tag_ids", None)
+            notes = body_values.pop("notes", None)
             values.update(
                 {
                     field: value
@@ -819,6 +845,10 @@ def collection_router(sessions, gate):
             sync_entry_grammar(entry, grammar)
             if body.word_type is not None:
                 entry.word_type = word_type
+            if notes is not None:
+                entry.notes = notes
+            if tag_ids is not None:
+                set_card_tags(db, entry, tag_ids)
             if body.withdraw:
                 db.execute(
                     update(CollectionEntry)

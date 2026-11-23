@@ -3,25 +3,18 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import PropTypes from "prop-types";
 import CardPreview from "./CardPreview.jsx";
 import { request } from "./api.js";
+import { GrammarFields, WordTypeField } from "./CardFields.jsx";
 import { isLegacyPair } from "./languages.js";
 import {
   adjectiveFormFields,
   adjectiveGenderFields,
-  adjectiveGroups,
+  cleanGrammar,
   grammarLanguages,
   isRelevantField,
-  cleanGrammar,
+  legacyLanguageName,
   requiredGenderFields,
 } from "./grammar.js";
 
-const wordTypes = [
-  "noun",
-  "verb",
-  "adjective",
-  "adverb",
-  "expression",
-  "other",
-];
 const textFields = [
   "italian",
   "greek",
@@ -97,6 +90,31 @@ export default function VocabularyForm({
     if (focusRequest)
       document.getElementById(`entry-${focusRequest.field}`)?.focus();
   }, [focusRequest]);
+
+  // Both workspaces render the same grammar components. This legacy adapter
+  // keeps the historical flat payload and the el/it text slots.
+  const languages = grammarLanguages(entry);
+  function change(field, value) {
+    setConfirmExposure(false);
+    setValues((current) => ({ ...current, [field]: value }));
+    setInvalid((current) =>
+      current.filter(
+        (item) =>
+          item !== field &&
+          (field !== "word_type" || isRelevantField(item, value)),
+      ),
+    );
+    save.reset();
+  }
+  const grammarProps = {
+    languages,
+    values,
+    wordType: values.word_type,
+    text,
+    invalid,
+    change,
+  };
+
   const save = useMutation({
     mutationFn: () =>
       request(entry?.id ? `/api/vocabulary/${entry.id}` : "/api/vocabulary", {
@@ -104,7 +122,7 @@ export default function VocabularyForm({
         headers: { "X-CSRF-Token": csrf },
         body: JSON.stringify({
           ...Object.fromEntries(
-            Object.entries(cleanGrammar(values, grammarLanguages(entry))).map(
+            Object.entries(cleanGrammar(values, languages)).map(
               ([key, value]) => [key, value?.trim() || null],
             ),
           ),
@@ -128,96 +146,29 @@ export default function VocabularyForm({
       if (error.status === 401) onLocked();
     },
   });
-  function change(field, value) {
-    setConfirmExposure(false);
-    setValues((current) => ({ ...current, [field]: value }));
-    setInvalid((current) =>
-      current.filter(
-        (item) =>
-          item !== field &&
-          (field !== "word_type" || isRelevantField(item, value)),
-      ),
-    );
-    save.reset();
-  }
-  function textField(field, displayLabel) {
-    const required = field === "italian" || field === "greek";
-    const pronunciation =
-      field === "pronunciation" || field === "greek_pronunciation";
-    const multiline = field === "italian_example" || field === "greek_example";
-    const Input = multiline ? "textarea" : "input";
+
+  function textField(language) {
+    const legacy = legacyLanguageName(language);
     return (
-      <label
-        key={field}
-        className={multiline ? "wide-field" : undefined}
-        htmlFor={`entry-${field}`}
-      >
-        {displayLabel || text.fields[field]}
-        {required ? " *" : ""}
-        <Input
-          id={`entry-${field}`}
-          ref={field === "italian" ? firstInput : undefined}
-          value={values[field]}
-          required={required}
-          aria-label={
-            displayLabel || pronunciation ? text.fields[field] : undefined
-          }
-          maxLength={multiline || pronunciation ? 10000 : 500}
-          rows={multiline ? 2 : undefined}
-          lang={
-            field === "pronunciation" || field === "greek_pronunciation"
-              ? undefined
-              : field.startsWith("italian")
-                ? "it"
-                : field.startsWith("greek")
-                  ? "el"
-                  : undefined
-          }
-          onChange={(event) => change(field, event.target.value)}
-          aria-invalid={invalid.includes(field)}
+      <label key={legacy} htmlFor={`entry-${legacy}`}>
+        {text[legacy]} *
+        <input
+          id={`entry-${legacy}`}
+          ref={language === "it" ? firstInput : undefined}
+          value={values[legacy]}
+          required
+          maxLength={500}
+          lang={language}
+          onChange={(event) => change(legacy, event.target.value)}
+          aria-invalid={invalid.includes(legacy)}
           aria-describedby={
-            invalid.includes(field) ? "entry-errors" : undefined
+            invalid.includes(legacy) ? "entry-errors" : undefined
           }
         />
       </label>
     );
   }
-  function selectField(field) {
-    const isWordType = field === "word_type";
-    const required =
-      isWordType || requiredGenderFields(values.word_type).includes(field);
-    return (
-      <label key={field} htmlFor={`entry-${field}`}>
-        {isWordType ? text.fields[field] : text.cardDetailLabels.gender}
-        {required ? " *" : ""}
-        <select
-          id={`entry-${field}`}
-          value={values[field]}
-          required={required}
-          aria-label={isWordType ? undefined : text.fields[field]}
-          onChange={(event) => change(field, event.target.value)}
-          aria-invalid={invalid.includes(field)}
-          aria-describedby={
-            invalid.includes(field) ? "entry-errors" : undefined
-          }
-        >
-          <option value="">
-            {isWordType ? text.chooseType : text.chooseGender}
-          </option>
-          {(isWordType
-            ? wordTypes
-            : field.startsWith("italian_")
-              ? ["masculine", "feminine"]
-              : ["masculine", "feminine", "neuter"]
-          ).map((value) => (
-            <option key={value} value={value}>
-              {text[value]}
-            </option>
-          ))}
-        </select>
-      </label>
-    );
-  }
+
   return (
     <>
       <form
@@ -230,10 +181,7 @@ export default function VocabularyForm({
             (field) => !values[field].trim(),
           );
           missing.push(
-            ...requiredGenderFields(
-              values.word_type,
-              grammarLanguages(entry),
-            ).filter(
+            ...requiredGenderFields(values.word_type, languages).filter(
               (field) => !values[field],
             ),
           );
@@ -323,13 +271,16 @@ export default function VocabularyForm({
             </div>
           )}
           <div className="entry-fields entry-required-fields">
-            {selectField("word_type")}
-            {["italian", "greek"].map((language) => (
+            <WordTypeField
+              value={values.word_type}
+              text={text}
+              change={change}
+              invalid={invalid}
+            />
+            {languages.map((language) => (
               <div key={language} className="entry-main-language">
                 {textField(language)}
-                {requiredGenderFields(values.word_type)
-                  .filter((field) => field.startsWith(`${language}_`))
-                  .map(selectField)}
+                <GrammarFields section="required" language={language} {...grammarProps} />
               </div>
             ))}
           </div>
@@ -339,53 +290,9 @@ export default function VocabularyForm({
             onToggle={(event) => setOptionalOpen(event.currentTarget.open)}
           >
             <summary>{text.cardOptionalDetails}</summary>
-            <div className="entry-language-details">
-              {["italian", "greek"].map((language) => (
-                <fieldset key={language} className="entry-language-group">
-                  <legend>{text[language]}</legend>
-                  <div className="entry-fields">
-                    {values.word_type === "noun" && (
-                      <>{textField(`${language}_plural`)}</>
-                    )}
-                    {values.word_type === "adjective" && (
-                      <>
-                        {values[`${language}_adjective_gender`] &&
-                          adjectiveGroups(values, language).map(
-                            (fields, index) => (
-                              <div
-                                className="entry-adjective-group wide-field"
-                                key={fields[0]}
-                              >
-                                {index > 0 && (
-                                  <h3>{text[fields[0].split("_")[1]]}</h3>
-                                )}
-                                <div className="entry-adjective-pair">
-                                  {fields.map((field) =>
-                                    textField(
-                                      field,
-                                      field.endsWith("_singular")
-                                        ? text.cardDetailLabels.singular
-                                        : text.cardDetailLabels.plural,
-                                    ),
-                                  )}
-                                </div>
-                              </div>
-                            ),
-                          )}
-                      </>
-                    )}
-                  </div>
-                </fieldset>
-              ))}
-            </div>
-            <div className="entry-fields entry-common-row entry-examples">
-              {textField("italian_example")}
-              {textField("greek_example")}
-            </div>
-            <div className="entry-fields entry-common-row entry-pronunciations">
-              {textField("pronunciation")}
-              {textField("greek_pronunciation")}
-            </div>
+            <GrammarFields section="details" {...grammarProps} />
+            <GrammarFields section="examples" {...grammarProps} />
+            <GrammarFields section="pronunciations" {...grammarProps} />
           </details>
           {(invalid.length > 0 || save.isError) && (
             <p className="error" role="alert" id="entry-errors">
@@ -394,12 +301,7 @@ export default function VocabularyForm({
                 : text.errors[save.error?.code] || text.errors.request_failed}
             </p>
           )}
-          <CardPreview
-            text={text}
-            entry={{
-              ...values,
-            }}
-          />
+          <CardPreview text={text} entry={{ ...values }} />
           <div className="form-actions">
             <button
               type="submit"

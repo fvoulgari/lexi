@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "./api.js";
-import { directionLabel, pairDirections } from "./languages.js";
+import {
+  directionLabel,
+  languageLabel,
+  pairDirections,
+} from "./languages.js";
 
 export default function Profiles({ text, csrf, onLocked }) {
   const client = useQueryClient();
@@ -138,9 +142,7 @@ function ProfileForm({
             >
               {profileDirections.map((key) => (
                 <option key={key} value={key}>
-                  {directionLabel(key, (code) =>
-                    code === "el" ? text.greek : text.italian,
-                  )}
+                  {directionLabel(key, languageLabel)}
                 </option>
               ))}
             </select>
