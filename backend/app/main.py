@@ -27,7 +27,12 @@ from app.csv_export import export_collections, export_library
 from app.database import database
 from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
-from app.grammar import clean_grammar, missing_gender_fields
+from app.grammar import (
+    apply_structured_input,
+    clean_grammar,
+    missing_gender_fields,
+    sync_entry_grammar,
+)
 from app.imports import import_router
 from app.languages import card_languages, pair_mismatch_message, same_pair
 from app.languages_api import language_router
@@ -325,6 +330,18 @@ def create_app():
             return entry
 
     def save_entry(body, entry_id=None):
+        def reject_structured(errors):
+            raise HTTPException(
+                422,
+                detail={
+                    "code": "invalid_input",
+                    "message": "; ".join(
+                        f"{error['path']}: {error['message']}" for error in errors
+                    ),
+                    "fields": [error["path"] for error in errors],
+                },
+            )
+
         with sessions.begin() as db:
             values = body.model_dump(exclude_unset=True)
             visibility = values.pop("visibility", "private")
@@ -368,7 +385,13 @@ def create_app():
                     )
             if entry_id is None:
                 values = clean_grammar(values, values["word_type"])
+                errors, grammar = apply_structured_input(
+                    values, ("it", "el"), values["word_type"], VocabularyEntry
+                )
+                if errors:
+                    reject_structured(errors)
                 entry = apply_scope(VocabularyEntry(**values), visibility=visibility)
+                sync_entry_grammar(entry, grammar)
                 db.add(entry)
             else:
                 entry = db.get(VocabularyEntry, entry_id)
@@ -379,6 +402,14 @@ def create_app():
                 values = clean_grammar(
                     values, values.get("word_type", entry.word_type), languages
                 )
+                errors, grammar = apply_structured_input(
+                    values,
+                    languages,
+                    values.get("word_type", entry.word_type),
+                    VocabularyEntry,
+                )
+                if errors:
+                    reject_structured(errors)
                 missing = missing_gender_fields(
                     {
                         "word_type": entry.word_type,
@@ -410,6 +441,7 @@ def create_app():
                     )
                 for field, value in values.items():
                     setattr(entry, field, value)
+                sync_entry_grammar(entry, grammar)
             if tag_ids is not None:
                 for tag in tags:
                     require_same_scope(entry, tag)

@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.config import Settings
 from app.database import database
+from app.grammar import structured_from_legacy
 from app.languages import (
     DIRECTION_PAIRS,
     LANGUAGE_LABELS,
@@ -121,6 +122,7 @@ def seed(owner_id=None):
                     }
                     card_id = seed_id("entry/" + row["italian"] + "/" + row["greek"])
                     collection_id = seed_id("collection/" + row["unit"])
+                    structured = structured_from_legacy(values, ("it", "el"))
                     existing_card = db.scalar(
                         select(VocabularyEntry)
                         .where(VocabularyEntry.id == card_id)
@@ -141,6 +143,7 @@ def seed(owner_id=None):
                             visibility="private",
                             source_collection_id=collection_id,
                             word_type=row["type"],
+                            grammar=structured or None,
                             **values,
                         )
                         .on_conflict_do_nothing()

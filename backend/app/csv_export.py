@@ -11,7 +11,7 @@ from app.csv_v2 import (
     grammar_column,
     text_column,
 )
-from app.grammar import GRAMMAR_LANGUAGES
+from app.grammar import grammar_languages
 from app.languages import card_languages, card_text
 
 COLUMNS = (
@@ -109,7 +109,7 @@ def export_collections(entries, account_id, collection=None):
         }
         for language in (card_source, card_target):
             values[text_column(language)] = card_text(entry, language)
-        for language in GRAMMAR_LANGUAGES:
+        for language in grammar_languages():
             values[grammar_column(language)] = encode_grammar(entry, language)
         writer.writerow(
             spreadsheet_text(values.get(field)) for field in V2_COLUMNS

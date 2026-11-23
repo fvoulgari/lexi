@@ -137,6 +137,7 @@ class VocabularyOutput(BaseModel):
     greek_adjective_gender: str | None
     greek_pronunciation: str | None
     pronunciation: str | None
+    grammar: dict | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -191,6 +192,9 @@ class GrammarFields(BaseModel):
     greek_adjective_gender: GreekGender | None = None
     greek_pronunciation: OptionalText | None = None
     pronunciation: OptionalText | None = None
+    # Structured store for enhanced languages. Values are validated against
+    # the grammar definitions once the card's language IDs are known.
+    grammar: dict[str, dict] | None = None
 
     @classmethod
     def clean_grammar_input(cls, values):

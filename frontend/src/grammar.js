@@ -1,46 +1,51 @@
 /** Optional grammar definitions keyed by language ID.
  *
- * Italian and Greek keep their historical language-named columns as storage
- * aliases. Other registry languages have no definition and use common fields
- * only; adding one never requires a new text column or a pair-specific branch.
+ * The JSON file shared with the backend is the only definition of grammar
+ * fields. Italian and Greek keep their historical language-named columns as
+ * storage aliases; other registry languages have no definition and use common
+ * fields only. Adding one needs configuration, not a new column or component.
  */
-export const GRAMMAR_DEFINITIONS = {
-  it: {
-    legacyName: "italian",
-    genders: ["masculine", "feminine"],
-    nounGender: "italian_gender",
-    nounPlural: "italian_plural",
-    adjectiveGender: "italian_adjective_gender",
-    example: "italian_example",
-    pronunciation: "pronunciation",
-    forms: {
-      feminine_singular: "italian_feminine_singular",
-      masculine_plural: "italian_masculine_plural",
-      feminine_plural: "italian_feminine_plural",
-      masculine_singular: "italian_masculine_singular",
-    },
-  },
-  el: {
-    legacyName: "greek",
-    genders: ["masculine", "feminine", "neuter"],
-    nounGender: "greek_gender",
-    nounPlural: "greek_plural",
-    adjectiveGender: "greek_adjective_gender",
-    example: "greek_example",
-    pronunciation: "greek_pronunciation",
-    forms: {
-      masculine_singular: "greek_masculine_singular",
-      masculine_plural: "greek_masculine_plural",
-      feminine_singular: "greek_feminine_singular",
-      feminine_plural: "greek_feminine_plural",
-      neuter_singular: "greek_neuter_singular",
-      neuter_plural: "greek_neuter_plural",
-    },
-  },
-};
+import grammarDefinitions from "../../backend/app/grammar_definitions.json";
+
+export const GRAMMAR_DATA = grammarDefinitions;
+
+function adapt(definition) {
+  const fields = definition.fields;
+  return {
+    legacyName: definition.legacy_name,
+    genders: definition.genders,
+    schema: fields,
+    nounGender: fields.gender.storage,
+    nounPlural: fields.plural.storage,
+    adjectiveGender: fields.adjective_gender.storage,
+    example: fields.example.storage,
+    pronunciation: fields.pronunciation.storage,
+    forms: Object.fromEntries(
+      Object.entries(fields.forms).map(([name, spec]) => [name, spec.storage]),
+    ),
+  };
+}
+
+export const GRAMMAR_DEFINITIONS = Object.fromEntries(
+  Object.entries(grammarDefinitions.languages).map(([language, definition]) => [
+    language,
+    adapt(definition),
+  ]),
+);
 
 const LEGACY_LANGUAGES = { italian: "it", greek: "el" };
-const DEFAULT_LANGUAGES = ["it", "el"];
+
+export function configuredLanguages() {
+  return Object.keys(GRAMMAR_DEFINITIONS);
+}
+
+export function registerGrammarDefinition(language, definition) {
+  GRAMMAR_DEFINITIONS[language] = adapt(definition);
+}
+
+export function unregisterGrammarDefinition(language) {
+  delete GRAMMAR_DEFINITIONS[language];
+}
 
 export function resolveLanguage(language) {
   return LEGACY_LANGUAGES[language] || language;
@@ -55,12 +60,13 @@ export function grammarDefinition(language) {
 }
 
 export function grammarLanguages(card) {
-  if (!card) return DEFAULT_LANGUAGES;
+  const languages = configuredLanguages();
+  if (!card) return languages;
   const ids = [
     card.source_language || "it",
     card.target_language || "el",
   ].map(resolveLanguage);
-  return DEFAULT_LANGUAGES.filter((language) => ids.includes(language));
+  return languages.filter((language) => ids.includes(language));
 }
 
 export function definitionFields(definition, wordType) {
@@ -73,24 +79,24 @@ export function definitionFields(definition, wordType) {
 }
 
 function definitionsFor(languages) {
-  const ids = (languages || DEFAULT_LANGUAGES).map(resolveLanguage);
-  return DEFAULT_LANGUAGES.filter((language) => ids.includes(language)).map(
-    (language) => GRAMMAR_DEFINITIONS[language],
-  );
+  const ids = (languages || configuredLanguages()).map(resolveLanguage);
+  return configuredLanguages()
+    .filter((language) => ids.includes(language))
+    .map((language) => GRAMMAR_DEFINITIONS[language]);
 }
 
 export const nounFields = [
-  ...DEFAULT_LANGUAGES.map(
+  ...configuredLanguages().map(
     (language) => GRAMMAR_DEFINITIONS[language].nounGender,
   ),
-  ...DEFAULT_LANGUAGES.map(
+  ...configuredLanguages().map(
     (language) => GRAMMAR_DEFINITIONS[language].nounPlural,
   ),
 ];
-export const adjectiveFormFields = DEFAULT_LANGUAGES.flatMap((language) =>
+export const adjectiveFormFields = configuredLanguages().flatMap((language) =>
   Object.values(GRAMMAR_DEFINITIONS[language].forms),
 );
-export const adjectiveGenderFields = DEFAULT_LANGUAGES.map(
+export const adjectiveGenderFields = configuredLanguages().map(
   (language) => GRAMMAR_DEFINITIONS[language].adjectiveGender,
 );
 export const adjectiveFields = [...adjectiveFormFields, ...adjectiveGenderFields];
@@ -147,7 +153,7 @@ export function requiredGenderFields(wordType, languages) {
 
 export function languageOfField(field) {
   return (
-    DEFAULT_LANGUAGES.find((language) => {
+    configuredLanguages().find((language) => {
       const definition = GRAMMAR_DEFINITIONS[language];
       const values = [
         ...Object.values(definition).filter(
