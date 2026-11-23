@@ -29,7 +29,7 @@ from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
 from app.grammar import clean_grammar, missing_gender_fields
 from app.imports import import_router
-from app.languages import same_pair
+from app.languages import pair_mismatch_message, same_pair
 from app.models import (
     Collection,
     CollectionEntry,
@@ -135,14 +135,23 @@ def create_app():
                 for field in fields
             )
         ]
+        model_messages = [
+            str(error["msg"]).removeprefix("Value error, ")
+            for error in exc.errors()
+            if len(error["loc"]) <= 1 and str(error["msg"]).startswith("Value error, ")
+        ]
+        if languages:
+            message = "Check the entry's gender for: " + ", ".join(languages)
+        elif model_messages:
+            message = model_messages[0]
+        else:
+            message = "Check the submitted fields."
         return JSONResponse(
             status_code=422,
             content={
                 "error": {
                     "code": "invalid_input",
-                    "message": "Check the entry's gender for: " + ", ".join(languages)
-                    if languages
-                    else "Check the submitted fields.",
+                    "message": message,
                     "fields": fields,
                 }
             },
@@ -408,7 +417,13 @@ def create_app():
                     entry.target_language,
                 ):
                     raise HTTPException(
-                        422, "Card language pair differs from collection."
+                        422,
+                        pair_mismatch_message(
+                            entry.source_language,
+                            entry.target_language,
+                            collection.source_language,
+                            collection.target_language,
+                        ),
                     )
                 published = collection.visibility == "published"
                 if published and not confirm_exposure:

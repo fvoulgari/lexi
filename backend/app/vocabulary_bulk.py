@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 
 from app.access import current_account, require_write
 from app.filters import vocabulary_conditions
+from app.languages import pair_mismatch_message, same_pair
 from app.models import Collection, CollectionEntry, VocabularyEntry
 from app.schemas import VocabularyBulk, WordType
 from app.vocabulary_deletion import delete_entries
@@ -92,13 +93,28 @@ def vocabulary_bulk_router(sessions, gate):
                     raise HTTPException(
                         409, "Add cards to a private collection before publishing it."
                     )
-                if any(
-                    {entry.source_language, entry.target_language}
-                    != {collection.source_language, collection.target_language}
-                    for entry in selected
-                ):
+                mismatched = next(
+                    (
+                        entry
+                        for entry in selected
+                        if not same_pair(
+                            entry.source_language,
+                            entry.target_language,
+                            collection.source_language,
+                            collection.target_language,
+                        )
+                    ),
+                    None,
+                )
+                if mismatched is not None:
                     raise HTTPException(
-                        422, "Card language pair differs from collection."
+                        422,
+                        pair_mismatch_message(
+                            mismatched.source_language,
+                            mismatched.target_language,
+                            collection.source_language,
+                            collection.target_language,
+                        ),
                     )
                 existing = set(
                     db.scalars(
