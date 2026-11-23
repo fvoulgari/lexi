@@ -15,7 +15,14 @@ from app.access import (
     current_account,
     require_write,
 )
-from app.languages import card_slots, card_text, direction_languages, pair, same_pair
+from app.languages import (
+    card_slots,
+    card_text,
+    direction_languages,
+    pair,
+    pair_mismatch_message,
+    same_pair,
+)
 from app.models import (
     Account,
     Collection,
@@ -46,6 +53,25 @@ class CollectionBody(BaseModel):
 
 class CreateCollectionBody(CollectionBody):
     make_public: bool = False
+
+
+class CollectionUpdateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=160)
+    source_language: str | None = None
+    target_language: str | None = None
+
+    @model_validator(mode="after")
+    def valid_pair(self):
+        if (self.source_language is None) != (self.target_language is None):
+            raise ValueError("Provide both language IDs to change a collection pair.")
+        if self.source_language is not None:
+            self.source_language, self.target_language = pair(
+                self.source_language, self.target_language
+            )
+        if not self.name.strip():
+            raise ValueError("Collection title is required.")
+        return self
 
 
 class VisibilityBody(BaseModel):
@@ -353,16 +379,27 @@ def collection_router(sessions, gate):
             return output(db, collection)
 
     @router.patch("/{collection_id}", dependencies=writes)
-    def rename(collection_id: UUID, body: CollectionBody):
+    def rename(collection_id: UUID, body: CollectionUpdateBody):
         with sessions.begin() as db:
             collection = find(db, collection_id, True)
-            if (collection.source_language, collection.target_language) != (
-                body.source_language,
-                body.target_language,
-            ):
-                raise HTTPException(
-                    422, "A collection's language pair cannot be changed."
-                )
+            if body.source_language is not None:
+                next_pair = (body.source_language, body.target_language)
+                if next_pair != (
+                    collection.source_language,
+                    collection.target_language,
+                ):
+                    has_cards = db.scalar(
+                        select(CollectionEntry.entry_id)
+                        .where(CollectionEntry.collection_id == collection.id)
+                        .limit(1)
+                    )
+                    if has_cards is not None:
+                        raise HTTPException(
+                            422,
+                            "Remove every card before changing the collection "
+                            "language pair.",
+                        )
+                    collection.source_language, collection.target_language = next_pair
             collection.title = body.name.strip()
             return output(db, collection)
 
@@ -488,7 +525,15 @@ def collection_router(sessions, gate):
             c.source_language,
             c.target_language,
         ):
-            raise HTTPException(422, "Card language pair differs from collection.")
+            raise HTTPException(
+                422,
+                pair_mismatch_message(
+                    entry.source_language,
+                    entry.target_language,
+                    c.source_language,
+                    c.target_language,
+                ),
+            )
         own_private = (
             entry.visibility == "private"
             and entry.owner_account_id == c.owner_account_id
@@ -586,7 +631,12 @@ def collection_router(sessions, gate):
                 body.target_language or c.target_language,
             )
             if not same_pair(source, target, c.source_language, c.target_language):
-                raise HTTPException(422, "Card language pair differs from collection.")
+                raise HTTPException(
+                    422,
+                    pair_mismatch_message(
+                        source, target, c.source_language, c.target_language
+                    ),
+                )
             source, target, source_text, target_text = card_slots(
                 source, target, body.source_text, body.target_text
             )

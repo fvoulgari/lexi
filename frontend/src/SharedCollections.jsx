@@ -619,8 +619,8 @@ export default function SharedCollections({ language = "en", csrf }) {
                             method: "PATCH",
                             body: {
                               name: editor.name,
-                              source_language: pair[0],
-                              target_language: pair[1],
+                              source_language: current.source_language,
+                              target_language: current.target_language,
                             },
                           }
                         : {

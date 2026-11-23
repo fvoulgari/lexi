@@ -276,6 +276,12 @@ class Collection(Base):
         CheckConstraint(
             "visibility IN ('private','published')", name="collection_visibility"
         ),
+        CheckConstraint(
+            f"source_language IN ({LANGUAGE_IDS}) AND "
+            f"target_language IN ({LANGUAGE_IDS}) AND "
+            "source_language < target_language",
+            name="collection_pair",
+        ),
     )
 
 

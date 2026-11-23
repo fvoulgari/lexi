@@ -47,6 +47,15 @@ def same_pair(first, second, other_first, other_second):
         return False
 
 
+def pair_mismatch_message(first, second, other_first, other_second):
+    """Explain which pair a card needs for a collection membership change."""
+    return (
+        f"Card language pair ({first}/{second}) differs from collection pair "
+        f"({other_first}/{other_second}). Use a collection with the same "
+        "language pair."
+    )
+
+
 def direction_key(a, b):
     """Directed practice key for a legacy or generated language pair."""
     if (a, b) == ("el", "it"):
