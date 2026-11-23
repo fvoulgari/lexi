@@ -66,14 +66,15 @@ def test_new_destinations_are_atomic_and_export_their_own_cards(logged_in):
         exported = export(logged_in, collection_id=destination["id"], page_size=1)
         assert exported.status_code == 200
         assert len(rows(exported)) == len(lines)
-        assert {row["italian"] for row in rows(exported)} == {
+        assert {row["text_it"] for row in rows(exported)} == {
             line.split(",")[0] for line in lines
         }
+        assert all(row["csv_format"] == "italian-notebook-v2" for row in rows(exported))
         assert all(not row["unit_code"] for row in rows(exported))
     assert not rows(export(logged_in, collection_id=legacy["id"]))
     scoped = export(logged_in, collection_id=destinations[0]["id"], q="parola 13")
     assert "Lezione%2001.csv" in scoped.headers["content-disposition"]
-    assert [row["italian"] for row in rows(scoped)] == ["parola 13"]
+    assert [row["text_it"] for row in rows(scoped)] == ["parola 13"]
     assert not rows(
         export(logged_in, collection_id=destinations[0]["id"], word_types="verb")
     )
@@ -164,5 +165,5 @@ def test_export_supports_tag_filters_and_includes_accessible_language_pairs(logg
     )
     tag = next(t for t in logged_in.get("/api/tags").json() if t["name"] == "Lesson")
     filtered = rows(export(logged_in, collection_id=italian["id"], tag_ids=tag["id"]))
-    assert [row["italian"] for row in filtered] == ["capire"]
+    assert [row["text_it"] for row in filtered] == ["capire"]
     assert not rows(export(logged_in, collection_id=danish["id"], tag_ids=tag["id"]))

@@ -36,6 +36,9 @@ A card creator's confirmation that one of their published collections may share 
 **Language pair**:
 The two languages a collection's cards express, independent of which language is used as the prompt during practice.
 
+**CSV format v2**:
+A Collection CSV exchange format whose text and grammar columns are keyed by language ID and whose rows carry card and Collection identity. It round-trips any supported language pair without positional inference while version 1 and legacy aliases remain importable.
+
 **Published shared vocabulary**:
 Shared vocabulary explicitly made available to all registered learners for reading and practice. Existing shared vocabulary retains its current audience until explicitly classified.
 

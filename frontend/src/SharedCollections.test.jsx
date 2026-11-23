@@ -519,3 +519,72 @@ test("saving and removing a public Collection updates My collections without own
   );
   expect(methods).toEqual(["PUT", "DELETE"]);
 });
+
+test("a non-legacy Collection exposes CSV v2 import with language-keyed preview rows", async () => {
+  const user = userEvent.setup();
+  let previewParams;
+  const nonLegacy = {
+    ...own,
+    name: "Greetings",
+    source_language: "en",
+    target_language: "da",
+    can_import: true,
+  };
+  const v2 =
+    "csv_format,card_source_language,card_target_language,text_en,text_da,word_type\n" +
+    'italian-notebook-v2,en,da,"\'=1+1","hej — καλημέρα",expression\n';
+  server.use(
+    http.post("*/api/imports/preview", ({ request }) => {
+      previewParams = Object.fromEntries(new URL(request.url).searchParams);
+      return HttpResponse.json({
+        counts: { valid: 1, error: 0 },
+        rows: [
+          {
+            row: 2,
+            italian: "'=1+1",
+            greek: "hej — καλημέρα",
+            source_language: "en",
+            target_language: "da",
+            status: "valid",
+          },
+        ],
+      });
+    }),
+  );
+  open("en", nonLegacy);
+  const languagePair = screen.getAllByRole("combobox", {
+    name: /Language pair/,
+  });
+  await user.selectOptions(languagePair[0], "en");
+  await user.selectOptions(languagePair[1], "da");
+  await user.click(
+    await screen.findByRole("button", { name: "Details", exact: true }),
+  );
+  await user.click(
+    await screen.findByRole("button", {
+      name: collectionCopy.en.toolsImport,
+      exact: true,
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Import CSV",
+  });
+  expect(previewParams).toBeUndefined();
+  await user.upload(
+    within(dialog).getByLabelText("Choose CSV file"),
+    new File([v2], "cards-v2.csv", { type: "text/csv" }),
+  );
+  await user.click(within(dialog).getByRole("button", { name: "Preview" }));
+  await within(dialog).findByRole("button", {
+    name: "Import 1 card into Greetings",
+  });
+  expect(previewParams).toMatchObject({
+    collection_id: "one",
+    fixed_destination: "true",
+  });
+  expect(within(dialog).getByText("'=1+1")).toHaveAttribute("lang", "en");
+  expect(within(dialog).getByText("hej — καλημέρα")).toHaveAttribute(
+    "lang",
+    "da",
+  );
+});

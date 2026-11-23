@@ -23,7 +23,7 @@ from app.accounts import account_router
 from app.auth import initialize_auth
 from app.collections import collection_router
 from app.config import Settings
-from app.csv_export import export_library
+from app.csv_export import export_collections, export_library
 from app.database import database
 from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
@@ -264,12 +264,17 @@ def create_app():
         tag_ids: list[UUID] = Query(default=[]),
         include_ids: bool = False,
         archived: bool = False,
+        format: str | None = None,
     ):
+        if format not in (None, "v1", "v2"):
+            raise HTTPException(422, "Choose CSV format v1 or v2.")
+        use_v2 = format == "v2" or (format is None and collection_id is not None)
         conditions = vocabulary_conditions(q, [], False, word_types, tag_ids)
         if archived:
             conditions.append(VocabularyEntry.archived_at.is_not(None))
         with sessions() as db:
             filename = "italian-notebook.csv"
+            collection = None
             if collection_id is not None:
                 collection, membership = collection_membership(db, collection_id)
                 conditions.append(membership)
@@ -281,7 +286,11 @@ def create_app():
                 .order_by(VocabularyEntry.italian, VocabularyEntry.id)
             ).all()
             return Response(
-                export_library(entries, current_account().id, include_ids=include_ids),
+                export_collections(entries, current_account().id, collection)
+                if use_v2
+                else export_library(
+                    entries, current_account().id, include_ids=include_ids
+                ),
                 media_type="text/csv; charset=utf-8",
                 headers={
                     "Content-Disposition": (

@@ -79,6 +79,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
         exportFiltered ? filterParams : scopeParams,
       );
       exportParams.set("include_ids", "true");
+      if (exportParams.has("collection_id")) exportParams.set("format", "v2");
       await downloadLibrary(exportParams, selectedCollection?.name);
       setToast({ message: text.exportStarted });
       setExportOpen(false);

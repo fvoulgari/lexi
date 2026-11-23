@@ -110,8 +110,8 @@ test("exports the whole selected Collection by default and offers a separately c
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
   );
   expect(requests).toEqual([
-    { collection_id: "one", include_ids: "true" },
-    { collection_id: "one", q: "go", include_ids: "true" },
+    { collection_id: "one", include_ids: "true", format: "v2" },
+    { collection_id: "one", q: "go", include_ids: "true", format: "v2" },
   ]);
   expect(filenames).toEqual(["Lezione 01.csv", "Lezione 01.csv"]);
 });

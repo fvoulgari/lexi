@@ -1,6 +1,10 @@
 # Vocabulary CSV format
 
-Export uses UTF-8 with a BOM (read as `utf-8-sig`), comma delimiters, CRLF record separators, a header row, and double quotes around every field. Quotes inside fields are doubled; commas and embedded newlines remain data. Unicode is preserved without normalization. Entries are ordered by Italian text and entry ID. An empty library still returns the header.
+Both versions use UTF-8 with a BOM (read as `utf-8-sig`), comma delimiters, CRLF record separators, a header row, and double quotes around every field. Quotes inside fields are doubled; commas and embedded newlines remain data. Unicode is preserved without normalization. An empty library still returns only the header. Collection-scoped exports use CSV v2; the aggregate library export and `format=v1` remain version 1.
+
+## Version 1 columns
+
+Version 1 orders entries by Italian text and entry ID.
 
 | Column | Meaning |
 | --- | --- |
@@ -17,6 +21,25 @@ Export uses UTF-8 with a BOM (read as `utf-8-sig`), comma delimiters, CRLF recor
 | `csv_format` | `italian-notebook-v1` on every exported row, identifying reversible escaping and JSON tags. |
 
 Absent optional text is blank. IDs, timestamps and learner records are omitted: this is a reusable vocabulary exchange, not a database backup.
+
+## Version 2: language-ID-keyed columns
+
+CSV v2 is the exchange format for every Collection, including `it/el`. Every exported row carries `csv_format=italian-notebook-v2`. Request it explicitly with `GET /api/vocabulary/export.csv?collection_id=…&format=v2`; a Collection-scoped export uses v2 by default. The aggregate library export stays v1 unless `format=v2` is supplied.
+
+| Column | Meaning |
+| --- | --- |
+| `csv_format` | `italian-notebook-v2`; identifies reversible escaping and JSON `tags`/`grammar_*` cells. |
+| `entry_id`, `collection_id`, `collection_name` | Stable card and Collection identity plus a readable Collection name. Keeping `entry_id` on a round trip preserves the card, its references, wording snapshots and learning progress. `collection_id`/`collection_name` are metadata, never import instructions. |
+| `source_language`, `target_language` | The Collection's unordered language pair; reversed order is accepted. When present they must match the destination pair. |
+| `card_source_language`, `card_target_language` | The card's own language IDs. Required on import and checked against the destination pair. |
+| `text_<lang>` | One primary text per language ID (`text_da`, `text_el`, `text_en`, `text_it`). Both card languages are required; texts are never inferred from column order or from `italian`/`greek` position. |
+| `word_type`, `notes`, `unit_*` | Common fields, with the same meaning and constraints as v1. |
+| `grammar_<lang>` | Optional JSON object for a language with a grammar definition (`it`, `el`). Keys are `gender`, `plural`, `example`, `pronunciation`, `adjective_gender` and a nested `forms` object keyed by form name; unknown keys or invalid genders are row errors. Languages without a definition use common fields only. |
+| `tags` | JSON array of tag names, as in v1. |
+
+A v2 row validates both texts, the Collection pair and the card pair before it can be previewed. Missing texts, a wrong-pair destination, grammar for a language outside the card, conflicting legacy aliases, and unknown `csv_format` values are preview row errors. Italian/Greek storage columns keep their canonical `italian`/`greek` values regardless of pair order, while grammar JSON keeps language IDs. Spreadsheet escaping, Unicode fidelity, the 1 MiB / 2000-row limits and preview-before-confirm rules are identical to v1.
+
+The standard Vocabulary import still offers `el`/`it` defaults and accepts both v1 and v2 files for that pair. The Collections workspace exposes import destinations for every supported Collection pair, so `en/da`, `en/el`, `it/el` and their reversed orders can be round-tripped without changing the stateless Vocabulary importer defaults.
 
 ## Reviewing an import
 
@@ -40,7 +63,9 @@ The original column names and aliases remain accepted. For new noun/adjective ro
 
 Upload the original exported CSV in Vocabulary, preview it, then explicitly confirm. The importer accepts all exported headers, restores escaped text only on rows marked `csv_format=italian-notebook-v1`, and reads their `tags` as a JSON array. It strips exactly one initial apostrophe only when the remainder starts with an apostrophe, tab, CR or LF, or its first non-whitespace character is one of the formula markers above. Thus `'=1+1` restores `=1+1` and `''ordinary` restores `'ordinary`. Decode happens before validation and duplicate detection. Unknown format versions and non-array/non-string JSON tags produce row errors.
 
-Hand-written files and the downloadable import example omit `csv_format`: they keep the existing pipe-separated tags convention and literal apostrophes, with no safety decoding. Use the versioned format to exchange tags containing literal pipes. Import also accepts legacy `type`, `unit`, `plural`, `example` and `gender` aliases; conflicting explicit and alias values are row errors. Export uses the canonical columns and separate gender fields.
+Hand-written files and the downloadable import example omit `csv_format`: they keep the existing pipe-separated tags convention and literal apostrophes, with no safety decoding. Use the versioned format to exchange tags containing literal pipes. Import also accepts legacy `type`, `unit`, `plural`, `example` and `gender` aliases; conflicting explicit and alias values are row errors. These aliases apply to v1 and unversioned files only; v2 rejects them as row errors. Export uses canonical columns: language-named fields in v1 and language-ID fields in v2.
+
+A v2 file can be imported through either workspace. Its `entry_id` and language IDs are used only after the destination pair and both texts validate. Re-importing the same `entry_id` into another Collection with the same language pair adds a reference without changing identity or progress, while the same texts without an ID create a distinct card. Matching otherwise compares the card's language-ID keyed texts after NFC normalization, case folding and whitespace trimming, so changing column order cannot silently match a different language.
 
 Matching compares the Italian–Greek pair after Unicode NFC normalization, case folding and surrounding whitespace trimming; accents and articles remain significant. Export preserves every entry, including distinct meanings with matching pairs. Import inserts new pairs, updates changed supplied fields on uniquely matching cards and skips unchanged rows. Missing optional columns preserve existing values; blank cells clear optional fields. Tags compare as sets. Existing card IDs, practice history and statistics are preserved. If multiple existing cards match the pair, the row is an error and must be edited individually. Preview simulates updates within the file; confirmation rechecks the current library. Choose a required destination unit before previewing or importing. Every new or updated card uses that destination; mismatching CSV unit metadata is flagged in preview. Imports do not create units from CSV metadata. Review previews before confirming; use a database backup when every identity and meaning must be restored.
 

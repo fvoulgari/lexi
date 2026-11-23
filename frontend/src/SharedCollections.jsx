@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { request } from "./api.js";
+import { copy } from "./copy.js";
+import Import from "./Import.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
 import { useAccount } from "./AccountContext.jsx";
 import { practiceSides, cardLanguages } from "./card-sides.js";
@@ -18,7 +20,11 @@ function directionKey(a, b) {
   return `${a}_to_${b}`;
 }
 
-export default function SharedCollections({ language = "en", csrf }) {
+export default function SharedCollections({
+  language = "en",
+  csrf,
+  onLocked = () => {},
+}) {
   const t = collectionCopy[language];
   const names = new Intl.DisplayNames([language], { type: "language" });
   const client = useQueryClient();
@@ -42,6 +48,7 @@ export default function SharedCollections({ language = "en", csrf }) {
   const [preview, setPreview] = useState(null);
   const [pendingAdd, setPendingAdd] = useState(null);
   const [editor, setEditor] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [session, setSession] = useState(null);
   const [position, setPosition] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -548,6 +555,15 @@ export default function SharedCollections({ language = "en", csrf }) {
                       {t.reviewSharing}
                     </button>
                   )}
+                  {current.can_import && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => setImportOpen(true)}
+                    >
+                      {t.toolsImport}
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       setEditor({
@@ -607,6 +623,28 @@ export default function SharedCollections({ language = "en", csrf }) {
                   );
                 }}
               />
+              {importOpen && current && (
+                <Import
+                  text={copy[language]}
+                  csrf={csrf}
+                  language={language}
+                  languages={LANGUAGES}
+                  selectedCollection={current}
+                  onLocked={onLocked}
+                  onClose={() => setImportOpen(false)}
+                  onImported={(report) => {
+                    setImportOpen(false);
+                    setSelected(
+                      report.destination_collection?.id || current.id,
+                    );
+                    Promise.all(
+                      ["collections", "collection-cards", "vocabulary"].map(
+                        (key) => client.invalidateQueries({ queryKey: [key] }),
+                      ),
+                    );
+                  }}
+                />
+              )}
               {editor && (
                 <form
                   className="collection-form publication-preview"
