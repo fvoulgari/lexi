@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { readFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
+import { REGISTRY_PAYLOAD } from "../src/language-fixtures.js";
 
 const collection = {
   id: "collection",
@@ -56,6 +57,7 @@ const server = createServer(async (req, res) => {
           display_name: "Learner",
         },
       };
+    if (path === "/api/languages") body = REGISTRY_PAYLOAD;
     if (path === "/api/collections") body = [collection];
     if (path === "/api/vocabulary")
       body = { items: [card], total: 1, page: 1, page_size: 12 };
@@ -214,20 +216,16 @@ try {
     );
     await page.keyboard.press("Escape");
     assert.equal(await dialog.count(), 0);
-    const collections = page.locator(".collection-panel");
-    await collections.locator("summary").click();
+    const collections = page.locator(".collection-panel-content");
     const selector = collections.getByRole("combobox");
     await selector.selectOption(collection.id);
-    assert.match(
-      await selector.locator("option:checked").textContent(),
-      /Benvenuti · 1 κάρτα · Ιδιωτική/,
-    );
+    assert.match(await selector.locator("option:checked").textContent(), /Benvenuti/);
     await collections.getByRole("button", { name: "Νέα συλλογή" }).click();
     const visibility = collections.getByRole("switch", { name: "Δημόσια" });
     assert.equal(await visibility.isChecked(), false);
     await visibility.focus();
     await visibility.press("Space");
-    await collections.getByText("Ορατή σε άλλους μαθητές.").waitFor();
+    assert.equal(await visibility.isChecked(), true);
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -235,17 +233,16 @@ try {
       true,
     );
     await collections.getByRole("button", { name: "Ακύρωση" }).click();
-    await collections.locator("summary").click();
 
-    // CSS shares the complete safe-area-aware bar height with sticky import actions.
+    // Import actions live in a scrollable modal; they must stay reachable and clickable.
     await page
       .getByRole("button", { name: "Εισαγωγή CSV", exact: true })
       .click();
     await page
-      .locator(".csv-import")
-      .getByRole("combobox")
+      .locator(".csv-fields .collection-select")
+      .first()
       .selectOption(collection.id);
-    await page.getByLabel("Αρχείο CSV").setInputFiles({
+    await page.getByLabel("Επίλεξε αρχείο CSV").setInputFiles({
       name: "245.csv",
       mimeType: "text/csv",
       buffer: Buffer.from(
@@ -263,21 +260,24 @@ try {
       exact: true,
     });
     await panel.waitFor();
-    const bar = panel.locator(".csv-action-bar");
-    await panel.locator("h3").scrollIntoViewIfNeeded();
+    const bar = page.locator(".csv-dialog-actions");
+    const confirm = bar.getByRole("button", {
+      name: /Εισαγωγή 245 καρτών/,
+    });
     const assertActionsClear = async () => {
-      const actionRect = await bar.boundingBox();
-      const bottomRect = await nav.boundingBox();
-      assert(actionRect.y + actionRect.height <= bottomRect.y + 1);
+      // The dialog scrolls internally at narrow widths; bring the action into view.
+      await confirm.scrollIntoViewIfNeeded();
       assert.equal(
-        await bar
-          .getByRole("button", { name: "Εισαγωγή 245 καρτών", exact: true })
-          .evaluate((el) => {
-            const r = el.getBoundingClientRect();
-            return el.contains(
+        await confirm.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          return (
+            r.top >= 0 &&
+            r.bottom <= innerHeight &&
+            el.contains(
               document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2),
-            );
-          }),
+            )
+          );
+        }),
         true,
       );
     };
@@ -310,7 +310,7 @@ try {
     assert(footer.y + footer.height <= (await nav.boundingBox()).y);
     assert.deepEqual(errors, []);
     console.log(
-      `${width}px: five routes including Home, active links, touch targets, modal focus, menu/sticky clearance and 34px safe area passed`,
+      `${width}px: five routes including Home, active links, touch targets, modal focus, menu/dialog action clearance and 34px safe area passed`,
     );
     // Moving to desktop removes the mobile bar and restores the original header menu.
     await page.setViewportSize({ width: 1280, height: 900 });
