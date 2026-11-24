@@ -14,6 +14,7 @@ from app.grammar import (
     validate_structured_grammar,
 )
 from app.languages import LANGUAGES
+from app.registry import get_registry
 
 
 def text_column(language):
@@ -24,10 +25,7 @@ def grammar_column(language):
     return f"grammar_{language}"
 
 
-TEXT_COLUMNS = tuple(text_column(language) for language in LANGUAGES)
-GRAMMAR_COLUMNS = tuple(grammar_column(language) for language in LANGUAGES)
-
-COLUMNS = (
+BASE_COLUMNS = (
     "csv_format",
     "entry_id",
     "collection_id",
@@ -36,15 +34,44 @@ COLUMNS = (
     "target_language",
     "card_source_language",
     "card_target_language",
-    *TEXT_COLUMNS,
-    "word_type",
-    *GRAMMAR_COLUMNS,
+)
+TRAILING_COLUMNS = (
     "tags",
     "notes",
     "unit_code",
     "unit_title",
     "unit_sort_order",
 )
+
+
+def text_columns(languages=None):
+    """Text columns for the registered languages, or an explicit subset."""
+    ids = get_registry().ids if languages is None else tuple(languages)
+    return tuple(text_column(language) for language in ids)
+
+
+def grammar_columns(languages=None):
+    """One grammar cell per registered language; basic languages stay empty."""
+    ids = get_registry().ids if languages is None else tuple(languages)
+    return tuple(grammar_column(language) for language in ids)
+
+
+def v2_columns(languages=None):
+    """The v2 header for the currently registered languages."""
+    return (
+        *BASE_COLUMNS,
+        *text_columns(languages),
+        "word_type",
+        *grammar_columns(languages),
+        *TRAILING_COLUMNS,
+    )
+
+
+# Frozen bootstrap header for fixtures and historical format comparisons.
+# Runtime export and import use the registry-driven helpers above.
+TEXT_COLUMNS = tuple(text_column(language) for language in LANGUAGES)
+GRAMMAR_COLUMNS = tuple(grammar_column(language) for language in LANGUAGES)
+COLUMNS = v2_columns(LANGUAGES)
 
 
 def grammar_value(field, value):
@@ -138,7 +165,10 @@ __all__ = [
     "decode_grammar",
     "encode_grammar",
     "grammar_column",
+    "grammar_columns",
     "grammar_value",
     "structured_from_legacy",
     "text_column",
+    "text_columns",
+    "v2_columns",
 ]

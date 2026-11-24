@@ -83,6 +83,9 @@ def records(client, profile_id):
         ("en", "da", "hello", "hej"),
         ("en", "el", "hello", "γεια"),
         ("el", "it", "γεια", "ciao"),
+        ("ja", "en", "日本語", "Japanese"),
+        ("ar", "en", "العربية", "Arabic"),
+        ("ja", "ar", "こんにちは", "مرحبا"),
     ],
 )
 def test_both_directions_round_trip_for_supported_pairs(

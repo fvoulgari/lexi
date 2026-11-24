@@ -15,6 +15,7 @@ from app.grammar import structured_from_legacy
 from app.languages import (
     DIRECTION_PAIRS,
     LANGUAGE_LABELS,
+    LANGUAGE_METADATA,
     LANGUAGES,
     LEGACY_DIRECTIONS,
 )
@@ -30,15 +31,6 @@ from app.models import (
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 
-# Bootstrap curation: script, text direction and enhanced-grammar support.
-BOOTSTRAP_METADATA = {
-    "da": ("Latn", "ltr", False),
-    "el": ("Grek", "ltr", True),
-    "en": ("Latn", "ltr", False),
-    "it": ("Latn", "ltr", True),
-}
-
-
 def seed_id(name):
     return uuid5(NAMESPACE_URL, "italian-notebook/seed/" + name)
 
@@ -48,7 +40,12 @@ def seed(owner_id=None):
     initial = json.loads((DATA / "initial_setup.json").read_text(encoding="utf-8"))
     with sessions.begin() as db:
         for code in LANGUAGES:
-            script, text_direction, enhanced = BOOTSTRAP_METADATA[code]
+            (
+                script,
+                text_direction,
+                enhanced,
+                publicly_available,
+            ) = LANGUAGE_METADATA[code]
             db.execute(
                 insert(Language)
                 .values(
@@ -57,7 +54,7 @@ def seed(owner_id=None):
                     script=script,
                     text_direction=text_direction,
                     enhanced=enhanced,
-                    publicly_available=True,
+                    publicly_available=publicly_available,
                 )
                 .on_conflict_do_nothing()
             )

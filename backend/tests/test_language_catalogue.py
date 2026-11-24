@@ -18,7 +18,7 @@ from app.languages import (
 from app.registry import refresh_registry
 from app.schemas import ProfileCreate
 
-CURATED = {"da", "el", "en", "it"}
+CURATED = {"ar", "da", "el", "en", "it", "ja"}
 
 
 def test_catalogue_exposes_curated_metadata_and_legacy_direction_keys(client):
@@ -34,9 +34,31 @@ def test_catalogue_exposes_curated_metadata_and_legacy_direction_keys(client):
     }
     assert by_id["da"]["enhanced"] is False
     assert by_id["en"]["script"] == "Latn"
+    assert by_id["ja"] == {
+        "id": "ja",
+        "label": "Japanese",
+        "script": "Jpan",
+        "text_direction": "ltr",
+        "enhanced": False,
+    }
+    assert by_id["ar"] == {
+        "id": "ar",
+        "label": "Arabic",
+        "script": "Arab",
+        "text_direction": "rtl",
+        "enhanced": False,
+    }
 
     directions = {item["key"]: item for item in payload["directions"]}
     assert len(directions) == len(CURATED) * (len(CURATED) - 1)
+    for first, second in (("ja", "en"), ("ar", "en"), ("ja", "ar")):
+        assert directions[f"{first}_to_{second}"] == {
+            "key": f"{first}_to_{second}",
+            "prompt_language": first,
+            "answer_language": second,
+            "legacy": False,
+        }
+        assert directions[f"{second}_to_{first}"]["legacy"] is False
     assert directions["greek_to_italian"] == {
         "key": "greek_to_italian",
         "prompt_language": "el",

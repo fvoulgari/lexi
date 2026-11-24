@@ -1,0 +1,56 @@
+{
+  "languages": [
+    {
+      "id": "ar",
+      "label": "Arabic",
+      "script": "Arab",
+      "text_direction": "rtl",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "da",
+      "label": "Danish",
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "el",
+      "label": "Greek",
+      "script": "Grek",
+      "text_direction": "ltr",
+      "enhanced": true,
+      "publicly_available": true
+    },
+    {
+      "id": "en",
+      "label": "English",
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "it",
+      "label": "Italian",
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": true,
+      "publicly_available": true
+    },
+    {
+      "id": "ja",
+      "label": "Japanese",
+      "script": "Jpan",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    }
+  ],
+  "legacy_directions": {
+    "greek_to_italian": ["el", "it"],
+    "italian_to_greek": ["it", "el"]
+  }
+}
