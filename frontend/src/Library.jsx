@@ -19,7 +19,11 @@ import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
 import { cardLanguageIds, cardText } from "./card-sides.js";
-import { isLegacyPair, languageIds } from "./languages.js";
+import {
+  isLegacyPair,
+  languageIds,
+  languageTextProps,
+} from "./languages.js";
 import {
   canViewCollection,
   collectionCopy,
@@ -30,8 +34,8 @@ function entryWords(entry) {
   const [source, target] = cardLanguageIds(entry);
   return (
     <>
-      <span lang={source}>{cardText(entry, source)}</span> —{" "}
-      <span lang={target}>{cardText(entry, target)}</span>
+      <span {...languageTextProps(source)}>{cardText(entry, source)}</span> —{" "}
+      <span {...languageTextProps(target)}>{cardText(entry, target)}</span>
     </>
   );
 }
@@ -751,10 +755,10 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                     {text[entry.word_type] || text.other}
                   </span>
                 </div>
-                <h2 lang={cardLanguageIds(entry)[0]}>
+                <h2 {...languageTextProps(cardLanguageIds(entry)[0])}>
                   {cardText(entry, cardLanguageIds(entry)[0])}
                 </h2>
-                <p lang={cardLanguageIds(entry)[1]}>
+                <p {...languageTextProps(cardLanguageIds(entry)[1])}>
                   {cardText(entry, cardLanguageIds(entry)[1])}
                 </p>
                 <CardActions

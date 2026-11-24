@@ -9,6 +9,7 @@ import {
   directionLabel,
   isLegacyDirection,
   languageLabel,
+  languageTextProps,
 } from "./languages.js";
 
 function difficultPracticeUrl(direction) {
@@ -547,8 +548,12 @@ function DifficultEntries({
         <ul>
           {entries.data.map((item) => (
             <li key={item.entry.id}>
-              <span lang={promptCode}>{cardText(item.entry, promptCode)}</span>
-              <span lang={answerCode}>{cardText(item.entry, answerCode)}</span>
+              <span {...languageTextProps(promptCode)}>
+                {cardText(item.entry, promptCode)}
+              </span>
+              <span {...languageTextProps(answerCode)}>
+                {cardText(item.entry, answerCode)}
+              </span>
             </li>
           ))}
         </ul>

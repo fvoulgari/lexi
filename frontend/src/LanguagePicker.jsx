@@ -1,5 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { languageOptions, useLanguageRegistry } from "./languages.js";
+import {
+  languageOptions,
+  languageTextProps,
+  useLanguageRegistry,
+} from "./languages.js";
 
 /** Filter a curated catalogue by the API's display label or language code. */
 function matching(options, query, exclude) {
@@ -174,7 +178,7 @@ export default function LanguagePicker({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => select(item)}
             >
-              <span>{item.label}</span>
+              <span {...languageTextProps(item.id)}>{item.label}</span>
               <span aria-hidden="true" className="language-picker-code">
                 {item.id}
               </span>

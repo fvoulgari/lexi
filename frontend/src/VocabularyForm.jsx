@@ -4,7 +4,7 @@ import PropTypes from "prop-types";
 import CardPreview from "./CardPreview.jsx";
 import { request } from "./api.js";
 import { GrammarFields, WordTypeField } from "./CardFields.jsx";
-import { isLegacyPair } from "./languages.js";
+import { isLegacyPair, languageTextProps } from "./languages.js";
 import {
   adjectiveFormFields,
   adjectiveGenderFields,
@@ -158,7 +158,7 @@ export default function VocabularyForm({
           value={values[legacy]}
           required
           maxLength={500}
-          lang={language}
+          {...languageTextProps(language)}
           onChange={(event) => change(legacy, event.target.value)}
           aria-invalid={invalid.includes(legacy)}
           aria-describedby={
@@ -253,7 +253,13 @@ export default function VocabularyForm({
                   </p>
                   <p>{text.collectionExposure}</p>
                   <p>
-                    {values.italian || "—"} — {values.greek || "—"}
+                    <span {...languageTextProps(languages[0])}>
+                      {values.italian || "—"}
+                    </span>{" "}
+                    —{" "}
+                    <span {...languageTextProps(languages[1])}>
+                      {values.greek || "—"}
+                    </span>
                   </p>
                   <label>
                     <input
