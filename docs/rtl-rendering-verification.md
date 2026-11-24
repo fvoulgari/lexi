@@ -31,5 +31,5 @@ CHROME_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm r
 - Frontend: 322 tests passed in 30 files; ESLint clean; production build clean (existing bundle-size warning only).
 - RTL browser checks: passed at 320, 390 and 760 px.
 - Language-picker browser checks: passed at 320, 390 and 760 px.
-- `frontend/tests/mobile-navigation.mjs` still times out waiting for the card-preview dialog at its existing assertion; the same failure reproduces on the unmodified merge base, so it is pre-existing and unrelated to this change.
+- `frontend/tests/mobile-navigation.mjs` was timing out on selectors left behind by the earlier UI changes; the same failure reproduced on the unmodified merge base, so it was unrelated to this change. A follow-up update to that browser test restores it to green.
 - Backend is unchanged by #120; the existing UTF-8 CSV and Unicode round-trip coverage remains in place.
