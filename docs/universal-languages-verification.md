@@ -27,7 +27,7 @@ Issue #121 registers Japanese (`ja`) and Arabic (`ar`) as curated **basic** lang
 
 `backend/tests/test_csv_v2.py`, `test_generic_directions.py`, `test_language_catalogue.py`, and `test_languages.py` were expanded for the new curated set and paired directions.
 
-The browser fixtures in `frontend/tests/pwa.mjs` and `frontend/tests/mobile-navigation.mjs` were restored for the registry-aware app markup introduced by #118–#120. They now stub `/api/languages` and use the current dialog selectors; this is test-only repair, not a language feature or production code change.
+The browser fixtures were restored for the registry-aware app markup introduced by #118–#120. `frontend/tests/mobile-navigation.mjs` was fixed on `main` by #131; this branch only needs the matching `/api/languages` stub in `frontend/tests/pwa.mjs`. This is test-only repair, not a language feature or production code change.
 
 ### Frontend coverage
 
