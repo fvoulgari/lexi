@@ -1,15 +1,20 @@
 """Language-ID-keyed columns for CSV format v2.
 
 Texts and optional grammar are named by the language IDs they describe, so a
-row never depends on the position of a text in a pair. Grammar values are
-stored in the existing language-named compatibility columns; the JSON cells
-below are only the exchange representation.
+row never depends on the position of a text in a pair. The JSON cells use the
+same configuration as the structured store and compatibility columns.
 """
 
 import json
 
-from app.grammar import GRAMMAR_DEFINITIONS
+from app.grammar import (
+    GRAMMAR_DEFINITIONS,
+    legacy_from_structured,
+    structured_from_legacy,
+    validate_structured_grammar,
+)
 from app.languages import LANGUAGES
+from app.registry import get_registry
 
 
 def text_column(language):
@@ -20,10 +25,7 @@ def grammar_column(language):
     return f"grammar_{language}"
 
 
-TEXT_COLUMNS = tuple(text_column(language) for language in LANGUAGES)
-GRAMMAR_COLUMNS = tuple(grammar_column(language) for language in LANGUAGES)
-
-COLUMNS = (
+BASE_COLUMNS = (
     "csv_format",
     "entry_id",
     "collection_id",
@@ -32,9 +34,8 @@ COLUMNS = (
     "target_language",
     "card_source_language",
     "card_target_language",
-    *TEXT_COLUMNS,
-    "word_type",
-    *GRAMMAR_COLUMNS,
+)
+TRAILING_COLUMNS = (
     "tags",
     "notes",
     "unit_code",
@@ -43,33 +44,41 @@ COLUMNS = (
 )
 
 
-def _prefix(definition):
-    return definition["noun_gender"].split("_", 1)[0]
+def text_columns(languages=None):
+    """Text columns for the registered languages, or an explicit subset."""
+    ids = get_registry().ids if languages is None else tuple(languages)
+    return tuple(text_column(language) for language in ids)
 
 
-def _example_field(definition):
-    return f"{_prefix(definition)}_example"
+def grammar_columns(languages=None):
+    """One grammar cell per registered language; basic languages stay empty."""
+    ids = get_registry().ids if languages is None else tuple(languages)
+    return tuple(grammar_column(language) for language in ids)
 
 
-def _pronunciation_field(definition):
+def v2_columns(languages=None):
+    """The v2 header for the currently registered languages."""
     return (
-        "pronunciation"
-        if _prefix(definition) == "italian"
-        else f"{_prefix(definition)}_pronunciation"
+        *BASE_COLUMNS,
+        *text_columns(languages),
+        "word_type",
+        *grammar_columns(languages),
+        *TRAILING_COLUMNS,
     )
+
+
+# Frozen bootstrap header for fixtures and historical format comparisons.
+# Runtime export and import use the registry-driven helpers above.
+TEXT_COLUMNS = tuple(text_column(language) for language in LANGUAGES)
+GRAMMAR_COLUMNS = tuple(grammar_column(language) for language in LANGUAGES)
+COLUMNS = v2_columns(LANGUAGES)
 
 
 def grammar_value(field, value):
     """Drop legacy values that must not be presented as real grammar."""
     if value is None or value == "":
         return None
-    gender_fields = {
-        "italian_gender",
-        "greek_gender",
-        "italian_adjective_gender",
-        "greek_adjective_gender",
-    }
-    if field in gender_fields and value == "common":
+    if field.endswith(("_gender", "adjective_gender")) and value == "common":
         return None
     return value
 
@@ -79,27 +88,41 @@ def encode_grammar(entry, language):
     definition = GRAMMAR_DEFINITIONS.get(language)
     if definition is None:
         return ""
-    def value(field):
-        return grammar_value(field, getattr(entry, field, None))
-
+    stored = (getattr(entry, "grammar", None) or {}).get(language)
     cell = {}
-    for key, field in (
-        ("gender", definition["noun_gender"]),
-        ("plural", definition["noun_plural"]),
-        ("example", _example_field(definition)),
-        ("pronunciation", _pronunciation_field(definition)),
-        ("adjective_gender", definition["adjective_gender"]),
-    ):
-        found = value(field)
-        if found is not None:
-            cell[key] = found
-    forms = {
-        key: found
-        for key, field in definition["forms"].items()
-        if (found := value(field)) is not None
-    }
-    if forms:
-        cell["forms"] = forms
+    if stored:
+        for key, value in stored.items():
+            if key == "forms":
+                forms = {
+                    name: converted
+                    for name, found in value.items()
+                    if (converted := grammar_value(name, found)) is not None
+                }
+                if forms:
+                    cell["forms"] = forms
+            elif (converted := grammar_value(key, value)) is not None:
+                cell[key] = converted
+    else:
+        def value(field):
+            return grammar_value(field, getattr(entry, field, None))
+
+        for key, field in (
+            ("gender", definition["noun_gender"]),
+            ("plural", definition["noun_plural"]),
+            ("example", definition["example"]),
+            ("pronunciation", definition["pronunciation"]),
+            ("adjective_gender", definition["adjective_gender"]),
+        ):
+            found = value(field)
+            if found is not None:
+                cell[key] = found
+        forms = {
+            key: found
+            for key, field in definition["forms"].items()
+            if (found := value(field)) is not None
+        }
+        if forms:
+            cell["forms"] = forms
     return json.dumps(cell, ensure_ascii=False, sort_keys=True) if cell else ""
 
 
@@ -111,8 +134,7 @@ def decode_grammar(value, language):
     """
     if not value:
         return {}
-    definition = GRAMMAR_DEFINITIONS.get(language)
-    if definition is None:
+    if language not in GRAMMAR_DEFINITIONS:
         raise ValueError(f"No grammar definition for {language}.")
     try:
         cell = json.loads(value)
@@ -120,47 +142,33 @@ def decode_grammar(value, language):
         raise ValueError(f"grammar_{language} must be a JSON object.") from None
     if not isinstance(cell, dict):
         raise ValueError(f"grammar_{language} must be a JSON object.")
-
-    simple = {
-        "gender": definition["noun_gender"],
-        "plural": definition["noun_plural"],
-        "example": _example_field(definition),
-        "pronunciation": _pronunciation_field(definition),
-        "adjective_gender": definition["adjective_gender"],
+    # Legacy exports wrote the unresolved "common" article alias. Keep reading
+    # those cells as unset, as the importer always has.
+    cell = {
+        key: found
+        for key, found in cell.items()
+        if key == "forms" or found != "common"
     }
-    unknown = set(cell) - set(simple) - {"forms"}
-    if unknown:
+    errors = validate_structured_grammar({language: cell}, (language,))
+    if errors:
         raise ValueError(
-            f"Unknown grammar field for {language}: " + ", ".join(sorted(unknown))
+            f"grammar_{language}: "
+            + "; ".join(f"{error['path']}: {error['message']}" for error in errors)
         )
-    values = {}
-    for key, field in simple.items():
-        if key in cell:
-            found = grammar_value(field, cell[key])
-            if found is not None:
-                if not isinstance(found, str):
-                    raise ValueError(f"grammar_{language} values must be text.")
-                if (
-                    key in {"gender", "adjective_gender"}
-                    and found not in definition["genders"]
-                ):
-                    raise ValueError(
-                        f"Invalid {key} for {language}: {found}."
-                    )
-                values[field] = found
-    forms = cell.get("forms", {})
-    if not isinstance(forms, dict):
-        raise ValueError(f"grammar_{language} forms must be a JSON object.")
-    unknown_forms = set(forms) - set(definition["forms"])
-    if unknown_forms:
-        raise ValueError(
-            f"Unknown grammar form for {language}: "
-            + ", ".join(sorted(unknown_forms))
-        )
-    for key, found in forms.items():
-        if found in (None, ""):
-            continue
-        if not isinstance(found, str):
-            raise ValueError(f"grammar_{language} values must be text.")
-        values[definition["forms"][key]] = found
-    return values
+    return legacy_from_structured({language: cell}, languages=(language,))
+
+
+__all__ = [
+    "COLUMNS",
+    "GRAMMAR_COLUMNS",
+    "TEXT_COLUMNS",
+    "decode_grammar",
+    "encode_grammar",
+    "grammar_column",
+    "grammar_columns",
+    "grammar_value",
+    "structured_from_legacy",
+    "text_column",
+    "text_columns",
+    "v2_columns",
+]

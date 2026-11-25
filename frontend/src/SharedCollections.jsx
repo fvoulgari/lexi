@@ -6,11 +6,15 @@ import { copy } from "./copy.js";
 import Import from "./Import.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
 import {
+  languageLabel,
+  LEGACY_PAIR,
+  useLanguageRegistry,
+} from "./languages.js";
+import {
   collectionCopy,
   collectionOwner,
   isMyCollection,
 } from "./collection-copy.js";
-import { LANGUAGES, LEGACY_PAIR } from "./languages.js";
 
 function pairKey(source, target) {
   return [source, target].sort().join("-");
@@ -30,18 +34,17 @@ function availablePairs(collections) {
   return [...found].map(([key, languages]) => ({ key, languages }));
 }
 
-const PAIR_ORDER = [
-  "en",
-  "el",
-  "it",
-  ...LANGUAGES.filter((code) => !["en", "el", "it"].includes(code)),
-];
-
-function supportedPairs() {
+function supportedPairs(ids = []) {
+  const available = ids.length ? ids : LEGACY_PAIR;
+  const priority = ["en", "el", "it"];
+  const order = [
+    ...priority.filter((code) => available.includes(code)),
+    ...available.filter((code) => !priority.includes(code)),
+  ];
   const seen = new Set();
   const options = [];
-  for (const source of PAIR_ORDER) {
-    for (const target of PAIR_ORDER) {
+  for (const source of order) {
+    for (const target of order) {
       if (source === target) continue;
       const key = pairKey(source, target);
       if (seen.has(key)) continue;
@@ -54,7 +57,8 @@ function supportedPairs() {
 
 export default function SharedCollections({ language = "en", csrf, onLocked }) {
   const t = collectionCopy[language];
-  const names = new Intl.DisplayNames([language], { type: "language" });
+  const registry = useLanguageRegistry();
+  const languageIds = registry?.ids || LEGACY_PAIR;
   const client = useQueryClient();
   const [tab, setTab] = useState("mine");
   const [pairFilter, setPairFilter] = useState("");
@@ -74,7 +78,7 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
   });
   const all = useMemo(() => list.data || [], [list.data]);
   const pairs = availablePairs(all);
-  const createPairs = useMemo(supportedPairs, []);
+  const createPairs = useMemo(() => supportedPairs(languageIds), [languageIds]);
   const listed = all.filter(
     (c) =>
       (tab === "mine" ? isMyCollection(c) : c.visibility === "published") &&
@@ -120,7 +124,7 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
   }, [all, preview]);
 
   function pairLabel(languages) {
-    return languages.map((code) => names.of(code)).join(" ↔ ");
+    return languages.map((code) => languageLabel(code)).join(" ↔ ");
   }
 
   function resetWorkspaces() {
@@ -417,7 +421,7 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
           text={copy[language]}
           csrf={csrf}
           language={language}
-          languages={LANGUAGES}
+          languages={languageIds}
           selectedCollection={importCollection}
           onLocked={onLocked}
           onClose={() => setImportCollection(null)}

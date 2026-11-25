@@ -300,6 +300,8 @@ def practice_router(sessions, gate):
                 snapshot = VocabularyOutput.model_validate(entry).model_dump(
                     mode="json"
                 )
+                # Practice snapshots keep their historical flat grammar shape.
+                snapshot.pop("grammar", None)
                 source = entry.source_collection
                 if (
                     source is not None

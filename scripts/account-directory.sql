@@ -39,7 +39,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   public.review_events, public.learning_progress, public.login_throttles,
   public.security_events
 TO lexi_app;
-GRANT SELECT ON public.alembic_version, public.recovery_case_guards TO lexi_app;
+GRANT SELECT ON
+  public.alembic_version, public.recovery_case_guards, public.languages,
+  public.practice_directions
+TO lexi_app;
 CREATE OR REPLACE VIEW public.account_directory AS
 SELECT a.id AS account_id, p.display_name, p.id AS profile_id, a.role
 FROM public.accounts AS a JOIN public.profiles AS p ON p.id = a.profile_id;

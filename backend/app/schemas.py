@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
@@ -13,7 +14,15 @@ from pydantic import (
 )
 
 from app.grammar import clean_grammar, missing_gender_fields
-from app.languages import DIRECTION_PAIRS
+from app.languages import direction_languages
+
+
+def _valid_direction(value):
+    try:
+        direction_languages(value)
+    except ValueError as exc:
+        raise ValueError(str(exc)) from exc
+    return value
 
 
 class UnitOutput(BaseModel):
@@ -43,7 +52,7 @@ ProfileName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
 ]
 
-Direction = Annotated[str, Field(pattern="^(" + "|".join(DIRECTION_PAIRS) + ")$")]
+Direction = Annotated[str, AfterValidator(_valid_direction)]
 SessionSize = Literal[10, 25, 50] | None
 
 
@@ -128,6 +137,7 @@ class VocabularyOutput(BaseModel):
     greek_adjective_gender: str | None
     greek_pronunciation: str | None
     pronunciation: str | None
+    grammar: dict | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -182,6 +192,9 @@ class GrammarFields(BaseModel):
     greek_adjective_gender: GreekGender | None = None
     greek_pronunciation: OptionalText | None = None
     pronunciation: OptionalText | None = None
+    # Structured store for enhanced languages. Values are validated against
+    # the grammar definitions once the card's language IDs are known.
+    grammar: dict[str, dict] | None = None
 
     @classmethod
     def clean_grammar_input(cls, values):

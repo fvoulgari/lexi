@@ -13,16 +13,19 @@ from app.access import (
     collection_capabilities,
     collection_grant,
     current_account,
+    require_same_scope,
     require_write,
 )
 from app.grammar import (
     GRAMMAR_FIELDS,
+    apply_structured_input,
     card_grammar_fields,
     clean_grammar,
     gender_field_language,
     grammar_fields,
     invalid_grammar_fields,
     missing_gender_fields,
+    sync_entry_grammar,
 )
 from app.languages import (
     card_slots,
@@ -40,9 +43,10 @@ from app.models import (
     LearningProgress,
     Profile,
     SavedCollection,
+    Tag,
     VocabularyEntry,
 )
-from app.schemas import Direction, EntryText, GrammarFields, WordType
+from app.schemas import Direction, EntryText, GrammarFields, TagOutput, WordType
 
 
 class CollectionBody(BaseModel):
@@ -113,6 +117,19 @@ class OrderBody(BaseModel):
     entry_ids: list[UUID] = Field(max_length=5000)
 
 
+def reject_structured_grammar(errors):
+    raise HTTPException(
+        422,
+        detail={
+            "code": "invalid_input",
+            "message": "; ".join(
+                f"{error['path']}: {error['message']}" for error in errors
+            ),
+            "fields": [error["path"] for error in errors],
+        },
+    )
+
+
 def grammar_fields_for(languages, word_type):
     if word_type is None:
         return set(GRAMMAR_FIELDS)
@@ -131,6 +148,9 @@ class CardBody(GrammarFields):
     word_type: WordType = "expression"
     source_language: str | None = None
     target_language: str | None = None
+    # Common fields are editable through the same schema-driven form for every
+    # pair, including universal cards that have no grammar definition.
+    tag_ids: list[UUID] = []
     confirm_exposure: bool = False
 
     @model_validator(mode="before")
@@ -225,13 +245,31 @@ def collection_router(sessions, gate):
             "target_text": card_text(card, card.target_language),
             "word_type": card.word_type,
             **card_grammar_fields(card, (card.source_language, card.target_language)),
+            "grammar": card.grammar,
             "visibility": card.visibility,
             "shared_via_collection": shared_elsewhere(db, card),
             "requires_confirmation": card.owner_account_id == current_account().id
             and card.visibility == "private",
             "can_edit": card.owner_account_id == current_account().id,
             "exposure_token": card_token(card),
+            "notes": card.notes,
+            "tags": [TagOutput.model_validate(tag) for tag in card.tags],
         }
+
+    def set_card_tags(db, entry, tag_ids):
+        tags = db.scalars(select(Tag).where(Tag.id.in_(set(tag_ids)))).all()
+        if len(tags) != len(set(tag_ids)):
+            raise HTTPException(
+                422,
+                detail={
+                    "code": "invalid_input",
+                    "message": "Choose existing tags.",
+                    "fields": ["tag_ids"],
+                },
+            )
+        for tag in tags:
+            require_same_scope(entry, tag)
+        entry.tags = tags
 
     def output(db, collection, *, saved=False, owner_name=None):
         accessible = cards(db, collection)
@@ -682,10 +720,15 @@ def collection_router(sessions, gate):
                 source, target, body.source_text, body.target_text
             )
             values = clean_grammar(
-                body.model_dump(exclude={"confirm_exposure"}),
+                body.model_dump(exclude={"confirm_exposure", "tag_ids"}),
                 body.word_type,
                 (source, target),
             )
+            errors, grammar = apply_structured_input(
+                values, (source, target), body.word_type, VocabularyEntry
+            )
+            if errors:
+                reject_structured_grammar(errors)
             values.pop("source_text", None)
             values.pop("target_text", None)
             values.pop("source_language", None)
@@ -724,8 +767,11 @@ def collection_router(sessions, gate):
                 visibility="private",
                 **values,
             )
+            sync_entry_grammar(entry, grammar)
             db.add(entry)
             db.flush()
+            if body.tag_ids:
+                set_card_tags(db, entry, body.tag_ids)
             add_card(
                 db,
                 c,
@@ -764,14 +810,24 @@ def collection_router(sessions, gate):
                 for field in GRAMMAR_FIELDS
                 if hasattr(entry, field)
             }
+            body_values = body.model_dump(exclude_unset=True)
+            tag_ids = body_values.pop("tag_ids", None)
+            notes = body_values.pop("notes", None)
             values.update(
                 {
                     field: value
-                    for field, value in body.model_dump(exclude_unset=True).items()
+                    for field, value in body_values.items()
                     if field in GRAMMAR_FIELDS
                 }
             )
+            if "grammar" in body_values:
+                values["grammar"] = body_values["grammar"]
             values = clean_grammar(values, word_type, languages)
+            errors, grammar = apply_structured_input(
+                values, languages, word_type, VocabularyEntry
+            )
+            if errors:
+                reject_structured_grammar(errors)
             missing = missing_gender_fields(
                 {**values, "word_type": word_type}, languages
             )
@@ -786,8 +842,13 @@ def collection_router(sessions, gate):
                 )
             for field, value in values.items():
                 setattr(entry, field, value)
+            sync_entry_grammar(entry, grammar)
             if body.word_type is not None:
                 entry.word_type = word_type
+            if notes is not None:
+                entry.notes = notes
+            if tag_ids is not None:
+                set_card_tags(db, entry, tag_ids)
             if body.withdraw:
                 db.execute(
                     update(CollectionEntry)

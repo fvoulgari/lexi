@@ -16,16 +16,19 @@ from app.access import collection_capabilities, current_account, require_write
 from app.collections import CollectionBody
 from app.csv_format import FORMAT_VERSION, FORMAT_VERSION_V2, restore_text
 from app.csv_v2 import (
-    COLUMNS as V2_COLUMNS,
-)
-from app.csv_v2 import (
-    GRAMMAR_COLUMNS,
-    TEXT_COLUMNS,
     decode_grammar,
+    grammar_columns,
     text_column,
+    text_columns,
+    v2_columns,
 )
 from app.duplicates import normalized_language_pair
-from app.grammar import GRAMMAR_FIELDS, clean_grammar, invalid_grammar_fields
+from app.grammar import (
+    GRAMMAR_FIELDS,
+    clean_grammar,
+    invalid_grammar_fields,
+    sync_entry_grammar,
+)
 from app.languages import card_languages, card_slots, pair, same_pair
 from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
@@ -39,7 +42,7 @@ ALIASES = {
     "example": "italian_example",
     "gender": "italian_gender",
 }
-COLUMNS = {
+LEGACY_COLUMNS = {
     "entry_id",
     "source_language",
     "target_language",
@@ -73,7 +76,12 @@ COLUMNS = {
     "unit_sort_order",
     "tags",
     "csv_format",
-} | set(V2_COLUMNS)
+}
+
+
+def allowed_columns():
+    """Legacy aliases plus v2 columns for the currently registered languages."""
+    return LEGACY_COLUMNS | set(v2_columns()) | set(ALIASES)
 
 
 def invalid(message):
@@ -91,13 +99,14 @@ async def read_csv(request):
         fields = reader.fieldnames
         if not fields or len(fields) != len(set(fields)):
             invalid("CSV needs unique column headers.")
-        if set(fields) - (COLUMNS | ALIASES.keys()):
+        supported = allowed_columns()
+        if set(fields) - supported:
             invalid(
                 "Unsupported columns: "
-                + ", ".join(sorted(set(fields) - (COLUMNS | ALIASES.keys())))
+                + ", ".join(sorted(set(fields) - supported))
             )
         canonical = {ALIASES.get(field, field) for field in fields}
-        language_texts = sum(column in canonical for column in TEXT_COLUMNS)
+        language_texts = sum(column in canonical for column in text_columns())
         if "word_type" not in canonical or not (
             {"italian", "greek"} <= canonical or language_texts >= 2
         ):
@@ -180,7 +189,7 @@ def parse_v2_row(row, destination_languages):
     if not same_pair(source, target, *destination_languages):
         raise ValueError("Card language pair does not match the destination.")
 
-    supplied_texts = {column: row.pop(column, "") for column in TEXT_COLUMNS}
+    supplied_texts = {column: row.pop(column, "") for column in text_columns()}
     texts = {}
     for language in (source, target):
         texts[language] = supplied_texts[text_column(language)]
@@ -193,7 +202,7 @@ def parse_v2_row(row, destination_languages):
             )
 
     legacy_grammar = {field: row.get(field, "") for field in GRAMMAR_FIELDS}
-    for column in GRAMMAR_COLUMNS:
+    for column in grammar_columns():
         value = row.pop(column, "")
         language = column.removeprefix("grammar_")
         fields = decode_grammar(value, language)
@@ -601,6 +610,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                                     setattr(stored, key, supplied[key])
                             if "collection_provenance" in changed_fields:
                                 stored.source_collection_id = target.id
+                        sync_entry_grammar(stored)
                         if "tags" in original:
                             assigned_tags = []
                             for name in names:

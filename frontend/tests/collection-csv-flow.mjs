@@ -348,6 +348,7 @@ try {
     await repeatDialog
       .getByRole("button", { name: "Duplicates (1)" })
       .waitFor();
+    await page.keyboard.press("Escape");
 
     // The same v2 contract round-trips a non-legacy English–Greek Collection.
     await createAndImport("V2 Greek", "English ↔ Greek");

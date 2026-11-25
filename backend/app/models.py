@@ -20,11 +20,62 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, synonym
 
-from app.languages import DIRECTION_PAIRS, LANGUAGES
-
 
 class Base(DeclarativeBase):
     pass
+
+
+class Language(Base):
+    """A registered learning language; adding one needs data, not schema changes.
+
+    ``publicly_available`` separates registry support from the curated UI
+    catalogue. ``script``, ``text_direction`` and ``enhanced`` describe the
+    language so clients never need per-language branches.
+    """
+
+    __tablename__ = "languages"
+    __table_args__ = (
+        CheckConstraint("id <> ''", name="language_id_not_blank"),
+        CheckConstraint("script <> ''", name="language_script_not_blank"),
+        CheckConstraint(
+            "text_direction IN ('ltr', 'rtl')", name="valid_language_text_direction"
+        ),
+    )
+    id: Mapped[str] = mapped_column(String(16), primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(80))
+    publicly_available: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+    script: Mapped[str] = mapped_column(
+        String(16), default="Latn", server_default="Latn"
+    )
+    text_direction: Mapped[str] = mapped_column(
+        String(3), default="ltr", server_default="ltr"
+    )
+    enhanced: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
+
+
+class PracticeDirection(Base):
+    """A stored practice direction key with explicit prompt and answer languages."""
+
+    __tablename__ = "practice_directions"
+    __table_args__ = (
+        CheckConstraint(
+            "prompt_language <> answer_language", name="direction_languages_differ"
+        ),
+    )
+    name: Mapped[str] = mapped_column(String(24), primary_key=True)
+    prompt_language: Mapped[str] = mapped_column(
+        ForeignKey("languages.id", name="fk_direction_prompt_language")
+    )
+    answer_language: Mapped[str] = mapped_column(
+        ForeignKey("languages.id", name="fk_direction_answer_language")
+    )
+    legacy: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
 
 
 class Profile(Base):
@@ -104,9 +155,6 @@ class Tag(ContentScope, Base):
     name: Mapped[str] = mapped_column(String(80))
 
 
-LANGUAGE_IDS = ", ".join(repr(language) for language in LANGUAGES)
-
-
 class VocabularyEntry(ContentScope, Base):
     __tablename__ = "vocabulary_entries"
     __table_args__ = (
@@ -116,10 +164,17 @@ class VocabularyEntry(ContentScope, Base):
             name="valid_word_type",
         ),
         CheckConstraint(
-            f"source_language IN ({LANGUAGE_IDS}) AND "
-            f"target_language IN ({LANGUAGE_IDS}) AND "
-            "source_language <> target_language",
-            name="vocabulary_card_languages",
+            "source_language <> target_language", name="vocabulary_card_languages"
+        ),
+        ForeignKeyConstraint(
+            ["source_language"],
+            ["languages.id"],
+            name="fk_vocabulary_source_language",
+        ),
+        ForeignKeyConstraint(
+            ["target_language"],
+            ["languages.id"],
+            name="fk_vocabulary_target_language",
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -165,6 +220,9 @@ class VocabularyEntry(ContentScope, Base):
     greek_adjective_gender: Mapped[str | None] = mapped_column(String(20))
     greek_pronunciation: Mapped[str | None] = mapped_column(Text)
     pronunciation: Mapped[str | None] = mapped_column(Text)
+    # Single structured store for every enhanced language; legacy columns above
+    # remain compatibility aliases and are kept in step on every write.
+    grammar: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -184,7 +242,9 @@ class PracticeSession(Base):
     __tablename__ = "practice_sessions"
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     profile_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
-    direction: Mapped[str] = mapped_column(String(24))
+    direction: Mapped[str] = mapped_column(
+        String(24), ForeignKey("practice_directions.name", name="fk_session_direction")
+    )
     requested_size: Mapped[int | None] = mapped_column(Integer)
     available: Mapped[int]
     created_at: Mapped[datetime] = mapped_column(
@@ -202,7 +262,12 @@ class SessionCard(Base):
         ForeignKey("vocabulary_entries.id", ondelete="SET NULL")
     )
     snapshot: Mapped[dict] = mapped_column(JSON)
-    revealed_direction: Mapped[str | None] = mapped_column(String(24))
+    revealed_direction: Mapped[str | None] = mapped_column(
+        String(24),
+        ForeignKey(
+            "practice_directions.name", name="fk_session_card_revealed_direction"
+        ),
+    )
 
 
 class ReviewEvent(Base):
@@ -216,9 +281,10 @@ class ReviewEvent(Base):
         CheckConstraint(
             "rating IN ('again','hard','easy')", name="valid_review_rating"
         ),
-        CheckConstraint(
-            "direction IN (" + ",".join(repr(d) for d in DIRECTION_PAIRS) + ")",
-            name="valid_review_direction",
+        ForeignKeyConstraint(
+            ["direction"],
+            ["practice_directions.name"],
+            name="fk_review_direction",
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -242,7 +308,11 @@ class LearningProgress(Base):
     entry_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("vocabulary_entries.id"), primary_key=True
     )
-    direction: Mapped[str] = mapped_column(String(24), primary_key=True)
+    direction: Mapped[str] = mapped_column(
+        String(24),
+        ForeignKey("practice_directions.name", name="fk_progress_direction"),
+        primary_key=True,
+    )
     reviews: Mapped[int] = mapped_column(default=0)
     again: Mapped[int] = mapped_column(default=0)
     hard: Mapped[int] = mapped_column(default=0)
@@ -276,11 +346,12 @@ class Collection(Base):
         CheckConstraint(
             "visibility IN ('private','published')", name="collection_visibility"
         ),
-        CheckConstraint(
-            f"source_language IN ({LANGUAGE_IDS}) AND "
-            f"target_language IN ({LANGUAGE_IDS}) AND "
-            "source_language < target_language",
-            name="collection_pair",
+        CheckConstraint("source_language < target_language", name="collection_pair"),
+        ForeignKeyConstraint(
+            ["source_language"], ["languages.id"], name="fk_collection_source_language"
+        ),
+        ForeignKeyConstraint(
+            ["target_language"], ["languages.id"], name="fk_collection_target_language"
         ),
     )
 

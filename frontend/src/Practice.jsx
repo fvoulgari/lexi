@@ -17,6 +17,8 @@ import { cardLanguageIds, practiceSides } from "./card-sides.js";
 import {
   directionLanguages,
   directionLabel,
+  languageLabel,
+  languageTextProps,
   pairDirections,
 } from "./languages.js";
 
@@ -25,10 +27,6 @@ import {
   collectionLabel,
   isMyCollection,
 } from "./collection-copy.js";
-
-// Standard Vocabulary practice stays Italian–Greek; every direction option
-// still comes from the language registry rather than a literal pair branch.
-const LEGACY_DIRECTIONS = pairDirections("el", "it");
 
 export default function Practice({ text, csrf, onLocked, language = "en" }) {
   const profiles = useQuery({
@@ -161,12 +159,6 @@ export default function Practice({ text, csrf, onLocked, language = "en" }) {
     </section>
   );
 }
-function practiceLanguageLabel(text, code) {
-  if (code === "el") return text.greek;
-  if (code === "it") return text.italian;
-  return code;
-}
-
 function Direction({ text, value, languages, onChange, disabled = false }) {
   const options = pairDirections(...languages);
   const choices = options.includes(value) ? options : [value, ...options];
@@ -181,7 +173,7 @@ function Direction({ text, value, languages, onChange, disabled = false }) {
       >
         {choices.map((key) => (
           <option key={key} value={key}>
-            {directionLabel(key, (code) => practiceLanguageLabel(text, code))}
+            {directionLabel(key, languageLabel)}
           </option>
         ))}
       </select>
@@ -199,6 +191,7 @@ function Setup({
   onProfileUnavailable,
 }) {
   const [searchParams] = useSearchParams();
+  const legacyDirections = pairDirections("el", "it");
   const [type, setType] = useState(
     searchParams.get("mode") === "difficult" ? "difficult" : "random",
   );
@@ -230,11 +223,11 @@ function Setup({
     setFilters((current) => ({ ...current, [key]: value }));
   const [direction, setDirection] = useState(() => {
     const requested = searchParams.get("direction");
-    if (LEGACY_DIRECTIONS.includes(requested)) return requested;
+    if (legacyDirections.includes(requested)) return requested;
     const preferred = profile?.preferred_direction;
-    return LEGACY_DIRECTIONS.includes(preferred)
+    return legacyDirections.includes(preferred)
       ? preferred
-      : LEGACY_DIRECTIONS[0];
+      : legacyDirections[0];
   });
   const difficult = useQuery({
     queryKey: ["difficult-entries", profile?.id, direction],
@@ -347,11 +340,9 @@ function Setup({
         onChange={setDirection}
         disabled={pending}
         className="setup-direction-options"
-        options={LEGACY_DIRECTIONS.map((key) => ({
+        options={legacyDirections.map((key) => ({
           value: key,
-          label: directionLabel(key, (code) =>
-            practiceLanguageLabel(text, code),
-          ),
+          label: directionLabel(key, languageLabel),
         }))}
       />
       {type === "difficult" && profile && (
@@ -786,9 +777,13 @@ function Summary({
                   return (
                     <li key={e.id}>
                       <div className="summary-card-words">
-                        <span lang={promptLanguage}>{sides.prompt}</span>
+                        <span {...languageTextProps(promptLanguage)}>
+                          {sides.prompt}
+                        </span>
                         <span aria-hidden="true"> → </span>
-                        <span lang={answerLanguage}>{sides.answer}</span>
+                        <span {...languageTextProps(answerLanguage)}>
+                          {sides.answer}
+                        </span>
                       </div>
                       <span className="summary-rating" data-rating={e.rating}>
                         {text[e.rating]}

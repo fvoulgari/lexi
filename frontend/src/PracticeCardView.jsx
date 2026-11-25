@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { directionLanguages, practiceSides } from "./card-sides.js";
+import { languageTextProps } from "./languages.js";
 import {
   adjectiveGroups,
   grammarDefinition,
@@ -58,18 +59,27 @@ export default function PracticeCardView({
       text.fields[field]
     );
   }
+  function fieldLanguage(field) {
+    if (
+      field === "pronunciation" ||
+      field === "greek_pronunciation" ||
+      field === "notes"
+    )
+      return undefined;
+    return languageOfField(field) || answerLanguage;
+  }
   return (
     <div className="flashcard">
       <div className="card-metadata">
         {entry.word_type && <span>{text[entry.word_type]}</span>}
       </div>
-      <p lang={promptLanguage} className="card-prompt">
+      <p {...languageTextProps(promptLanguage)} className="card-prompt">
         {sides.prompt}
       </p>
       {children}
       {revealed && (
         <div className="card-answer" ref={answerRef} tabIndex={-1}>
-          <h2 lang={answerLanguage}>{sides.answer}</h2>
+          <h2 {...languageTextProps(answerLanguage)}>{sides.answer}</h2>
           {(groups.length > 0 || hasAdjectiveMetadata) && (
             <div className="card-detail-groups" aria-label={text[answerName]}>
               {hasAdjectiveMetadata && (
@@ -85,7 +95,9 @@ export default function PracticeCardView({
                       {mainPlural && (
                         <div>
                           <dt>{text.cardDetailLabels.plural}</dt>
-                          <dd lang={answerLanguage}>{mainPlural}</dd>
+                          <dd {...languageTextProps(answerLanguage)}>
+                            {mainPlural}
+                          </dd>
                         </div>
                       )}
                     </dl>
@@ -94,7 +106,7 @@ export default function PracticeCardView({
                     <dl key={row.gender} className="adjective-gender-line">
                       <div>
                         <dt>{text[row.gender]}</dt>
-                        <dd lang={answerLanguage}>
+                        <dd {...languageTextProps(answerLanguage)}>
                           {row.singular && row.plural ? (
                             <>
                               <span>{row.singular}</span>
@@ -123,15 +135,7 @@ export default function PracticeCardView({
                   {fields.map((field) => (
                     <div key={field}>
                       <dt>{label(field)}</dt>
-                      <dd
-                        lang={
-                          field === "pronunciation" ||
-                          field === "greek_pronunciation" ||
-                          field === "notes"
-                            ? undefined
-                            : languageOfField(field) || answerLanguage
-                        }
-                      >
+                      <dd {...languageTextProps(fieldLanguage(field))}>
                         {field.endsWith("_gender")
                           ? text[entry[field]]
                           : entry[field]}

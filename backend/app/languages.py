@@ -1,17 +1,46 @@
-"""Stable language identifiers; preserve legacy direction keys and learning state."""
+"""Language helpers backed by the database registry.
 
+The constants below are bootstrap values for migrations and fresh installs.
+Every runtime check goes through :mod:`app.registry`, whose data comes from the
+``languages`` and ``practice_directions`` tables, so a registered language works
+without a code change while curation stays a separate concern.
+"""
+
+import json
 from collections.abc import Mapping
+from pathlib import Path
 
-LANGUAGES = ("da", "el", "en", "it")
+from app.registry import get_registry
+
+# Bootstrap values only: historical migrations and the initial seed read this
+# configuration. Runtime checks use the database registry, so registering a
+# language never requires a change to application logic.
+_LANGUAGE_CATALOGUE = json.loads(
+    (Path(__file__).with_name("language_catalogue.json")).read_text(encoding="utf-8")
+)
+
+LANGUAGES = tuple(
+    sorted(language["id"] for language in _LANGUAGE_CATALOGUE["languages"])
+)
 LANGUAGE_LABELS = {
-    "da": "Danish",
-    "el": "Greek",
-    "en": "English",
-    "it": "Italian",
+    language["id"]: language["label"]
+    for language in _LANGUAGE_CATALOGUE["languages"]
 }
+LANGUAGE_METADATA = {
+    language["id"]: (
+        language["script"],
+        language["text_direction"],
+        language["enhanced"],
+        language["publicly_available"],
+    )
+    for language in _LANGUAGE_CATALOGUE["languages"]
+}
+LEGACY_DIRECTIONS = tuple(sorted(_LANGUAGE_CATALOGUE["legacy_directions"]))
 DIRECTION_PAIRS = {
-    "greek_to_italian": ("el", "it"),
-    "italian_to_greek": ("it", "el"),
+    **{
+        name: tuple(languages)
+        for name, languages in _LANGUAGE_CATALOGUE["legacy_directions"].items()
+    },
     **{
         f"{a}_to_{b}": (a, b)
         for a in LANGUAGES
@@ -22,21 +51,11 @@ DIRECTION_PAIRS = {
 
 
 def language_label(language):
-    return LANGUAGE_LABELS.get(language, str(language))
-
-
-def _invalid_pair_message():
-    return (
-        "Choose two different supported languages: "
-        + ", ".join(language_label(language) for language in LANGUAGES)
-        + "."
-    )
+    return get_registry().label(language)
 
 
 def pair(a, b):
-    if a not in LANGUAGES or b not in LANGUAGES or a == b:
-        raise ValueError(_invalid_pair_message())
-    return tuple(sorted((a, b)))
+    return get_registry().validate_pair(a, b)
 
 
 def same_pair(first, second, other_first, other_second):
@@ -57,21 +76,16 @@ def pair_mismatch_message(first, second, other_first, other_second):
 
 
 def direction_key(a, b):
-    """Directed practice key for a legacy or generated language pair."""
-    if (a, b) == ("el", "it"):
-        return "greek_to_italian"
-    if (a, b) == ("it", "el"):
-        return "italian_to_greek"
-    if a not in LANGUAGES or b not in LANGUAGES or a == b:
-        raise ValueError(_invalid_pair_message())
-    return f"{a}_to_{b}"
+    """Directed practice key for a registered ordered language pair."""
+    return get_registry().direction_for(a, b)
 
 
 def direction_languages(key):
-    try:
-        return DIRECTION_PAIRS[key]
-    except (KeyError, TypeError):
-        raise ValueError("Unsupported practice direction.") from None
+    return get_registry().direction_languages(key)
+
+
+def is_legacy_direction(key):
+    return get_registry().is_legacy_direction(key)
 
 
 def _field(card, *names):
@@ -84,9 +98,8 @@ def _field(card, *names):
 
 
 def pair_directions(a, b):
-    """Both directed practice keys for one unordered supported language pair."""
-    first, second = pair(a, b)
-    return (direction_key(first, second), direction_key(second, first))
+    """Both directed practice keys for one unordered registered language pair."""
+    return get_registry().pair_directions(a, b)
 
 
 def card_languages(card):

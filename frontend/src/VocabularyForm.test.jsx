@@ -787,3 +787,53 @@ test("a new card in a public collection requires explicit exposure confirmation"
     screen.getByRole("button", { name: copy.en.saveEntry }),
   ).toBeDisabled();
 });
+
+test("editing a card in a public collection saves without a new exposure confirmation", async () => {
+  const user = userEvent.setup();
+  let payload;
+  server.use(
+    http.get("*/api/collections", () =>
+      HttpResponse.json([
+        {
+          id: "public",
+          name: "Public greetings",
+          source_language: "it",
+          target_language: "el",
+          can_edit: true,
+          visibility: "published",
+          card_count: 2,
+        },
+      ]),
+    ),
+    http.patch("*/api/vocabulary/e", async ({ request }) => {
+      payload = await request.json();
+      return HttpResponse.json({ ...card, ...payload });
+    }),
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <VocabularyForm
+        entry={card}
+        initialCollectionId="public"
+        text={copy.en}
+        csrf="csrf"
+        onSaved={() => {}}
+        onCancel={() => {}}
+        onLocked={() => {}}
+        onSavingChange={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  const save = screen.getByRole("button", { name: copy.en.saveEntry });
+  expect(save).toBeEnabled();
+  expect(
+    screen.queryByRole("region", { name: copy.en.collectionExposure }),
+  ).toBeNull();
+  await user.click(save);
+  await waitFor(() => expect(payload).toBeDefined());
+  expect(payload).not.toHaveProperty("confirm_collection_exposure");
+});

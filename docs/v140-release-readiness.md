@@ -1,17 +1,21 @@
-# v1.4.0 release readiness — 23 November 2026
+# v1.4.0 work — readiness and local rehearsal record (23 November 2026; no release published)
 
-This page records the specification, acceptance and rehearsal evidence for the multilingual language-pair initiative ([issue #100](https://github.com/fvoulgari/lexi/issues/100), final child [issue #107](https://github.com/fvoulgari/lexi/issues/107)). **No production database was migrated, no application was deployed, and no v1.4.0 release was published.** The checks below were run on local disposable resources only.
+This page records the original specification, acceptance and rehearsal evidence for the multilingual language-pair initiative ([issue #100](https://github.com/fvoulgari/lexi/issues/100), final child [issue #107](https://github.com/fvoulgari/lexi/issues/107)). **No production database was migrated, no application was deployed, and no v1.4.0 release was published.** The checks below were run on local disposable resources only. Later registry work (#115–#121) and the current verification are recorded in [final language-architecture verification](language-architecture-verification.md).
 
-## Release content
+## Scope of the v1.4.0 work
 
-v1.4.0 is a backward-compatible feature release after v1.3.2. “CSV v2” names the **file format** introduced for Collections; v1 CSV files remain importable and the release version is independent of that number. Vocabulary card creation stays Italian–Greek; the Collections workspace supports any ordered pair from the `da`, `el`, `en`, `it` registry. See the [acceptance matrix](multilingual-acceptance.md) for the rule-to-test mapping.
+v1.4.0 was planned as a backward-compatible feature release after v1.3.2 but was not published. “CSV v2” names the **file format** introduced for Collections; v1 CSV files remain importable and the format version is independent of any release tag. Vocabulary card creation stays Italian–Greek; the original v1.4.0 Collections scope used the `da`, `el`, `en`, `it` registry. The registry was later extended to the curated six-language set (`ar`, `da`, `el`, `en`, `it`, `ja`) by #121, with `ja`/`ar` basic and `it`/`el` enhanced. See the [acceptance matrix](multilingual-acceptance.md) for the rule-to-test mapping.
 
-Additive schema changes in this initiative:
+Additive schema/data changes across the initiative:
 
-| Revision | Change | Downgrade |
+| Revision | Change | Scope |
 | --- | --- | --- |
-| `f7a12b4c0001` | `vocabulary_card_languages` check constraint; aborts on unsupported existing IDs instead of rewriting them | Drops the constraint |
-| `b7c41d0e9a32` | `collection_pair_population` trigger; blocks changing a Collection pair while it has cards | Drops the trigger and function |
+| `f7a12b4c0001` | `vocabulary_card_languages` check constraint; aborts on unsupported existing IDs instead of rewriting them | Original v1.4.0 work |
+| `b7c41d0e9a32` | `collection_pair_population` trigger; blocks changing a Collection pair while it has cards | Original v1.4.0 work |
+| `c1e0d5f7a901` | Registry tables and foreign keys replace enumerated language checks | #115 |
+| `d2e3f4a5b6c7` | Catalogue metadata (`script`, `text_direction`, `enhanced`, `publicly_available`) and direction `legacy` flag | #116 |
+| `b7c9d1e4f206` | One structured `grammar` JSON column, backfilled from Italian/Greek legacy columns | #117 |
+| `a1b2c3d4e5f6` | Data-only `ja`/`ar` registry rows and ordered directions; current head | #121 |
 
 No new language text columns, card rewrites, ID changes or progress-key changes are introduced. API changes are likewise additive: pair and direction validation derives from one registry, a populated Collection rejects a pair change while an empty one accepts it, card language IDs are immutable after creation, grammar follows those IDs, and Collection CSV export defaults to v2 with an explicit `format=v1` option. The aggregate library export remains v1.
 
@@ -27,13 +31,15 @@ Source: the owner-only, locally retained frozen v1.3.0 production backup at pre-
 | `pg_restore --exit-on-error --no-owner --no-privileges` into `lexi_v140_pre` | PASS; revision `a47c39f0a019`, 264 Italian→Greek cards, 5 Greek→Italian Collections, 50 reviews in 2 legacy directions |
 | Deterministic row manifest of the restored baseline | Captured: counts and ordered-row digests for all 16 application tables |
 | Fresh custom-format dump of the restored baseline, then restore into `lexi_v140_restored` | PASS; both manifests matched exactly before migration |
-| `alembic upgrade head` on both databases | PASS; both reached `b7c41d0e9a32` with no data rewrite |
+| `alembic upgrade head` on both databases | PASS; both reached the then-head `b7c41d0e9a32` with no data rewrite. The current chain continues to `a1b2c3d4e5f6`; the latest rehearsal is in [final verification](language-architecture-verification.md). |
 | Compare all row manifests before/after migration, and migrated/re-restored databases | PASS; all 16 table digests and counts identical; only `alembic_version` changed |
 | Database guard and new-pair checks on the migrated legacy database | PASS: wrong-pair membership rejected, unsupported card language rejected, populated Collection pair change rejected, new `en/da` Collection and card accepted (transaction rolled back) |
-| Targeted new-pair HTTP tests against a separate disposable `_test` database | 86 passed: registry, card mapping, Collection pair rules, generic directions, common/grammar fields, CSV v2 and the card-language migration guard |
-| Full backend suite on a separate disposable `_test` database | 423 passed, 3 opt-in tests skipped; one pre-existing Starlette/httpx deprecation warning |
+| Targeted new-pair HTTP tests against a separate disposable `_test` database | Historical run: 86 passed (registry, card mapping, Collection pair rules, generic directions, common/grammar fields, CSV v2 and the card-language migration guard). Current targeted/full results are in [final verification](language-architecture-verification.md). |
+| Full backend suite on a separate disposable `_test` database | Historical run: 423 passed, 3 opt-in tests skipped. Current run: 476 passed, 3 skipped in [final verification](language-architecture-verification.md). |
 | Backend Ruff and compileall | PASS |
-| Frontend ESLint, Vitest and production build | PASS: 296 tests in 26 files; existing >500 kB chunk warning only |
+| Frontend ESLint, Vitest and production build | Historical run: 296 tests in 26 files. Current run: 328 tests passed in [final verification](language-architecture-verification.md); existing >500 kB chunk warning only |
+
+The #122 browser re-verification found and fixed a published-card edit-flow confirmation bug and updated stale selectors after the publication-dialog refactor. All stub and real-API suites were rerun; the details are in [final verification](language-architecture-verification.md#browser-verification).
 
 Legacy row digests (MD5 of ordered rows, JSON-normalized; identical before and after migration and across the second restore):
 
@@ -56,11 +62,11 @@ This is a local logical backup/restore rehearsal. It does not establish managed-
 
 ## Release checklist
 
-- [x] Specification status, [ADR 0005](adr/0005-language-agnostic-card-text-and-grammar.md), [glossary](../GLOSSARY.md), [README](../README.md), [CSV format](csv-format.md) and [Collections guide](shareable-collections.md) match the confirmed rules.
-- [x] [Acceptance matrix](multilingual-acceptance.md) maps every rule to backend, frontend or browser evidence, including `en↔da`, `en↔el` and legacy `el↔it`.
-- [x] Disposable backup/restore and migration rehearsal above records unchanged legacy IDs, content, memberships, reviews, sessions and progress plus successful new-pair flows.
-- [x] Draft PR for #107 links the child issues and states that no production migration, deployment or release publication is included.
-- [x] Release materials name v1.4.0 and explain that CSV v2 is a file-format version.
+- [x] Specification status, ADRs, [glossary](../GLOSSARY.md), [README](../README.md), [CSV format](csv-format.md) and [Collections guide](shareable-collections.md) were reconciled with the shipped six-language curated registry in #122.
+- [x] [Acceptance matrix](multilingual-acceptance.md) maps every rule to backend, frontend or browser evidence, including `en↔da`, `en↔el`, `ja/en`, `ar/en`, `ja/ar`, RTL rendering and legacy `el↔it`.
+- [x] Disposable backup/restore and migration rehearsal above records unchanged legacy IDs, content, memberships, reviews, sessions and progress plus successful new-pair flows; the latest rehearsal is in [final verification](language-architecture-verification.md).
+- [x] Draft PR for #107 linked the child issues and stated that no production migration, deployment or release publication was included.
+- [x] Planning materials name v1.4.0 and explain that CSV v2 is a file-format version; no release tag or publication was created.
 - [ ] Operator: confirm hosted checks pass on the draft PR before any release action.
 - [ ] Operator: taking a new protected backup and verifying its checksum remains mandatory immediately before any future cutover; this rehearsal used a frozen historical backup.
 - [ ] Operator: repeat restore and migration verification in the isolated provider environment, then run the migration with the schema-owner credential and the application smoke checks.
