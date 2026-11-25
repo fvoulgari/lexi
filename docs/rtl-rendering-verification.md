@@ -8,7 +8,7 @@ This records the UI work for [issue #120](https://github.com/fvoulgari/lexi/issu
 - Authoring inputs (`CollectionCardForm`, `VocabularyForm`, `CardFields`), previews (`CardPreview`, `PracticeCardView`), practice summaries, Library, Collections, Progress, Import previews and the language picker all use that helper. Pronunciations and notes remain interface-language text and are intentionally untagged.
 - `frontend/src/styles.css` uses script-level font fallback stacks (Arabic/Hebrew, CJK, Indic), isolates bidirectional text and uses logical `text-align`/positioning in card surfaces. The two old `[lang="el"]` rules were replaced with role-based selectors, so no per-language CSS remains.
 
-A synthetic `rtl`/`Arab` catalogue row is enough to exercise the whole flow; no component, CSS rule or migration is added per language.
+A synthetic `rtl`/`Arab` catalogue row is enough to exercise the whole flow; no component, CSS rule or schema migration is added per language. An existing deployment still uses an idempotent data-only revision to register the row.
 
 ## Automated coverage
 

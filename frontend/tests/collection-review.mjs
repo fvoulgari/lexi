@@ -87,7 +87,7 @@ try {
       .getByRole("button", { name: "Publish collection", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Confirm publication", exact: true })
+      .getByRole("button", { name: "Publish", exact: true })
       .click();
     await page
       .getByRole("button", { name: "Unpublish collection", exact: true })
@@ -101,8 +101,9 @@ try {
     await publish(a, another.id);
 
     await page.goto(origin + "/vocabulary");
-    await page.locator(".collection-panel summary").click();
-    await page.locator(".collection-panel select").selectOption(collection.id);
+    await page
+      .getByRole("combobox", { name: "Collection", exact: true })
+      .selectOption(collection.id);
     await page
       .locator('.entry-card h2[lang="it"]')
       .filter({ hasText: /^ciao$/ })
@@ -209,12 +210,12 @@ try {
     const panel = page
       .locator("article.collection-box")
       .filter({ has: page.getByRole("heading", { name, exact: true }) });
-    await panel.getByRole("button", { name: "Open", exact: true }).click();
+    await panel.getByRole("button", { name: "Details", exact: true }).click();
     await page
       .getByRole("button", { name: "Unpublish collection", exact: true })
       .click();
     await page
-      .getByRole("region", { name: "Confirm unpublishing", exact: true })
+      .getByRole("dialog", { name: "Confirm unpublishing", exact: true })
       .waitFor();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({

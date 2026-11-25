@@ -1,13 +1,13 @@
 # Configuration-driven grammar schemas
 
-Optional grammar is declared as data, validated from that data, and stored once per card in a structured JSON column. Italian and Greek keep every historical field, value and import/export representation; universal languages keep common fields only.
+Optional grammar is declared as data, validated from that data, and stored once per card in a structured JSON column. Italian and Greek keep every historical field, value and import/export representation; basic languages, including the shipped Japanese and Arabic rows, keep common fields only.
 
 ## Decision
 
 - `backend/app/grammar_definitions.json` is the single source of truth. Each language declares its fields with a type, allowed options, maximum length, storage alias, applicable word types, conditional requirement and CSV key. The frontend imports the same file for its rendering helpers.
 - `vocabulary_entries.grammar` is one nullable JSON column keyed by language ID. The additive migration backfills it from legacy columns; the legacy `italian_*`/`greek_*` columns stay as compatibility aliases and are refreshed on every create, update and import.
 - Validation is definition-driven. Unknown languages, fields and forms, wrong value types, invalid options, overlong text and missing required genders produce actionable errors. CSV v2 row errors include the grammar field path; API errors include the same paths.
-- Adding an enhanced language means adding one definition to the JSON data. No new column, migration, API branch or React component is required. Tests register a synthetic definition at runtime to prove this.
+- Adding an enhanced language means registering its row in the catalogue/data-only revision and adding one definition to the JSON data. No new column, schema migration, API branch or React component is required. Tests register a synthetic definition at runtime to prove this.
 - The definition format is deliberately narrow (enum/text fields and conditional requirements), not a universal linguistic engine. CSV v2 cells use the same definitions and no longer derive `example` or `pronunciation` field names from legacy prefixes.
 
 ## Alternatives considered

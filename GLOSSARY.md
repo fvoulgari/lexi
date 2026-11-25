@@ -8,7 +8,7 @@ A language-learning notebook with personal vocabulary, a shared vocabulary libra
 A person's verified identity in Lexi, associated with exactly one learner profile. Registration is open; access to content and permission to edit it are separate from identity verification.
 
 **Learner profile**:
-A learner's display identity, learning preferences, and personal learning records, owned exclusively by one learner account. A legacy learner profile may await administrator-controlled association with its owner.
+A learner's display identity, learning preferences, and personal learning records, owned exclusively by one learner account. Legacy claim and recovery-request flows were retired; each account owns its current profile.
 _Avoid_: User account, authenticated user
 
 **Vocabulary card**:
@@ -37,15 +37,21 @@ A card creator's confirmation that one of their published collections may share 
 The two supported languages a collection's cards express, independent of which language is used as the prompt during practice.
 
 **Supported language**:
-A learning language Lexi can express on a card, independent of the interface language. Cards carry one supported language for each of their two texts, fixed when the card is created.
-_Avoid_: Interface language, text position
+A learning language Lexi can express on a card, independent of the interface language. Languages come from the registry; only rows marked publicly available are advertised by `/api/languages` and the searchable picker, so curation is a deliberate subset of backend-supported rows. Cards carry one supported language for each of their two texts, fixed when the card is created.
+_Avoid_: Interface language, text position, hardcoded frontend list
+
+**Basic language**:
+A registry-backed supported language with no enhanced grammar definition. It uses the shared card fields and needs no new column, React component, CSS rule or grammar definition. Arabic, Danish, English and Japanese are basic curated languages.
+
+**Enhanced language**:
+A registry-backed supported language that adds optional grammar declared in `backend/app/grammar_definitions.json`. Italian and Greek are the enhanced curated languages; their historical fields, values and CSV representation are preserved.
 
 **Common card field**:
 A card detail meaningful in every language, such as its texts, word type and themes. It needs no language-specific definition when a new learning language is introduced.
 
 **Language-specific grammar**:
-Optional grammatical detail that belongs to one language, such as gender or inflected forms. A card only offers the definitions for its own languages.
-_Avoid_: Generic grammar, grammar column
+Optional grammatical detail that belongs to one language, such as gender or inflected forms. A card only offers the definitions for its own languages. The structured store is one nullable `grammar` column keyed by language ID, not one column per language.
+_Avoid_: Generic grammar, per-language grammar columns
 
 **CSV format v2**:
 A Collection CSV exchange format whose text and grammar columns are keyed by language ID and whose rows carry card and Collection identity. It round-trips any supported language pair without positional inference while version 1 and legacy aliases remain importable.
@@ -57,19 +63,19 @@ Shared vocabulary explicitly made available to all registered learners for readi
 A learner with an explicitly assigned permission to manage shared vocabulary. This permission grants no access to another learner's private collections or learning records.
 
 **Administrator**:
-A person authorized to assign or revoke library-editor permissions and associate legacy learner profiles with verified learner accounts.
+A person authorized to assign or revoke library-editor permissions and manage account access. Legacy profile association is retired.
 
-**Legacy profile claim**:
-An authenticated learner's explicit association of an unclaimed legacy learner profile with their account, authorised by an administrator-issued claim link. Claiming preserves prior learning records and grants no additional library access or editing permissions.
+**Legacy profile claim (retired)**:
+An authenticated learner's former explicit association of an unclaimed legacy learner profile with their account, authorised by an administrator-issued claim link. Claiming preserved prior learning records and granted no additional library access or editing permissions. This flow is no longer available; the definition is retained for historical records.
 
-**Claim link**:
-A single-use, expiring authorisation for a signed-in learner to claim one specific legacy learner profile. An administrator issues it after trusted-channel identity verification and shares it manually.
+**Claim link (retired)**:
+A former single-use, expiring authorisation for a signed-in learner to claim one specific legacy learner profile. An administrator issued it after trusted-channel identity verification and shared it manually. This flow is no longer available.
 
-**Legacy progress request**:
-A private request from an authenticated learner for help associating previous progress, identified by an old profile name and an optional note. A matching name is not proof of ownership.
+**Legacy progress request (retired)**:
+A former private request from an authenticated learner for help associating previous progress, identified by an old profile name and an optional note. A matching name was never proof of ownership. This flow is no longer available.
 
-**Profile resolution case**:
-A pending administrator review of a legacy association blocked by existing learner data. Both profiles and their learning records remain intact pending a separately reviewed migration procedure.
+**Profile resolution case (retired)**:
+A former pending administrator review of a legacy association blocked by existing learner data. Both profiles and their learning records remained intact pending a separately reviewed migration procedure. This flow is no longer available.
 
 **Learning direction**:
 The language shown as the prompt and the language recalled as the answer within a language pair. A learner's performance in each direction is independent.
@@ -85,16 +91,16 @@ The optional grammatical gender of the Italian expression in a vocabulary entry,
 **Greek gender**:
 The optional grammatical gender of the Greek expression in a vocabulary entry, independent of the Italian expression's gender.
 
-**Unit**:
-A teaching chapter identified by a stable code, display title, and ordering. Every vocabulary card belongs to exactly one unit; shared units and cards remain subject to their permitted audience.
+**Unit (historical)**:
+A former teaching chapter identified by a stable code, display title, and ordering. Units were removed in `a47c39f0a019`; legacy IDs survive only as Collection `source_unit_id` metadata for old import clients. Current filtering and destinations use Collections.
 _Avoid_: Category, tag
 
 **Tag**:
-A thematic label shared by vocabulary entries. An entry may have multiple tags independently of its unit and word type.
+A thematic label shared by vocabulary entries. An entry may have multiple tags independently of its word type and Collection.
 _Avoid_: Unit, word type
 
 **Practice session**:
-A selected queue of vocabulary entries practised by one learner. Learners choose unit and card-type filters when starting a session, without assigning units to profiles. Changing learning direction retains the queue and changes the direction tested for unanswered cards.
+A selected queue of vocabulary entries practised by one learner. Collections and card types narrow a session without assigning units to profiles. Changing learning direction retains the queue and changes the direction tested for unanswered cards.
 
 **Card review**:
 A learner's submitted Again, Hard, or Easy rating for a vocabulary entry in the direction actually tested. A card can receive multiple reviews across practice sessions; revealing an answer alone is not a review.

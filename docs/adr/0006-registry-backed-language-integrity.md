@@ -15,10 +15,10 @@ Adding a basic language is an insert into `languages` plus an insert for each di
 
 ## Alternatives considered
 
-- **Keep enumerated check constraints.** This was the v1.4.0 design. It is safe but every new language needs a migration, which contradicts the language-agnostic goal.
+- **Keep enumerated check constraints.** This was the v1.4.0 design. It is safe but every new language needs a DDL change to the constraint, which contradicts the language-agnostic goal. Registry-backed languages still need data-only row registration for existing databases, never a schema change.
 - **Replace them with a generic identifier-format check.** This removes the migration but admits unknown IDs, silent practice failures and unreadable CSV; referential integrity is lost.
 - **Rewrite review and progress direction keys into a new shape.** This would destroy existing learning history and is not acceptable for production data.
 
 ## Consequences
 
-The application must insert registry rows before writing cards or Collections with a newly registered language; the seed path and migration do so. Public visibility of a language remains a separate, curated decision (later tickets); a registered row does not automatically make a language available in the UI. Downgrade of this migration is only safe while no registry-only languages or directions exist; otherwise it refuses rather than discarding data.
+The application must insert registry rows before writing cards or Collections with a newly registered language; the seed path and migration do so. Public visibility is a separate curated flag (`publicly_available`), implemented in ADR 0007; a registered row does not automatically make a language available in the UI. Downgrade of this migration is only safe while no registry-only languages or directions exist; otherwise it refuses rather than discarding data.
