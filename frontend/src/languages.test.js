@@ -11,8 +11,11 @@ import {
   languageScript,
   languageTextProps,
   pairDirections,
+  pairKey,
+  pairLabel,
   resetLanguages,
   samePair,
+  supportedPairs,
 } from "./languages.js";
 import { REGISTRY_PAYLOAD } from "./language-fixtures.js";
 
@@ -111,4 +114,28 @@ test("labels and direction metadata come from the registry response", () => {
   expect(() => languageIds()).toThrow("not been loaded");
   expect(languageTextProps("zz")).toEqual({ lang: "zz", dir: undefined, "data-script": undefined });
   hydrateLanguages(REGISTRY_PAYLOAD);
+});
+
+test("supported pairs cover the registry once each with registry labels", () => {
+  const pairs = supportedPairs(languageIds());
+  expect(pairs.map((option) => option.key)).toEqual([
+    "el-en",
+    "en-it",
+    "da-en",
+    "el-it",
+    "da-el",
+    "da-it",
+  ]);
+  expect(pairs.map((option) => pairLabel(option.languages))).toEqual([
+    "English ↔ Greek",
+    "English ↔ Italian",
+    "English ↔ Danish",
+    "Greek ↔ Italian",
+    "Greek ↔ Danish",
+    "Italian ↔ Danish",
+  ]);
+  expect(pairKey("it", "el")).toBe("el-it");
+  expect(supportedPairs()).toEqual([
+    { key: "el-it", languages: ["el", "it"] },
+  ]);
 });

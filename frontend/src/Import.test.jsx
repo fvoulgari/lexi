@@ -9,16 +9,6 @@ import Library from "./Library.jsx";
 import { copy } from "./copy.js";
 import { collectionCopy } from "./collection-copy.js";
 
-async function chooseLanguage(user, input, query, label) {
-  await user.click(input);
-  await user.type(input, query);
-  await user.click(
-    within(input.closest(".language-combobox")).getByRole("option", {
-      name: label,
-    }),
-  );
-}
-
 const owned = {
   id: "mine",
   name: "Mine",
@@ -164,6 +154,10 @@ test("keeps the file, refreshes the preview for each destination, and selects ea
     await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
     await dialog.findByRole("button", { name: "Import 1 card into Mine" });
     await user.click(dialog.getByRole("radio", { name: "New collection" }));
+    await user.selectOptions(
+      dialog.getByRole("combobox", { name: "Collection languages" }),
+      "el-it",
+    );
     expect(dialog.getByText("cards.csv")).toBeInTheDocument();
     expect(
       dialog.queryByRole("button", { name: "Duplicates (1)" }),
@@ -193,6 +187,63 @@ test("keeps the file, refreshes the preview for each destination, and selects ea
   expect(received).toEqual(["Lezione 01", "Verbi"]);
 });
 
+test("creates an empty collection from the Vocabulary dialog without a CSV", async () => {
+  const created = { ...owned, id: "created", name: "Standalone" };
+  let body;
+  server.use(
+    http.get("*/api/collections", () =>
+      HttpResponse.json([...existing, created]),
+    ),
+    http.post("*/api/collections", async ({ request }) => {
+      expect(request.headers.get("X-CSRF-Token")).toBe("csrf");
+      body = await request.json();
+      return HttpResponse.json(created);
+    }),
+  );
+  const user = openLibrary();
+  await user.click(screen.getByRole("button", { name: "New collection" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: copy.en.toolsImport,
+  });
+  expect(
+    within(dialog).getByRole("radio", { name: "New collection" }),
+  ).toBeChecked();
+  expect(within(dialog).queryByRole("button", { name: copy.en.csvPreview })).toBeNull();
+  expect(
+    within(dialog).getByRole("button", { name: "Create collection" }),
+  ).toBeDisabled();
+  await user.type(
+    within(dialog).getByRole("textbox", { name: "Collection name" }),
+    "Standalone",
+  );
+  await user.selectOptions(
+    within(dialog).getByRole("combobox", { name: "Collection languages" }),
+    "el-it",
+  );
+  await user.click(within(dialog).getByRole("radio", { name: "Public" }));
+  await user.click(
+    within(dialog).getByRole("button", { name: "Create collection" }),
+  );
+  await waitFor(() =>
+    expect(body).toEqual({
+      name: "Standalone",
+      source_language: "el",
+      target_language: "it",
+      make_public: true,
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: copy.en.toolsImport }),
+    ).toBeNull(),
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("combobox", { name: "Collection" })).toHaveValue(
+      "created",
+    ),
+  );
+});
+
 test.each(["el", "it"])(
   "localizes the upload and destination controls in %s",
   async (language) => {
@@ -208,13 +259,15 @@ test.each(["el", "it"])(
     ).toBeInTheDocument();
     await user.click(dialog.getByRole("radio", { name: text.newCollection }));
     expect(dialog.getByLabelText(text.name)).toBeInTheDocument();
-    const languages = within(
-      dialog.getByRole("group", { name: text.collectionLanguages }),
-    );
-    expect(languages.getByLabelText(text.sourceLanguage)).toHaveValue("Greek");
-    expect(languages.getByLabelText(text.targetLanguage)).toHaveValue("Italian");
-    expect(languages.queryByText(text.sourceLanguage)).not.toBeInTheDocument();
-    expect(languages.queryByText(text.targetLanguage)).not.toBeInTheDocument();
+    const pair = dialog.getByRole("combobox", {
+      name: text.collectionLanguages,
+    });
+    expect(pair).toBeRequired();
+    expect(pair).toHaveValue("");
+    expect(pair.options).toHaveLength(7);
+    expect(
+      within(pair.closest("label")).getByText(text.choosePair),
+    ).toBeInTheDocument();
   },
 );
 
@@ -299,7 +352,7 @@ test("refreshes eligible destinations on open and uses the existing Collection I
   ).toBeEnabled();
 });
 
-test("new Collection languages keep positional field mapping and invalidate the preview when changed", async () => {
+test("new Collection pair is required, maps to positional languages and invalidates the preview when changed", async () => {
   const requests = [];
   server.use(
     http.post("*/api/imports/preview", async ({ request }) => {
@@ -310,7 +363,7 @@ test("new Collection languages keep positional field mapping and invalidate the 
       ];
       expect(await request.text()).toBe(sample);
       requests.push(direction);
-      if (direction[0] === "it") await delay(100);
+      if (direction[0] === "en") await delay(100);
       return HttpResponse.json(result);
     }),
   );
@@ -321,15 +374,17 @@ test("new Collection languages keep positional field mapping and invalidate the 
     dialog.getByRole("textbox", { name: "Collection name" }),
     "Lexi",
   );
-  const selections = within(
-    dialog.getByRole("group", { name: "Collection languages" }),
-  ).getAllByRole("combobox");
-  expect(selections.map((select) => select.value)).toEqual(["Greek", "Italian"]);
+  const pair = dialog.getByRole("combobox", {
+    name: "Collection languages",
+  });
+  expect(pair).toBeRequired();
+  expect(pair).toHaveValue("");
   await user.upload(dialog.getByLabelText("Choose CSV file"), file);
+  expect(dialog.getByRole("button", { name: copy.en.csvPreview })).toBeDisabled();
+  await user.selectOptions(pair, "el-it");
   await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
   await dialog.findByRole("button", { name: "Import 1 card into Lexi" });
-  await chooseLanguage(user, selections[1], "Greek", "Greek");
-  expect(selections.map((select) => select.value)).toEqual(["Italian", "Greek"]);
+  await user.selectOptions(pair, "da-en");
   expect(
     dialog.queryByRole("button", { name: "Import 1 card into Lexi" }),
   ).toBeNull();
@@ -339,7 +394,7 @@ test("new Collection languages keep positional field mapping and invalidate the 
   ).toBeEnabled();
   expect(requests).toEqual([
     ["el", "it"],
-    ["it", "el"],
+    ["en", "da"],
   ]);
 });
 
@@ -366,6 +421,10 @@ test("requires visibility, consent, and a matching token for public imports", as
   await user.type(
     dialog.getByRole("textbox", { name: "Collection name" }),
     "Public import",
+  );
+  await user.selectOptions(
+    dialog.getByRole("combobox", { name: "Collection languages" }),
+    "el-it",
   );
   await user.upload(dialog.getByLabelText("Choose CSV file"), file);
   await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));

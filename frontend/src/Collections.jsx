@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { request } from "./api.js";
 import { cardLanguageIds, cardText } from "./card-sides.js";
-import { samePair } from "./languages.js";
+import Import from "./Import.jsx";
+import { languageIds, samePair } from "./languages.js";
 import PublicationDialog from "./PublicationDialog.jsx";
 import {
   collectionCopy,
@@ -17,11 +18,13 @@ export default function Collections({
   onSelect,
   text,
   csrf,
+  onLocked,
   language,
 }) {
   const client = useQueryClient();
   const t = collectionCopy[language];
   const [mode, setMode] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [name, setName] = useState("");
   const [isPublic, setPublic] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -96,13 +99,28 @@ export default function Collections({
     else focusReturn.current?.focus();
   }
 
+  async function finishImport(collection) {
+    setImportOpen(false);
+    setNotice(t.savedCollection);
+    if (collection?.id) onSelect(collection.id);
+    await Promise.all(
+      [
+        "collections",
+        "collection-cards",
+        "collection-search",
+        "collection-progress",
+        "vocabulary",
+      ].map((key) => client.invalidateQueries({ queryKey: [key] })),
+    );
+    // Let a slow initial collections request settle before refetching.
+    await client.refetchQueries({ queryKey: ["collections"] });
+  }
+
   function save(event) {
     event.preventDefault();
     const title = name.trim();
     if (!title) return;
-    if (mode === "create") {
-      action.mutate({ body: { name: title, make_public: isPublic } });
-    } else if (isPublic !== (current.visibility === "published")) {
+    if (isPublic !== (current.visibility === "published")) {
       action.mutate({
         method: "GET",
         path: `/${current.id}/${isPublic ? "publish" : "unpublish"}-preview`,
@@ -170,9 +188,15 @@ export default function Collections({
             </select>
           </label>
           <button
+            type="button"
             className="secondary"
+            aria-haspopup="dialog"
             disabled={action.isPending}
-            onClick={(event) => open("create", event)}
+            onClick={(event) => {
+              focusReturn.current = event.currentTarget;
+              setNotice("");
+              setImportOpen(true);
+            }}
           >
             <Plus size={16} aria-hidden="true" /> {t.newCollection}
           </button>
@@ -187,9 +211,9 @@ export default function Collections({
           )}
         </div>
 
-        {(mode === "create" || (mode === "edit" && current)) && !preview && (
+        {mode === "edit" && current && !preview && (
           <form className="collection-panel-form" onSubmit={save}>
-            <h3>{mode === "create" ? t.newCollection : t.editCollection}</h3>
+            <h3>{t.editCollection}</h3>
             <label>
               {t.name}
               <input
@@ -298,6 +322,19 @@ export default function Collections({
           <p role="status">{action.isPending ? t.loading : notice}</p>
         )}
       </div>
+      {importOpen && (
+        <Import
+          text={text}
+          csrf={csrf}
+          onLocked={onLocked}
+          language={language}
+          languages={languageIds()}
+          initialMode="new"
+          onClose={() => setImportOpen(false)}
+          onCreated={finishImport}
+          onImported={(report) => finishImport(report?.destination_collection)}
+        />
+      )}
     </div>
   );
 }

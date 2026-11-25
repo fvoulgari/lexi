@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { request } from "./api.js";
 import { copy } from "./copy.js";
 import Import from "./Import.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
 import {
-  languageLabel,
   LEGACY_PAIR,
+  pairKey,
+  pairLabel,
   useLanguageRegistry,
 } from "./languages.js";
 import {
@@ -15,10 +17,6 @@ import {
   collectionOwner,
   isMyCollection,
 } from "./collection-copy.js";
-
-function pairKey(source, target) {
-  return [source, target].sort().join("-");
-}
 
 function availablePairs(collections) {
   const found = new Map();
@@ -34,27 +32,6 @@ function availablePairs(collections) {
   return [...found].map(([key, languages]) => ({ key, languages }));
 }
 
-function supportedPairs(ids = []) {
-  const available = ids.length ? ids : LEGACY_PAIR;
-  const priority = ["en", "el", "it"];
-  const order = [
-    ...priority.filter((code) => available.includes(code)),
-    ...available.filter((code) => !priority.includes(code)),
-  ];
-  const seen = new Set();
-  const options = [];
-  for (const source of order) {
-    for (const target of order) {
-      if (source === target) continue;
-      const key = pairKey(source, target);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      options.push({ key, languages: [source, target] });
-    }
-  }
-  return options;
-}
-
 export default function SharedCollections({ language = "en", csrf, onLocked }) {
   const t = collectionCopy[language];
   const registry = useLanguageRegistry();
@@ -62,9 +39,7 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
   const client = useQueryClient();
   const [tab, setTab] = useState("mine");
   const [pairFilter, setPairFilter] = useState("");
-  const [createPair, setCreatePair] = useState("");
-  const [name, setName] = useState("");
-  const [createPublic, setCreatePublic] = useState(false);
+  const [importMode, setImportMode] = useState(null);
   const [preview, setPreview] = useState(null);
   const [editor, setEditor] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -78,7 +53,6 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
   });
   const all = useMemo(() => list.data || [], [list.data]);
   const pairs = availablePairs(all);
-  const createPairs = useMemo(() => supportedPairs(languageIds), [languageIds]);
   const listed = all.filter(
     (c) =>
       (tab === "mine" ? isMyCollection(c) : c.visibility === "published") &&
@@ -123,10 +97,6 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
       setPreview(null);
   }, [all, preview]);
 
-  function pairLabel(languages) {
-    return languages.map((code) => languageLabel(code)).join(" ↔ ");
-  }
-
   function resetWorkspaces() {
     setPreview(null);
     setEditor(null);
@@ -144,6 +114,21 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
       (value) =>
         setPreview({ ...value, id: collection.id, unpublishing: !makePublic }),
     );
+  }
+
+  async function finishImport() {
+    setImportMode(null);
+    setImportCollection(null);
+    setTab("mine");
+    setNotice(t.savedCollection);
+    await Promise.all(
+      ["collections", "vocabulary", "progress"].map((key) =>
+        client.invalidateQueries({ queryKey: [key] }),
+      ),
+    );
+    // An initial collections request may still be in flight; refetch after it
+    // so a stale response cannot overwrite the newly created collection.
+    await list.refetch();
   }
 
   function visibilityControl(checked, onChange) {
@@ -170,8 +155,6 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
   }
 
   const previewCollection = preview && all.find((c) => c.id === preview.id);
-  const createPairKey =
-    createPair || pairFilter || pairs[0]?.key || pairKey(...LEGACY_PAIR);
 
   return (
     <section className="shared-collections">
@@ -366,66 +349,34 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
           </article>
         ))}
       </div>
-      <form
-        className="collection-box collection-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const [source, target] =
-            createPairs.find((pair) => pair.key === createPairKey)?.languages ||
-            LEGACY_PAIR;
-          act(
-            {
-              path: "/api/collections",
-              body: { name, source_language: source, target_language: target },
-            },
-            async (created) => {
-              setName("");
-              setCreatePublic(false);
-              setCreatePair("");
-              setTab("mine");
-              if (createPublic) await reviewVisibility(created, true);
-            },
-          );
-        }}
-      >
-        <label>
-          {t.name}
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            maxLength={160}
-          />
-        </label>
-        <label>
-          {t.collectionLanguages}
-          <select
-            aria-label={t.collectionLanguages}
-            value={createPairKey}
-            onChange={(e) => setCreatePair(e.target.value)}
-          >
-            {createPairs.map((pair) => (
-              <option value={pair.key} key={pair.key}>
-                {pairLabel(pair.languages)}
-              </option>
-            ))}
-          </select>
-        </label>
-        {visibilityControl(createPublic, setCreatePublic)}
-        <button className="primary" disabled={busy}>
-          {t.create}
+      <div className="collection-actions">
+        <button
+          type="button"
+          className="primary"
+          aria-haspopup="dialog"
+          onClick={() => {
+            resetWorkspaces();
+            setImportMode("new");
+          }}
+        >
+          <Plus size={16} aria-hidden="true" /> {t.create}
         </button>
-      </form>
-      {importCollection && (
+      </div>
+      {(importMode || importCollection) && (
         <Import
           text={copy[language]}
           csrf={csrf}
           language={language}
           languages={languageIds}
+          initialMode={importMode || "existing"}
           selectedCollection={importCollection}
           onLocked={onLocked}
-          onClose={() => setImportCollection(null)}
-          onImported={() => setImportCollection(null)}
+          onClose={() => {
+            setImportMode(null);
+            setImportCollection(null);
+          }}
+          onCreated={finishImport}
+          onImported={finishImport}
         />
       )}
       <PublicationDialog

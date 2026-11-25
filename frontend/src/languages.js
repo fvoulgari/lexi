@@ -115,6 +115,40 @@ export function isSupportedLanguage(code) {
   return registry().byId.has(code);
 }
 
+export function pairKey(source, target) {
+  return [source, target].sort().join("-");
+}
+
+/** Every unordered pair of available languages, in a stable order.
+ *
+ * Callers pass the IDs from `/api/languages`; `LEGACY_PAIR` is only a fallback
+ * for contexts where the registry has not loaded yet.
+ */
+export function supportedPairs(ids = []) {
+  const available = ids.length ? ids : [...LEGACY_PAIR];
+  const priority = ["en", "el", "it"];
+  const order = [
+    ...priority.filter((code) => available.includes(code)),
+    ...available.filter((code) => !priority.includes(code)),
+  ];
+  const seen = new Set();
+  const pairs = [];
+  for (const source of order) {
+    for (const target of order) {
+      if (source === target) continue;
+      const key = pairKey(source, target);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      pairs.push({ key, languages: [source, target] });
+    }
+  }
+  return pairs;
+}
+
+export function pairLabel(languages, label = languageLabel) {
+  return languages.map((code) => label(code)).join(" ↔ ");
+}
+
 export function samePair(first, second, otherFirst, otherSecond) {
   return (
     isSupportedLanguage(first) &&
