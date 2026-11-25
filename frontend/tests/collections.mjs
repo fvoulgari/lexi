@@ -91,14 +91,14 @@ try {
     await page
       .getByRole("button", { name: "Publish collection", exact: true })
       .click();
-    await page.getByRole("region", { name: "Confirm publication" }).waitFor();
+    await page.getByRole("dialog", { name: "Publish collection" }).waitFor();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: resolve(output, `publish-preview-${width}.png`),
       fullPage: true,
     });
     await page
-      .getByRole("button", { name: "Confirm publication", exact: true })
+      .getByRole("button", { name: "Publish", exact: true })
       .click();
     await page
       .getByRole("button", { name: "Unpublish collection", exact: true })

@@ -6,7 +6,7 @@ Lexi started with my Italian lessons. I wanted to practise my own vocabulary wit
 
 I built the first version with AI assistance, using React, FastAPI and PostgreSQL. AI helped me turn the idea into a specification and implement the foundation; I chose the stack, tested and reviewed the work, and refined the experience through everyday use.
 
-The current version supports **Italian ↔ Greek**, **English ↔ Danish**, **English ↔ Greek** and every other ordered pair from the supported languages, with a calm sage-green and cream interface designed for phones as well as desktop browsers. Standard Vocabulary card creation stays Italian–Greek; other pairs are created and edited in the Collections workspace.
+The current version supports every ordered pair of the six curated registry languages — Arabic, Danish, English, Greek, Italian and Japanese — including `it/el`, `en/da`, `ja/en`, `ar/en` and `ja/ar`, with a calm sage-green and cream interface designed for phones as well as desktop browsers. Standard Vocabulary card creation stays Italian–Greek; other pairs are created and edited in the Collections workspace.
 
 ## Features
 
@@ -34,7 +34,7 @@ Collections start private by default. Owners can publish or unpublish them. Publ
 
 See the [authentication guide](docs/authentication.md) and [Collections guide](docs/shareable-collections.md).
 
-Interface language is independent of the languages on the cards. Vocabulary card creation focuses on Italian and Greek, while the Collections workspace supports any ordered pair of Italian, Greek, English and Danish. Cards store their language IDs explicitly, so a compatible card can join several Collections and reversed pair order keeps the same text mapping. A populated Collection cannot change pair; practice direction can. Pronunciation is entered as text; automatic translation and generated speech are not included. See the [multilingual acceptance matrix](docs/multilingual-acceptance.md) and [Collections guide](docs/shareable-collections.md).
+Interface language is independent of the languages on the cards. Vocabulary card creation focuses on Italian and Greek, while the Collections workspace supports any ordered pair from the curated registry: Arabic, Danish, English, Greek, Italian and Japanese. The registry may also contain backend-supported rows that are deliberately not advertised; only rows marked publicly available appear in the searchable picker and `/api/languages`. Cards store their language IDs explicitly, so a compatible card can join several Collections and reversed pair order keeps the same text mapping. Italian and Greek have enhanced grammar definitions; the other four curated languages use common fields only. A populated Collection cannot change pair; practice direction can. Pronunciation is entered as text; automatic translation and generated speech are not included. See the [multilingual acceptance matrix](docs/multilingual-acceptance.md), [language-extension runbook](docs/language-extension-runbook.md) and [Collections guide](docs/shareable-collections.md).
 
 ## Technology
 
@@ -187,7 +187,7 @@ npm run test:pwa
 npm run test:mobile
 ```
 
-Tests cover authentication and CSRF, profile handling, vocabulary validation, CSV workflows, review retries, progress calculations and rendered UI interactions. Browser suites exercise installation/cache behavior, mobile navigation and the localized Collections/CSV journeys. The v1.4.0 rule-to-test mapping and rehearsal results are in the [acceptance matrix](docs/multilingual-acceptance.md) and [release readiness record](docs/v140-release-readiness.md).
+Tests cover authentication and CSRF, profile handling, vocabulary validation, CSV workflows, review retries, progress calculations and rendered UI interactions. Browser suites exercise installation/cache behavior, mobile navigation, the registry-backed language picker, RTL/non-Latin text and the localized Collections/CSV journeys. The rule-to-test mapping is in the [acceptance matrix](docs/multilingual-acceptance.md); final backend, frontend, browser and migration-rehearsal results are in the [language-architecture verification record](docs/language-architecture-verification.md).
 
 GitHub Actions runs application tests, lint/build checks and image-publication validation. The separate Playwright suites are not included in that workflow yet.
 
@@ -215,7 +215,9 @@ Successful `main` checks publish a SHA-tagged image. Stable version tags trigger
 - [Domain glossary](GLOSSARY.md)
 - [Architecture decisions](docs/adr/0001-railway-application-and-private-postgresql.md) ([ADR 0005: card text and grammar](docs/adr/0005-language-agnostic-card-text-and-grammar.md))
 - [Multilingual acceptance matrix](docs/multilingual-acceptance.md)
-- [v1.4.0 release readiness and rehearsal](docs/v140-release-readiness.md)
+- [Language-extension runbook](docs/language-extension-runbook.md)
+- [Final language-architecture verification](docs/language-architecture-verification.md)
+- [v1.4.0 work: readiness and local rehearsal](docs/v140-release-readiness.md)
 - [CSV format](docs/csv-format.md)
 - [Shareable Collections](docs/shareable-collections.md)
 - [Mixed-practice selection](docs/mixed-practice.md)

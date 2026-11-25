@@ -191,7 +191,7 @@ export default function VocabularyForm({
             setFocusRequest({ field: missing[0] });
             return;
           }
-          if (needsExposure && !confirmExposure) return;
+          if (!entry?.id && needsExposure && !confirmExposure) return;
           save.mutate();
         }}
       >
@@ -315,7 +315,7 @@ export default function VocabularyForm({
               disabled={
                 (!entry?.id &&
                   (collections.isPending || collections.isError)) ||
-                (needsExposure && !confirmExposure)
+                (!entry?.id && needsExposure && !confirmExposure)
               }
             >
               {save.isPending ? text.saving : text.saveEntry}

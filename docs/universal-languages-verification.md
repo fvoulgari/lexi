@@ -73,4 +73,6 @@ npm run test:rtl
 - Frontend: 327 tests passed; lint and production build clean.
 - Browser: PWA, mobile navigation, language picker, and RTL suites pass at 320/390/760px.
 
+These are the #121 results. The final #122 run records 328 frontend tests and the additional browser and migration-rehearsal evidence in [final language-architecture verification](language-architecture-verification.md).
+
 This change registers languages and makes CSV exchange registry-driven. It does not deploy, migrate production, create a release tag, or publish a release.

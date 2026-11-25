@@ -18,4 +18,4 @@ The database registry from ADR 0006 is the single source of truth for language m
 
 ## Consequences
 
-Language labels now come from registry `display_name` values rather than browser-localised names. Adding a basic language is a registry insert plus a curation decision; adding a picker or RTL rendering later consumes the same metadata without new hidden branches. The application requires the catalogue API at startup and falls back to the last cached response when offline.
+Language labels now come from registry `display_name` values rather than browser-localised names. Adding a basic language is a registry insert plus a curation decision, recorded in an idempotent data-only revision for existing databases; adding a picker or RTL rendering later consumes the same metadata without new hidden branches. The application requires the catalogue API at startup and falls back to the last cached response when offline.
