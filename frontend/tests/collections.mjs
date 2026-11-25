@@ -29,106 +29,112 @@ try {
       localStorage.setItem("notebook-language", "en"),
     );
     const page = await context.newPage();
-    const unitName = `Unit 1 ${width}-${randomUUID().slice(0, 4)}`;
-    const greetingsName = `Greetings ${width}-${randomUUID().slice(0, 4)}`;
+    const suffix = `${width}-${randomUUID().slice(0, 4)}`;
+    const first = `Unit 1 ${suffix}`;
+    const second = `Greetings ${suffix}`;
+    const renamed = `Renamed ${suffix}`;
+    const danish = `Danish ${suffix}`;
     await page.goto(`${origin}/collections`);
     await page
       .getByRole("heading", { name: "Collections", exact: true })
       .waitFor();
-    const create = async (name) => {
-      await page
+    const box = (name) =>
+      page
+        .locator(".collection-box")
+        .filter({ has: page.getByRole("heading", { name, exact: true }) });
+    const createForm = page.locator("form.collection-box.collection-form");
+    const create = async (name, pair) => {
+      await createForm
         .getByRole("textbox", { name: "Collection name", exact: true })
         .fill(name);
-      await page
+      if (pair)
+        await createForm
+          .getByRole("combobox", { name: "Collection languages", exact: true })
+          .selectOption({ label: pair });
+      await createForm
         .getByRole("button", { name: "Create collection", exact: true })
         .click();
-      await page
-        .locator(".collection-box")
-        .filter({ has: page.getByRole("heading", { name, exact: true }) })
-        .last()
-        .getByRole("button", { name: "Create card", exact: true })
-        .waitFor();
+      await box(name).waitFor();
     };
-    await create(unitName);
-    await page
-      .getByRole("button", { name: "Create card", exact: true })
-      .click();
-    await page
-      .getByRole("textbox", { name: "Greek", exact: true })
-      .fill("γεια");
-    await page
-      .getByRole("textbox", { name: "Italian", exact: true })
-      .fill("ciao");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Remove reference", exact: true })
-      .waitFor();
+    const edit = async (name) => {
+      const panel = box(name).locator("form.collection-form");
+      if ((await panel.count()) === 0)
+        await box(name)
+          .getByRole("button", { name: "Edit collection", exact: true })
+          .click();
+      return panel;
+    };
+    const visibleAs = (name, value) =>
+      box(name).locator("p").first().filter({ hasText: value }).waitFor();
+    const changeVisibility = async (name) => {
+      const panel = await edit(name);
+      await panel
+        .getByRole("switch", { name: "Collection visibility" })
+        .click();
+      const dialog = page.getByRole("dialog", {
+        name: /collection|unpublish/i,
+      });
+      await dialog.waitFor();
+      return dialog;
+    };
+
+    await create(first);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: resolve(output, `create-${width}.png`),
       fullPage: true,
     });
-    await create(greetingsName);
-    await page
-      .getByRole("button", { name: "Add existing card", exact: true })
-      .click();
-    await page
-      .getByRole("textbox", { name: "Search accessible cards" })
-      .fill("ciao");
-    await page
-      .locator(".collection-search li")
-      .filter({ hasText: "Private" })
-      .getByRole("button", { name: "Add", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Remove reference", exact: true })
-      .waitFor();
-    await page.evaluate(() => window.scrollTo(0, 0));
+    await create(second);
+    assert.equal(
+      await page
+        .getByRole("combobox", { name: "Language pair", exact: true })
+        .inputValue(),
+      "",
+    );
+
+    let panel = await edit(second);
+    await panel
+      .getByRole("textbox", { name: "Collection name", exact: true })
+      .fill(renamed);
+    await panel.getByRole("button", { name: "Save", exact: true }).click();
+    await box(renamed).waitFor();
     await page.screenshot({
-      path: resolve(output, `reuse-${width}.png`),
+      path: resolve(output, `rename-${width}.png`),
       fullPage: true,
     });
-    await page
-      .getByRole("button", { name: "Publish collection", exact: true })
-      .click();
-    await page.getByRole("region", { name: "Confirm publication" }).waitFor();
+
+    let dialog = await changeVisibility(renamed);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: resolve(output, `publish-preview-${width}.png`),
       fullPage: true,
     });
-    await page
-      .getByRole("button", { name: "Confirm publication", exact: true })
+    await dialog.getByRole("button", { name: "Publish", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    await visibleAs(renamed, "Public");
+
+    dialog = await changeVisibility(renamed);
+    await dialog
+      .getByRole("button", { name: "Confirm unpublishing", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Unpublish collection", exact: true })
-      .waitFor();
-    await page.getByLabel(`Select for practice: ${unitName}`).check();
-    await page.getByLabel(`Select for practice: ${greetingsName}`).check();
-    await page
-      .getByRole("combobox", { name: /^Practice direction/ })
-      .selectOption("italian_to_greek");
-    await page
-      .getByRole("button", { name: "Practise selected collections" })
-      .click();
-    await page.getByRole("heading", { name: "ciao", exact: true }).waitFor();
-    assert.match(await page.locator(".collection-box").innerText(), /1 \/ 1/);
-    await page.getByRole("button", { name: "Show answer" }).click();
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.screenshot({
-      path: resolve(output, `practice-${width}.png`),
-      fullPage: true,
+    await dialog.waitFor({ state: "hidden" });
+    await visibleAs(renamed, "Private");
+
+    await create(danish, "Greek ↔ Danish");
+    const filter = page.getByRole("combobox", {
+      name: "Language pair",
+      exact: true,
     });
-    await page.getByRole("button", { name: "Hard", exact: true }).click();
-    await page.getByRole("heading", { name: "Practice complete" }).waitFor();
-    await page.getByRole("button", { name: "Back to collections" }).click();
-    await page.getByLabel(`Select for practice: ${unitName}`).uncheck();
-    await page.getByLabel("Difficult cards only", { exact: true }).check();
-    await page
-      .getByRole("button", { name: "Practise selected collections" })
-      .click();
-    await page.getByRole("heading", { name: "ciao", exact: true }).waitFor();
-    await page.getByRole("button", { name: "Back to collections" }).click();
+    await filter.selectOption("da-el");
+    await box(danish).waitFor();
+    assert.equal(await box(first).count(), 0);
+    await filter.selectOption("");
+    await box(first).waitFor();
+
+    dialog = await changeVisibility(renamed);
+    await dialog.getByRole("button", { name: "Publish", exact: true }).click();
+    await dialog.waitFor({ state: "hidden" });
+    await visibleAs(renamed, "Public");
     await page
       .getByRole("button", { name: "Shared library", exact: true })
       .click();
@@ -143,6 +149,7 @@ try {
       ),
       true,
     );
+
     const other = await browser.newContext({
       viewport: { width, height: 1000 },
     });
@@ -156,29 +163,53 @@ try {
     await other.addInitScript(() =>
       localStorage.setItem("notebook-language", "en"),
     );
-    const second = await other.newPage();
-    await second.goto(`${origin}/collections`);
-    await second
+    const secondPage = await other.newPage();
+    await secondPage.goto(`${origin}/collections`);
+    await secondPage
       .getByRole("button", { name: "Shared library", exact: true })
       .click();
-    await second.getByLabel(`Select for practice: ${greetingsName}`).check();
-    await second
-      .getByRole("combobox", { name: /^Practice direction/ })
-      .selectOption("italian_to_greek");
-    await second.getByLabel("Difficult cards only", { exact: true }).check();
-    await second
-      .getByRole("button", { name: "Practise selected collections" })
-      .click();
-    await second.getByRole("alert").waitFor();
-    await second.getByLabel("Difficult cards only", { exact: true }).uncheck();
-    await second
-      .getByRole("button", { name: "Practise selected collections" })
-      .click();
-    await second.getByRole("heading", { name: "ciao", exact: true }).waitFor();
+    const shared = secondPage
+      .locator(".collection-box")
+      .filter({ has: secondPage.getByRole("heading", { name: renamed }) });
+    await shared.waitFor();
+    assert.equal(
+      await shared
+        .getByRole("button", { name: "Add to my collections", exact: true })
+        .count(),
+      1,
+    );
+    assert.equal(
+      await shared
+        .getByRole("button", { name: "Edit collection", exact: true })
+        .count(),
+      0,
+    );
     await other.close();
+
+    await page
+      .getByRole("button", { name: "My collections", exact: true })
+      .click();
+    panel = await edit(first);
+    await panel
+      .getByRole("button", { name: "Delete collection", exact: true })
+      .click();
+    const confirm = page.getByRole("dialog", {
+      name: `Delete collection · ${first}`,
+    });
+    const deletion = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname.startsWith("/api/collections/") &&
+        response.request().method() === "DELETE",
+    );
+    await confirm
+      .getByRole("button", { name: "Yes, delete collection" })
+      .click();
+    await deletion;
+    await box(first).waitFor({ state: "detached" });
+
     await context.close();
     console.log(
-      `PASS ${width}px: create, reuse, publication preview, discover, combined deduplication, shared difficulty and two-user isolation`,
+      `PASS ${width}px: create, rename, publish/unpublish, pair filter, discover, read-only isolation and confirmed delete`,
     );
   }
 } finally {

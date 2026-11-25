@@ -2288,7 +2288,7 @@ button:disabled {
 .collection-box h3 {
   overflow-wrap: anywhere;
 }
-.collection-pair,
+.collection-filter,
 .collection-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2296,12 +2296,8 @@ button:disabled {
   gap: 0.75rem;
   margin: 1rem 0;
 }
-.collection-pair {
-  border: 0;
-  padding: 0;
-}
-.collection-pair select {
-  min-width: 9rem;
+.collection-filter select {
+  min-width: 12rem;
 }
 .collection-actions button {
   min-height: 44px;
@@ -2329,13 +2325,9 @@ button:disabled {
   align-items: end;
 }
 .shared-collections .collection-form label,
-.collection-search > label,
-.collection-practice > label {
+.shared-collections .collection-filter {
   display: grid;
   gap: 0.4rem;
-}
-.collection-practice > label {
-  margin: 0.8rem 0;
 }
 .publication-preview {
   background: #eef1e5;
@@ -2372,19 +2364,6 @@ button:disabled {
 }
 .publication-actions { justify-content: flex-end; }
 .publication-actions button { min-height: 44px; }
-.collection-open-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 9px 13px;
-  border: 1px solid #cad9c6;
-  border-radius: 10px;
-  background: #fffdf8;
-  color: inherit;
-}
-.collection-open-link[aria-disabled="true"] { opacity: 0.55; pointer-events: none; }
-.collection-open-link:focus-visible { outline: 2px solid #405b43; outline-offset: 2px; }
 .collection-unavailable {
   margin: 1rem 0;
   padding: 1rem;
@@ -2412,10 +2391,7 @@ button:disabled {
   .collection-actions > button {
     flex: 1 1 100%;
   }
-  .collection-pair > label {
-    flex: 1 1 100%;
-  }
-  .collection-pair select {
+  .shared-collections .collection-filter select {
     width: 100%;
   }
 }
@@ -2427,8 +2403,8 @@ button:disabled {
 .shared-collections button[aria-pressed="true"] { background: #e8eddf; border-color: #526e52; }
 .shared-collections input:not([type="checkbox"]), .shared-collections select { border: 1px solid #cad9c6; border-radius: 10px; background: #fffdf8; padding: 10px 12px; min-height: 44px; }
 .shared-collections input[type="checkbox"] { accent-color: #526e52; }
-.collection-practice > label:has(input[type="checkbox"]) { display: flex; }
 .collection-search li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.shared-collections button.danger { border-color: #b4675a; color: #8d3c31; }
 
 /* Collection audience is separate from card editing. */
 .card-collection-choice {

@@ -51,9 +51,13 @@ try {
     const a = await user(width),
       b = await user(width);
     const page = await a.newPage();
-    const name = `Review ${width}-${randomUUID().slice(0, 6)}`;
+    const label = randomUUID().slice(0, 6);
+    const name = `Review ${width}-${label}`;
+    const source = `ciao-${label}`;
+    const target = `γεια-${label}`;
     await page.goto(origin + "/collections");
-    await page
+    const createForm = page.locator("form.collection-box.collection-form");
+    await createForm
       .getByRole("textbox", { name: "Collection name", exact: true })
       .fill(name);
     const creation = page.waitForResponse(
@@ -61,37 +65,36 @@ try {
         new URL(r.url()).pathname === "/api/collections" &&
         r.request().method() === "POST",
     );
-    await page
+    await createForm
       .getByRole("button", { name: "Create collection", exact: true })
       .click();
     const collection = await (await creation).json();
-    await page
-      .getByRole("button", { name: "Create card", exact: true })
-      .click();
-    await page
-      .getByRole("textbox", { name: "Italian", exact: true })
-      .fill("ciao");
-    await page
-      .getByRole("textbox", { name: "Greek", exact: true })
-      .fill("γεια");
-    const creationCard = page.waitForResponse(
-      (r) =>
-        new URL(r.url()).pathname.endsWith("/cards") &&
-        r.request().method() === "POST",
-    );
-    await page.getByRole("button", { name: "Save", exact: true }).click();
-    const entry = await (await creationCard).json();
+    const entry = await api(a, `/api/collections/${collection.id}/cards`, {
+      source_text: source,
+      target_text: target,
+      source_language: "it",
+      target_language: "el",
+    });
     assert.equal(entry.source_language, "it");
-    assert.equal(entry.source_text, "ciao");
-    await page
-      .getByRole("button", { name: "Publish collection", exact: true })
+    assert.equal(entry.source_text, source);
+    const panel = page
+      .locator("article.collection-box")
+      .filter({ has: page.getByRole("heading", { name, exact: true }) });
+    const visibleAs = (value) =>
+      panel.locator("p").first().filter({ hasText: value }).waitFor();
+    await panel
+      .getByRole("button", { name: "Edit collection", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Confirm publication", exact: true })
+    await panel.getByRole("switch", { name: "Collection visibility" }).click();
+    const publishDialog = page.getByRole("dialog", {
+      name: "Publish collection",
+      exact: true,
+    });
+    await publishDialog
+      .getByRole("button", { name: "Publish", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Unpublish collection", exact: true })
-      .waitFor();
+    await publishDialog.waitFor({ state: "hidden" });
+    await visibleAs("Public");
     const another = await api(a, "/api/collections", {
       name: `Second ${name}`,
     });
@@ -101,23 +104,27 @@ try {
     await publish(a, another.id);
 
     await page.goto(origin + "/vocabulary");
-    await page.locator(".collection-panel summary").click();
-    await page.locator(".collection-panel select").selectOption(collection.id);
+    await page
+      .getByRole("combobox", { name: "Collection", exact: true })
+      .selectOption(collection.id);
     await page
       .locator('.entry-card h2[lang="it"]')
-      .filter({ hasText: /^ciao$/ })
+      .filter({ hasText: source })
       .waitFor();
     assert.equal(
       await page.locator('.entry-card p[lang="el"]').innerText(),
-      "γεια",
+      target,
     );
     const csv = await a.request.get(origin + "/api/vocabulary/export.csv");
-    assert.match(await csv.text(), /"ciao","γεια"/);
+    assert.ok((await csv.text()).includes(`"${source}","${target}"`));
     await page
-      .getByRole("button", { name: "Card actions: ciao", exact: true })
+      .getByRole("combobox", { name: "Collection", exact: true })
+      .selectOption("");
+    await page
+      .getByRole("button", { name: `Card actions: ${source}`, exact: true })
       .click();
     await page
-      .getByRole("menuitem", { name: "Edit card: ciao", exact: true })
+      .getByRole("menuitem", { name: `Edit card: ${source}`, exact: true })
       .click();
     const save = page.waitForResponse(
       (r) =>
@@ -128,6 +135,14 @@ try {
     assert.equal((await save).status(), 200);
 
     await page.goto(origin + "/practice?direction=italian_to_greek");
+    await page
+      .locator("label.setup-option")
+      .filter({ hasText: "With filters" })
+      .click();
+    await page
+      .getByRole("group", { name: "Collections", exact: true })
+      .getByRole("checkbox", { name, exact: true })
+      .check();
     const queued = page.waitForResponse(
       (r) =>
         new URL(r.url()).pathname === "/api/sessions" &&
@@ -139,8 +154,8 @@ try {
     const legacyQueue = await (await queued).json();
     assert.ok(legacyQueue.cards.some((c) => c.entry_id === entry.id));
     for (const [direction, prompt, answer] of [
-      ["italian_to_greek", "ciao", "γεια"],
-      ["greek_to_italian", "γεια", "ciao"],
+      ["italian_to_greek", source, target],
+      ["greek_to_italian", target, source],
     ]) {
       await page
         .getByLabel("Learning direction", { exact: true })
@@ -153,36 +168,6 @@ try {
       path: resolve(output, `legacy-practice-${width}.png`),
       fullPage: true,
     });
-
-    await page.goto(origin + "/collections");
-    await page
-      .getByLabel(`Select for practice: ${name}`, { exact: true })
-      .check();
-    for (const [direction, prompt, answer] of [
-      ["greek_to_italian", "γεια", "ciao"],
-      ["italian_to_greek", "ciao", "γεια"],
-    ]) {
-      await page
-        .getByRole("combobox", { name: /^Practice direction/ })
-        .selectOption(direction);
-      await page
-        .getByRole("button", {
-          name: "Practise selected collections",
-          exact: true,
-        })
-        .click();
-      await page.getByRole("heading", { name: prompt, exact: true }).waitFor();
-      await page
-        .getByRole("button", { name: "Show answer", exact: true })
-        .click();
-      assert.equal(
-        await page.locator(".collection-answer").innerText(),
-        answer,
-      );
-      await page
-        .getByRole("button", { name: "Back to collections", exact: true })
-        .click();
-    }
 
     const accountB = (await api(b, "/api/auth/session", undefined, "GET"))
       .account;
@@ -206,27 +191,26 @@ try {
       direction: "italian_to_greek",
       rating: "hard",
     });
-    const panel = page
-      .locator("article.collection-box")
-      .filter({ has: page.getByRole("heading", { name, exact: true }) });
-    await panel.getByRole("button", { name: "Open", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Unpublish collection", exact: true })
+    await page.goto(origin + "/collections");
+    await panel
+      .getByRole("button", { name: "Edit collection", exact: true })
       .click();
-    await page
-      .getByRole("region", { name: "Confirm unpublishing", exact: true })
-      .waitFor();
+    await panel.getByRole("switch", { name: "Collection visibility" }).click();
+    const unpublishDialog = page.getByRole("dialog", {
+      name: "Confirm unpublishing",
+      exact: true,
+    });
+    await unpublishDialog.waitFor();
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({
       path: resolve(output, `unpublish-preview-${width}.png`),
       fullPage: true,
     });
-    await page
+    await unpublishDialog
       .getByRole("button", { name: "Confirm unpublishing", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Publish collection", exact: true })
-      .waitFor();
+    await unpublishDialog.waitFor({ state: "hidden" });
+    await visibleAs("Private");
     assert.equal(
       (await b.request.get(origin + `/api/vocabulary/${entry.id}`)).status(),
       200,
@@ -256,7 +240,7 @@ try {
     await a.close();
     await b.close();
     console.log(
-      `PASS ${width}px: workspace → Vocabulary/CSV → both practice screens/directions; owner edit; grant withdrawal and restored difficulty`,
+      `PASS ${width}px: workspace → Vocabulary/CSV → legacy practice/directions; owner edit; grant withdrawal and restored difficulty`,
     );
   }
 } finally {

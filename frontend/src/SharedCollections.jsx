@@ -1,120 +1,86 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { request } from "./api.js";
 import { copy } from "./copy.js";
 import Import from "./Import.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
-import { useAccount } from "./AccountContext.jsx";
-import {
-  cardLanguageIds,
-  cardLanguages,
-  cardText,
-  practiceSides,
-} from "./card-sides.js";
-import {
-  directionLanguages,
-  directionLabel,
-  LANGUAGES,
-  LEGACY_PAIR,
-  pairDirections,
-  samePair,
-} from "./languages.js";
 import {
   collectionCopy,
   collectionOwner,
   isMyCollection,
 } from "./collection-copy.js";
+import { LANGUAGES, LEGACY_PAIR } from "./languages.js";
 
-function initialPair() {
-  const requested = new URLSearchParams(window.location.search).get(
-    "direction",
-  );
-  if (requested) {
-    try {
-      const languages = directionLanguages(requested);
-      if (languages.every((code) => LANGUAGES.includes(code))) return languages;
-    } catch {
-      /* Fall back to the legacy pair below. */
-    }
-  }
-  return [...LEGACY_PAIR];
+function pairKey(source, target) {
+  return [source, target].sort().join("-");
 }
 
-export default function SharedCollections({
-  language = "en",
-  csrf,
-  onLocked = () => {},
-}) {
+function availablePairs(collections) {
+  const found = new Map();
+  for (const collection of collections) {
+    const { source_language: source, target_language: target } = collection;
+    if (!source || !target || source === target) continue;
+    const key = pairKey(source, target);
+    if (!found.has(key)) found.set(key, [source, target]);
+  }
+  if (!found.size) {
+    found.set(pairKey(...LEGACY_PAIR), [...LEGACY_PAIR]);
+  }
+  return [...found].map(([key, languages]) => ({ key, languages }));
+}
+
+const PAIR_ORDER = [
+  "en",
+  "el",
+  "it",
+  ...LANGUAGES.filter((code) => !["en", "el", "it"].includes(code)),
+];
+
+function supportedPairs() {
+  const seen = new Set();
+  const options = [];
+  for (const source of PAIR_ORDER) {
+    for (const target of PAIR_ORDER) {
+      if (source === target) continue;
+      const key = pairKey(source, target);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      options.push({ key, languages: [source, target] });
+    }
+  }
+  return options;
+}
+
+export default function SharedCollections({ language = "en", csrf, onLocked }) {
   const t = collectionCopy[language];
   const names = new Intl.DisplayNames([language], { type: "language" });
   const client = useQueryClient();
-  const account = useAccount();
-  const [pair, setPair] = useState(initialPair);
   const [tab, setTab] = useState("mine");
-  const [selected, setSelected] = useState("");
-  const [chosen, setChosen] = useState([]);
+  const [pairFilter, setPairFilter] = useState("");
+  const [createPair, setCreatePair] = useState("");
   const [name, setName] = useState("");
   const [createPublic, setCreatePublic] = useState(false);
-  const [search, setSearch] = useState("");
   const [preview, setPreview] = useState(null);
-  const [pendingAdd, setPendingAdd] = useState(null);
   const [editor, setEditor] = useState(null);
-  const [importOpen, setImportOpen] = useState(false);
-  const [session, setSession] = useState(null);
-  const [position, setPosition] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [reverse, setReverse] = useState(false);
-  const [difficult, setDifficult] = useState(
-    () =>
-      new URLSearchParams(window.location.search).get("mode") === "difficult",
-  );
-  const directions = pairDirections(pair[0], pair[1]);
-  const direction = reverse ? directions[1] : directions[0];
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [importCollection, setImportCollection] = useState(null);
+  const [notice, setNotice] = useState("");
+
   const list = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
     refetchOnWindowFocus: "always",
   });
-  const collections = (list.data || []).filter((c) =>
-    samePair(c.source_language, c.target_language, pair[0], pair[1]),
+  const all = useMemo(() => list.data || [], [list.data]);
+  const pairs = availablePairs(all);
+  const createPairs = useMemo(supportedPairs, []);
+  const listed = all.filter(
+    (c) =>
+      (tab === "mine" ? isMyCollection(c) : c.visibility === "published") &&
+      (!pairFilter ||
+        pairKey(c.source_language, c.target_language) === pairFilter),
   );
-  const listed = collections.filter((c) =>
-    tab === "mine" ? isMyCollection(c) : c.visibility === "published",
-  );
-  const current = listed.find((c) => c.id === selected);
-  useEffect(() => {
-    if (!preview || !current) return;
-    if (
-      preview.id !== current.id ||
-      preview.card_count !== current.card_count ||
-      preview.visibility !== current.visibility
-    )
-      setPreview(null);
-  }, [current, preview]);
-  const availableChosen = chosen.filter((id) =>
-    collections.some((c) => c.id === id),
-  );
-  const entries = useQuery({
-    queryKey: ["collection-cards", selected],
-    queryFn: () => request(`/api/collections/${selected}/entries`),
-    enabled: !!current,
-  });
-  const readableEntries = entries.isError ? undefined : entries.data;
-  const results = useQuery({
-    queryKey: ["collection-search", selected, search],
-    queryFn: () =>
-      request(
-        `/api/collections/${selected}/search?q=${encodeURIComponent(search)}`,
-      ),
-    enabled: !!current?.can_edit,
-  });
-  const progress = useQuery({
-    queryKey: ["collection-progress", selected, direction],
-    queryFn: () =>
-      request(`/api/collections/${selected}/progress?direction=${direction}`),
-    enabled: !!current,
-  });
   const write = useMutation({
     mutationFn: ({ path, method = "POST", body }) =>
       request(path, {
@@ -124,100 +90,58 @@ export default function SharedCollections({
       }),
     onSuccess: async () => {
       await Promise.all(
-        [
-          "collections",
-          "collection-cards",
-          "collection-search",
-          "collection-progress",
-          "vocabulary",
-          "progress",
-        ].map((key) => client.invalidateQueries({ queryKey: [key] })),
+        ["collections", "vocabulary", "progress"].map((key) =>
+          client.invalidateQueries({ queryKey: [key] }),
+        ),
       );
     },
   });
+  const busy = write.isPending;
+
   async function act(action, after) {
     try {
       const result = await write.mutateAsync(action);
       after?.(result);
-    } catch (error) {
-      if (session && error.code === "entry_deleted") {
-        try {
-          const fresh = await request(`/api/sessions/${session.id}`);
-          setSession(fresh);
-          setRevealed(false);
-        } catch {
-          /* Keep the failed mutation visible and allow leaving practice. */
-        }
-      }
+      return true;
+    } catch {
+      return false;
     }
   }
-  const base = `/api/collections/${selected}`;
-  const pairLabel = pair.map((code) => names.of(code)).join(" – ");
-  function cardWords(card) {
-    const [source, target] = cardLanguageIds(card);
-    return (
-      <>
-        <span lang={source}>{cardText(card, source)}</span> —{" "}
-        <span lang={target}>{cardText(card, target)}</span>
-      </>
-    );
+
+  useEffect(() => {
+    if (!preview) return;
+    const current = all.find((c) => c.id === preview.id);
+    if (
+      current &&
+      (current.card_count !== preview.card_count ||
+        current.visibility !== preview.visibility)
+    )
+      setPreview(null);
+  }, [all, preview]);
+
+  function pairLabel(languages) {
+    return languages.map((code) => names.of(code)).join(" ↔ ");
   }
-  const queueCard = session?.cards[position];
-  const sides = queueCard?.snapshot
-    ? practiceSides(queueCard.snapshot, direction)
-    : null;
-  const sideLanguages = directionLanguages(direction);
-  async function start() {
-    await act(
-      {
-        path: "/api/sessions",
-        body: {
-          profile_id: account.profile_id,
-          collection_ids: availableChosen,
-          direction,
-          mode: difficult ? "difficult" : "random",
-          size: null,
-        },
-      },
-      (value) => {
-        setSession(value);
-        setPosition(0);
-        setRevealed(false);
-      },
-    );
-  }
-  function changePair(index, value) {
-    const next = [...pair];
-    next[index] = value;
-    setPair(next);
-    setSelected("");
-    setChosen([]);
+
+  function resetWorkspaces() {
     setPreview(null);
     setEditor(null);
-    setPendingAdd(null);
+    setConfirmDelete(null);
+    setImportCollection(null);
     write.reset();
   }
-  async function move(index, offset) {
-    const order = entries.data.map((e) => e.id);
-    [order[index], order[index + offset]] = [
-      order[index + offset],
-      order[index],
-    ];
-    await act({
-      path: `${base}/order`,
-      method: "PUT",
-      body: { entry_ids: order },
-    });
-  }
+
   async function reviewVisibility(collection, makePublic) {
     await act(
       {
         path: `/api/collections/${collection.id}/${makePublic ? "publish-preview" : "unpublish-preview"}`,
         method: "GET",
       },
-      (value) => setPreview({ ...value, unpublishing: !makePublic }),
+      (value) =>
+        setPreview({ ...value, id: collection.id, unpublishing: !makePublic }),
     );
   }
+
   function visibilityControl(checked, onChange) {
     return (
       <label className="collection-visibility-control">
@@ -235,7 +159,16 @@ export default function SharedCollections({
       </label>
     );
   }
-  const busy = write.isPending;
+
+  function changePairFilter(value) {
+    setPairFilter(value);
+    resetWorkspaces();
+  }
+
+  const previewCollection = preview && all.find((c) => c.id === preview.id);
+  const createPairKey =
+    createPair || pairFilter || pairs[0]?.key || pairKey(...LEGACY_PAIR);
+
   return (
     <section className="shared-collections">
       <h1>{t.title}</h1>
@@ -247,731 +180,281 @@ export default function SharedCollections({
             ? "Vocabolario"
             : "Vocabulary"}
       </Link>
-      {write.isError && (
-        <p role="alert" className="error">
-          {write.error?.code === "no_difficult_entries"
-            ? t.noDifficult
-            : t.error}
+      {notice && (
+        <p role="status" className="notice">
+          {notice}
         </p>
       )}
-      {session ? (
-        <div className="collection-box" aria-live="polite">
-          <h2>{pairLabel}</h2>
-          {queueCard ? (
-            queueCard.snapshot ? (
-              <>
-                <p>
-                  {position + 1} / {session.cards.length}
-                </p>
-                <h3 lang={sideLanguages[0]}>{sides.prompt}</h3>
-                {revealed ? (
-                  <>
-                    <p className="collection-answer" lang={sideLanguages[1]}>
-                      {sides.answer}
-                    </p>
-                    <div className="collection-actions">
-                      {["again", "hard", "easy"].map((rating) => (
-                        <button
-                          key={rating}
-                          disabled={busy}
-                          onClick={() =>
-                            act(
-                              {
-                                path: `/api/sessions/${session.id}/cards/${queueCard.position}/reviews`,
-                                body: { direction, rating },
-                              },
-                              () => {
-                                setPosition((p) => p + 1);
-                                setRevealed(false);
-                              },
-                            )
-                          }
-                        >
-                          {t[rating]}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
+      {write.isError && (
+        <p role="alert" className="error">
+          {t.error}
+        </p>
+      )}
+      <label className="collection-filter">
+        {t.pair}
+        <select
+          value={pairFilter}
+          onChange={(e) => changePairFilter(e.target.value)}
+        >
+          <option value="">{t.allPairs}</option>
+          {pairs.map((pair) => (
+            <option value={pair.key} key={pair.key}>
+              {pairLabel(pair.languages)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="collection-actions">
+        {["mine", "discover"].map((key) => (
+          <button
+            key={key}
+            aria-pressed={tab === key}
+            onClick={() => setTab(key)}
+          >
+            {t[key]}
+          </button>
+        ))}
+      </div>
+      {list.isPending && <p role="status">{t.loading}</p>}
+      {list.isError && (
+        <p role="alert">
+          {t.error} <button onClick={() => list.refetch()}>{t.retry}</button>
+        </p>
+      )}
+      <div className="collection-grid">
+        {listed.map((c) => (
+          <article className="collection-box" key={c.id}>
+            <h2>{c.name}</h2>
+            <p>
+              {pairLabel([c.source_language, c.target_language])} ·{" "}
+              {c.card_count} {t.cards} · {t[c.visibility]}
+            </p>
+            <div className="collection-owner">
+              {c.saved && <span className="audience-badge">{t.saved}</span>}
+              {c.owner_name && <small>{collectionOwner(c, t)}</small>}
+            </div>
+            <div className="collection-actions">
+              {c.can_edit !== false ? (
+                <button
+                  type="button"
+                  aria-pressed={editor?.id === c.id}
+                  disabled={busy}
+                  onClick={() => {
+                    resetWorkspaces();
+                    setEditor((open) =>
+                      open?.id === c.id ? null : { id: c.id, name: c.name },
+                    );
+                  }}
+                >
+                  {t.editCollection}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    act({
+                      path: `/api/collections/${c.id}/saved`,
+                      method: c.saved ? "DELETE" : "PUT",
+                    })
+                  }
+                >
+                  {c.saved ? t.removeReference : t.saveReference}
+                </button>
+              )}
+            </div>
+            {editor?.id === c.id && (
+              <form
+                className="collection-form publication-preview"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  act(
+                    {
+                      path: `/api/collections/${c.id}`,
+                      method: "PATCH",
+                      body: {
+                        name: editor.name,
+                        source_language: c.source_language,
+                        target_language: c.target_language,
+                      },
+                    },
+                    () => setEditor(null),
+                  );
+                }}
+              >
+                <h3>{t.editCollection}</h3>
+                {visibilityControl(c.visibility === "published", (value) =>
+                  reviewVisibility(c, value),
+                )}
+                {c.can_publish === false && (
+                  <p role="note">{t.publishNotAllowed}</p>
+                )}
+                <label>
+                  {t.name}
+                  <input
+                    required
+                    maxLength={160}
+                    value={editor.name}
+                    onChange={(e) =>
+                      setEditor({ ...editor, name: e.target.value })
+                    }
+                  />
+                </label>
+                <div className="collection-actions">
+                  <button className="primary" disabled={busy}>
+                    {t.save}
+                  </button>
+                  <button type="button" onClick={() => setEditor(null)}>
+                    {t.cancel}
+                  </button>
                   <button
-                    className="primary"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setImportCollection(c)}
+                  >
+                    {t.toolsImport}
+                  </button>
+                  <button
+                    type="button"
+                    className="danger"
+                    disabled={busy}
+                    onClick={() => setConfirmDelete(c)}
+                  >
+                    {t.deleteCollection}
+                  </button>
+                </div>
+              </form>
+            )}
+            {confirmDelete?.id === c.id && (
+              <div
+                className="publication-preview"
+                role="dialog"
+                aria-labelledby={`delete-collection-${c.id}`}
+              >
+                <h3 id={`delete-collection-${c.id}`}>
+                  {t.deleteCollection} · {c.name}
+                </h3>
+                <p>{t.deleteEffect}</p>
+                <div className="collection-actions">
+                  <button
+                    type="button"
+                    className="danger"
                     disabled={busy}
                     onClick={() =>
                       act(
-                        {
-                          path: `/api/sessions/${session.id}/cards/${queueCard.position}/reveal`,
-                          body: { direction },
+                        { path: `/api/collections/${c.id}`, method: "DELETE" },
+                        () => {
+                          setConfirmDelete(null);
+                          setEditor(null);
+                          setNotice(t.deletedCollection);
                         },
-                        () => setRevealed(true),
                       )
                     }
                   >
-                    {t.reveal}
+                    {t.confirmDelete}
                   </button>
-                )}
-              </>
-            ) : (
-              <button onClick={() => setPosition((p) => p + 1)}>
-                {t.skipUnavailable}
-              </button>
-            )
-          ) : (
-            <h3>{t.complete}</h3>
-          )}
-          <button onClick={() => setSession(null)}>{t.back}</button>
-        </div>
-      ) : (
-        <>
-          <fieldset className="collection-pair">
-            <legend>{t.pair}</legend>
-            {pair.map((value, i) => (
-              <label key={i}>
-                <span className="sr-only">
-                  {t.pair} {i + 1}
-                </span>
-                <select
-                  disabled={busy}
-                  value={value}
-                  onChange={(e) => changePair(i, e.target.value)}
-                >
-                  {LANGUAGES.filter((code) => code !== pair[1 - i]).map(
-                    (code) => (
-                      <option value={code} key={code}>
-                        {names.of(code)}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
-            ))}
-          </fieldset>
-          <div className="collection-actions">
-            {["mine", "discover"].map((key) => (
-              <button
-                key={key}
-                aria-pressed={tab === key}
-                onClick={() => setTab(key)}
-              >
-                {t[key]}
-              </button>
-            ))}
-          </div>
-          {list.isPending && <p role="status">{t.loading}</p>}
-          {list.isError && (
-            <p role="alert">
-              {t.error}{" "}
-              <button onClick={() => list.refetch()}>{t.retry}</button>
-            </p>
-          )}
-          <div className="collection-grid">
-            {listed.map((c) => (
-              <article className="collection-box" key={c.id}>
-                <h2>{c.name}</h2>
-                <p>
-                  {pairLabel} · {c.card_count} {t.cards} · {t[c.visibility]}
-                </p>
-                <div className="collection-owner">
-                  {c.saved && <span className="audience-badge">{t.saved}</span>}
-                  {c.owner_name && <small>{collectionOwner(c, t)}</small>}
-                </div>
-                <div className="collection-actions">
-                  <Link
-                    className="collection-open-link"
-                    to={`/vocabulary?collection_id=${encodeURIComponent(c.id)}`}
-                    aria-disabled={busy}
-                    onClick={(event) => {
-                      if (busy) {
-                        event.preventDefault();
-                        return;
-                      }
-                      setPreview(null);
-                      setPendingAdd(null);
-                      setEditor(null);
-                      write.reset();
-                    }}
-                  >
-                    {t.open}
-                  </Link>
-                  <button
-                    type="button"
-                    aria-pressed={selected === c.id}
-                    disabled={busy}
-                    onClick={() => {
-                      setSelected(c.id);
-                      setPreview(null);
-                      setPendingAdd(null);
-                      setEditor(null);
-                      write.reset();
-                    }}
-                  >
-                    {t.details}
+                  <button type="button" onClick={() => setConfirmDelete(null)}>
+                    {t.cancel}
                   </button>
-                  {!c.can_edit && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() =>
-                        act(
-                          {
-                            path: `/api/collections/${c.id}/saved`,
-                            method: c.saved ? "DELETE" : "PUT",
-                          },
-                          () => {
-                            if (c.saved)
-                              setChosen((ids) =>
-                                ids.filter((id) => id !== c.id),
-                              );
-                          },
-                        )
-                      }
-                    >
-                      {c.saved ? t.removeReference : t.saveReference}
-                    </button>
-                  )}
-                  <label>
-                    <input
-                      type="checkbox"
-                      aria-label={`${t.selected}: ${c.name}`}
-                      checked={chosen.includes(c.id)}
-                      onChange={(e) =>
-                        setChosen((ids) =>
-                          e.target.checked
-                            ? [...ids, c.id]
-                            : ids.filter((id) => id !== c.id),
-                        )
-                      }
-                    />
-                    {t.selected}
-                  </label>
                 </div>
-              </article>
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+      <form
+        className="collection-box collection-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const [source, target] =
+            createPairs.find((pair) => pair.key === createPairKey)?.languages ||
+            LEGACY_PAIR;
+          act(
+            {
+              path: "/api/collections",
+              body: { name, source_language: source, target_language: target },
+            },
+            async (created) => {
+              setName("");
+              setCreatePublic(false);
+              setCreatePair("");
+              setTab("mine");
+              if (createPublic) await reviewVisibility(created, true);
+            },
+          );
+        }}
+      >
+        <label>
+          {t.name}
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={160}
+          />
+        </label>
+        <label>
+          {t.collectionLanguages}
+          <select
+            aria-label={t.collectionLanguages}
+            value={createPairKey}
+            onChange={(e) => setCreatePair(e.target.value)}
+          >
+            {createPairs.map((pair) => (
+              <option value={pair.key} key={pair.key}>
+                {pairLabel(pair.languages)}
+              </option>
             ))}
-          </div>
-          <form
-            className="collection-box collection-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              act(
-                {
-                  path: "/api/collections",
+          </select>
+        </label>
+        {visibilityControl(createPublic, setCreatePublic)}
+        <button className="primary" disabled={busy}>
+          {t.create}
+        </button>
+      </form>
+      {importCollection && (
+        <Import
+          text={copy[language]}
+          csrf={csrf}
+          language={language}
+          languages={LANGUAGES}
+          selectedCollection={importCollection}
+          onLocked={onLocked}
+          onClose={() => setImportCollection(null)}
+          onImported={() => setImportCollection(null)}
+        />
+      )}
+      <PublicationDialog
+        open={Boolean(preview)}
+        title={preview?.unpublishing ? t.confirmUnpublish : t.publicationTitle}
+        name={preview?.name || ""}
+        cardCount={preview?.card_count ?? previewCollection?.card_count ?? 0}
+        cardsLabel={t.cards}
+        explanation={
+          preview?.unpublishing ? t.unpublishExposure : t.publicationExplanation
+        }
+        confirmLabel={
+          preview?.unpublishing ? t.confirmUnpublish : t.publishAction
+        }
+        cancelLabel={t.cancel}
+        busy={busy}
+        onCancel={() => setPreview(null)}
+        onConfirm={() => {
+          if (busy) return;
+          act(
+            preview.unpublishing
+              ? { path: `/api/collections/${preview.id}/unpublish` }
+              : {
+                  path: `/api/collections/${preview.id}/publish`,
                   body: {
-                    name,
-                    source_language: pair[0],
-                    target_language: pair[1],
+                    preview_token: preview.preview_token,
+                    confirm_private_ids: preview.private_cards.map((c) => c.id),
                   },
                 },
-                async (c) => {
-                  setName("");
-                  setSelected(c.id);
-                  setTab("mine");
-                  if (createPublic) await reviewVisibility(c, true);
-                  setCreatePublic(false);
-                },
-              );
-            }}
-          >
-            <label>
-              {t.name}
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                maxLength={160}
-              />
-            </label>
-            {visibilityControl(createPublic, setCreatePublic)}
-            <button className="primary" disabled={busy}>
-              {t.create}
-            </button>
-          </form>
-          <div className="collection-box collection-practice">
-            <p>{t.choose}</p>
-            <label>
-              {t.direction}
-              <select
-                value={direction}
-                onChange={(e) => setReverse(e.target.value !== directions[0])}
-              >
-                {directions.map((key) => (
-                  <option key={key} value={key}>
-                    {directionLabel(key, (code) => names.of(code))}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={difficult}
-                onChange={(e) => setDifficult(e.target.checked)}
-              />
-              {t.difficult}
-            </label>
-            <button
-              className="primary"
-              disabled={busy || !availableChosen.length}
-              onClick={start}
-            >
-              {t.practise}
-            </button>
-          </div>
-          {current && (
-            <div className="collection-box" key={current.id}>
-              <h2>{current.name}</h2>
-              <p>
-                {pairLabel} · {current.card_count} {t.cards} ·{" "}
-                {t[current.visibility]}
-              </p>
-              {progress.data && (
-                <p>
-                  {t.count}: {progress.data.practised} /{" "}
-                  {progress.data.card_count} · {t.difficult}:{" "}
-                  {progress.data.difficult}
-                </p>
-              )}
-              {current.can_edit && (
-                <div className="collection-actions">
-                  <button
-                    onClick={() =>
-                      setEditor({ collection: true, name: current.name })
-                    }
-                  >
-                    {t.editCollection}
-                  </button>
-                  {current.visibility === "private" ? (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        act(
-                          { path: `${base}/publish-preview`, method: "GET" },
-                          setPreview,
-                        )
-                      }
-                    >
-                      {t.publish}
-                    </button>
-                  ) : (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        act(
-                          { path: `${base}/unpublish-preview`, method: "GET" },
-                          (value) =>
-                            setPreview({ ...value, unpublishing: true }),
-                        )
-                      }
-                    >
-                      {t.unpublish}
-                    </button>
-                  )}
-                  {current.visibility === "published" && (
-                    <button
-                      disabled={busy}
-                      onClick={() =>
-                        act(
-                          { path: `${base}/publish-preview`, method: "GET" },
-                          setPreview,
-                        )
-                      }
-                    >
-                      {t.reviewSharing}
-                    </button>
-                  )}
-                  {current.can_import && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => setImportOpen(true)}
-                    >
-                      {t.toolsImport}
-                    </button>
-                  )}
-                  <button
-                    onClick={() =>
-                      setEditor({
-                        source_text: "",
-                        target_text: "",
-                        confirm_exposure: false,
-                      })
-                    }
-                  >
-                    {t.createCard}
-                  </button>
-                  <button
-                    onClick={() =>
-                      document.getElementById("collection-search")?.focus()
-                    }
-                  >
-                    {t.addExisting}
-                  </button>
-                </div>
-              )}
-              <PublicationDialog
-                open={Boolean(preview)}
-                title={
-                  preview?.unpublishing
-                    ? t.confirmUnpublish
-                    : t.publicationTitle
-                }
-                name={preview?.name || current?.name || ""}
-                cardCount={preview?.card_count ?? current?.card_count ?? 0}
-                cardsLabel={t.cards}
-                explanation={
-                  preview?.unpublishing
-                    ? t.unpublishExposure
-                    : t.publicationExplanation
-                }
-                confirmLabel={
-                  preview?.unpublishing ? t.confirmUnpublish : t.publishAction
-                }
-                cancelLabel={t.cancel}
-                busy={busy}
-                onCancel={() => setPreview(null)}
-                onConfirm={() => {
-                  if (busy) return;
-                  act(
-                    preview.unpublishing
-                      ? { path: `${base}/unpublish` }
-                      : {
-                          path: `${base}/publish`,
-                          body: {
-                            preview_token: preview.preview_token,
-                            confirm_private_ids: preview.private_cards.map(
-                              (c) => c.id,
-                            ),
-                          },
-                        },
-                    () => setPreview(null),
-                  );
-                }}
-              />
-              {importOpen && current && (
-                <Import
-                  text={copy[language]}
-                  csrf={csrf}
-                  language={language}
-                  languages={LANGUAGES}
-                  selectedCollection={current}
-                  onLocked={onLocked}
-                  onClose={() => setImportOpen(false)}
-                  onImported={(report) => {
-                    setImportOpen(false);
-                    setSelected(
-                      report.destination_collection?.id || current.id,
-                    );
-                    Promise.all(
-                      ["collections", "collection-cards", "vocabulary"].map(
-                        (key) => client.invalidateQueries({ queryKey: [key] }),
-                      ),
-                    );
-                  }}
-                />
-              )}
-              {editor && (
-                <form
-                  className="collection-form publication-preview"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    act(
-                      editor.collection
-                        ? {
-                            path: base,
-                            method: "PATCH",
-                            body: {
-                              name: editor.name,
-                              source_language: current.source_language,
-                              target_language: current.target_language,
-                            },
-                          }
-                        : {
-                            path: editor.id
-                              ? `/api/collections/cards/${editor.id}`
-                              : `${base}/cards`,
-                            method: editor.id ? "PATCH" : "POST",
-                            body: {
-                              source_text: editor.source_text,
-                              target_text: editor.target_text,
-                              source_language:
-                                editor.source_language ||
-                                cardLanguages(pair)[0],
-                              target_language:
-                                editor.target_language ||
-                                cardLanguages(pair)[1],
-                              confirm_exposure:
-                                editor.confirm_exposure || false,
-                            },
-                          },
-                      () => setEditor(null),
-                    );
-                  }}
-                >
-                  <h3>
-                    {editor.collection
-                      ? t.editCollection
-                      : editor.id
-                        ? t.edit
-                        : t.createCard}
-                  </h3>
-                  {editor.collection ? (
-                    <>
-                      {visibilityControl(
-                        current.visibility === "published",
-                        (value) => reviewVisibility(current, value),
-                      )}
-                      {current.can_publish === false && (
-                        <p role="note">{t.publishNotAllowed}</p>
-                      )}
-                      <label>
-                        {t.name}
-                        <input
-                          required
-                          maxLength={160}
-                          value={editor.name}
-                          onChange={(e) =>
-                            setEditor({ ...editor, name: e.target.value })
-                          }
-                        />
-                      </label>
-                    </>
-                  ) : (
-                    <>
-                      {["source", "target"].map((side, i) => {
-                        const language =
-                          editor[`${side}_language`] || cardLanguages(pair)[i];
-                        return (
-                          <label key={side}>
-                            {names.of(language)}
-                            <input
-                              required
-                              maxLength={500}
-                              lang={language}
-                              value={editor[`${side}_text`]}
-                              onChange={(e) =>
-                                setEditor({
-                                  ...editor,
-                                  [`${side}_text`]: e.target.value,
-                                })
-                              }
-                            />
-                          </label>
-                        );
-                      })}
-                      {!editor.id && current.visibility === "published" && (
-                        <>
-                          <p>
-                            {current.name} · {pairLabel} ·{" "}
-                            {current.card_count + 1} {t.cards}
-                          </p>
-                          <p>{t.exposure}</p>
-                          <label>
-                            <input
-                              type="checkbox"
-                              required
-                              checked={editor.confirm_exposure}
-                              onChange={(e) =>
-                                setEditor({
-                                  ...editor,
-                                  confirm_exposure: e.target.checked,
-                                })
-                              }
-                            />
-                            {t.exposureNew}
-                          </label>
-                        </>
-                      )}
-                    </>
-                  )}
-                  <div className="collection-actions">
-                    <button className="primary" disabled={busy}>
-                      {t.save}
-                    </button>
-                    <button type="button" onClick={() => setEditor(null)}>
-                      {t.cancel}
-                    </button>
-                  </div>
-                </form>
-              )}
-              {entries.isError && (
-                <p role="alert">
-                  {t.error}
-                  <button onClick={() => entries.refetch()}>{t.retry}</button>
-                </p>
-              )}
-              <ol className="collection-card-list">
-                {readableEntries?.map((c, i) => (
-                  <li key={c.id}>
-                    <div>
-                      <strong>{cardWords(c)}</strong>
-                    </div>
-                    <div className="collection-actions">
-                      {current.can_edit && (
-                        <>
-                          <button
-                            disabled={busy || !i}
-                            aria-label={`${t.up}: ${c.source_text}`}
-                            onClick={() => move(i, -1)}
-                          >
-                            {t.up}
-                          </button>
-                          <button
-                            disabled={busy || i === entries.data.length - 1}
-                            aria-label={`${t.down}: ${c.source_text}`}
-                            onClick={() => move(i, 1)}
-                          >
-                            {t.down}
-                          </button>
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              act({
-                                path: `${base}/entries/${c.id}`,
-                                method: "DELETE",
-                              })
-                            }
-                          >
-                            {t.remove}
-                          </button>
-                        </>
-                      )}
-                      {c.can_edit && (
-                        <>
-                          <button onClick={() => setEditor(c)}>{t.edit}</button>
-                          {c.shared_via_collection && (
-                            <button
-                              disabled={busy}
-                              onClick={() =>
-                                act({
-                                  path: `/api/collections/cards/${c.id}`,
-                                  method: "PATCH",
-                                  body: {
-                                    source_text: c.source_text,
-                                    target_text: c.target_text,
-                                    withdraw: true,
-                                  },
-                                })
-                              }
-                            >
-                              {t.withdraw}
-                            </button>
-                          )}
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              act({
-                                path: `/api/vocabulary/${c.id}`,
-                                method: "DELETE",
-                              })
-                            }
-                          >
-                            {t.archive}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-              {readableEntries?.length === 0 && <p>{t.empty}</p>}
-              {current.can_edit &&
-                current.unavailable_entry_ids?.map((id) => (
-                  <button
-                    key={id}
-                    disabled={busy}
-                    onClick={() =>
-                      act({ path: `${base}/entries/${id}`, method: "DELETE" })
-                    }
-                  >
-                    {t.unavailable}
-                  </button>
-                ))}
-              {current.can_edit && (
-                <div className="collection-search">
-                  <h3>{t.addExisting}</h3>
-                  <label>
-                    {t.search}
-                    <input
-                      id="collection-search"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                  </label>
-                  {results.isError && (
-                    <p role="alert">
-                      {t.error}
-                      <button onClick={() => results.refetch()}>
-                        {t.retry}
-                      </button>
-                    </p>
-                  )}
-                  <ul className="collection-card-list">
-                    {results.data
-                      ?.filter((c) => !current.entry_ids.includes(c.id))
-                      .map((c) => (
-                        <li key={c.id}>
-                          <span>
-                            {cardWords(c)} ·{" "}
-                            {c.shared_via_collection
-                              ? t.sharedCard
-                              : t[c.visibility] || c.visibility}
-                          </span>
-                          <button
-                            disabled={busy}
-                            onClick={() =>
-                              current.visibility === "published" &&
-                              c.requires_confirmation
-                                ? setPendingAdd(c)
-                                : act({
-                                    path: `${base}/entries`,
-                                    body: { entry_id: c.id },
-                                  })
-                            }
-                          >
-                            {t.add}
-                          </button>
-                        </li>
-                      ))}
-                  </ul>
-                  {results.data?.length === 0 && <p>{t.noMatches}</p>}
-                  {pendingAdd && (
-                    <div className="publication-preview">
-                      <h3>{current.name}</h3>
-                      <p>
-                        {pairLabel} · {current.card_count + 1} {t.cards}
-                      </p>
-                      <p>{t.exposure}</p>
-                      <p>{cardWords(pendingAdd)}</p>
-                      <div className="collection-actions">
-                        <button
-                          className="primary"
-                          disabled={busy}
-                          onClick={() =>
-                            act(
-                              {
-                                path: `${base}/entries`,
-                                body: {
-                                  entry_id: pendingAdd.id,
-                                  confirm_private_ids: [pendingAdd.id],
-                                  exposure_token: pendingAdd.exposure_token,
-                                },
-                              },
-                              () => setPendingAdd(null),
-                            )
-                          }
-                        >
-                          {t.exposureAdd}
-                        </button>
-                        <button onClick={() => setPendingAdd(null)}>
-                          {t.cancel}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
+            () => setPreview(null),
+          );
+        }}
+      />
     </section>
   );
 }

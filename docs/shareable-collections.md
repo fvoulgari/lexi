@@ -17,9 +17,9 @@ Collections organise reusable cards for browsing and practice.
 
 In Vocabulary, open **My collections** to select an owned Italian–Greek collection, see its card count and visibility, or create one. **Edit collection** changes the name or visibility; changing an existing collection to Public opens the card-sharing preview for confirmation. Deleting a collection removes its references and grants while preserving the cards and learning history.
 
-Open the **Collections** workspace for all supported language pairs and shared collections. Choose any two different supported languages (`da`, `el`, `en`, `it`), create a collection, create a card or search/add an accessible existing card, reorder references, preview publication, then confirm. A collection's pair is fixed once it has cards; an empty collection may change pair, and a card's own language IDs never change. Reversed pair order is compatible: the same card can join several compatible collections without duplication, and texts follow language IDs rather than position. Shared library lists published collections for the selected pair. Select one or several collections and either direction for normal or difficult-only practice; progress remains per learner, card and direction. All new copy supports English, Greek and Italian; controls retain notebook typography, cream panels and sage accents. See the [multilingual acceptance matrix](multilingual-acceptance.md) and [v1.4.0 release readiness](v140-release-readiness.md).
+Open the **Collections** workspace to manage collections across all supported language pairs. A single pair filter lists the pairs present in the user's accessible collections and defaults to **All language pairs**; the **My collections** / **Shared library** tabs still group the results. Create a collection with one of those pairs (or the default Greek–Italian pair), or use **Edit collection** on an owned card to rename it, change visibility, import CSV, or delete it after confirmation. Deleting a collection removes its references and grants but preserves cards and learning history. Read-only published collections can still be saved to or removed from My collections. Practice is started from Vocabulary or the dedicated practice page, not from this workspace. All copy supports English, Greek and Italian; controls retain notebook typography, cream panels and sage accents. See the [multilingual acceptance matrix](multilingual-acceptance.md) and [v1.4.0 release readiness](v140-release-readiness.md).
 
-Italian–Greek cards created in the workspace use Italian text in the Italian slot and Greek text in the Greek slot, so the existing Vocabulary editor, CSV export and both practice screens work for the same ID. Explicit language mapping also handles old reversed session snapshots without rewriting their history. Additional pairs use the generic workspace. The practice endpoint validates both pair and direction at creation, reveal and review.
+Italian–Greek cards created in Vocabulary use Italian text in the Italian slot and Greek text in the Greek slot, so the existing Vocabulary editor, CSV export and both practice screens work for the same ID. Explicit language mapping also handles old reversed session snapshots without rewriting their history. Additional pairs are populated by CSV import from the collection's Edit collection panel. The practice endpoint validates both pair and direction at creation, reveal and review.
 
 ## Historical migration and rollback record
 
@@ -46,8 +46,9 @@ Detailed execution evidence is in [collection verification](shareable-collection
 
 The Vocabulary card form has no Audience control. New cards start owned/private;
 users may choose an owned Italian–Greek collection when saving, with membership
-created atomically. Other language-pair creation remains in the collection
-workspace. The API rejects foreign-owner and incompatible collections. A public
+created atomically. Other language pairs are populated by CSV import from the
+collection's Edit collection panel. The API rejects foreign-owner and
+incompatible collections. A public
 collection requires explicit confirmation of this new card's exposure. An
 ordinary card edit does not change ownership, stored visibility or progress.
 

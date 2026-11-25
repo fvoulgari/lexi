@@ -342,7 +342,7 @@ test("detailed progress labels a generic non-legacy direction from language IDs"
     screen.getByRole("link", { name: copy.en.practiseDifficult }),
   ).toHaveAttribute(
     "href",
-    "/collections?mode=difficult&direction=en_to_da",
+    "/practice?mode=difficult&direction=en_to_da",
   );
   expect(await screen.findByText("house")).toHaveAttribute("lang", "en");
   expect(screen.getByText("hus")).toHaveAttribute("lang", "da");

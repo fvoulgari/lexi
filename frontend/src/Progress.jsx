@@ -4,11 +4,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { request } from "./api.js";
 import { cardText } from "./card-sides.js";
-import {
-  directionLanguages,
-  directionLabel,
-  isLegacyDirection,
-} from "./languages.js";
+import { directionLanguages, directionLabel } from "./languages.js";
 
 function practiceLanguageLabel(text, language, code) {
   if (code === "el") return text.greek;
@@ -20,8 +16,7 @@ function practiceLanguageLabel(text, language, code) {
 
 function difficultPracticeUrl(direction) {
   if (!direction) return "/practice?mode=difficult";
-  const page = isLegacyDirection(direction) ? "/practice" : "/collections";
-  return `${page}?mode=difficult&direction=${encodeURIComponent(direction)}`;
+  return `/practice?mode=difficult&direction=${encodeURIComponent(direction)}`;
 }
 
 export default function Progress({
