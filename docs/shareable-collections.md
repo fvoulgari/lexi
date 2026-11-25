@@ -5,7 +5,7 @@ Collections organise reusable cards for browsing and practice.
 ## Model and permissions
 
 - Reuse `collections`, `collection_entries` and `vocabulary_entries`: one card row, composite membership primary key, explicit position and deferred unique order. Same spelling never causes a merge.
-- A collection pair is unordered/canonical; practice direction and card text order are separate. Supported identifiers come from the curated `/api/languages` catalogue (`ar`, `da`, `el`, `en`, `it`, `ja` in the shipped configuration). New collections require two different languages, default to private and retain their pair. The Vocabulary management form can explicitly create an empty Public collection.
+- A collection pair is unordered/canonical; practice direction and card text order are separate. Supported identifiers come from the curated `/api/languages` catalogue (`ar`, `da`, `el`, `en`, `it`, `ja` in the shipped configuration). New collections require an explicit pair of two different languages, default to private and retain their pair. Every creation path can create an empty Public collection directly.
 - Each reference has `publication_confirmed`, initially false. Publication preview requires explicit confirmation for every private card owned by the collection creator, even if another of their collections already shares it. Adding a private owned card to an already published collection also confirms that card's current text. Stale preview/text fingerprints are rejected.
 - Collection publication never changes a private card's stored visibility or ownership. Its grant is active only when the reference is confirmed, the collection is published, and the collection owner is the card creator. Another learner's private or published collection can reference an accessible card but cannot grant or extend access.
 - Unpublishing clears that collection's confirmations. Deletion and reference removal delete the corresponding grant. If another valid creator-owned grant remains, access continues. Otherwise card reads, search, CSV, new queues and existing session/summary responses hide the text. References, reviews and difficulty remain. Republishing requires confirmation and restores access to the same card ID and learning state.
@@ -15,9 +15,9 @@ Collections organise reusable cards for browsing and practice.
 
 ## UI
 
-In Vocabulary, open **My collections** to select an owned Italian–Greek collection, see its card count and visibility, or create one. **Edit collection** changes the name or visibility; changing an existing collection to Public opens the card-sharing preview for confirmation. Deleting a collection removes its references and grants while preserving the cards and learning history.
+In Vocabulary, open **My collections** to select an owned Italian–Greek collection, see its card count and visibility, or create one. Creating one opens the same dialog as **Import CSV** into a new collection: choose a mandatory language pair and name, optionally attach a CSV, then either create the empty collection or preview and import the file. **Edit collection** changes the name or visibility; changing an existing collection to Public opens the card-sharing preview for confirmation. Deleting a collection removes its references and grants while preserving the cards and learning history.
 
-Open the **Collections** workspace to manage collections across all curated language pairs from `/api/languages`. A single pair filter lists pairs present in the user's accessible collections and defaults to **All language pairs**; the **My collections** / **Shared library** tabs still group the results. Create a collection with the supported pair selector (or the default Greek–Italian pair), or use **Edit collection** on an owned card to rename it, change visibility, import CSV, or delete it after confirmation. A collection's pair is fixed through this workspace once created. Deleting a collection removes its references and grants while preserving cards and learning history. Read-only published collections can still be saved to or removed from My collections. Practice is started from Vocabulary or the dedicated practice page, not from this workspace. All copy supports English, Greek and Italian; controls retain notebook typography, cream panels and sage accents. See the [multilingual acceptance matrix](multilingual-acceptance.md) and [final language-architecture verification](language-architecture-verification.md).
+Open the **Collections** workspace to manage collections across all curated language pairs from `/api/languages`. A single pair filter lists pairs present in the user's accessible collections and defaults to **All language pairs**; the **My collections** / **Shared library** tabs still group the results. Create a collection from the same CSV import dialog, choosing from all supported pairs, or use **Edit collection** on an owned card to rename it, change visibility, import CSV, or delete it after confirmation. A collection's pair is fixed through this workspace once created. Deleting a collection removes its references and grants while preserving cards and learning history. Read-only published collections can still be saved to or removed from My collections. Practice is started from Vocabulary or the dedicated practice page, not from this workspace. All copy supports English, Greek and Italian; controls retain notebook typography, cream panels and sage accents. See the [multilingual acceptance matrix](multilingual-acceptance.md) and [final language-architecture verification](language-architecture-verification.md).
 
 Italian–Greek cards created in Vocabulary use Italian text in the Italian slot and Greek text in the Greek slot, so the existing Vocabulary editor, CSV export and both practice screens work for the same ID. Explicit language mapping also handles old reversed session snapshots without rewriting their history. Curated pairs use the registry-backed language IDs, and additional pairs are populated by CSV import from the collection's Edit collection panel. The practice endpoint validates both pair and direction at creation, reveal and review.
 
@@ -52,10 +52,11 @@ incompatible collections. A public
 collection requires explicit confirmation of this new card's exposure. An
 ordinary card edit does not change ownership, stored visibility or progress.
 
-Create collection and Edit collection expose Private/Public switches (stored
-`private`/`published`). Private is the create default. Selecting Public on create
-first saves a private collection, then opens the publication preview; explicit
-confirmation is still required. Cancel leaves it private. Only its owner may
-change visibility. Switching to Private reviews and withdraws that collection's
+The shared creation dialog and **Edit collection** expose Private/Public switches
+(stored `private`/`published`). Private is the create default. Creating an empty
+Public collection publishes it directly; switching an existing collection to
+Public opens the card-sharing preview and requires explicit confirmation. Cancel
+leaves the existing collection unchanged. Only its owner may change visibility.
+Switching to Private reviews and withdraws that collection's
 grant; another valid public collection owned by the card creator can retain access.
 All cards, stable references and personal learning state remain preserved.

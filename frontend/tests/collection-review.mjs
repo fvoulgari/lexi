@@ -56,16 +56,22 @@ try {
     const source = `ciao-${label}`;
     const target = `γεια-${label}`;
     await page.goto(origin + "/collections");
-    const createForm = page.locator("form.collection-box.collection-form");
-    await createForm
+    await page
+      .getByRole("button", { name: "Create collection", exact: true })
+      .click();
+    const createDialog = page.getByRole("dialog", { name: "Import CSV" });
+    await createDialog
       .getByRole("textbox", { name: "Collection name", exact: true })
       .fill(name);
+    await createDialog
+      .getByRole("combobox", { name: "Collection languages", exact: true })
+      .selectOption("el-it");
     const creation = page.waitForResponse(
       (r) =>
         new URL(r.url()).pathname === "/api/collections" &&
         r.request().method() === "POST",
     );
-    await createForm
+    await createDialog
       .getByRole("button", { name: "Create collection", exact: true })
       .click();
     const collection = await (await creation).json();
@@ -192,6 +198,7 @@ try {
       rating: "hard",
     });
     await page.goto(origin + "/collections");
+    await visibleAs("Public");
     await panel
       .getByRole("button", { name: "Edit collection", exact: true })
       .click();

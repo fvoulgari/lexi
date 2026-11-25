@@ -5,12 +5,12 @@ import { request } from "./api.js";
 import { collectionCopy } from "./collection-copy.js";
 import CsvDialog from "./CsvDialog.jsx";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
-import LanguagePicker from "./LanguagePicker.jsx";
 import { cardLanguageIds, cardText } from "./card-sides.js";
 import {
-  languageOptions,
   languageTextProps,
   LEGACY_PAIR,
+  pairLabel,
+  supportedPairs,
 } from "./languages.js";
 
 const PAGE_SIZE = 10;
@@ -39,7 +39,9 @@ export default function Import({
   csrf,
   onLocked = () => {},
   onClose,
+  onCreated = () => {},
   onImported,
+  initialMode = "existing",
   selectedCollection,
   language,
   languages = LEGACY_PAIR,
@@ -47,20 +49,16 @@ export default function Import({
   const t = collectionCopy[language];
   const destinationFor = (collection) =>
     isImportDestination(collection, languages);
-  const [mode, setMode] = useState("existing");
+  const [mode, setMode] = useState(initialMode);
   const [collectionId, setCollectionId] = useState(
     destinationFor(selectedCollection) ? selectedCollection.id : "",
   );
   const [name, setName] = useState("");
   const [makePublic, setMakePublic] = useState(false);
   const [publicConsent, setPublicConsent] = useState(false);
-  const initialPair = destinationFor(selectedCollection)
-    ? [selectedCollection.source_language, selectedCollection.target_language]
-    : LEGACY_PAIR;
-  const [source, setSource] = useState(initialPair[0] || "el");
-  const [target, setTarget] = useState(
-    initialPair[1] || languages.find((code) => code !== initialPair[0]),
-  );
+  const [pair, setPair] = useState("");
+  const pairs = supportedPairs(languages);
+  const selectedPair = pairs.find((option) => option.key === pair);
   const [file, setFile] = useState(null);
   const [previewRequested, setPreviewRequested] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -91,12 +89,17 @@ export default function Import({
   if (mode === "existing") params.set("collection_id", collectionId);
   else {
     params.set("new_name", name.trim());
-    params.set("source_language", source);
-    params.set("target_language", target);
+    if (selectedPair) {
+      params.set("source_language", selectedPair.languages[0]);
+      params.set("target_language", selectedPair.languages[1]);
+    }
     if (makePublic) params.set("make_public", "true");
   }
   const destinationKey = params.toString();
-  const canPreview = Boolean(destination && file);
+  const canCreate = mode === "new" && Boolean(destination && selectedPair);
+  const canPreview = Boolean(
+    destination && file && (mode === "existing" || selectedPair),
+  );
   const currentPreview = canPreview && preview?.key === destinationKey;
   const report = currentPreview ? preview.report : null;
   const publicDestination = isPublicDestination(
@@ -114,18 +117,6 @@ export default function Import({
     setFilter("all");
     setPage(1);
     change(value);
-  }
-
-  // Choosing the other side's language swaps the pair, keeping the two
-  // positions distinct for every curated language, not only the legacy pair.
-  function changeSource(value) {
-    changeDestination(setSource, value);
-    if (target === value) setTarget(source);
-  }
-
-  function changeTarget(value) {
-    changeDestination(setTarget, value);
-    if (source === value) setSource(target);
   }
 
   const destinationIds = destinations.map((collection) => collection.id).join(",");
@@ -174,6 +165,35 @@ export default function Import({
     onLocked,
     text,
   ]);
+
+  async function create() {
+    if (submitting.current || !canCreate) return;
+    submitting.current = true;
+    setImporting(true);
+    setError(null);
+    try {
+      const created = await request("/api/collections", {
+        method: "POST",
+        headers: {
+          "X-CSRF-Token": csrf,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          source_language: selectedPair.languages[0],
+          target_language: selectedPair.languages[1],
+          make_public: makePublic,
+        }),
+      });
+      onCreated(created);
+    } catch (failure) {
+      if (failure.status === 401) onLocked();
+      else setError(text.errors[failure.code] || failure.message);
+    } finally {
+      submitting.current = false;
+      setImporting(false);
+    }
+  }
 
   async function confirm() {
     if (
@@ -305,24 +325,25 @@ export default function Import({
                 }}
               />
             </label>
-            <fieldset className="csv-language-fields">
-              <legend>{t.collectionLanguages}</legend>
-              <LanguagePicker
+            <label className="collection-field">
+              {t.collectionLanguages}
+              <select
                 className="collection-select"
-                label={t.sourceLanguage}
-                value={source}
-                options={languageOptions()}
-                onChange={changeSource}
-              />
-              <span aria-hidden="true">↔</span>
-              <LanguagePicker
-                className="collection-select"
-                label={t.targetLanguage}
-                value={target}
-                options={languageOptions()}
-                onChange={changeTarget}
-              />
-            </fieldset>
+                value={pair}
+                required
+                disabled={importing}
+                onChange={(event) =>
+                  changeDestination(setPair, event.target.value)
+                }
+              >
+                <option value="">{t.choosePair}</option>
+                {pairs.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {pairLabel(option.languages)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <fieldset className="csv-options csv-visibility">
               <legend>{t.visibility}</legend>
               <label>
@@ -495,6 +516,16 @@ export default function Import({
         </label>
       )}
       <div className="form-actions csv-dialog-actions">
+        {mode === "new" && !file && (
+          <button
+            type="button"
+            className="primary"
+            disabled={!canCreate || importing}
+            onClick={create}
+          >
+            {importing ? text.csvImporting : t.create}
+          </button>
+        )}
         {currentPreview ? (
           <button
             type="button"
@@ -511,7 +542,7 @@ export default function Import({
                     name: destination,
                   })}
           </button>
-        ) : (
+        ) : mode === "existing" || file ? (
           <button
             type="button"
             className="primary"
@@ -520,7 +551,7 @@ export default function Import({
           >
             {validating ? text.csvValidating : text.csvPreview}
           </button>
-        )}
+        ) : null}
         <button
           type="button"
           className="secondary"

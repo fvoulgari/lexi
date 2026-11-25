@@ -39,7 +39,7 @@ CSV v2 is the exchange format for every Collection, including `it/el`. Every exp
 
 A v2 row validates both texts, the Collection pair and the card pair before it can be previewed. Missing texts, a wrong-pair destination, grammar for a language outside the card, conflicting legacy aliases, and unknown `csv_format` values are preview row errors. Italian/Greek storage columns keep their canonical `italian`/`greek` values regardless of pair order, while grammar JSON keeps language IDs. Spreadsheet escaping, Unicode fidelity, the 1 MiB / 2000-row limits and preview-before-confirm rules are identical to v1.
 
-The standard Vocabulary import still offers `el`/`it` defaults and accepts both v1 and v2 files for that pair. The Collections workspace exposes import destinations for every supported Collection pair, so `en/da`, `en/el`, `it/el`, `ja/en`, `ar/en`, `ja/ar` and their reversed orders can be round-tripped without changing the stateless Vocabulary importer defaults.
+The standard Vocabulary importer accepts both v1 and v2 files for the legacy `el`/`it` pair. When a CSV creates a new collection, the shared dialog requires an explicit pair from `/api/languages`; the same dialog can also create an empty collection without a file. The Collections workspace exposes import destinations for every supported Collection pair, so `en/da`, `en/el`, `it/el`, `ja/en`, `ar/en`, `ja/ar` and their reversed orders can be round-tripped.
 
 ## Reviewing an import
 

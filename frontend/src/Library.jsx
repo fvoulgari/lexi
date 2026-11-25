@@ -322,6 +322,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
         onSelect={selectCollection}
         text={text}
         csrf={csrf}
+        onLocked={onLocked}
       />
       {collectionUnavailable && (
         <div className="collection-unavailable" role="alert">

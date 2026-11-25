@@ -311,59 +311,61 @@ test("read-only collections have no edit or delete controls but can still be sav
   await waitFor(() => expect(saved).toBe(false));
 });
 
-test("creation uses the selected filter pair and still requests a publish preview", async () => {
+test("creation opens the shared CSV dialog and requires a pair from all available languages", async () => {
   const user = userEvent.setup();
   let createdBody;
-  let published = false;
+  const created = { ...own, id: "created", name: "New collection" };
   server.use(
     http.post("*/api/collections", async ({ request }) => {
       createdBody = await request.json();
-      return HttpResponse.json(own);
+      return HttpResponse.json(created);
     }),
-    http.get("*/api/collections/one/publish-preview", () =>
-      HttpResponse.json({
-        ...own,
-        private_cards: [{ id: "ciao" }],
-        preview_token: "created-preview",
-      }),
+    http.get("*/api/collections", () =>
+      HttpResponse.json([own, danish, created]),
     ),
-    http.post("*/api/collections/one/publish", () => {
-      published = true;
-      return HttpResponse.json({ ...own, visibility: "published" });
-    }),
   );
   open("en", [own, danish]);
   await screen.findByRole("heading", { name: "Hilsen" });
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "Language pair" }),
-    "da-en",
-  );
-  await user.type(
-    screen.getByRole("textbox", { name: "Collection name" }),
-    "New collection",
-  );
-  expect(
-    screen.getByRole("combobox", { name: "Collection languages" }),
-  ).toHaveValue("da-en");
-  await user.click(
-    screen.getByRole("switch", { name: "Collection visibility" }),
-  );
   await user.click(screen.getByRole("button", { name: "Create collection" }));
   const dialog = await screen.findByRole("dialog", {
-    name: collectionCopy.en.publicationTitle,
+    name: collectionCopy.en.toolsImport,
   });
-  expect(createdBody).toEqual({
-    name: "New collection",
-    source_language: "en",
-    target_language: "da",
+  expect(
+    within(dialog).getByRole("radio", { name: "New collection" }),
+  ).toBeChecked();
+  const pair = within(dialog).getByRole("combobox", {
+    name: "Collection languages",
   });
-  expect(published).toBe(false);
+  expect(pair).toBeRequired();
+  expect(pair).toHaveValue("");
+  expect([...pair.options].map((option) => option.textContent)).toContain(
+    "English ↔ Danish",
+  );
+  expect(
+    within(dialog).getByRole("button", { name: "Create collection" }),
+  ).toBeDisabled();
+  await user.type(
+    within(dialog).getByRole("textbox", { name: "Collection name" }),
+    "New collection",
+  );
+  await user.selectOptions(pair, "da-en");
+  await user.click(within(dialog).getByRole("radio", { name: "Public" }));
   await user.click(
-    within(dialog).getByRole("button", {
-      name: collectionCopy.en.publishAction,
+    within(dialog).getByRole("button", { name: "Create collection" }),
+  );
+  await waitFor(() =>
+    expect(createdBody).toEqual({
+      name: "New collection",
+      source_language: "en",
+      target_language: "da",
+      make_public: true,
     }),
   );
-  await waitFor(() => expect(published).toBe(true));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: collectionCopy.en.toolsImport }),
+    ).toBeNull(),
+  );
 });
 
 test.each(["el", "it"])(

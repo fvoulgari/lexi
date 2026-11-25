@@ -94,12 +94,22 @@ try {
       await page
         .getByRole("button", { name: "New collection", exact: true })
         .click();
-      await page
+      const createDialog = page.getByRole("dialog", { name: "Import CSV" });
+      await createDialog
         .getByRole("textbox", { name: "Collection name" })
         .fill("Standalone");
-      await page
+      await createDialog
+        .getByRole("combobox", { name: "Collection languages" })
+        .selectOption("el-it");
+      const creation = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/collections" &&
+          response.request().method() === "POST",
+      );
+      await createDialog
         .getByRole("button", { name: "Create collection", exact: true })
         .click();
+      await creation;
       await page
         .getByRole("heading", { name: "Standalone", exact: true })
         .waitFor();
@@ -129,6 +139,9 @@ try {
         .getByRole("radio", { name: "New collection", exact: true })
         .check();
       await dialog.getByRole("textbox", { name: "Collection name" }).fill(name);
+      await dialog
+        .getByRole("combobox", { name: "Collection languages" })
+        .selectOption("el-it");
       await dialog.getByRole("button", { name: "Preview" }).click();
       const confirm = dialog.getByRole("button", {
         name: `Import ${rows.length} cards into ${name}`,
@@ -256,14 +269,24 @@ try {
     const createAndImport = async (name, pair) => {
       await page.goto(`${origin}/collections`);
       await page
-        .getByRole("textbox", { name: "Collection name", exact: true })
-        .fill(name);
-      await page
-        .getByRole("combobox", { name: "Collection languages", exact: true })
-        .selectOption({ label: pair });
-      await page
         .getByRole("button", { name: "Create collection", exact: true })
         .click();
+      const createDialog = page.getByRole("dialog", { name: "Import CSV" });
+      await createDialog
+        .getByRole("textbox", { name: "Collection name", exact: true })
+        .fill(name);
+      await createDialog
+        .getByRole("combobox", { name: "Collection languages", exact: true })
+        .selectOption({ label: pair });
+      const creation = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/collections" &&
+          response.request().method() === "POST",
+      );
+      await createDialog
+        .getByRole("button", { name: "Create collection", exact: true })
+        .click();
+      await creation;
       await workspace(name).waitFor();
       await workspace(name)
         .getByRole("button", { name: "Edit collection", exact: true })

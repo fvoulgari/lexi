@@ -42,18 +42,26 @@ try {
       page
         .locator(".collection-box")
         .filter({ has: page.getByRole("heading", { name, exact: true }) });
-    const createForm = page.locator("form.collection-box.collection-form");
     const create = async (name, pair) => {
-      await createForm
-        .getByRole("textbox", { name: "Collection name", exact: true })
-        .fill(name);
-      if (pair)
-        await createForm
-          .getByRole("combobox", { name: "Collection languages", exact: true })
-          .selectOption({ label: pair });
-      await createForm
+      await page
         .getByRole("button", { name: "Create collection", exact: true })
         .click();
+      const dialog = page.getByRole("dialog", { name: "Import CSV" });
+      await dialog
+        .getByRole("textbox", { name: "Collection name", exact: true })
+        .fill(name);
+      await dialog
+        .getByRole("combobox", { name: "Collection languages", exact: true })
+        .selectOption(pair ? { label: pair } : "el-it");
+      const creation = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/collections" &&
+          response.request().method() === "POST",
+      );
+      await dialog
+        .getByRole("button", { name: "Create collection", exact: true })
+        .click();
+      await creation;
       await box(name).waitFor();
     };
     const edit = async (name) => {
