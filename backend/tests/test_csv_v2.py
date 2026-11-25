@@ -25,6 +25,9 @@ PAIRS = [
     ("it", "el", "ciao", "γεια"),
     ("en", "da", "hello", "hej"),
     ("en", "el", "hello", "γεια"),
+    ("ja", "en", "日本語", "Japanese"),
+    ("ar", "en", "العربية", "Arabic"),
+    ("ja", "ar", "こんにちは", "مرحبا"),
 ]
 
 

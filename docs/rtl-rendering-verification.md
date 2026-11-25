@@ -31,5 +31,5 @@ CHROME_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm r
 - Frontend: 322 tests passed in 30 files; ESLint clean; production build clean (existing bundle-size warning only).
 - RTL browser checks: passed at 320, 390 and 760 px.
 - Language-picker browser checks: passed at 320, 390 and 760 px.
-- `frontend/tests/mobile-navigation.mjs` was timing out on selectors left behind by the earlier UI changes; the same failure reproduced on the unmodified merge base, so it was unrelated to this change. A follow-up update to that browser test restores it to green.
+- `frontend/tests/mobile-navigation.mjs` and `frontend/tests/pwa.mjs` were timing out on selectors and registry fixtures left behind by the earlier UI changes; the same failures reproduced on the unmodified merge base, so they were unrelated to this change. Follow-up browser-fixture updates restore them to green.
 - Backend is unchanged by #120; the existing UTF-8 CSV and Unicode round-trip coverage remains in place.

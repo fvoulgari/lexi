@@ -55,14 +55,16 @@ def test_unsupported_languages_are_rejected(value):
 def test_labels_come_from_the_registry():
     assert set(LANGUAGE_LABELS) == set(LANGUAGES)
     assert [language_label(code) for code in LANGUAGES] == [
+        "Arabic",
         "Danish",
         "Greek",
         "English",
         "Italian",
+        "Japanese",
     ]
     with pytest.raises(ValueError) as error:
         pair("it", "it")
-    assert "Danish, Greek, English, Italian" in str(error.value)
+    assert "Arabic, Danish, Greek, English, Italian, Japanese" in str(error.value)
 
 
 def test_same_pair_compares_language_ids_in_either_order():

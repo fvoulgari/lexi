@@ -4,12 +4,10 @@ import json
 
 from app.csv_format import FORMAT_VERSION, FORMAT_VERSION_V2, spreadsheet_text
 from app.csv_v2 import (
-    COLUMNS as V2_COLUMNS,
-)
-from app.csv_v2 import (
     encode_grammar,
     grammar_column,
     text_column,
+    v2_columns,
 )
 from app.grammar import grammar_languages
 from app.languages import card_languages, card_text
@@ -80,7 +78,8 @@ def export_collections(entries, account_id, collection=None):
     """Export v2 with texts and grammar keyed by each card's language IDs."""
     output = io.StringIO(newline="")
     writer = csv.writer(output, quoting=csv.QUOTE_ALL)
-    writer.writerow(V2_COLUMNS)
+    columns = v2_columns()
+    writer.writerow(columns)
     for entry in entries:
         source = entry.source_collection
         if source is not None and source.owner_account_id != account_id:
@@ -111,7 +110,5 @@ def export_collections(entries, account_id, collection=None):
             values[text_column(language)] = card_text(entry, language)
         for language in grammar_languages():
             values[grammar_column(language)] = encode_grammar(entry, language)
-        writer.writerow(
-            spreadsheet_text(values.get(field)) for field in V2_COLUMNS
-        )
+        writer.writerow(spreadsheet_text(values.get(field)) for field in columns)
     return output.getvalue().encode("utf-8-sig")

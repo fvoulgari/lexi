@@ -6,21 +6,41 @@ Every runtime check goes through :mod:`app.registry`, whose data comes from the
 without a code change while curation stays a separate concern.
 """
 
+import json
 from collections.abc import Mapping
+from pathlib import Path
 
 from app.registry import get_registry
 
-# Bootstrap values only: historical migrations and the initial seed use these.
-LANGUAGES = ("da", "el", "en", "it")
+# Bootstrap values only: historical migrations and the initial seed read this
+# configuration. Runtime checks use the database registry, so registering a
+# language never requires a change to application logic.
+_LANGUAGE_CATALOGUE = json.loads(
+    (Path(__file__).with_name("language_catalogue.json")).read_text(encoding="utf-8")
+)
+
+LANGUAGES = tuple(
+    sorted(language["id"] for language in _LANGUAGE_CATALOGUE["languages"])
+)
 LANGUAGE_LABELS = {
-    "da": "Danish",
-    "el": "Greek",
-    "en": "English",
-    "it": "Italian",
+    language["id"]: language["label"]
+    for language in _LANGUAGE_CATALOGUE["languages"]
 }
+LANGUAGE_METADATA = {
+    language["id"]: (
+        language["script"],
+        language["text_direction"],
+        language["enhanced"],
+        language["publicly_available"],
+    )
+    for language in _LANGUAGE_CATALOGUE["languages"]
+}
+LEGACY_DIRECTIONS = tuple(sorted(_LANGUAGE_CATALOGUE["legacy_directions"]))
 DIRECTION_PAIRS = {
-    "greek_to_italian": ("el", "it"),
-    "italian_to_greek": ("it", "el"),
+    **{
+        name: tuple(languages)
+        for name, languages in _LANGUAGE_CATALOGUE["legacy_directions"].items()
+    },
     **{
         f"{a}_to_{b}": (a, b)
         for a in LANGUAGES
@@ -28,7 +48,6 @@ DIRECTION_PAIRS = {
         if a != b and {a, b} != {"it", "el"}
     },
 }
-LEGACY_DIRECTIONS = ("greek_to_italian", "italian_to_greek")
 
 
 def language_label(language):

@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
+import { REGISTRY_PAYLOAD } from "../src/language-fixtures.js";
 
 const root = resolve("dist");
 let authenticated = false;
@@ -13,7 +14,7 @@ const server = createServer(async (req, res) => {
   if (path.startsWith("/api/")) {
     res.setHeader("Content-Type", "application/json");
     if (path === "/api/auth/logout") authenticated = false;
-    const body = path.startsWith("/api/auth/")
+    let body = path.startsWith("/api/auth/")
       ? {
           authenticated,
           csrf_token: "test",
@@ -75,6 +76,7 @@ const server = createServer(async (req, res) => {
               : path.includes("/cards/")
                 ? {}
                 : [];
+    if (path === "/api/languages") body = REGISTRY_PAYLOAD;
     res.end(JSON.stringify(body));
     return;
   }
