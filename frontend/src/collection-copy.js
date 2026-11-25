@@ -39,6 +39,9 @@ export const collectionCopy = {
     backToEdit: "Back to edit",
     deleteEffect:
       "Deleting this collection removes its card references and sharing through this collection. Cards and learning history are kept. Cards shared only here will no longer be visible to other learners.",
+    deleteCollection: "Delete collection",
+    confirmDelete: "Yes, delete collection",
+    allPairs: "All language pairs",
     visibility: "Collection visibility",
     editCollection: "Edit collection",
     reviewSharing: "Review card sharing",
@@ -147,6 +150,9 @@ export const collectionCopy = {
     backToEdit: "Πίσω στην επεξεργασία",
     deleteEffect:
       "Η διαγραφή αφαιρεί τις αναφορές στις κάρτες και την κοινή χρήση μέσω αυτής της συλλογής. Οι κάρτες και το ιστορικό εξάσκησης διατηρούνται. Οι κάρτες που ήταν κοινόχρηστες μόνο εδώ δεν θα είναι πλέον ορατές σε άλλους μαθητές.",
+    deleteCollection: "Διαγραφή συλλογής",
+    confirmDelete: "Ναι, διαγραφή συλλογής",
+    allPairs: "Όλα τα ζεύγη γλωσσών",
     visibility: "Πρόσβαση συλλογής",
     editCollection: "Επεξεργασία συλλογής",
     reviewSharing: "Έλεγχος κοινής χρήσης καρτών",
@@ -256,6 +262,9 @@ export const collectionCopy = {
     backToEdit: "Torna alla modifica",
     deleteEffect:
       "Eliminare la raccolta rimuove i riferimenti alle schede e la condivisione tramite questa raccolta. Le schede e lo storico di apprendimento vengono conservati. Le schede condivise solo qui non saranno più visibili agli altri studenti.",
+    deleteCollection: "Elimina raccolta",
+    confirmDelete: "Sì, elimina la raccolta",
+    allPairs: "Tutte le coppie di lingue",
     visibility: "Visibilità della raccolta",
     editCollection: "Modifica raccolta",
     reviewSharing: "Rivedi condivisione delle schede",

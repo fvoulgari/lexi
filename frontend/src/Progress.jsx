@@ -7,15 +7,13 @@ import { cardText } from "./card-sides.js";
 import {
   directionLanguages,
   directionLabel,
-  isLegacyDirection,
   languageLabel,
   languageTextProps,
 } from "./languages.js";
 
 function difficultPracticeUrl(direction) {
   if (!direction) return "/practice?mode=difficult";
-  const page = isLegacyDirection(direction) ? "/practice" : "/collections";
-  return `${page}?mode=difficult&direction=${encodeURIComponent(direction)}`;
+  return `/practice?mode=difficult&direction=${encodeURIComponent(direction)}`;
 }
 
 export default function Progress({ text, onLocked, detailed = false }) {

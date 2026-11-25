@@ -249,15 +249,46 @@ try {
 
     // CSV v2 round trip in a non-legacy Collection, including formula escaping
     // and Unicode text, through the Collections workspace.
-    await page.goto(`${origin}/collections?direction=en_to_da`);
-    await page
-      .getByRole("textbox", { name: "Collection name", exact: true })
-      .fill("V2 Roundtrip");
-    await page
-      .getByRole("button", { name: "Create collection", exact: true })
-      .click();
-    await page.getByRole("button", { name: "Details", exact: true }).click();
-    await page.getByRole("button", { name: "Import CSV", exact: true }).click();
+    const workspace = (name) =>
+      page
+        .locator(".collection-box")
+        .filter({ has: page.getByRole("heading", { name, exact: true }) });
+    const createAndImport = async (name, pair) => {
+      await page.goto(`${origin}/collections`);
+      await page
+        .getByRole("textbox", { name: "Collection name", exact: true })
+        .fill(name);
+      await page
+        .getByRole("combobox", { name: "Collection languages", exact: true })
+        .selectOption({ label: pair });
+      await page
+        .getByRole("button", { name: "Create collection", exact: true })
+        .click();
+      await workspace(name).waitFor();
+      await workspace(name)
+        .getByRole("button", { name: "Edit collection", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Import CSV", exact: true })
+        .click();
+    };
+    const confirmImport = async (dialog, name) => {
+      const imported = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/imports/confirm" &&
+          response.request().method() === "POST",
+      );
+      await dialog.getByRole("button", { name }).click();
+      assert.ok((await imported).ok());
+      await dialog.waitFor({ state: "hidden" });
+    };
+    const openInVocabulary = async (name) => {
+      await page.goto(`${origin}/vocabulary`);
+      await page
+        .getByRole("combobox", { name: "Collection", exact: true })
+        .selectOption({ label: name });
+    };
+    await createAndImport("V2 Roundtrip", "English ↔ Danish");
     const v2Dialog = page.getByRole("dialog", { name: "Import CSV" });
     const v2Fields =
       "csv_format,source_language,target_language," +
@@ -280,8 +311,8 @@ try {
       await v2Dialog.getByText("hej — καλημέρα", { exact: true }).count(),
       1,
     );
-    await v2Confirm.click();
-    await page.getByRole("link", { name: "Open", exact: true }).click();
+    await confirmImport(v2Dialog, "Import 1 card into V2 Roundtrip");
+    await openInVocabulary("V2 Roundtrip");
     await page.getByText("=1+1", { exact: true }).waitFor();
     await page.getByText("hej — καλημέρα", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Export CSV", exact: true }).click();
@@ -302,8 +333,10 @@ try {
     assert.equal(v2Exported[0][v2Header.indexOf("text_da")], "hej — καλημέρα");
     assert.match(v2Csv, /"'=1\+1"/);
 
-    await page.goto(`${origin}/collections?direction=en_to_da`);
-    await page.getByRole("button", { name: "Details", exact: true }).click();
+    await page.goto(`${origin}/collections`);
+    await workspace("V2 Roundtrip")
+      .getByRole("button", { name: "Edit collection", exact: true })
+      .click();
     await page.getByRole("button", { name: "Import CSV", exact: true }).click();
     const repeatDialog = page.getByRole("dialog", { name: "Import CSV" });
     await repeatDialog.getByLabel("Choose CSV file").setInputFiles({
@@ -315,21 +348,10 @@ try {
     await repeatDialog
       .getByRole("button", { name: "Duplicates (1)" })
       .waitFor();
+    await page.keyboard.press("Escape");
 
     // The same v2 contract round-trips a non-legacy English–Greek Collection.
-    await page.goto(`${origin}/collections?direction=en_to_el`);
-    await page
-      .getByRole("textbox", { name: "Collection name", exact: true })
-      .fill("V2 Greek");
-    await page
-      .getByRole("button", { name: "Create collection", exact: true })
-      .click();
-    await page
-      .locator(".collection-box")
-      .filter({ hasText: "V2 Greek" })
-      .getByRole("button", { name: "Details", exact: true })
-      .click();
-    await page.getByRole("button", { name: "Import CSV", exact: true }).click();
+    await createAndImport("V2 Greek", "English ↔ Greek");
     const greekDialog = page.getByRole("dialog", { name: "Import CSV" });
     await greekDialog.getByLabel("Choose CSV file").setInputFiles({
       name: "v2-el.csv",
@@ -341,10 +363,8 @@ try {
       ),
     });
     await greekDialog.getByRole("button", { name: "Preview" }).click();
-    await greekDialog
-      .getByRole("button", { name: "Import 1 card into V2 Greek" })
-      .click();
-    await page.getByRole("link", { name: "Open", exact: true }).click();
+    await confirmImport(greekDialog, "Import 1 card into V2 Greek");
+    await openInVocabulary("V2 Greek");
     await page.getByText("καλωσορίσατε", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Export CSV", exact: true }).click();
     const greekDownloadPromise = page.waitForEvent("download");
