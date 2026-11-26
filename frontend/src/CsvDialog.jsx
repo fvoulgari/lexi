@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export default function CsvDialog({
@@ -21,7 +22,9 @@ export default function CsvDialog({
     };
   }, []);
 
-  return (
+  // Keep the modal out of the page's form containers so their broad label and
+  // input rules cannot override the dialog's own layout.
+  return createPortal(
     <dialog
       ref={dialog}
       className="csv-dialog"
@@ -44,6 +47,7 @@ export default function CsvDialog({
         </button>
       </header>
       {children}
-    </dialog>
+    </dialog>,
+    document.body,
   );
 }
