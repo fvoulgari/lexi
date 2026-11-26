@@ -91,7 +91,11 @@ try {
     await panel
       .getByRole("button", { name: "Edit collection", exact: true })
       .click();
-    await panel.getByRole("switch", { name: "Collection visibility" }).click();
+    const editor = page.getByRole("dialog", {
+      name: "Edit collection",
+      exact: true,
+    });
+    await editor.getByRole("switch", { name: "Collection visibility" }).click();
     const publishDialog = page.getByRole("dialog", {
       name: "Publish collection",
       exact: true,
@@ -202,7 +206,7 @@ try {
     await panel
       .getByRole("button", { name: "Edit collection", exact: true })
       .click();
-    await panel.getByRole("switch", { name: "Collection visibility" }).click();
+    await editor.getByRole("switch", { name: "Collection visibility" }).click();
     const unpublishDialog = page.getByRole("dialog", {
       name: "Confirm unpublishing",
       exact: true,

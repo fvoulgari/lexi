@@ -2673,6 +2673,23 @@ button:disabled {
 .csv-import-preview .import-rows { max-height: 30dvh; overflow: auto; margin: 0; padding: 0; list-style: none; }
 .csv-dialog-actions { margin-block-start: 1rem; justify-content: flex-end; }
 .csv-dialog-actions button { min-height: 44px; overflow-wrap: anywhere; }
+.csv-dialog .collection-form { display: grid; gap: 1rem; }
+.csv-dialog .collection-form label { display: grid; gap: 0.4rem; }
+.csv-dialog .collection-form label.collection-visibility-control {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+}
+.csv-dialog .collection-form input:not([type="checkbox"]) {
+  width: 100%;
+  border: 1px solid #cad9c6;
+  border-radius: 10px;
+  background: #fffdf8;
+  padding: 10px 12px;
+  min-height: 44px;
+}
+.csv-dialog .collection-form .collection-actions { margin: 0; flex-wrap: wrap; }
 .csv-toast {
   position: fixed;
   z-index: 8;

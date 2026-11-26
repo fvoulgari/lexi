@@ -101,7 +101,7 @@ test("the pair filter lists the user's pairs and defaults to all collections", a
   expect(screen.getByRole("heading", { name: "Hilsen" })).toBeInTheDocument();
 });
 
-test("Edit collection renames in place with the owner's language pair", async () => {
+test("Edit collection opens a dialog and saves with the owner's language pair", async () => {
   const user = userEvent.setup();
   let patched;
   server.use(
@@ -114,10 +114,20 @@ test("Edit collection renames in place with the owner's language pair", async ()
   await user.click(
     await screen.findByRole("button", { name: "Edit collection" }),
   );
-  const inputs = screen.getAllByRole("textbox", { name: "Collection name" });
-  await user.clear(inputs[0]);
-  await user.type(inputs[0], "New name");
-  await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+  const dialog = await screen.findByRole("dialog", { name: "Edit collection" });
+  expect(dialog.querySelector("form")).not.toBeNull();
+  const card = screen
+    .getByRole("heading", { name: "Greetings", level: 2 })
+    .closest("article");
+  expect(
+    within(card).queryByRole("textbox", { name: "Collection name" }),
+  ).toBeNull();
+  const input = within(dialog).getByRole("textbox", { name: "Collection name" });
+  await user.clear(input);
+  await user.type(input, "New name");
+  await user.click(
+    within(dialog).getByRole("button", { name: "Save", exact: true }),
+  );
   await waitFor(() =>
     expect(patched).toEqual({
       name: "New name",
@@ -125,9 +135,14 @@ test("Edit collection renames in place with the owner's language pair", async ()
       target_language: "it",
     }),
   );
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("dialog", { name: "Edit collection" }),
+    ).toBeNull(),
+  );
 });
 
-test("the edit panel publishes through the preview confirmation", async () => {
+test("the edit dialog publishes through the preview confirmation", async () => {
   const user = userEvent.setup();
   let published;
   server.use(
@@ -147,11 +162,12 @@ test("the edit panel publishes through the preview confirmation", async () => {
   await user.click(
     await screen.findByRole("button", { name: "Edit collection" }),
   );
-  const switches = screen.getAllByRole("switch", {
+  const editor = await screen.findByRole("dialog", { name: "Edit collection" });
+  const visibility = within(editor).getByRole("switch", {
     name: "Collection visibility",
   });
-  expect(switches[0]).not.toBeChecked();
-  await user.click(switches[0]);
+  expect(visibility).not.toBeChecked();
+  await user.click(visibility);
   const dialog = await screen.findByRole("dialog", {
     name: collectionCopy.en.publicationTitle,
   });
@@ -170,7 +186,7 @@ test("the edit panel publishes through the preview confirmation", async () => {
   );
 });
 
-test("unpublishing from the edit panel keeps its exposure review", async () => {
+test("unpublishing from the edit dialog keeps its exposure review", async () => {
   const user = userEvent.setup();
   let unpublished = false;
   server.use(
@@ -191,10 +207,10 @@ test("unpublishing from the edit panel keeps its exposure review", async () => {
   await user.click(
     await screen.findByRole("button", { name: "Edit collection" }),
   );
-  const switches = screen.getAllByRole("switch", {
-    name: "Collection visibility",
-  });
-  await user.click(switches[0]);
+  const editor = await screen.findByRole("dialog", { name: "Edit collection" });
+  await user.click(
+    within(editor).getByRole("switch", { name: "Collection visibility" }),
+  );
   const dialog = await screen.findByRole("dialog", {
     name: "Confirm unpublishing",
   });
@@ -223,8 +239,9 @@ test("a failed publication stays open so it can be retried", async () => {
   await user.click(
     await screen.findByRole("button", { name: "Edit collection" }),
   );
+  const editor = await screen.findByRole("dialog", { name: "Edit collection" });
   await user.click(
-    screen.getAllByRole("switch", { name: "Collection visibility" })[0],
+    within(editor).getByRole("switch", { name: "Collection visibility" }),
   );
   const dialog = await screen.findByRole("dialog", {
     name: collectionCopy.en.publicationTitle,
@@ -256,7 +273,10 @@ test("delete is confirmed by name before the collection is removed", async () =>
   await user.click(
     await screen.findByRole("button", { name: "Edit collection" }),
   );
-  await user.click(screen.getByRole("button", { name: "Delete collection" }));
+  const editor = await screen.findByRole("dialog", { name: "Edit collection" });
+  await user.click(
+    within(editor).getByRole("button", { name: "Delete collection" }),
+  );
   const dialog = screen.getByRole("dialog", {
     name: "Delete collection · Greetings",
   });
