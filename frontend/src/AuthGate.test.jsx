@@ -246,12 +246,14 @@ test("network failure has retryable feedback and restores sign-in controls", asy
   ).toBeEnabled();
 });
 
-test("landing shows the language library eyebrow", () => {
+test("landing shows the language library copy", () => {
   open();
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
     copy.en.gateTitle,
   );
   expect(screen.getByText("LANGUAGE LIBRARY")).toBeVisible();
+  expect(screen.getByText("Language Library")).toBeVisible();
+  expect(screen.getByText("Many languages. One notebook.")).toBeVisible();
 });
 
 test.each(["unknown email", "wrong password"])(

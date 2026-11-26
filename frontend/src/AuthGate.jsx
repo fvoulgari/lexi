@@ -203,13 +203,13 @@ export default function AuthGate({
         <h1>{text.gateTitle}</h1>
         <p>{text.gateIntro}</p>
         <div className="notebook-decoration" aria-hidden="true">
-          <span>Italian Notebook</span>
+          <span>Language Library</span>
           <strong>
             Le parole
             <br />
             che ci uniscono.
           </strong>
-          <small>Ελληνικά ↔ Italiano</small>
+          <small>Many languages. One notebook.</small>
         </div>
       </section>
       <section className="gate-card">
