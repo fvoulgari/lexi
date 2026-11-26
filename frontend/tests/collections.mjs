@@ -47,6 +47,15 @@ try {
         .getByRole("button", { name: "Create collection", exact: true })
         .click();
       const dialog = page.getByRole("dialog", { name: "Import CSV" });
+      const layout = await dialog.evaluate((element) => ({
+        inWorkspace: Boolean(element.closest(".shared-collections")),
+        labelDisplay: getComputedStyle(
+          element.querySelector("label.collection-field"),
+        ).display,
+      }));
+      // The modal must not inherit the collection page's form layout.
+      assert.equal(layout.inWorkspace, false);
+      assert.equal(layout.labelDisplay, "grid");
       await dialog
         .getByRole("textbox", { name: "Collection name", exact: true })
         .fill(name);
