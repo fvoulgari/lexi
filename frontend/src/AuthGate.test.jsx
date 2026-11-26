@@ -246,12 +246,12 @@ test("network failure has retryable feedback and restores sign-in controls", asy
   ).toBeEnabled();
 });
 
-test("landing preserves original hero copy", () => {
+test("landing shows the language library eyebrow", () => {
   open();
   expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
     copy.en.gateTitle,
   );
-  expect(screen.getByText("ITALIAN NOTEBOOK")).toBeVisible();
+  expect(screen.getByText("LANGUAGE LIBRARY")).toBeVisible();
 });
 
 test.each(["unknown email", "wrong password"])(
