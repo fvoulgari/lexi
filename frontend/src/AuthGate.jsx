@@ -198,7 +198,7 @@ export default function AuthGate({
       <section className="gate-intro">
         <span className="eyebrow">
           <Leaf size={15} aria-hidden="true" />
-          ITALIAN NOTEBOOK
+          LANGUAGE LIBRARY
         </span>
         <h1>{text.gateTitle}</h1>
         <p>{text.gateIntro}</p>
