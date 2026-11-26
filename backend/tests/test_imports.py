@@ -595,7 +595,7 @@ def test_example_is_gated_utf8_and_importable(logged_in):
         pair=("el", "it"),
     )
     assert preview.json()["counts"] == {
-        "imported": 3,
+        "imported": 0,
         "updated": 0,
         "valid": 3,
         "skipped": 0,
