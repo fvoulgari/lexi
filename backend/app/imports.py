@@ -33,7 +33,7 @@ from app.grammar import (
     invalid_grammar_fields,
     sync_entry_grammar,
 )
-from app.languages import card_languages, card_slots, normalized_pair, pair, same_pair
+from app.languages import card_languages, card_slots, pair, same_pair
 from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate
 
@@ -864,9 +864,10 @@ def import_router(sessions, gate):
                 languages = (collection.source_language, collection.target_language)
         elif source_language and target_language:
             try:
-                languages = normalized_pair(source_language, target_language)
+                pair(source_language, target_language)
             except ValueError:
                 raise HTTPException(422, "Choose a supported language pair.") from None
+            languages = (source_language, target_language)
         else:
             languages = ("el", "it")
 

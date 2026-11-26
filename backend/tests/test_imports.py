@@ -425,7 +425,14 @@ def test_collection_csv_ignores_other_language_pairs(client, account_client):
     )
 
 
-def upload(client, csv, action="preview"):
+def upload(
+    client,
+    csv,
+    action="preview",
+    *,
+    destination="CSV test",
+    pair=("it", "el"),
+):
     csv = with_genders(csv)
     response = client.get("/api/collections")
     if response.status_code != 200:
@@ -435,10 +442,13 @@ def upload(client, csv, action="preview"):
             headers={**headers(client), "Content-Type": "text/csv"},
         )
     groups = response.json()
-    target = next((group for group in groups if group["name"] == "CSV test"), None)
+    target = next((group for group in groups if group["name"] == destination), None)
     if target is None:
+        payload = {"name": destination}
+        if pair is not None:
+            payload["source_language"], payload["target_language"] = pair
         target = client.post(
-            "/api/collections", headers=headers(client), json={"name": "CSV test"}
+            "/api/collections", headers=headers(client), json=payload
         ).json()
     return client.post(
         f"/api/imports/{action}?collection_id={target['id']}",
@@ -578,7 +588,12 @@ def test_example_is_gated_utf8_and_importable(logged_in):
         "Content-Disposition"
     ]
     body = "\ufeff" + response.content.decode("utf-8")
-    preview = upload(logged_in, body)
+    preview = upload(
+        logged_in,
+        body,
+        destination="CSV test",
+        pair=("el", "it"),
+    )
     assert preview.json()["counts"] == {
         "imported": 3,
         "updated": 0,
