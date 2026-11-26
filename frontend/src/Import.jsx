@@ -96,6 +96,16 @@ export default function Import({
     if (makePublic) params.set("make_public", "true");
   }
   const destinationKey = params.toString();
+  const exampleParams = new URLSearchParams();
+  if (mode === "existing" && collectionId)
+    exampleParams.set("collection_id", collectionId);
+  else if (selectedPair) {
+    exampleParams.set("source_language", selectedPair.languages[0]);
+    exampleParams.set("target_language", selectedPair.languages[1]);
+  }
+  const exampleHref = `/api/imports/example${
+    exampleParams.size ? `?${exampleParams}` : ""
+  }`;
   const canCreate = mode === "new" && Boolean(destination && selectedPair);
   const canPreview = Boolean(
     destination && file && (mode === "existing" || selectedPair),
@@ -412,7 +422,7 @@ export default function Import({
           {!file && (
             <a
               className="csv-example-link"
-              href="/api/imports/example"
+              href={exampleHref}
               download
             >
               <FileDown size={16} aria-hidden="true" /> {text.csvExample}

@@ -2,6 +2,8 @@
 
 Both versions use UTF-8 with a BOM (read as `utf-8-sig`), comma delimiters, CRLF record separators, a header row, and double quotes around every field. Quotes inside fields are doubled; commas and embedded newlines remain data. Unicode is preserved without normalization. An empty library still returns only the header. Collection-scoped exports use CSV v2; the aggregate library export and `format=v1` remain version 1.
 
+Ready-to-import manual fixtures for v1 and v2 (`en/da`, `en/el` and reversed `it/el`, plus a v1 sample) are in [`data/v140-csv-tests/`](../data/v140-csv-tests/).
+
 ## Version 1 columns
 
 Version 1 orders entries by Italian text and entry ID.
@@ -63,7 +65,7 @@ The original column names and aliases remain accepted. For new noun/adjective ro
 
 Upload the original exported CSV in Vocabulary, preview it, then explicitly confirm. The importer accepts all exported headers, restores escaped text on any row with a recognised `csv_format` marker (v1 or v2), and reads `tags` as a JSON array for either version. It strips exactly one initial apostrophe only when the remainder starts with an apostrophe, tab, CR or LF, or its first non-whitespace character is one of the formula markers above. Thus `'=1+1` restores `=1+1` and `''ordinary` restores `'ordinary`. Decode happens before validation and duplicate detection. Unknown format versions and non-array/non-string JSON tags produce row errors.
 
-Hand-written files and the downloadable import example omit `csv_format`: they keep the existing pipe-separated tags convention and literal apostrophes, with no safety decoding. Use the versioned format to exchange tags containing literal pipes. Import also accepts legacy `type`, `unit`, `plural`, `example` and `gender` aliases; conflicting explicit and alias values are row errors. These aliases apply to v1 and unversioned files only; v2 rejects them as row errors. Export uses canonical columns: language-named fields in v1 and language-ID fields in v2.
+Hand-written files omit `csv_format`: they keep the existing pipe-separated tags convention and literal apostrophes, with no safety decoding. The downloadable import example is generated as CSV v2 for the selected or requested Collection pair, so it includes `csv_format=italian-notebook-v2`, language-keyed `text_<lang>` columns and the pair/card language metadata. Use the versioned format to exchange tags containing literal pipes. Import also accepts legacy `type`, `unit`, `plural`, `example` and `gender` aliases; conflicting explicit and alias values are row errors. These aliases apply to v1 and unversioned files only; v2 rejects them as row errors. Export uses canonical columns: language-named fields in v1 and language-ID fields in v2.
 
 A v2 file can be imported through either workspace. Its `entry_id` and language IDs are used only after the destination pair and both texts validate. Re-importing the same `entry_id` into another Collection with the same language pair adds a reference without changing identity or progress, while the same texts without an ID create a distinct card. Matching otherwise compares the card's language-ID keyed texts after NFC normalization, case folding and whitespace trimming, so changing column order cannot silently match a different language.
 

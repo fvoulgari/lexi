@@ -58,6 +58,10 @@ def pair(a, b):
     return get_registry().validate_pair(a, b)
 
 
+def normalized_pair(a, b):
+    return pair(a, b)
+
+
 def same_pair(first, second, other_first, other_second):
     """Compare unordered language IDs without raising on missing/invalid data."""
     try:
