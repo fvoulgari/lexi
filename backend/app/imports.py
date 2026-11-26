@@ -856,9 +856,12 @@ def import_router(sessions, gate):
         if collection_id is not None:
             with sessions() as db:
                 collection = db.get(Collection, collection_id)
+                capabilities = (
+                    collection_capabilities(collection) if collection else None
+                )
                 if (
                     collection is None
-                    or not collection_capabilities(collection).can_edit
+                    or not capabilities["can_edit"]
                 ):
                     raise HTTPException(404, "Collection not found.")
                 languages = (collection.source_language, collection.target_language)
