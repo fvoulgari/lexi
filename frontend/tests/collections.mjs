@@ -74,12 +74,16 @@ try {
       await box(name).waitFor();
     };
     const edit = async (name) => {
-      const panel = box(name).locator("form.collection-form");
-      if ((await panel.count()) === 0)
+      const dialog = page.getByRole("dialog", {
+        name: "Edit collection",
+        exact: true,
+      });
+      if ((await dialog.count()) === 0)
         await box(name)
           .getByRole("button", { name: "Edit collection", exact: true })
           .click();
-      return panel;
+      await dialog.waitFor();
+      return dialog;
     };
     const visibleAs = (name, value) =>
       box(name).locator("p").first().filter({ hasText: value }).waitFor();
@@ -89,7 +93,7 @@ try {
         .getByRole("switch", { name: "Collection visibility" })
         .click();
       const dialog = page.getByRole("dialog", {
-        name: /collection|unpublish/i,
+        name: /^(Publish collection|Confirm unpublishing)$/,
       });
       await dialog.waitFor();
       return dialog;

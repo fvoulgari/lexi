@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { request } from "./api.js";
 import { copy } from "./copy.js";
+import CsvDialog from "./CsvDialog.jsx";
 import Import from "./Import.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
 import {
@@ -105,6 +106,11 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
     write.reset();
   }
 
+  function closeEditor() {
+    setEditor(null);
+    setConfirmDelete(null);
+  }
+
   async function reviewVisibility(collection, makePublic) {
     await act(
       {
@@ -155,6 +161,7 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
   }
 
   const previewCollection = preview && all.find((c) => c.id === preview.id);
+  const edited = editor && all.find((c) => c.id === editor.id);
 
   return (
     <section className="shared-collections">
@@ -224,6 +231,7 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
               {c.can_edit !== false ? (
                 <button
                   type="button"
+                  aria-haspopup="dialog"
                   aria-pressed={editor?.id === c.id}
                   disabled={busy}
                   onClick={() => {
@@ -250,105 +258,117 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
                 </button>
               )}
             </div>
-            {editor?.id === c.id && (
-              <form
-                className="collection-form publication-preview"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  act(
-                    {
-                      path: `/api/collections/${c.id}`,
-                      method: "PATCH",
-                      body: {
-                        name: editor.name,
-                        source_language: c.source_language,
-                        target_language: c.target_language,
-                      },
-                    },
-                    () => setEditor(null),
-                  );
-                }}
-              >
-                <h3>{t.editCollection}</h3>
-                {visibilityControl(c.visibility === "published", (value) =>
-                  reviewVisibility(c, value),
-                )}
-                {c.can_publish === false && (
-                  <p role="note">{t.publishNotAllowed}</p>
-                )}
-                <label>
-                  {t.name}
-                  <input
-                    required
-                    maxLength={160}
-                    value={editor.name}
-                    onChange={(e) =>
-                      setEditor({ ...editor, name: e.target.value })
-                    }
-                  />
-                </label>
-                <div className="collection-actions">
-                  <button className="primary" disabled={busy}>
-                    {t.save}
-                  </button>
-                  <button type="button" onClick={() => setEditor(null)}>
-                    {t.cancel}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setImportCollection(c)}
-                  >
-                    {t.toolsImport}
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    disabled={busy}
-                    onClick={() => setConfirmDelete(c)}
-                  >
-                    {t.deleteCollection}
-                  </button>
-                </div>
-              </form>
-            )}
-            {confirmDelete?.id === c.id && (
-              <div
-                className="publication-preview"
-                role="dialog"
-                aria-labelledby={`delete-collection-${c.id}`}
-              >
-                <h3 id={`delete-collection-${c.id}`}>
-                  {t.deleteCollection} · {c.name}
-                </h3>
-                <p>{t.deleteEffect}</p>
-                <div className="collection-actions">
-                  <button
-                    type="button"
-                    className="danger"
-                    disabled={busy}
-                    onClick={() =>
-                      act(
-                        { path: `/api/collections/${c.id}`, method: "DELETE" },
-                        () => {
-                          setConfirmDelete(null);
-                          setEditor(null);
-                          setNotice(t.deletedCollection);
-                        },
-                      )
-                    }
-                  >
-                    {t.confirmDelete}
-                  </button>
-                  <button type="button" onClick={() => setConfirmDelete(null)}>
-                    {t.cancel}
-                  </button>
-                </div>
-              </div>
-            )}
           </article>
         ))}
       </div>
+      {edited && (
+        <CsvDialog
+          title={t.editCollection}
+          cancelLabel={t.cancel}
+          busy={busy}
+          onClose={closeEditor}
+        >
+          {confirmDelete?.id === edited.id ? (
+            <div
+              className="publication-preview"
+              role="dialog"
+              aria-labelledby={`delete-collection-${edited.id}`}
+            >
+              <h3 id={`delete-collection-${edited.id}`}>
+                {t.deleteCollection} · {edited.name}
+              </h3>
+              <p>{t.deleteEffect}</p>
+              <div className="collection-actions">
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={busy}
+                  onClick={() =>
+                    act(
+                      {
+                        path: `/api/collections/${edited.id}`,
+                        method: "DELETE",
+                      },
+                      () => {
+                        resetWorkspaces();
+                        setNotice(t.deletedCollection);
+                      },
+                    )
+                  }
+                >
+                  {t.confirmDelete}
+                </button>
+                <button type="button" onClick={() => setConfirmDelete(null)}>
+                  {t.cancel}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form
+              className="collection-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                act(
+                  {
+                    path: `/api/collections/${edited.id}`,
+                    method: "PATCH",
+                    body: {
+                      name: editor.name,
+                      source_language: edited.source_language,
+                      target_language: edited.target_language,
+                    },
+                  },
+                  closeEditor,
+                );
+              }}
+            >
+              {visibilityControl(edited.visibility === "published", (value) =>
+                reviewVisibility(edited, value),
+              )}
+              {edited.can_publish === false && (
+                <p role="note">{t.publishNotAllowed}</p>
+              )}
+              <label>
+                {t.name}
+                <input
+                  required
+                  maxLength={160}
+                  value={editor.name}
+                  onChange={(e) =>
+                    setEditor({ ...editor, name: e.target.value })
+                  }
+                />
+              </label>
+              <div className="collection-actions">
+                <button className="primary" disabled={busy}>
+                  {t.save}
+                </button>
+                <button type="button" onClick={closeEditor}>
+                  {t.cancel}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    resetWorkspaces();
+                    setImportCollection(edited);
+                  }}
+                >
+                  {t.toolsImport}
+                </button>
+                <button
+                  type="button"
+                  className="danger"
+                  disabled={busy}
+                  onClick={() => setConfirmDelete(edited)}
+                >
+                  {t.deleteCollection}
+                </button>
+              </div>
+            </form>
+          )}
+        </CsvDialog>
+      )}
       <div className="collection-actions">
         <button
           type="button"
@@ -406,7 +426,10 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
                     confirm_private_ids: preview.private_cards.map((c) => c.id),
                   },
                 },
-            () => setPreview(null),
+            () => {
+              setPreview(null);
+              closeEditor();
+            },
           );
         }}
       />
