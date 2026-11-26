@@ -209,7 +209,7 @@ export default function AuthGate({
             <br />
             che ci uniscono.
           </strong>
-          <small>Many languages. One notebook.</small>
+          <small>Your language corner.</small>
         </div>
       </section>
       <section className="gate-card">

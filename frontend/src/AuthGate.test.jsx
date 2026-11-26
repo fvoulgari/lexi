@@ -253,7 +253,7 @@ test("landing shows the language library copy", () => {
   );
   expect(screen.getByText("LANGUAGE LIBRARY")).toBeVisible();
   expect(screen.getByText("Language Library")).toBeVisible();
-  expect(screen.getByText("Many languages. One notebook.")).toBeVisible();
+  expect(screen.getByText("Your language corner.")).toBeVisible();
 });
 
 test.each(["unknown email", "wrong password"])(
