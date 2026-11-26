@@ -5,7 +5,6 @@ WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
-COPY backend/app/csv_example.json /backend/app/csv_example.json
 COPY backend/app/grammar_definitions.json /backend/app/grammar_definitions.json
 RUN npm run build
 
