@@ -587,7 +587,7 @@ def test_example_is_gated_utf8_and_importable(logged_in):
     assert 'filename="vocabulary-example-el-it.csv"' in response.headers[
         "Content-Disposition"
     ]
-    body = "\ufeff" + response.content.decode("utf-8")
+    body = response.content.decode("utf-8-sig")
     preview = upload(
         logged_in,
         body,
