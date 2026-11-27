@@ -972,6 +972,15 @@ main {
   overflow-wrap: anywhere;
   text-align: center;
 }
+/* Language-tagged text opts out of inherited alignment via the global [dir]
+ * rule. Center only the card's main text in both directions; metadata keeps
+ * its own start alignment. */
+.flashcard :is(.card-prompt, .card-answer h2) {
+  text-align: center;
+}
+.flashcard .card-metadata {
+  text-align: start;
+}
 .card-prompt,
 .card-answer h2 {
   font-size: clamp(28px, 6vw, 42px);

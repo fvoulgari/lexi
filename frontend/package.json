@@ -12,7 +12,8 @@
     "test:pwa": "npm run build && node tests/pwa.mjs",
     "test:mobile": "npm run build && node tests/mobile-navigation.mjs",
     "test:language-picker": "npm run build && node tests/language-picker.mjs",
-    "test:rtl": "npm run build && node tests/rtl-rendering.mjs"
+    "test:rtl": "npm run build && node tests/rtl-rendering.mjs",
+    "test:card-alignment": "npm run build && node tests/card-alignment.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.2",
