@@ -9,6 +9,7 @@ import json
 
 from app.grammar import (
     GRAMMAR_DEFINITIONS,
+    grammar_languages,
     iter_fields,
     legacy_from_structured,
     structured_from_legacy,
@@ -71,6 +72,41 @@ def v2_columns(languages=None):
 def v3_columns(languages=None):
     """Lossless exchange header: v2 plus definition version and full metadata."""
     return (*v2_columns(languages), "schema_version", "metadata")
+
+
+def template_columns(languages):
+    """Compact, importable header for one language pair.
+
+    Only the selected languages get text columns, and only languages with a
+    grammar definition get a grammar column. Everything is derived from the
+    registry-backed pair and the grammar definitions; there is no per-pair
+    template table.
+    """
+    ids = tuple(dict.fromkeys(languages))
+    return (
+        "csv_format",
+        "card_source_language",
+        "card_target_language",
+        *text_columns(ids),
+        "word_type",
+        *grammar_columns(grammar_languages(ids)),
+        "notes",
+        "tags",
+    )
+
+
+def vocabulary_columns(languages):
+    """Spreadsheet-friendly export: required text and shared fields only."""
+    ids = tuple(dict.fromkeys(languages))
+    return (
+        "csv_format",
+        "card_source_language",
+        "card_target_language",
+        *text_columns(ids),
+        "word_type",
+        "notes",
+        "tags",
+    )
 
 
 # Frozen bootstrap header for fixtures and historical format comparisons.
@@ -208,7 +244,9 @@ __all__ = [
     "grammar_columns",
     "grammar_value",
     "structured_from_legacy",
+    "template_columns",
     "text_column",
     "text_columns",
+    "vocabulary_columns",
     "v2_columns",
 ]

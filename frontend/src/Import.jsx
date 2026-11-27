@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileDown, Upload } from "lucide-react";
 import { request } from "./api.js";
@@ -7,12 +7,17 @@ import CsvDialog from "./CsvDialog.jsx";
 import LanguagePicker from "./LanguagePicker.jsx";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
 import { cardLanguageIds, cardText } from "./card-sides.js";
-import { languageLabel, languageTextProps, LEGACY_PAIR } from "./languages.js";
+import { configuredLanguages } from "./grammar.js";
+import {
+  languageLabel,
+  languageTextProps,
+  LEGACY_PAIR,
+  useLanguageRegistry,
+} from "./languages.js";
 
 const PAGE_SIZE = 10;
-const FORMULA_MARKERS = ["=", "+", "-", "@", "＝", "＋", "－", "＠"];
 
-/** Minimal CSV parser used only to recognise and remap simple templates. */
+/** Minimal CSV parser used to recognise headers and suggest column mapping. */
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -46,48 +51,93 @@ function parseCsv(text) {
   return rows.filter((items) => items.some((item) => item !== ""));
 }
 
-function csvCell(value) {
-  const text = value == null ? "" : String(value);
-  const safe =
-    text.startsWith("'") || FORMULA_MARKERS.some((mark) => text.trimStart().startsWith(mark))
-      ? `'${text}`
-      : text;
-  return /[",\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
+const MAPPABLE_TARGETS = [
+  "csv_format",
+  "word_type",
+  "notes",
+  "tags",
+  "unit_code",
+  "unit_title",
+  "unit_sort_order",
+];
+
+function csvHeaders(text) {
+  return (parseCsv(text)[0] || []).map((header) => header.trim());
 }
 
-function simpleToV2(text, base, learning) {
-  const [header, ...rows] = parseCsv(text);
-  const fields = header.map((name) => name.trim());
-  const required = ["base", "learning", "word_type"];
-  if (!required.every((name) => fields.includes(name)))
-    throw new Error("The CSV is missing base, learning or word_type columns.");
-  const index = Object.fromEntries(fields.map((name, position) => [name, position]));
-  const output = [
-    [
-      "csv_format",
-      "card_source_language",
-      "card_target_language",
-      `text_${base}`,
-      `text_${learning}`,
-      "word_type",
-      "notes",
-      "tags",
-    ],
+function textLanguageIds(headers) {
+  return headers
+    .filter((header) => header.startsWith("text_"))
+    .map((header) => header.slice(5));
+}
+
+function needsColumnMapping(headers, languages = []) {
+  if (headers.length === 0) return false;
+  const names = new Set(headers);
+  const textIds = textLanguageIds(headers);
+  const known =
+    (names.has("base") && names.has("learning")) ||
+    (names.has("italian") && names.has("greek")) ||
+    ((names.has("card_source_language") ||
+      names.has("card_target_language")) &&
+      textIds.length >= 2) ||
+    (textIds.length === 2 &&
+      languages.length > 0 &&
+      textIds.every((language) => languages.includes(language)));
+  const hasWordType = names.has("word_type") || names.has("type");
+  return !known || !hasWordType;
+}
+
+function suggestedMapping(headers, source, target, text) {
+  const known = new Set(MAPPABLE_TARGETS);
+  const mapping = {};
+  const [firstRow = []] = parseCsv(text).slice(1);
+  const explicit = headers.findIndex((header) => header === "csv_format");
+  headers.forEach((header) => {
+    const lower = header.toLocaleLowerCase();
+    if (known.has(header) || header.startsWith("text_") || header.startsWith("grammar_")) {
+      mapping[header] = header;
+    } else if (/type|tipo|τύπ/.test(lower)) {
+      mapping[header] = "word_type";
+    } else if (/note|nota|σημει/.test(lower)) {
+      mapping[header] = "notes";
+    } else if (/tag|etichett|ετικ/.test(lower)) {
+      mapping[header] = "tags";
+    } else if (source && !Object.values(mapping).includes(`text_${source}`)) {
+      mapping[header] = `text_${source}`;
+    } else if (target && !Object.values(mapping).includes(`text_${target}`)) {
+      mapping[header] = `text_${target}`;
+    } else {
+      mapping[header] = "";
+    }
+  });
+  if (explicit >= 0 && firstRow[explicit]) mapping[headers[explicit]] = "csv_format";
+  return mapping;
+}
+
+function mappingOptions(headers, source, target, languages, text) {
+  const options = [
+    ["word_type", text.csvMapWordType],
+    ["notes", text.csvMapNotes],
+    ["tags", text.csvMapTags],
   ];
-  for (const row of rows) {
-    const value = (name) => row[index[name]] || "";
-    output.push([
-      "italian-notebook-v2",
-      base,
-      learning,
-      value("base"),
-      value("learning"),
-      value("word_type"),
-      value("notes"),
-      value("tags") || "[]",
+  const textIds =
+    source && target
+      ? [source, target]
+      : languages.filter((language) => headers.some((header) => header.includes(language)));
+  for (const language of textIds) {
+    options.push([
+      `text_${language}`,
+      `${text.csvMapping}: ${languageLabel(language)}`,
     ]);
+    if (configuredLanguages().includes(language)) {
+      options.push([
+        `grammar_${language}`,
+        text.csvMapGrammar.replace("{language}", languageLabel(language)),
+      ]);
+    }
   }
-  return output.map((items) => items.map(csvCell).join(",")).join("\r\n");
+  return options;
 }
 
 function isImportDestination(collection, languages = LEGACY_PAIR) {
@@ -122,6 +172,8 @@ export default function Import({
   languages = LEGACY_PAIR,
 }) {
   const t = collectionCopy[language];
+  const registry = useLanguageRegistry();
+  const catalogue = registry?.ids || languages;
   const destinationFor = (collection) =>
     isImportDestination(collection, languages);
   const [mode, setMode] = useState(initialMode);
@@ -137,10 +189,9 @@ export default function Import({
   const initialLearning = selectedCollection?.target_language || "";
   const [base, setBase] = useState(initialBase);
   const [learning, setLearning] = useState(initialLearning);
-  const [templateFormat, setTemplateFormat] = useState("v2");
   const [file, setFile] = useState(null);
-  const [sourceText, setSourceText] = useState("");
-  const [detectedFormat, setDetectedFormat] = useState(null);
+  const [headers, setHeaders] = useState([]);
+  const [columnMapping, setColumnMapping] = useState({});
   const [previewRequested, setPreviewRequested] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
@@ -181,8 +232,7 @@ export default function Import({
     }
     if (makePublic) params.set("make_public", "true");
   }
-  const destinationKey = params.toString();
-  const exampleParams = new URLSearchParams({ format: templateFormat });
+  const exampleParams = new URLSearchParams({ format: "template" });
   if (mode === "existing" && collectionId)
     exampleParams.set("collection_id", collectionId);
   else if (sourceLanguage && targetLanguage) {
@@ -190,26 +240,28 @@ export default function Import({
     exampleParams.set("target_language", targetLanguage);
   }
   const exampleHref = `/api/imports/example?${exampleParams}`;
-  const isSimple = detectedFormat === "simple";
-  const effectiveFile = useMemo(() => {
-    if (!file || !isSimple || !sourceText) return file;
-    return new File([simpleToV2(sourceText, sourceLanguage, targetLanguage)], file.name, {
-      type: "text/csv",
-    });
-  }, [file, isSimple, sourceLanguage, sourceText, targetLanguage]);
-  const mapping = isSimple
-    ? [
-        ["base", `text_${sourceLanguage}`],
-        ["learning", `text_${targetLanguage}`],
-        ["word_type", "word_type"],
-        ["notes", "notes"],
-        ["tags", "tags"],
-      ]
-    : [];
+  const mappingNeeded = needsColumnMapping(headers, catalogue);
+  const columnOptions = mappingOptions(
+    headers,
+    sourceLanguage,
+    targetLanguage,
+    catalogue,
+    text,
+  );
+  const selectedTargets = Object.values(columnMapping).filter(Boolean);
+  const mappingValid =
+    !mappingNeeded ||
+    (selectedTargets.includes("word_type") &&
+      new Set(selectedTargets).size === selectedTargets.length);
+  const previewParams = new URLSearchParams(params);
+  if (mappingNeeded)
+    previewParams.set("column_mapping", JSON.stringify(columnMapping));
+  const destinationKey = previewParams.toString();
   const canCreate =
     mode === "new" && Boolean(destination && sourceLanguage && targetLanguage);
   const canPreview = Boolean(
-    destination && effectiveFile && (mode === "existing" || (sourceLanguage && targetLanguage)),
+    destination && file && headers.length > 0 && mappingValid &&
+      (mode === "existing" || (sourceLanguage && targetLanguage)),
   );
   const currentPreview = canPreview && preview?.key === destinationKey;
   const report = currentPreview ? preview.report : null;
@@ -242,30 +294,23 @@ export default function Import({
 
   useEffect(() => {
     if (!file) {
-      setSourceText("");
-      setDetectedFormat(null);
-      return;
+      setHeaders([]);
+      setColumnMapping({});
+      return undefined;
     }
     let active = true;
     file.text().then((value) => {
       if (!active) return;
-      setSourceText(value);
-      const header = value
-        .replace(/^\uFEFF/, "")
-        .split(/\r?\n/, 1)[0]
-        .split(",")
-        .map((name) => name.replace(/^"|"$/g, "").trim());
-      if (["base", "learning", "word_type"].every((name) => header.includes(name)))
-        setDetectedFormat("simple");
-      else if (header.includes("schema_version") || value.includes("italian-notebook-v3"))
-        setDetectedFormat("v3");
-      else if (value.includes("italian-notebook-v2")) setDetectedFormat("v2");
-      else setDetectedFormat("v1");
+      const found = csvHeaders(value);
+      setHeaders(found);
+      setColumnMapping(
+        suggestedMapping(found, sourceLanguage, targetLanguage, value),
+      );
     });
     return () => {
       active = false;
     };
-  }, [file]);
+  }, [file, sourceLanguage, targetLanguage]);
 
   useEffect(() => {
     if (!canPreview || !previewRequested) return;
@@ -276,7 +321,7 @@ export default function Import({
         const report = await request(`/api/imports/preview?${destinationKey}`, {
           method: "POST",
           headers: { "X-CSRF-Token": csrf, "Content-Type": "text/csv" },
-          body: effectiveFile,
+          body: file,
           signal: controller.signal,
         });
         if (!controller.signal.aborted)
@@ -298,7 +343,7 @@ export default function Import({
     canPreview,
     previewRequested,
     destinationKey,
-    effectiveFile,
+    file,
     csrf,
     onLocked,
     text,
@@ -355,11 +400,11 @@ export default function Import({
       const last = newCollectionRequest.current;
       if (
         last?.destinationKey !== destinationKey ||
-        last.file !== effectiveFile
+        last.file !== file
       ) {
         newCollectionRequest.current = {
           destinationKey,
-          file: effectiveFile,
+          file: file,
           id: crypto.randomUUID(),
         };
       }
@@ -369,7 +414,7 @@ export default function Import({
       result = await request(`/api/imports/confirm?${confirmParams}`, {
         method: "POST",
         headers: { "X-CSRF-Token": csrf, "Content-Type": "text/csv" },
-        body: effectiveFile,
+        body: file,
       });
     } catch (failure) {
       if (failure.status === 401) onLocked();
@@ -483,6 +528,7 @@ export default function Import({
                   onChange={(value) => changeDestination(setBase, value)}
                   exclude={[learning]}
                   recentKey="import-base"
+                  clearLabel={text.csvClearSearch}
                   emptyMessage={text.errors.request_failed}
                 />
               </label>
@@ -494,6 +540,7 @@ export default function Import({
                   onChange={(value) => changeDestination(setLearning, value)}
                   exclude={[base]}
                   recentKey="import-learning"
+                  clearLabel={text.csvClearSearch}
                   emptyMessage={text.errors.request_failed}
                 />
               </label>
@@ -543,6 +590,17 @@ export default function Import({
             </button>
           </div>
         )}
+        <section className="csv-template">
+          <h3>{text.csvTemplateTitle}</h3>
+          <p>{text.csvTemplateHint}</p>
+          <a className="csv-example-link" href={exampleHref} download>
+            <FileDown size={16} aria-hidden="true" /> {text.csvExample}
+          </a>
+          <details>
+            <summary>{text.csvFormat}</summary>
+            <p>{text.csvTemplateHelp}</p>
+          </details>
+        </section>
         <div className="csv-file-field">
           <label className="secondary csv-file-button" htmlFor={fileId}>
             <Upload size={16} aria-hidden="true" />
@@ -563,51 +621,40 @@ export default function Import({
             />
           </label>
           {file && <span className="csv-filename">{file.name}</span>}
-          <label className="csv-template-field">
-            {text.csvTemplateFormat}
-            <select
-              value={templateFormat}
-              disabled={Boolean(file)}
-              onChange={(event) => setTemplateFormat(event.target.value)}
-            >
-              {[
-                ["simple", text.csvTemplateSimple],
-                ["v2", text.csvTemplateV2],
-                ["v3", text.csvTemplateV3],
-              ].map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {!file && (
-            <a
-              className="csv-example-link"
-              href={exampleHref}
-              download
-            >
-              <FileDown size={16} aria-hidden="true" /> {text.csvExample}
-            </a>
-          )}
+          <span className="csv-auto-detect">{text.csvAutoDetect}</span>
         </div>
-        {file && detectedFormat && (
-          <p className="csv-detected-format">
-            {text.csvDetectedFormat}: {text.csvFormatLabels[detectedFormat] || detectedFormat}
-          </p>
-        )}
-        {mapping.length > 0 && (
-          <details className="csv-mapping">
-            <summary>{text.csvMapping}</summary>
-            <dl>
-              {mapping.map(([from, to]) => (
-                <div key={from}>
-                  <dt>{from}</dt>
-                  <dd>→ {to}</dd>
-                </div>
-              ))}
-            </dl>
-          </details>
+        {mappingNeeded && headers.length > 0 && (
+          <fieldset className="csv-mapping-fields">
+            <legend>{text.csvMapping}</legend>
+            <p>{text.csvMappingIntro}</p>
+            {headers.map((header, index) => (
+              <label key={`${header}-${index}`} className="csv-mapping-row">
+                <span>{header}</span>
+                <select
+                  aria-label={`${text.csvMapping}: ${header}`}
+                  value={columnMapping[header] ?? ""}
+                  onChange={(event) =>
+                    setColumnMapping((current) => ({
+                      ...current,
+                      [header]: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">{text.csvIgnoreColumn}</option>
+                  {columnOptions.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            {!mappingValid && (
+              <p role="alert" className="error">
+                {text.csvMappingError}
+              </p>
+            )}
+          </fieldset>
         )}
       </fieldset>
       {error && (

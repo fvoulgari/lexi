@@ -19,6 +19,7 @@ const RTL_PAYLOAD = {
     {
       id: "ar",
       label: "Arabic",
+      native_name: "العربية",
       script: "Arab",
       text_direction: "rtl",
       enhanced: false,
@@ -152,12 +153,18 @@ test("practice renders an RTL prompt and an LTR answer for the reverse direction
   );
 });
 
-test("language picker labels use the language's own direction", async () => {
+test("language picker native names use the language's own direction", async () => {
   withRegistry();
   const user = userEvent.setup();
   render(<LanguagePicker value="" onChange={() => {}} label="Language" />);
   await user.click(screen.getByRole("combobox", { name: "Language" }));
   const option = screen.getByRole("option", { name: /Arabic/ });
-  expect(option.querySelector("span")).toHaveAttribute("dir", "rtl");
-  expect(option.querySelector("span")).toHaveAttribute("data-script", "Arab");
+  expect(option.querySelector(".language-picker-native")).toHaveAttribute(
+    "dir",
+    "rtl",
+  );
+  expect(option.querySelector(".language-picker-native")).toHaveAttribute(
+    "data-script",
+    "Arab",
+  );
 });

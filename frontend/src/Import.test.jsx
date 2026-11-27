@@ -198,7 +198,7 @@ test("keeps the file, refreshes the preview for each destination, and selects ea
   expect(received).toEqual(["Lezione 01", "Verbi"]);
 });
 
-test("remaps a simple template into reversed scoped v2 columns", async () => {
+test("lets the backend detect a simple template without rewriting it", async () => {
   let body = "";
   server.use(
     http.post("*/api/imports/preview", async ({ request }) => {
@@ -215,19 +215,66 @@ test("remaps a simple template into reversed scoped v2 columns", async () => {
   );
   await chooseLanguage(user, dialog, "Base language", "Greek");
   await chooseLanguage(user, dialog, "Learning language", "Italian");
+  expect(dialog.getByRole("link", { name: copy.en.csvExample })).toHaveAttribute(
+    "href",
+    "/api/imports/example?format=template&source_language=el&target_language=it",
+  );
   await user.upload(dialog.getByLabelText("Choose CSV file"), simpleFile);
   await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
   await dialog.findByRole("button", {
     name: "Import 1 card into Reversed simple",
   });
 
-  expect(body).toContain("card_source_language");
-  expect(body).toContain("card_target_language");
-  expect(body).toContain("text_el");
-  expect(body).toContain("text_it");
+  expect(body).toContain("csv_format,base,learning");
+  expect(body).toContain("lexi-simple-v1,γεια,ciao");
   expect(body).toContain("γεια");
   expect(body).toContain("ciao");
-  expect(body).not.toContain("\"base\"");
+  expect(body).not.toContain("text_el");
+});
+
+test("asks for explicit column mapping when headers are ambiguous", async () => {
+  let previewUrl = "";
+  server.use(
+    http.post("*/api/imports/preview", ({ request }) => {
+      previewUrl = request.url;
+      return HttpResponse.json(result);
+    }),
+  );
+  const ambiguous = new File(
+    ["word,translation,part\nγεια,ciao,noun\n"],
+    "ambiguous.csv",
+    { type: "text/csv" },
+  );
+  const user = openLibrary();
+  const dialog = await openImport(user);
+  await user.selectOptions(
+    dialog.getByRole("combobox", { name: "Collection" }),
+    "mine",
+  );
+  await user.upload(dialog.getByLabelText("Choose CSV file"), ambiguous);
+  await dialog.findByRole("combobox", { name: "Column mapping: word" });
+  await user.selectOptions(
+    dialog.getByRole("combobox", { name: "Column mapping: word" }),
+    "text_el",
+  );
+  await user.selectOptions(
+    dialog.getByRole("combobox", { name: "Column mapping: translation" }),
+    "text_it",
+  );
+  await user.selectOptions(
+    dialog.getByRole("combobox", { name: "Column mapping: part" }),
+    "word_type",
+  );
+  await user.click(dialog.getByRole("button", { name: copy.en.csvPreview }));
+  await dialog.findByRole("button", { name: /Import 1 card into Mine/ });
+  const query = new URL(previewUrl).searchParams;
+  expect(query.get("column_mapping")).toBe(
+    JSON.stringify({
+      word: "text_el",
+      translation: "text_it",
+      part: "word_type",
+    }),
+  );
 });
 
 test("creates an empty collection from the Vocabulary dialog without a CSV", async () => {
@@ -310,11 +357,13 @@ test.each(["el", "it"])(
     await user.click(base);
     await user.type(base, "日本語");
     expect(
-      await dialog.findByRole("option", { name: /^Japanese/ }),
+      await screen.findByRole("option", { name: /^Japanese/ }),
     ).toBeInTheDocument();
     expect(
-      dialog.getByRole("combobox", { name: copy[language].csvTemplateFormat }),
-    ).toBeInTheDocument();
+      dialog.getByRole("link", { name: copy[language].csvExample }),
+    ).toHaveAttribute("href", "/api/imports/example?format=template");
+    expect(dialog.getByText(copy[language].csvTemplateHelp)).toBeInTheDocument();
+    expect(dialog.queryByRole("combobox", { name: /format/i })).toBeNull();
   },
 );
 

@@ -142,7 +142,9 @@ test("a late response for an earlier file cannot replace the current preview", a
   );
   await user.upload(
     screen.getByLabelText(t.chooseCsv),
-    new File(["new"], "replacement.csv", { type: "text/csv" }),
+    new File(["italian,greek,word_type\n"], "replacement.csv", {
+      type: "text/csv",
+    }),
   );
   await user.click(screen.getByRole("button", { name: text.csvPreview }));
   await screen.findByRole("button", { name: primary(0) });

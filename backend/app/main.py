@@ -282,11 +282,24 @@ def create_app():
         include_ids: bool = False,
         archived: bool = False,
         format: str | None = None,
+        representation: str | None = None,
     ):
         if format not in (None, "v1", "v2", "v3"):
             raise HTTPException(422, "Choose CSV format v1, v2 or v3.")
-        use_v2 = format in ("v2", "v3") or (
-            format is None and collection_id is not None
+        if representation not in (None, "vocabulary", "metadata"):
+            raise HTTPException(
+                422, "Choose a vocabulary or all-metadata export."
+            )
+        if representation and format:
+            raise HTTPException(
+                422, "Choose an export representation, not a CSV version."
+            )
+        vocabulary_only = representation == "vocabulary"
+        metadata = representation == "metadata"
+        use_v2 = (
+            format in ("v2", "v3")
+            or representation in ("vocabulary", "metadata")
+            or (format is None and representation is None and collection_id is not None)
         )
         conditions = vocabulary_conditions(q, [], False, word_types, tag_ids)
         if archived:
@@ -309,7 +322,12 @@ def create_app():
                     entries,
                     current_account().id,
                     collection,
-                    version=FORMAT_VERSION_V3 if format == "v3" else FORMAT_VERSION_V2,
+                    version=(
+                        FORMAT_VERSION_V3
+                        if metadata or format == "v3"
+                        else FORMAT_VERSION_V2
+                    ),
+                    vocabulary_only=vocabulary_only,
                 )
                 if use_v2
                 else export_library(

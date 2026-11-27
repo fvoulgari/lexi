@@ -13,10 +13,11 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH,
 });
-async function chooseLanguage(dialog, index, language) {
+async function chooseLanguage(page, dialog, index, language) {
   const picker = dialog.locator(".language-combobox").nth(index);
   await picker.getByRole("combobox").fill(language);
-  await picker
+  await page
+    .getByRole("listbox")
     .getByRole("option", { name: new RegExp(`^${language}`) })
     .click();
 }
@@ -105,8 +106,8 @@ try {
       await createDialog
         .getByRole("textbox", { name: "Collection name" })
         .fill("Standalone");
-      await chooseLanguage(createDialog, 0, "Greek");
-      await chooseLanguage(createDialog, 1, "Italian");
+      await chooseLanguage(page, createDialog, 0, "Greek");
+      await chooseLanguage(page, createDialog, 1, "Italian");
       const creation = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === "/api/collections" &&
@@ -145,8 +146,8 @@ try {
         .getByRole("radio", { name: "New collection", exact: true })
         .check();
       await dialog.getByRole("textbox", { name: "Collection name" }).fill(name);
-      await chooseLanguage(dialog, 0, "Greek");
-      await chooseLanguage(dialog, 1, "Italian");
+      await chooseLanguage(page, dialog, 0, "Greek");
+      await chooseLanguage(page, dialog, 1, "Italian");
       await dialog.getByRole("button", { name: "Preview" }).click();
       const confirm = dialog.getByRole("button", {
         name: `Import ${rows.length} cards into ${name}`,
@@ -281,8 +282,8 @@ try {
         .getByRole("textbox", { name: "Collection name", exact: true })
         .fill(name);
       const [base, learning] = pair.split(" ↔ ");
-      await chooseLanguage(createDialog, 0, base);
-      await chooseLanguage(createDialog, 1, learning);
+      await chooseLanguage(page, createDialog, 0, base);
+      await chooseLanguage(page, createDialog, 1, learning);
       const creation = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === "/api/collections" &&
@@ -344,11 +345,12 @@ try {
     await page.getByText("=1+1", { exact: true }).waitFor();
     await page.getByText("hej — καλημέρα", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Export CSV", exact: true }).click();
+    const v2ExportDialog = page.getByRole("dialog", { name: "Export CSV" });
+    await v2ExportDialog
+      .getByRole("radio", { name: /Vocabulary with all metadata/ })
+      .check();
     const v2DownloadPromise = page.waitForEvent("download");
-    await page
-      .getByRole("dialog", { name: "Export CSV" })
-      .getByRole("button", { name: "Export CSV" })
-      .click();
+    await v2ExportDialog.getByRole("button", { name: "Export CSV" }).click();
     const v2Csv = await readFile(
       await (await v2DownloadPromise).path(),
       "utf8",

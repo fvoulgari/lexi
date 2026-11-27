@@ -335,8 +335,11 @@ async function chooseLanguage(user, scope, label, name) {
   const input = scope.getByRole("combobox", { name: label });
   await user.click(input);
   await user.type(input, name);
+  const listbox = await screen.findByRole("listbox");
   await user.click(
-    await scope.findByRole("option", { name: new RegExp(`^${name}`) }),
+    await within(listbox).findByRole("option", {
+      name: new RegExp(`^${name}`),
+    }),
   );
 }
 

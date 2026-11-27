@@ -65,18 +65,25 @@ export const copy = {
     homeNotebook: "Your notebook",
     homeEmptyTitle: "Expand your vocabulary, lexi-lexi.",
     csvExample: "Download CSV template",
-    csvTemplateFormat: "Template format",
-    csvTemplateSimple: "Simple vocabulary",
-    csvTemplateV2: "Metadata (v2)",
-    csvTemplateV3: "Lossless exchange (v3)",
-    csvDetectedFormat: "Detected format",
-    csvFormatLabels: {
-      simple: "Simple vocabulary",
-      v2: "Metadata (v2)",
-      v3: "Lossless exchange (v3)",
-      v1: "Legacy (v1)",
-    },
+    csvTemplateTitle: "Don't have a CSV file yet?",
+    csvTemplateHint:
+      "Download a ready-to-use template for your selected languages.",
+    csvTemplateHelp:
+      "One row per card. Use a word type such as noun, verb or adjective; grammar columns appear only for languages that support them and required gender values are shown in the template.",
+    csvAutoDetect: "Lexi recognizes the file format and language columns automatically.",
     csvMapping: "Column mapping",
+    csvMappingIntro:
+      "This file needs a little help. Match each column to a Lexi field, or choose Ignore to leave it out.",
+    csvMappingError:
+      "Map one column to Word type and give each language text column a different mapping.",
+    csvMapBase: "Base language text",
+    csvMapLearning: "Learning language text",
+    csvMapWordType: "Word type",
+    csvMapGrammar: "Grammar for {language}",
+    csvMapNotes: "Notes",
+    csvMapTags: "Tags",
+    csvIgnoreColumn: "Ignore this column",
+    csvClearSearch: "Clear search",
     csvViewExample: "View example",
     csvImport: "Import vocabulary",
     csvFile: "CSV file",
@@ -353,6 +360,12 @@ export const copy = {
     cardActions: "Card actions",
     toolsImport: "Import CSV",
     toolsExport: "Export CSV",
+    exportVocabulary: "Vocabulary only",
+    exportVocabularyHint:
+      "A spreadsheet-friendly file with the fields needed to reimport. Optional grammar metadata is excluded.",
+    exportMetadata: "Vocabulary with all metadata",
+    exportMetadataHint:
+      "A complete vocabulary exchange file with language-specific grammar and entry identity. Learner progress and reviews are not included.",
     toolsNewUnit: "New unit",
     csvImportHeading: "Add new words.",
     csvIntro: "Choose a CSV file to preview the cards before importing them.",
@@ -430,18 +443,26 @@ export const copy = {
     homeNotebook: "Το τετράδιό σου",
     homeEmptyTitle: "Εμπλούτισε το λεξιλόγιό σου, lexi-lexi.",
     csvExample: "Λήψη προτύπου CSV",
-    csvTemplateFormat: "Μορφή προτύπου",
-    csvTemplateSimple: "Απλό λεξιλόγιο",
-    csvTemplateV2: "Μεταδεδομένα (v2)",
-    csvTemplateV3: "Απώλεια-ελεύθερη ανταλλαγή (v3)",
-    csvDetectedFormat: "Εντοπισμένη μορφή",
-    csvFormatLabels: {
-      simple: "Απλό λεξιλόγιο",
-      v2: "Μεταδεδομένα (v2)",
-      v3: "Απώλεια-ελεύθερη ανταλλαγή (v3)",
-      v1: "Παλαιά μορφή (v1)",
-    },
+    csvTemplateTitle: "Δεν έχεις ακόμη αρχείο CSV;",
+    csvTemplateHint:
+      "Κατέβασε ένα έτοιμο πρότυπο για τις γλώσσες που επέλεξες.",
+    csvTemplateHelp:
+      "Μία γραμμή ανά κάρτα. Χρησιμοποίησε τύπο λέξης όπως ουσιαστικό, ρήμα ή επίθετο· οι στήλες γραμματικής εμφανίζονται μόνο για γλώσσες που τις υποστηρίζουν.",
+    csvAutoDetect:
+      "Το Lexi αναγνωρίζει αυτόματα τη μορφή του αρχείου και τις στήλες γλωσσών.",
     csvMapping: "Αντιστοίχιση στηλών",
+    csvMappingIntro:
+      "Αυτό το αρχείο χρειάζεται λίγη βοήθεια. Αντιστοίχισε κάθε στήλη σε ένα πεδίο του Lexi ή επίλεξε Παράλειψη.",
+    csvMappingError:
+      "Αντιστοίχισε μία στήλη στον Τύπο λέξης και δώσε διαφορετική αντιστοίχιση σε κάθε στήλη κειμένου γλώσσας.",
+    csvMapBase: "Κείμενο γλώσσας αναφοράς",
+    csvMapLearning: "Κείμενο γλώσσας εκμάθησης",
+    csvMapWordType: "Τύπος λέξης",
+    csvMapGrammar: "Γραμματική για {language}",
+    csvMapNotes: "Σημειώσεις",
+    csvMapTags: "Ετικέτες",
+    csvIgnoreColumn: "Παράλειψη αυτής της στήλης",
+    csvClearSearch: "Καθαρισμός αναζήτησης",
     csvViewExample: "Δες παράδειγμα",
     csvImport: "Εισαγωγή λεξιλογίου",
     csvFile: "Αρχείο CSV",
@@ -721,6 +742,12 @@ export const copy = {
     cardActions: "Ενέργειες κάρτας",
     toolsImport: "Εισαγωγή CSV",
     toolsExport: "Εξαγωγή CSV",
+    exportVocabulary: "Μόνο λεξιλόγιο",
+    exportVocabularyHint:
+      "Αρχείο φιλικό προς υπολογιστικά φύλλα με τα πεδία που χρειάζονται για νέα εισαγωγή. Τα προαιρετικά μεταδεδομένα γραμματικής εξαιρούνται.",
+    exportMetadata: "Λεξιλόγιο με όλα τα μεταδεδομένα",
+    exportMetadataHint:
+      "Πλήρης ανταλλαγή λεξιλογίου με γραμματική ανά γλώσσα και ταυτότητα καρτών. Δεν περιλαμβάνονται η πρόοδος και οι επαναλήψεις.",
     toolsNewUnit: "Νέα ενότητα",
     csvImportHeading: "Πρόσθεσε νέες λέξεις.",
     csvIntro:
@@ -799,18 +826,26 @@ export const copy = {
     homeNotebook: "Il tuo quaderno",
     homeEmptyTitle: "Arricchisci il tuo vocabolario, lexi-lexi.",
     csvExample: "Scarica modello CSV",
-    csvTemplateFormat: "Formato del modello",
-    csvTemplateSimple: "Vocabolario semplice",
-    csvTemplateV2: "Metadati (v2)",
-    csvTemplateV3: "Scambio senza perdita (v3)",
-    csvDetectedFormat: "Formato rilevato",
-    csvFormatLabels: {
-      simple: "Vocabolario semplice",
-      v2: "Metadati (v2)",
-      v3: "Scambio senza perdita (v3)",
-      v1: "Vecchio formato (v1)",
-    },
+    csvTemplateTitle: "Non hai ancora un file CSV?",
+    csvTemplateHint:
+      "Scarica un modello pronto per le lingue selezionate.",
+    csvTemplateHelp:
+      "Una riga per carta. Usa un tipo di parola come sostantivo, verbo o aggettivo; le colonne grammaticali compaiono solo per le lingue che le supportano.",
+    csvAutoDetect:
+      "Lexi riconosce automaticamente il formato del file e le colonne delle lingue.",
     csvMapping: "Mappatura delle colonne",
+    csvMappingIntro:
+      "Questo file ha bisogno di un piccolo aiuto. Associa ogni colonna a un campo di Lexi o scegli Ignora per escluderla.",
+    csvMappingError:
+      "Associa una colonna al Tipo di parola e dai un’associazione diversa a ogni colonna di testo della lingua.",
+    csvMapBase: "Testo della lingua di partenza",
+    csvMapLearning: "Testo della lingua di apprendimento",
+    csvMapWordType: "Tipo di parola",
+    csvMapGrammar: "Grammatica per {language}",
+    csvMapNotes: "Note",
+    csvMapTags: "Etichette",
+    csvIgnoreColumn: "Ignora questa colonna",
+    csvClearSearch: "Cancella ricerca",
     csvViewExample: "Vedi esempio",
     csvImport: "Importa vocabolario",
     csvFile: "File CSV",
@@ -1090,6 +1125,12 @@ export const copy = {
     cardActions: "Azioni scheda",
     toolsImport: "Importa CSV",
     toolsExport: "Esporta CSV",
+    exportVocabulary: "Solo vocabolario",
+    exportVocabularyHint:
+      "Un file adatto ai fogli di calcolo con i campi necessari per reimportare. I metadati grammaticali opzionali sono esclusi.",
+    exportMetadata: "Vocabolario con tutti i metadati",
+    exportMetadataHint:
+      "Uno scambio completo del vocabolario con grammatica specifica per lingua e identità delle schede. Progressi e ripassi non sono inclusi.",
     toolsNewUnit: "Nuova unità",
     csvImportHeading: "Aggiungi nuove parole.",
     csvIntro:
