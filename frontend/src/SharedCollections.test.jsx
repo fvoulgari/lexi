@@ -51,7 +51,7 @@ function open(language = "en", collections = [own]) {
   );
 }
 
-test("the page manages collections without details, open links, practice selection or practice controls", async () => {
+test("the page manages collections with direct practice links but no bulk selection", async () => {
   open();
   expect(
     await screen.findByRole("heading", { name: "Greetings" }),
@@ -60,6 +60,9 @@ test("the page manages collections without details, open links, practice selecti
     screen.queryByRole("button", { name: "Details" }),
   ).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Open" })).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: "Practise this collection" }),
+  ).toHaveAttribute("href", "/practice?pair=el-it&direction=greek_to_italian&collection=one");
   expect(
     screen.queryByRole("checkbox", { name: /Select for practice/ }),
   ).not.toBeInTheDocument();

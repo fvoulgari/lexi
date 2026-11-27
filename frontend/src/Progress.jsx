@@ -10,10 +10,11 @@ import {
   languageLabel,
   languageTextProps,
 } from "./languages.js";
+import { practiceUrlForDirection } from "./practice-links.js";
 
 function difficultPracticeUrl(direction) {
   if (!direction) return "/practice?mode=difficult";
-  return `/practice?mode=difficult&direction=${encodeURIComponent(direction)}`;
+  return practiceUrlForDirection(direction, { mode: "difficult" });
 }
 
 export default function Progress({ text, onLocked, detailed = false }) {

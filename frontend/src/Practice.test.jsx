@@ -17,8 +17,27 @@ import Practice from "./Practice.jsx";
 import { copy } from "./copy.js";
 let saves;
 let fail;
+const availablePairs = {
+  pairs: [
+    {
+      key: "el-it",
+      languages: ["el", "it"],
+      directions: ["greek_to_italian", "italian_to_greek"],
+      card_count: 1,
+    },
+    {
+      key: "da-en",
+      languages: ["da", "en"],
+      directions: ["da_to_en", "en_to_da"],
+      card_count: 2,
+    },
+  ],
+};
 const server = setupServer(
   http.get("*/api/collections", () => HttpResponse.json([])),
+  http.get("*/api/practice/available-pairs", () =>
+    HttpResponse.json(availablePairs),
+  ),
   http.patch("*/api/account", async ({ request }) =>
     HttpResponse.json(await request.json()),
   ),
@@ -1305,4 +1324,297 @@ test("practice labels saved public Collections and drops a withdrawn selection",
     ).toBeNull(),
   );
   expect(screen.getByRole("button", { name: "Start practice" })).toBeDisabled();
+});
+
+test("a generic URL direction initializes the pair, direction and card languages", async () => {
+  let payload;
+  server.use(
+    http.post("*/api/sessions", async ({ request }) => {
+      payload = await request.json();
+      return HttpResponse.json({
+        id: "s",
+        available: 1,
+        requested_size: 25,
+        cards: [
+          {
+            position: 0,
+            snapshot: {
+              source_language: "en",
+              target_language: "da",
+              source_text: "house",
+              target_text: "hus",
+              word_type: "noun",
+            },
+          },
+        ],
+      });
+    }),
+  );
+  openPractice("/practice?pair=da-en&direction=en_to_da");
+  const user = userEvent.setup();
+  await screen.findByText("Foteini");
+  expect(screen.getByRole("combobox", { name: "Language pair" })).toHaveValue(
+    "Danish ↔ English",
+  );
+  expect(
+    screen.getByRole("radio", { name: "English → Danish", exact: true }),
+  ).toBeChecked();
+  expect(
+    screen.getAllByRole("radio", { name: /→/ }).map((input) => input.labels[0].textContent),
+  ).toEqual(["Danish → English", "English → Danish"]);
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(payload).toEqual({
+    profile_id: "f",
+    direction: "en_to_da",
+    size: 25,
+  });
+  expect(await screen.findByText("house")).toHaveAttribute("lang", "en");
+  await user.click(
+    await screen.findByRole("button", { name: "Reveal answer" }),
+  );
+  expect(await screen.findByText("hus")).toHaveAttribute("lang", "da");
+});
+
+test("the pair picker searches language codes and native names with the keyboard", async () => {
+  let payload;
+  server.use(
+    http.post("*/api/sessions", async ({ request }) => {
+      payload = await request.json();
+      return HttpResponse.json({
+        id: "s",
+        available: 1,
+        requested_size: 25,
+        cards: [
+          {
+            position: 0,
+            snapshot: {
+              source_language: "da",
+              target_language: "en",
+              source_text: "hus",
+              target_text: "house",
+            },
+          },
+        ],
+      });
+    }),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  const pair = await screen.findByRole("combobox", { name: "Language pair" });
+  await user.click(pair);
+  await user.type(pair, "dansk");
+  await user.click(
+    await screen.findByRole("option", { name: /Danish ↔ English/ }),
+  );
+  expect(pair).toHaveValue("Danish ↔ English");
+  expect(
+    screen.getByRole("radio", { name: "Danish → English", exact: true }),
+  ).toBeChecked();
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(payload.direction).toBe("da_to_en");
+});
+
+test("a valid stored non-legacy RTL selection is not reset by the profile default", async () => {
+  localStorage.setItem(
+    "lexi-practice-selection",
+    JSON.stringify({ pair: "ar-fa", direction: "fa_to_ar" }),
+  );
+  openPractice();
+  expect(
+    await screen.findByRole("combobox", { name: "Language pair" }),
+  ).toHaveValue("Arabic ↔ Persian");
+  expect(
+    screen.getByRole("radio", { name: "Persian → Arabic", exact: true }),
+  ).toBeChecked();
+  expect(
+    screen.getAllByRole("radio", { name: /→/ }).map((input) => input.labels[0].textContent),
+  ).toEqual(["Arabic → Persian", "Persian → Arabic"]);
+});
+
+test("pair availability exposes localized loading, error and empty states", async () => {
+  server.use(
+    http.get("*/api/practice/available-pairs", async () => {
+      await delay(150);
+      return HttpResponse.json({ pairs: [] });
+    }),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  const pair = await screen.findByRole("combobox", { name: "Language pair" });
+  await user.click(pair);
+  expect(await screen.findByText(copy.en.setupLoadingPairs)).toBeVisible();
+  await waitFor(() =>
+    expect(screen.queryByText(copy.en.setupLoadingPairs)).not.toBeInTheDocument(),
+  );
+  expect(within(screen.getByRole("listbox")).getByText(copy.en.setupNoPairs)).toBeVisible();
+  expect(screen.getByRole("button", { name: "Start practice" })).toBeDisabled();
+});
+
+test("pair availability failure shows a localized error in the picker", async () => {
+  server.use(
+    http.get("*/api/practice/available-pairs", () =>
+      HttpResponse.json(
+        { error: { code: "service_unavailable" } },
+        { status: 503 },
+      ),
+    ),
+  );
+  openPractice();
+  const user = userEvent.setup();
+  const pair = await screen.findByRole("combobox", { name: "Language pair" });
+  await user.click(pair);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    copy.en.setupPairsError,
+  );
+});
+
+test("collection filters follow the unordered pair and clear incompatible choices", async () => {
+  let payload;
+  server.use(
+    http.get("*/api/collections", () =>
+      HttpResponse.json([
+        { id: "legacy", name: "Legacy" },
+        {
+          id: "danish",
+          name: "Danish",
+          source_language: "en",
+          target_language: "da",
+          visibility: "private",
+          can_edit: true,
+        },
+        {
+          id: "persian",
+          name: "Persian",
+          source_language: "ar",
+          target_language: "fa",
+          visibility: "published",
+          saved: true,
+          can_edit: false,
+        },
+      ]),
+    ),
+    http.post("*/api/sessions", async ({ request }) => {
+      payload = await request.json();
+      return HttpResponse.json(
+        { error: { code: "no_matches" } },
+        { status: 409 },
+      );
+    }),
+  );
+  openPractice("/practice?pair=da-en&direction=en_to_da");
+  const user = userEvent.setup();
+  await screen.findByText("Foteini");
+  await user.click(
+    screen.getByRole("radio", { name: "With filters", exact: true }),
+  );
+  expect(await screen.findByLabelText("Danish")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Legacy")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Persian")).not.toBeInTheDocument();
+  await user.click(screen.getByLabelText("Danish"));
+  const pair = screen.getByRole("combobox", { name: "Language pair" });
+  await user.click(pair);
+  await user.type(pair, "Greek");
+  await user.click(await screen.findByRole("option", { name: /Greek ↔ Italian/ }));
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(payload.direction).toBe("greek_to_italian");
+  expect(payload.collection_ids).toEqual([]);
+});
+
+test("difficult and mixed modes carry the selected generic pair direction", async () => {
+  const payloads = [];
+  server.use(
+    http.get("*/api/profiles/f/difficult-entries", () =>
+      HttpResponse.json([{ id: "e", source_text: "house", target_text: "hus" }]),
+    ),
+    http.post("*/api/sessions", async ({ request }) => {
+      payloads.push(await request.json());
+      return HttpResponse.json({
+        id: "s",
+        available: 1,
+        requested_size: 25,
+        cards: [
+          {
+            position: 0,
+            snapshot: { source_language: "en", target_language: "da" },
+          },
+        ],
+      });
+    }),
+  );
+  openPractice("/practice?pair=da-en&direction=en_to_da");
+  const user = userEvent.setup();
+  await screen.findByText("Foteini");
+  await user.click(
+    screen.getByRole("radio", { name: "Difficult cards", exact: true }),
+  );
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await screen.findByRole("button", { name: "Reveal answer" });
+  expect(payloads[0]).toMatchObject({
+    direction: "en_to_da",
+    mode: "difficult",
+  });
+  await user.click(
+    screen.getByRole("button", { name: "Finish and see summary" }),
+  );
+  await screen.findByRole("heading", { name: "Session summary" });
+  await user.click(screen.getByRole("button", { name: "Practice Again" }));
+  await user.click(
+    screen.getByRole("radio", { name: "Mixed practice", exact: true }),
+  );
+  await user.click(screen.getByRole("button", { name: "Start practice" }));
+  await screen.findByRole("button", { name: "Reveal answer" });
+  expect(payloads[1]).toMatchObject({ direction: "en_to_da", mode: "mixed" });
+});
+
+test("summary rows use each review's direction, not the session's initial direction", async () => {
+  const { user, panel } = await completeWithSummary({
+    total: 2,
+    counts: { again: 1, hard: 1, easy: 0 },
+    remembered: 0,
+    needs_practice: [
+      {
+        id: "forward",
+        direction: "en_to_da",
+        snapshot: {
+          source_language: "en",
+          target_language: "da",
+          source_text: "house",
+          target_text: "hus",
+        },
+        rating: "again",
+      },
+      {
+        id: "reverse",
+        direction: "da_to_en",
+        snapshot: {
+          source_language: "en",
+          target_language: "da",
+          source_text: "house",
+          target_text: "hus",
+        },
+        rating: "hard",
+      },
+    ],
+  }, "en");
+  const toggle = within(panel).getByText("A little more practice · 2 cards");
+  await user.click(toggle);
+  const rows = within(toggle.closest("details")).getAllByRole("listitem");
+  expect(within(rows[0]).getByText("English → Danish")).toBeVisible();
+  expect(within(rows[0]).getByText("house")).toHaveAttribute("lang", "en");
+  expect(within(rows[1]).getByText("Danish → English")).toBeVisible();
+  expect(within(rows[1]).getByText("hus")).toHaveAttribute("lang", "da");
+});
+
+test("a pair-only URL resolves an explicit registered direction without a Base/Learning guess", async () => {
+  openPractice("/practice?pair=da-en");
+  expect(
+    await screen.findByRole("combobox", { name: "Language pair" }),
+  ).toHaveValue("Danish ↔ English");
+  expect(
+    screen.getByRole("radio", { name: "Danish → English", exact: true }),
+  ).toBeChecked();
+  expect(
+    screen.queryByRole("radio", { name: "Greek → Italian", exact: true }),
+  ).not.toBeInTheDocument();
 });

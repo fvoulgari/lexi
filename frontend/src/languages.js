@@ -178,6 +178,40 @@ export function pairKey(source, target) {
   return [source, target].sort().join("-");
 }
 
+/** Canonical language IDs encoded in an unordered pair key, when supported. */
+export function parsePairKey(key) {
+  const [first, second] = String(key || "").split("-");
+  try {
+    if (
+      !first ||
+      !second ||
+      first === second ||
+      !isSupportedLanguage(first) ||
+      !isSupportedLanguage(second) ||
+      pairKey(first, second) !== key
+    )
+      return null;
+    return [first, second];
+  } catch {
+    return null;
+  }
+}
+
+/** Unordered pair key for a direction, or null for an unknown direction. */
+export function directionPairKey(key) {
+  const languages = safeDirectionLanguages(key);
+  return languages.length ? pairKey(...languages) : null;
+}
+
+/** Pair directions without throwing when a stale snapshot has unknown IDs. */
+export function safePairDirections(first, second) {
+  try {
+    return pairDirections(first, second);
+  } catch {
+    return [];
+  }
+}
+
 /** Every unordered pair of available languages, in a stable order.
  *
  * Callers pass the IDs from `/api/languages`; `LEGACY_PAIR` is only a fallback
@@ -230,11 +264,44 @@ export function directionKey(from, to) {
   return direction.key;
 }
 
+/** Explicit direction key for an ordered pair, or null when not registered. */
+export function safeDirectionKey(from, to) {
+  try {
+    return directionKey(from, to);
+  } catch {
+    return null;
+  }
+}
+
 /** Ordered [prompt, answer] language IDs for a directed practice key. */
 export function directionLanguages(key) {
   const direction = registry().byKey.get(key);
   if (!direction) throw new Error("Unsupported practice direction.");
   return [direction.prompt_language, direction.answer_language];
+}
+
+/** True when a direction key is registered, without throwing on stale data. */
+export function isRegisteredDirection(key) {
+  try {
+    directionLanguages(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Language IDs for a direction, or an empty pair for stale/unknown keys. */
+export function safeDirectionLanguages(key) {
+  try {
+    return directionLanguages(key);
+  } catch {
+    return [];
+  }
+}
+
+/** Registered direction keys in catalogue order. */
+export function registeredDirections() {
+  return [...registry().directions.map((direction) => direction.key)];
 }
 
 /** Both directed keys for one unordered pair, in a stable order. */

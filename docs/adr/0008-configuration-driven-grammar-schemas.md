@@ -18,4 +18,8 @@ Optional grammar is declared as data, validated from that data, and stored once 
 
 ## Consequences
 
-Existing Italian/Greek behaviour, gender corrections, snapshots, progress and CSV round trips are unchanged because compatibility columns are still written and read. The structured column is authoritative for new enhanced languages whose fields have no historical column; Danish uses it exclusively with no synthetic Italian/Greek columns. `VocabularyOutput` exposes `grammar`, while practice snapshots deliberately keep their historical flat shape.
+Existing Italian/Greek behaviour, gender corrections, progress and CSV round trips are unchanged because compatibility columns are still written and read. The structured column is authoritative for new enhanced languages whose fields have no historical column; Danish uses it exclusively with no synthetic Italian/Greek columns. `VocabularyOutput` exposes `grammar`.
+
+### Amendment: practice snapshots (27 November 2026)
+
+New practice snapshots retain their historical flat fields and also carry `grammar` additively. That is required for structured-only metadata to appear after reveal in Danish and any future enhanced language. Existing snapshots remain valid and unchanged: readers already tolerate a missing `grammar` key, so no migration or historical rewrite is needed.

@@ -18,6 +18,7 @@ import CsvDialog from "./CsvDialog.jsx";
 import Choices from "./Choices.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
+import { practiceUrlForCollection } from "./practice-links.js";
 import { cardLanguageIds, cardText } from "./card-sides.js";
 import {
   isLegacyPair,
@@ -401,6 +402,14 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
           >
             <Download size={17} aria-hidden="true" /> {text.toolsExport}
           </button>
+          {selectedCollection?.card_count > 0 && (
+            <Link
+              className="secondary"
+              to={practiceUrlForCollection(selectedCollection)}
+            >
+              {t.practiseCollection}
+            </Link>
+          )}
         </div>
       </div>
       {toast && (
