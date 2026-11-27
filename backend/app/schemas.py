@@ -245,16 +245,20 @@ class VocabularyFields(GrammarFields):
         return cls.clean_grammar_input(values)
 
 
-class VocabularyCreate(VocabularyFields):
+class VocabularyInput(VocabularyFields):
+    """Shared field validation; gender requirements depend on the caller."""
+
     visibility: Literal["private", "legacy", "published"] = "private"
     unit_id: UUID | None = None
     italian: EntryText
     greek: EntryText
     word_type: WordType
 
+
+class VocabularyCreate(VocabularyInput):
     @model_validator(mode="after")
     def require_entry_genders(self):
-        missing = missing_gender_fields(self.model_dump())
+        missing = missing_gender_fields(self.model_dump(), ("it", "el"))
         if missing:
             raise ValidationError.from_exception_data(
                 type(self).__name__,
@@ -278,6 +282,10 @@ class VocabularyCreate(VocabularyFields):
                 ],
             )
         return self
+
+
+class VocabularyImport(VocabularyInput):
+    """CSV rows check gender after resolving each row's language IDs."""
 
 
 class VocabularyCreateRequest(VocabularyCreate):

@@ -3,14 +3,68 @@
     {
       "id": "ar",
       "label": "Arabic",
+      "native_name": "العربية",
+      "aliases": ["عربي"],
       "script": "Arab",
       "text_direction": "rtl",
       "enhanced": false,
       "publicly_available": true
     },
     {
+      "id": "bn",
+      "label": "Bengali",
+      "native_name": "বাংলা",
+      "aliases": ["Bangla"],
+      "script": "Beng",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "bg",
+      "label": "Bulgarian",
+      "native_name": "Български",
+      "aliases": [],
+      "script": "Cyrl",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "ca",
+      "label": "Catalan",
+      "native_name": "Català",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "cs",
+      "label": "Czech",
+      "native_name": "Čeština",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
       "id": "da",
       "label": "Danish",
+      "native_name": "Dansk",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": true,
+      "publicly_available": true
+    },
+    {
+      "id": "de",
+      "label": "German",
+      "native_name": "Deutsch",
+      "aliases": [],
       "script": "Latn",
       "text_direction": "ltr",
       "enhanced": false,
@@ -19,6 +73,8 @@
     {
       "id": "el",
       "label": "Greek",
+      "native_name": "Ελληνικά",
+      "aliases": [],
       "script": "Grek",
       "text_direction": "ltr",
       "enhanced": true,
@@ -27,6 +83,88 @@
     {
       "id": "en",
       "label": "English",
+      "native_name": "English",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "es",
+      "label": "Spanish",
+      "native_name": "Español",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "fa",
+      "label": "Persian",
+      "native_name": "فارسی",
+      "aliases": ["Farsi"],
+      "script": "Arab",
+      "text_direction": "rtl",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "fi",
+      "label": "Finnish",
+      "native_name": "Suomi",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "fr",
+      "label": "French",
+      "native_name": "Français",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "he",
+      "label": "Hebrew",
+      "native_name": "עברית",
+      "aliases": [],
+      "script": "Hebr",
+      "text_direction": "rtl",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "hi",
+      "label": "Hindi",
+      "native_name": "हिन्दी",
+      "aliases": [],
+      "script": "Deva",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "hu",
+      "label": "Hungarian",
+      "native_name": "Magyar",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "id",
+      "label": "Indonesian",
+      "native_name": "Bahasa Indonesia",
+      "aliases": ["Indonesian"],
       "script": "Latn",
       "text_direction": "ltr",
       "enhanced": false,
@@ -35,6 +173,8 @@
     {
       "id": "it",
       "label": "Italian",
+      "native_name": "Italiano",
+      "aliases": [],
       "script": "Latn",
       "text_direction": "ltr",
       "enhanced": true,
@@ -43,7 +183,169 @@
     {
       "id": "ja",
       "label": "Japanese",
+      "native_name": "日本語",
+      "aliases": [],
       "script": "Jpan",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "ko",
+      "label": "Korean",
+      "native_name": "한국어",
+      "aliases": [],
+      "script": "Hang",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "nl",
+      "label": "Dutch",
+      "native_name": "Nederlands",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "no",
+      "label": "Norwegian",
+      "native_name": "Norsk",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "pl",
+      "label": "Polish",
+      "native_name": "Polski",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "pt",
+      "label": "Portuguese",
+      "native_name": "Português",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "ro",
+      "label": "Romanian",
+      "native_name": "Română",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "ru",
+      "label": "Russian",
+      "native_name": "Русский",
+      "aliases": [],
+      "script": "Cyrl",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "sk",
+      "label": "Slovak",
+      "native_name": "Slovenčina",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "sv",
+      "label": "Swedish",
+      "native_name": "Svenska",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "sw",
+      "label": "Swahili",
+      "native_name": "Kiswahili",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "th",
+      "label": "Thai",
+      "native_name": "ไทย",
+      "aliases": [],
+      "script": "Thai",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "tr",
+      "label": "Turkish",
+      "native_name": "Türkçe",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "uk",
+      "label": "Ukrainian",
+      "native_name": "Українська",
+      "aliases": [],
+      "script": "Cyrl",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "ur",
+      "label": "Urdu",
+      "native_name": "اردو",
+      "aliases": [],
+      "script": "Arab",
+      "text_direction": "rtl",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "vi",
+      "label": "Vietnamese",
+      "native_name": "Tiếng Việt",
+      "aliases": [],
+      "script": "Latn",
+      "text_direction": "ltr",
+      "enhanced": false,
+      "publicly_available": true
+    },
+    {
+      "id": "zh",
+      "label": "Chinese",
+      "native_name": "中文",
+      "aliases": ["Mandarin"],
+      "script": "Hans",
       "text_direction": "ltr",
       "enhanced": false,
       "publicly_available": true

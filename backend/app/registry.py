@@ -8,7 +8,7 @@ without being advertised in the public catalogue.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.engine import Connection
@@ -25,11 +25,15 @@ class LanguageInfo:
     text_direction: str
     publicly_available: bool
     enhanced: bool
+    native_name: str = ""
+    aliases: tuple[str, ...] = ()
 
     def public_payload(self):
         return {
             "id": self.id,
             "label": self.label,
+            "native_name": self.native_name or self.label,
+            "aliases": list(self.aliases),
             "script": self.script,
             "text_direction": self.text_direction,
             "enhanced": self.enhanced,
@@ -56,6 +60,28 @@ class DirectionInfo:
 class Registry:
     languages: Mapping[str, LanguageInfo]
     directions: Mapping[str, DirectionInfo]
+    _by_pair: Mapping[tuple[str, str], DirectionInfo] = field(
+        init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self):
+        # Direction rows grow quadratically with the catalogue; lookups must
+        # stay O(1). Legacy keys are preserved by preferring the conventional
+        # key when one exists, then the lexicographically first key.
+        by_pair = {}
+        for direction in self.directions.values():
+            key = (direction.prompt, direction.answer)
+            current = by_pair.get(key)
+            if current is None:
+                by_pair[key] = direction
+                continue
+            conventional = f"{key[0]}_to_{key[1]}"
+            if (current.key != conventional, current.key) > (
+                direction.key != conventional,
+                direction.key,
+            ):
+                by_pair[key] = direction
+        object.__setattr__(self, "_by_pair", by_pair)
 
     @property
     def ids(self):
@@ -121,18 +147,10 @@ class Registry:
         return direction.prompt, direction.answer
 
     def direction_for(self, prompt, answer):
-        candidates = [
-            direction
-            for direction in self.directions.values()
-            if (direction.prompt, direction.answer) == (prompt, answer)
-        ]
-        if not candidates:
+        direction = self._by_pair.get((prompt, answer))
+        if direction is None:
             raise ValueError(self.invalid_pair_message())
-        conventional = f"{prompt}_to_{answer}"
-        for direction in candidates:
-            if direction.key == conventional:
-                return direction.key
-        return min(candidates, key=lambda direction: direction.key).key
+        return direction.key
 
     def pair_directions(self, first, second):
         """Both directed keys for one unordered pair, in a stable order."""
@@ -154,6 +172,8 @@ def load_registry(db: Session | Connection) -> Registry:
             text_direction=row.text_direction,
             publicly_available=row.publicly_available,
             enhanced=row.enhanced,
+            native_name=row.native_name or "",
+            aliases=tuple(row.aliases or ()),
         )
         for row in db.execute(select(Language.__table__))
     }

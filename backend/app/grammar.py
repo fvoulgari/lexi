@@ -5,7 +5,8 @@ language's fields, types, options and conditions. The historical
 ``italian_*``/``greek_*`` columns remain compatibility storage, while one
 ``grammar`` JSON column is the structured store for all enhanced languages.
 Both are derived from the same definitions: there are no per-pair branches and
-no universal linguistic engine.
+no universal linguistic engine. A definition may declare any subset of fields;
+a field with no ``storage`` alias lives only in the structured store.
 """
 
 import json
@@ -17,44 +18,67 @@ DEFINITIONS = json.loads(DEFINITION_FILE.read_text(encoding="utf-8"))
 WORD_TYPES = tuple(DEFINITIONS["word_types"])
 
 
-def _adapt(language, definition):
-    """Expose the schema in the shape existing callers and the UI expect."""
-    fields = definition["fields"]
+def _storage(definition, key):
+    spec = definition.get("fields", {}).get(key)
+    return spec.get("storage") if isinstance(spec, Mapping) else None
+
+
+def _adapt(definition):
+    """Expose the schema in the shape existing callers and the UI expect.
+
+    Every legacy field is optional: a definition may describe only the fields
+    that language actually has, and new fields need no compatibility column.
+    """
+    fields = definition.get("fields", {})
+    forms = {
+        name: spec.get("storage")
+        for name, spec in fields.get("forms", {}).items()
+        if isinstance(spec, Mapping) and spec.get("storage")
+    }
     return {
-        "legacy_name": definition["legacy_name"],
-        "genders": tuple(definition["genders"]),
+        "legacy_name": definition.get("legacy_name"),
+        "genders": tuple(
+            definition.get("genders")
+            or (
+                fields["gender"].get("options", ())
+                if isinstance(fields.get("gender"), Mapping)
+                else ()
+            )
+        ),
         "schema": fields,
-        "noun_gender": fields["gender"]["storage"],
-        "noun_plural": fields["plural"]["storage"],
-        "adjective_gender": fields["adjective_gender"]["storage"],
-        "example": fields["example"]["storage"],
-        "pronunciation": fields["pronunciation"]["storage"],
-        "forms": {
-            name: spec["storage"] for name, spec in fields["forms"].items()
-        },
+        "noun_gender": _storage(definition, "gender"),
+        "noun_plural": _storage(definition, "plural"),
+        "adjective_gender": _storage(definition, "adjective_gender"),
+        "example": _storage(definition, "example"),
+        "pronunciation": _storage(definition, "pronunciation"),
+        "forms": forms,
     }
 
 
 GRAMMAR_DEFINITIONS = {
-    language: _adapt(language, definition)
+    language: _adapt(definition)
     for language, definition in DEFINITIONS["languages"].items()
 }
 
 NOUN_GENDER_FIELDS = {
     language: definition["noun_gender"]
     for language, definition in GRAMMAR_DEFINITIONS.items()
+    if definition["noun_gender"]
 }
 NOUN_PLURAL_FIELDS = {
     language: definition["noun_plural"]
     for language, definition in GRAMMAR_DEFINITIONS.items()
+    if definition["noun_plural"]
 }
 ADJECTIVE_GENDER_FIELDS_BY_LANGUAGE = {
     language: definition["adjective_gender"]
     for language, definition in GRAMMAR_DEFINITIONS.items()
+    if definition["adjective_gender"]
 }
 ADJECTIVE_FORM_FIELDS_BY_LANGUAGE = {
     language: dict(definition["forms"])
     for language, definition in GRAMMAR_DEFINITIONS.items()
+    if definition["forms"]
 }
 GENDERS_BY_LANGUAGE = {
     language: definition["genders"]
@@ -62,13 +86,14 @@ GENDERS_BY_LANGUAGE = {
 }
 
 # Derived legacy constants keep snapshots and existing callers in their
-# historical order while the definitions above own the mapping.
-NOUN_FIELDS = tuple(NOUN_GENDER_FIELDS.values()) + tuple(
-    NOUN_PLURAL_FIELDS.values()
-)
+# historical order while the definitions above own the mapping. Definitions
+# with no compatibility aliases contribute nothing here.
+NOUN_FIELDS = tuple(NOUN_GENDER_FIELDS.values()) + tuple(NOUN_PLURAL_FIELDS.values())
 ADJECTIVE_FORM_FIELDS = tuple(
-    ADJECTIVE_FORM_FIELDS_BY_LANGUAGE["it"].values()
-) + tuple(ADJECTIVE_FORM_FIELDS_BY_LANGUAGE["el"].values())
+    field
+    for definition in ADJECTIVE_FORM_FIELDS_BY_LANGUAGE.values()
+    for field in definition.values()
+)
 ADJECTIVE_GENDER_FIELDS = tuple(ADJECTIVE_GENDER_FIELDS_BY_LANGUAGE.values())
 ADJECTIVE_FIELDS = ADJECTIVE_FORM_FIELDS + ADJECTIVE_GENDER_FIELDS
 
@@ -79,10 +104,14 @@ class _GrammarFields(Sequence):
     def __iter__(self):
         for language in grammar_languages():
             definition = GRAMMAR_DEFINITIONS[language]
-            yield definition["noun_gender"]
-            yield definition["noun_plural"]
-            yield definition["adjective_gender"]
-            yield from definition["forms"].values()
+            for field in (
+                definition["noun_gender"],
+                definition["noun_plural"],
+                definition["adjective_gender"],
+                *definition["forms"].values(),
+            ):
+                if field:
+                    yield field
 
     def __len__(self):
         return sum(1 for _ in self)
@@ -97,12 +126,17 @@ GRAMMAR_FIELDS = _GrammarFields()
 def register_grammar_definition(language, definition):
     """Add a test-only definition. No column, migration or UI change needed."""
     DEFINITIONS["languages"][language] = definition
-    GRAMMAR_DEFINITIONS[language] = _adapt(language, definition)
+    GRAMMAR_DEFINITIONS[language] = _adapt(definition)
     adapted = GRAMMAR_DEFINITIONS[language]
-    NOUN_GENDER_FIELDS[language] = adapted["noun_gender"]
-    NOUN_PLURAL_FIELDS[language] = adapted["noun_plural"]
-    ADJECTIVE_GENDER_FIELDS_BY_LANGUAGE[language] = adapted["adjective_gender"]
-    ADJECTIVE_FORM_FIELDS_BY_LANGUAGE[language] = dict(adapted["forms"])
+    for mapping, value in (
+        (NOUN_GENDER_FIELDS, adapted["noun_gender"]),
+        (NOUN_PLURAL_FIELDS, adapted["noun_plural"]),
+        (ADJECTIVE_GENDER_FIELDS_BY_LANGUAGE, adapted["adjective_gender"]),
+    ):
+        if value:
+            mapping[language] = value
+    if adapted["forms"]:
+        ADJECTIVE_FORM_FIELDS_BY_LANGUAGE[language] = dict(adapted["forms"])
     GENDERS_BY_LANGUAGE[language] = adapted["genders"]
 
 
@@ -124,7 +158,8 @@ def structured_storage_fields():
     """Every legacy column a structured field can map to, in config order."""
     for definition in GRAMMAR_DEFINITIONS.values():
         for _, spec in iter_fields(definition):
-            yield spec["storage"]
+            if spec.get("storage"):
+                yield spec["storage"]
 
 
 def grammar_languages(languages=None):
@@ -151,13 +186,41 @@ def _value(source, field):
     return getattr(source, field, None)
 
 
+def _field_spec(language, field_path):
+    definition = GRAMMAR_DEFINITIONS.get(language)
+    if definition is None:
+        return None
+    return dict(iter_fields(definition)).get(field_path)
+
+
+def _unset_alias(language, field_path, value):
+    """Whether a legacy value is an unresolved alias, not real grammar.
+
+    ``common`` was historically written as an article alias for Italian and
+    Greek. It is a genuine Danish option, so only definitions that do not list
+    it treat it as unset.
+    """
+    if value != "common":
+        return False
+    spec = _field_spec(language, field_path)
+    return not spec or "common" not in spec.get("options", ())
+
+
 def language_grammar_fields(language, word_type=None):
     """Compatibility columns backing one language definition."""
     definition = GRAMMAR_DEFINITIONS[language]
-    noun = (definition["noun_gender"], definition["noun_plural"])
-    adjective = (
-        definition["adjective_gender"],
-        *definition["forms"].values(),
+    noun = tuple(
+        field
+        for field in (definition["noun_gender"], definition["noun_plural"])
+        if field
+    )
+    adjective = tuple(
+        field
+        for field in (
+            definition["adjective_gender"],
+            *definition["forms"].values(),
+        )
+        if field
     )
     if word_type == "noun":
         return noun
@@ -187,45 +250,67 @@ def clean_grammar(values, word_type, languages=None):
 
 
 def required_gender_fields(word_type, languages=None):
-    languages = grammar_languages(languages)
-    if word_type == "noun":
-        return tuple(NOUN_GENDER_FIELDS[language] for language in languages)
-    if word_type == "adjective":
-        return tuple(
-            ADJECTIVE_GENDER_FIELDS_BY_LANGUAGE[language] for language in languages
-        )
-    return ()
+    """Legacy enum fields conditionally required for this word type."""
+    required = []
+    for language in grammar_languages(languages):
+        for field_path, spec in iter_fields(GRAMMAR_DEFINITIONS[language]):
+            storage = spec.get("storage")
+            if (
+                storage
+                and spec.get("type") == "enum"
+                and word_type in spec.get("required_for", ())
+            ):
+                required.append(storage)
+    return tuple(required)
 
 
 def missing_gender_fields(values, languages=None):
     return [
         field
         for field in required_gender_fields(values.get("word_type"), languages)
-        if not values.get(field) or values[field] == "common"
+        if not values.get(field)
+        or _unset_alias(_field_language(field), _field_path(field), values[field])
     ]
 
 
+def _field_language(field):
+    """Language ID that owns a legacy compatibility column."""
+    for language, definition in GRAMMAR_DEFINITIONS.items():
+        if any(
+            spec.get("storage") == field
+            for _, spec in iter_fields(definition)
+        ):
+            return language
+    return None
+
+
+def _field_path(field):
+    definition = GRAMMAR_DEFINITIONS.get(_field_language(field))
+    if definition is None:
+        return field
+    for path, spec in iter_fields(definition):
+        if spec.get("storage") == field:
+            return path
+    return field
+
+
 def invalid_grammar_fields(values, languages=None):
-    """Compatibility gender values a language definition does not allow."""
+    """Compatibility enum values a language definition does not allow."""
     invalid = []
     for language in grammar_languages(languages):
-        options = set(GRAMMAR_DEFINITIONS[language]["genders"])
-        for field in (
-            NOUN_GENDER_FIELDS[language],
-            ADJECTIVE_GENDER_FIELDS_BY_LANGUAGE[language],
-        ):
-            value = values.get(field)
-            if value and value not in options:
-                invalid.append(field)
+        for field_path, spec in iter_fields(GRAMMAR_DEFINITIONS[language]):
+            storage = spec.get("storage")
+            if not storage or spec.get("type") != "enum":
+                continue
+            value = values.get(storage)
+            if value and str(value) not in spec.get("options", ()):
+                invalid.append(storage)
     return invalid
 
 
 def gender_field_language(field):
-    """Language ID behind a legacy gender column, for validation messages."""
-    for language, definition in GRAMMAR_DEFINITIONS.items():
-        if field in (definition["noun_gender"], definition["adjective_gender"]):
-            return language
-    return None
+    """Language ID behind a legacy enum column, for validation messages."""
+    return _field_language(field)
 
 
 def card_grammar_fields(card, languages=None):
@@ -351,8 +436,12 @@ def structured_from_legacy(values, languages=None):
         definition = GRAMMAR_DEFINITIONS[language]
         cell = {}
         for field_path, spec in iter_fields(definition):
-            value = _value(values, spec["storage"])
-            if value is None or value in ("", "common"):
+            value = _value(values, spec.get("storage"))
+            if (
+                value is None
+                or value == ""
+                or _unset_alias(language, field_path, value)
+            ):
                 continue
             if field_path.startswith("forms."):
                 cell.setdefault("forms", {})[field_path.split(".", 1)[1]] = value
@@ -373,9 +462,10 @@ def legacy_from_structured(grammar, values=None, languages=None):
     for language, cell in (grammar or {}).items():
         for field_path, spec in iter_fields(GRAMMAR_DEFINITIONS[language]):
             value = _nested(cell, field_path)
-            if value is None or value == "" or spec["storage"] not in legacy:
+            storage = spec.get("storage")
+            if value is None or value == "" or not storage or storage not in legacy:
                 continue
-            merged[spec["storage"]] = value
+            merged[storage] = value
     return merged
 
 
@@ -437,20 +527,25 @@ def sync_entry_grammar(entry, incoming=None):
         definition = GRAMMAR_DEFINITIONS[language]
         cell = dict(structured.get(language) or {})
         for field_path, spec in iter_fields(definition):
-            storage = spec["storage"]
-            if storage in columns and hasattr(
+            storage = spec.get("storage")
+            if not storage or storage not in columns or not hasattr(
                 type(entry), "__table__"
-            ) and storage in type(entry).__table__.columns:
-                value = _value(entry, storage)
-                if value is None or value in ("", "common"):
-                    if field_path.startswith("forms."):
-                        cell.get("forms", {}).pop(field_path.split(".", 1)[1], None)
-                    else:
-                        cell.pop(field_path, None)
-                elif field_path.startswith("forms."):
-                    cell.setdefault("forms", {})[field_path.split(".", 1)[1]] = value
+            ) or storage not in type(entry).__table__.columns:
+                continue
+            value = _value(entry, storage)
+            if (
+                value is None
+                or value == ""
+                or _unset_alias(language, field_path, value)
+            ):
+                if field_path.startswith("forms."):
+                    cell.get("forms", {}).pop(field_path.split(".", 1)[1], None)
                 else:
-                    cell[field_path] = value
+                    cell.pop(field_path, None)
+            elif field_path.startswith("forms."):
+                cell.setdefault("forms", {})[field_path.split(".", 1)[1]] = value
+            else:
+                cell[field_path] = value
         if "forms" in cell and not cell["forms"]:
             cell.pop("forms")
         if cell:

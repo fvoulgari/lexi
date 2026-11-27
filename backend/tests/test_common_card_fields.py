@@ -44,14 +44,15 @@ def card(client, group, word_type="noun", **values):
     return response.json()
 
 
-def test_definitions_only_cover_italian_and_greek():
-    assert set(GRAMMAR_DEFINITIONS) == {"it", "el"}
-    assert grammar_languages(LANGUAGES) == ("it", "el")
-    assert grammar_languages(("en", "da")) == ()
+def test_definitions_cover_legacy_languages_and_optional_danish():
+    assert set(GRAMMAR_DEFINITIONS) == {"da", "it", "el"}
+    assert grammar_languages(LANGUAGES) == ("da", "it", "el")
+    assert grammar_languages(("en", "da")) == ("da",)
     assert grammar_fields(("en", "da")) == ()
     assert required_gender_fields("noun", ("en", "da")) == ()
     assert "neuter" not in GRAMMAR_DEFINITIONS["it"]["genders"]
     assert "neuter" in GRAMMAR_DEFINITIONS["el"]["genders"]
+    assert "common" in GRAMMAR_DEFINITIONS["da"]["genders"]
 
     values = {
         "word_type": "noun",

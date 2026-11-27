@@ -13,6 +13,13 @@ const output = resolve(
 );
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch();
+async function chooseLanguage(dialog, index, language) {
+  const picker = dialog.locator(".language-combobox").nth(index);
+  await picker.getByRole("combobox").fill(language);
+  await picker
+    .getByRole("option", { name: new RegExp(`^${language}`) })
+    .click();
+}
 async function api(context, path, body, method = "POST") {
   const r = await context.request.fetch(origin + path, {
     method,
@@ -63,9 +70,8 @@ try {
     await createDialog
       .getByRole("textbox", { name: "Collection name", exact: true })
       .fill(name);
-    await createDialog
-      .getByRole("combobox", { name: "Collection languages", exact: true })
-      .selectOption("el-it");
+    await chooseLanguage(createDialog, 0, "Greek");
+    await chooseLanguage(createDialog, 1, "Italian");
     const creation = page.waitForResponse(
       (r) =>
         new URL(r.url()).pathname === "/api/collections" &&

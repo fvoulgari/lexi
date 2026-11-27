@@ -117,7 +117,7 @@ test("labels and direction metadata come from the registry response", () => {
 });
 
 test("supported pairs cover the registry once each with registry labels", () => {
-  const pairs = supportedPairs(languageIds());
+  const pairs = supportedPairs(["el", "en", "it", "da"]);
   expect(pairs.map((option) => option.key)).toEqual([
     "el-en",
     "en-it",

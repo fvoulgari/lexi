@@ -1,19 +1,94 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileDown, Upload } from "lucide-react";
 import { request } from "./api.js";
 import { collectionCopy } from "./collection-copy.js";
 import CsvDialog from "./CsvDialog.jsx";
+import LanguagePicker from "./LanguagePicker.jsx";
 import ImportEntryDetails from "./ImportEntryDetails.jsx";
 import { cardLanguageIds, cardText } from "./card-sides.js";
-import {
-  languageTextProps,
-  LEGACY_PAIR,
-  pairLabel,
-  supportedPairs,
-} from "./languages.js";
+import { languageLabel, languageTextProps, LEGACY_PAIR } from "./languages.js";
 
 const PAGE_SIZE = 10;
+const FORMULA_MARKERS = ["=", "+", "-", "@", "＝", "＋", "－", "＠"];
+
+/** Minimal CSV parser used only to recognise and remap simple templates. */
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  const source = text.replace(/^\uFEFF/, "");
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (quoted) {
+      if (character === '"' && source[index + 1] === '"') {
+        cell += '"';
+        index += 1;
+      } else if (character === '"') quoted = false;
+      else cell += character;
+    } else if (character === '"') quoted = true;
+    else if (character === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (character === "\n" || character === "\r") {
+      if (character === "\r" && source[index + 1] === "\n") index += 1;
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else cell += character;
+  }
+  if (cell || row.length) {
+    row.push(cell);
+    rows.push(row);
+  }
+  return rows.filter((items) => items.some((item) => item !== ""));
+}
+
+function csvCell(value) {
+  const text = value == null ? "" : String(value);
+  const safe =
+    text.startsWith("'") || FORMULA_MARKERS.some((mark) => text.trimStart().startsWith(mark))
+      ? `'${text}`
+      : text;
+  return /[",\r\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
+}
+
+function simpleToV2(text, base, learning) {
+  const [header, ...rows] = parseCsv(text);
+  const fields = header.map((name) => name.trim());
+  const required = ["base", "learning", "word_type"];
+  if (!required.every((name) => fields.includes(name)))
+    throw new Error("The CSV is missing base, learning or word_type columns.");
+  const index = Object.fromEntries(fields.map((name, position) => [name, position]));
+  const output = [
+    [
+      "csv_format",
+      "card_source_language",
+      "card_target_language",
+      `text_${base}`,
+      `text_${learning}`,
+      "word_type",
+      "notes",
+      "tags",
+    ],
+  ];
+  for (const row of rows) {
+    const value = (name) => row[index[name]] || "";
+    output.push([
+      "italian-notebook-v2",
+      base,
+      learning,
+      value("base"),
+      value("learning"),
+      value("word_type"),
+      value("notes"),
+      value("tags") || "[]",
+    ]);
+  }
+  return output.map((items) => items.map(csvCell).join(",")).join("\r\n");
+}
 
 function isImportDestination(collection, languages = LEGACY_PAIR) {
   if (!collection) return false;
@@ -56,10 +131,16 @@ export default function Import({
   const [name, setName] = useState("");
   const [makePublic, setMakePublic] = useState(false);
   const [publicConsent, setPublicConsent] = useState(false);
-  const [pair, setPair] = useState("");
-  const pairs = supportedPairs(languages);
-  const selectedPair = pairs.find((option) => option.key === pair);
+  // A new collection needs an explicit orientation; picking the first two
+  // catalogue entries would silently invent a pair for the learner.
+  const initialBase = selectedCollection?.source_language || "";
+  const initialLearning = selectedCollection?.target_language || "";
+  const [base, setBase] = useState(initialBase);
+  const [learning, setLearning] = useState(initialLearning);
+  const [templateFormat, setTemplateFormat] = useState("v2");
   const [file, setFile] = useState(null);
+  const [sourceText, setSourceText] = useState("");
+  const [detectedFormat, setDetectedFormat] = useState(null);
   const [previewRequested, setPreviewRequested] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
@@ -85,30 +166,50 @@ export default function Import({
   );
   const destination =
     mode === "existing" ? !isError && existingDestination?.name : name.trim();
+  const orientation =
+    mode === "existing" && existingDestination
+      ? [existingDestination.source_language, existingDestination.target_language]
+      : [base, learning];
+  const [sourceLanguage, targetLanguage] = orientation;
   const params = new URLSearchParams({ fixed_destination: "true" });
   if (mode === "existing") params.set("collection_id", collectionId);
   else {
     params.set("new_name", name.trim());
-    if (selectedPair) {
-      params.set("source_language", selectedPair.languages[0]);
-      params.set("target_language", selectedPair.languages[1]);
+    if (sourceLanguage && targetLanguage) {
+      params.set("source_language", sourceLanguage);
+      params.set("target_language", targetLanguage);
     }
     if (makePublic) params.set("make_public", "true");
   }
   const destinationKey = params.toString();
-  const exampleParams = new URLSearchParams();
+  const exampleParams = new URLSearchParams({ format: templateFormat });
   if (mode === "existing" && collectionId)
     exampleParams.set("collection_id", collectionId);
-  else if (selectedPair) {
-    exampleParams.set("source_language", selectedPair.languages[0]);
-    exampleParams.set("target_language", selectedPair.languages[1]);
+  else if (sourceLanguage && targetLanguage) {
+    exampleParams.set("source_language", sourceLanguage);
+    exampleParams.set("target_language", targetLanguage);
   }
-  const exampleHref = `/api/imports/example${
-    exampleParams.size ? `?${exampleParams}` : ""
-  }`;
-  const canCreate = mode === "new" && Boolean(destination && selectedPair);
+  const exampleHref = `/api/imports/example?${exampleParams}`;
+  const isSimple = detectedFormat === "simple";
+  const effectiveFile = useMemo(() => {
+    if (!file || !isSimple || !sourceText) return file;
+    return new File([simpleToV2(sourceText, sourceLanguage, targetLanguage)], file.name, {
+      type: "text/csv",
+    });
+  }, [file, isSimple, sourceLanguage, sourceText, targetLanguage]);
+  const mapping = isSimple
+    ? [
+        ["base", `text_${sourceLanguage}`],
+        ["learning", `text_${targetLanguage}`],
+        ["word_type", "word_type"],
+        ["notes", "notes"],
+        ["tags", "tags"],
+      ]
+    : [];
+  const canCreate =
+    mode === "new" && Boolean(destination && sourceLanguage && targetLanguage);
   const canPreview = Boolean(
-    destination && file && (mode === "existing" || selectedPair),
+    destination && effectiveFile && (mode === "existing" || (sourceLanguage && targetLanguage)),
   );
   const currentPreview = canPreview && preview?.key === destinationKey;
   const report = currentPreview ? preview.report : null;
@@ -140,6 +241,33 @@ export default function Import({
   }, [collectionId, destinationIds, isError, languages, mode, selectedCollection]);
 
   useEffect(() => {
+    if (!file) {
+      setSourceText("");
+      setDetectedFormat(null);
+      return;
+    }
+    let active = true;
+    file.text().then((value) => {
+      if (!active) return;
+      setSourceText(value);
+      const header = value
+        .replace(/^\uFEFF/, "")
+        .split(/\r?\n/, 1)[0]
+        .split(",")
+        .map((name) => name.replace(/^"|"$/g, "").trim());
+      if (["base", "learning", "word_type"].every((name) => header.includes(name)))
+        setDetectedFormat("simple");
+      else if (header.includes("schema_version") || value.includes("italian-notebook-v3"))
+        setDetectedFormat("v3");
+      else if (value.includes("italian-notebook-v2")) setDetectedFormat("v2");
+      else setDetectedFormat("v1");
+    });
+    return () => {
+      active = false;
+    };
+  }, [file]);
+
+  useEffect(() => {
     if (!canPreview || !previewRequested) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
@@ -148,7 +276,7 @@ export default function Import({
         const report = await request(`/api/imports/preview?${destinationKey}`, {
           method: "POST",
           headers: { "X-CSRF-Token": csrf, "Content-Type": "text/csv" },
-          body: file,
+          body: effectiveFile,
           signal: controller.signal,
         });
         if (!controller.signal.aborted)
@@ -170,7 +298,7 @@ export default function Import({
     canPreview,
     previewRequested,
     destinationKey,
-    file,
+    effectiveFile,
     csrf,
     onLocked,
     text,
@@ -190,8 +318,8 @@ export default function Import({
         },
         body: JSON.stringify({
           name: name.trim(),
-          source_language: selectedPair.languages[0],
-          target_language: selectedPair.languages[1],
+          source_language: sourceLanguage,
+          target_language: targetLanguage,
           make_public: makePublic,
         }),
       });
@@ -225,10 +353,13 @@ export default function Import({
     }
     if (mode === "new") {
       const last = newCollectionRequest.current;
-      if (last?.destinationKey !== destinationKey || last.file !== file) {
+      if (
+        last?.destinationKey !== destinationKey ||
+        last.file !== effectiveFile
+      ) {
         newCollectionRequest.current = {
           destinationKey,
-          file,
+          file: effectiveFile,
           id: crypto.randomUUID(),
         };
       }
@@ -238,7 +369,7 @@ export default function Import({
       result = await request(`/api/imports/confirm?${confirmParams}`, {
         method: "POST",
         headers: { "X-CSRF-Token": csrf, "Content-Type": "text/csv" },
-        body: file,
+        body: effectiveFile,
       });
     } catch (failure) {
       if (failure.status === 401) onLocked();
@@ -320,7 +451,14 @@ export default function Import({
               ))}
             </select>
           </label>
-        ) : (
+        ) : null}
+        {mode === "existing" && existingDestination && (
+          <p className="csv-orientation">
+            {t.baseLanguage}: {languageLabel(sourceLanguage)} · {t.learningLanguage}:{" "}
+            {languageLabel(targetLanguage)}
+          </p>
+        )}
+        {mode === "new" && (
           <>
             <label className="collection-field">
               {t.name}
@@ -335,25 +473,31 @@ export default function Import({
                 }}
               />
             </label>
-            <label className="collection-field">
-              {t.collectionLanguages}
-              <select
-                className="collection-select"
-                value={pair}
-                required
-                disabled={importing}
-                onChange={(event) =>
-                  changeDestination(setPair, event.target.value)
-                }
-              >
-                <option value="">{t.choosePair}</option>
-                {pairs.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {pairLabel(option.languages)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <p className="csv-orientation">{t.choosePair}</p>
+            <div className="csv-language-pair">
+              <label className="collection-field">
+                {t.baseLanguage}
+                <LanguagePicker
+                  label={t.baseLanguage}
+                  value={base}
+                  onChange={(value) => changeDestination(setBase, value)}
+                  exclude={[learning]}
+                  recentKey="import-base"
+                  emptyMessage={text.errors.request_failed}
+                />
+              </label>
+              <label className="collection-field">
+                {t.learningLanguage}
+                <LanguagePicker
+                  label={t.learningLanguage}
+                  value={learning}
+                  onChange={(value) => changeDestination(setLearning, value)}
+                  exclude={[base]}
+                  recentKey="import-learning"
+                  emptyMessage={text.errors.request_failed}
+                />
+              </label>
+            </div>
             <fieldset className="csv-options csv-visibility">
               <legend>{t.visibility}</legend>
               <label>
@@ -419,6 +563,24 @@ export default function Import({
             />
           </label>
           {file && <span className="csv-filename">{file.name}</span>}
+          <label className="csv-template-field">
+            {text.csvTemplateFormat}
+            <select
+              value={templateFormat}
+              disabled={Boolean(file)}
+              onChange={(event) => setTemplateFormat(event.target.value)}
+            >
+              {[
+                ["simple", text.csvTemplateSimple],
+                ["v2", text.csvTemplateV2],
+                ["v3", text.csvTemplateV3],
+              ].map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
           {!file && (
             <a
               className="csv-example-link"
@@ -429,6 +591,24 @@ export default function Import({
             </a>
           )}
         </div>
+        {file && detectedFormat && (
+          <p className="csv-detected-format">
+            {text.csvDetectedFormat}: {text.csvFormatLabels[detectedFormat] || detectedFormat}
+          </p>
+        )}
+        {mapping.length > 0 && (
+          <details className="csv-mapping">
+            <summary>{text.csvMapping}</summary>
+            <dl>
+              {mapping.map(([from, to]) => (
+                <div key={from}>
+                  <dt>{from}</dt>
+                  <dd>→ {to}</dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        )}
       </fieldset>
       {error && (
         <p role="alert" className="error">

@@ -34,6 +34,8 @@ const server = createServer(async (req, res) => {
         },
       };
     if (path === "/api/collections") body = [collection];
+    if (path === "/api/vocabulary") body = { items: [], total: 0 };
+    if (path === "/api/tags") body = [];
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(body));
     return;
@@ -76,9 +78,21 @@ try {
     );
     const page = await context.newPage();
     const errors = [];
-    page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(`${origin}/collections`);
-    const first = page.getByRole("combobox", { name: "Language pair 1" });
+    page.on("pageerror", (e) => errors.push(e.stack || e.message));
+    await page.goto(`${origin}/vocabulary`);
+    await page
+      .getByRole("button", { name: "Import CSV", exact: true })
+      .click();
+    const dialog = page.getByRole("dialog");
+    await dialog.waitFor();
+    await page.waitForFunction(
+      () => document.querySelector("dialog.csv-dialog")?.matches(":modal"),
+    );
+    await dialog
+      .locator('input[type="radio"][name="destination-mode"]')
+      .nth(1)
+      .check();
+    const first = dialog.getByRole("combobox", { name: "Base language" });
     await first.waitFor();
 
     // The learning-language picker fills the row and keeps a 44px touch target.
@@ -90,9 +104,10 @@ try {
     assert(geometry.width > 100, `${width}px: picker width ${geometry.width}`);
 
     // The popup stays inside the viewport and offers curated API options.
-    await first.click();
-    const list = page.locator(".language-combobox").first().getByRole("listbox");
-    await list.waitFor();
+    await first.focus();
+    const list = dialog.locator(".language-combobox").first().getByRole("listbox");
+    await list.waitFor({ state: "visible" });
+    await list.getByRole("option", { name: /Danish/ }).waitFor();
     const optionNames = await list.getByRole("option").allTextContents();
     assert(
       optionNames.some((name) => name.includes("Danish")),
@@ -108,8 +123,6 @@ try {
     await page.keyboard.press("ArrowDown");
     const active = await list.locator('[aria-selected="false"].is-active').allTextContents();
     assert(active.length === 1, `${width}px: expected one active option`);
-    await first.focus();
-    await page.keyboard.press("ArrowDown");
     assert.equal(
       await first.evaluate((el) => getComputedStyle(el).outlineStyle !== "none"),
       true,

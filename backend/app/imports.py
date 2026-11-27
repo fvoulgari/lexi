@@ -12,30 +12,38 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, text
 
 from app.access import collection_capabilities, current_account, require_write
-from app.collections import CollectionBody
+from app.collections import CollectionBody, gender_message
 from app.csv_format import (
     FORMAT_VERSION,
+    FORMAT_VERSION_SIMPLE,
     FORMAT_VERSION_V2,
+    FORMAT_VERSION_V3,
     restore_text,
     spreadsheet_text,
 )
 from app.csv_v2 import (
-    decode_grammar,
+    decode_grammar_cell,
+    grammar_column,
     grammar_columns,
     text_column,
     text_columns,
     v2_columns,
+    v3_columns,
 )
 from app.duplicates import normalized_language_pair
 from app.grammar import (
+    DEFINITIONS,
     GRAMMAR_FIELDS,
     clean_grammar,
     invalid_grammar_fields,
+    merge_structured,
+    missing_gender_fields,
     sync_entry_grammar,
+    validate_structured_grammar,
 )
 from app.languages import card_languages, card_slots, pair, same_pair
 from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
-from app.schemas import TagCreate, UnitCreate, VocabularyCreate
+from app.schemas import TagCreate, UnitCreate, VocabularyCreate, VocabularyImport
 
 MAX_BYTES = 1_048_576
 MAX_ROWS = 2000
@@ -80,6 +88,10 @@ LEGACY_COLUMNS = {
     "unit_sort_order",
     "tags",
     "csv_format",
+    "schema_version",
+    "metadata",
+    "base",
+    "learning",
 }
 
 
@@ -111,8 +123,9 @@ async def read_csv(request):
             )
         canonical = {ALIASES.get(field, field) for field in fields}
         language_texts = sum(column in canonical for column in text_columns())
+        simple = {"base", "learning"} <= set(fields)
         if "word_type" not in canonical or not (
-            {"italian", "greek"} <= canonical or language_texts >= 2
+            {"italian", "greek"} <= canonical or language_texts >= 2 or simple
         ):
             invalid(
                 "Required columns: word_type and either italian/greek "
@@ -206,12 +219,15 @@ def parse_v2_row(row, destination_languages):
             )
 
     legacy_grammar = {field: row.get(field, "") for field in GRAMMAR_FIELDS}
+    structured = {}
     for column in grammar_columns():
         value = row.pop(column, "")
         language = column.removeprefix("grammar_")
-        fields = decode_grammar(value, language)
-        if fields and language not in (source, target):
+        fields, cell = decode_grammar_cell(value, language)
+        if cell and language not in (source, target):
             raise ValueError(f"Grammar for {language} is not in this card.")
+        if cell:
+            structured[language] = cell
         for field, field_value in fields.items():
             if legacy_grammar[field] and legacy_grammar[field] != field_value:
                 raise ValueError(f"{field} conflicts with {column}.")
@@ -219,11 +235,86 @@ def parse_v2_row(row, destination_languages):
     for field, value in legacy_grammar.items():
         if value and row.get(field) != value:
             raise ValueError(f"{field} conflicts with language-keyed grammar.")
+    row["_structured_grammar"] = structured
 
-    _, _, row["italian"], row["greek"] = card_slots(
+    # Keep the historical it/el storage slots authoritative even when a row
+    # supplies those two IDs in reverse order. API card creation applies the
+    # same canonicalisation, so text always follows its explicit language ID.
+    canonical_source, canonical_target, italian, greek = card_slots(
         source, target, texts[source], texts[target]
     )
-    return source, target
+    row["italian"], row["greek"] = italian, greek
+    return canonical_source, canonical_target
+
+
+def parse_simple_row(row, destination_languages):
+    """Map the simple Base/Learning template onto the shared card text slots.
+
+    The columns hold texts, not language IDs. Their orientation comes from the
+    chosen destination, so the same file works in either collection direction.
+    """
+    base_text = row.pop("base", "")
+    learning_text = row.pop("learning", "")
+    if not base_text or not learning_text:
+        raise ValueError("Base and Learning texts are required.")
+    source, target = destination_languages
+    pair(source, target)
+    canonical_source, canonical_target, italian, greek = card_slots(
+        source, target, base_text, learning_text
+    )
+    row["italian"], row["greek"] = italian, greek
+    return canonical_source, canonical_target
+
+
+def grammar_cell_conflict(cells, metadata_grammar):
+    """Return the first field where a v3 cell disagrees with metadata."""
+    for language, cell in (cells or {}).items():
+        supplied = (metadata_grammar or {}).get(language) or {}
+        for key, value in cell.items():
+            if key == "forms" and isinstance(value, dict):
+                forms = supplied.get("forms") or {}
+                for form, form_value in value.items():
+                    if forms.get(form, form_value) != form_value:
+                        return f"grammar_{language}.forms.{form}"
+            elif supplied.get(key, value) != value:
+                return f"grammar_{language}.{key}"
+    return None
+
+
+def parse_v3_metadata(row, incoming, languages):
+    """Read the lossless metadata cell without changing identity or texts.
+
+    v3 repeats the structured grammar in a versioned JSON cell so advanced
+    exports can carry custom metadata without adding card columns. Unknown
+    fields are rejected rather than silently dropped.
+    """
+    version = row.pop("schema_version", "")
+    value = row.pop("metadata", "")
+    if version and version != str(DEFINITIONS["version"]):
+        raise ValueError(
+            f"Grammar schema version {version} is not supported."
+        )
+    if not value:
+        return incoming
+    try:
+        metadata = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        raise ValueError("metadata must be a JSON object.") from None
+    if not isinstance(metadata, dict):
+        raise ValueError("metadata must be a JSON object.")
+    unknown = set(metadata) - {"grammar"}
+    if unknown:
+        raise ValueError("Unsupported metadata: " + ", ".join(sorted(unknown)))
+    grammar = metadata.get("grammar") or {}
+    errors = validate_structured_grammar(grammar, languages)
+    if errors:
+        raise ValueError(
+            "; ".join(f"{error['path']}: {error['message']}" for error in errors)
+        )
+    conflict = grammar_cell_conflict(incoming, grammar)
+    if conflict:
+        raise ValueError(f"{conflict} conflicts with metadata.grammar.")
+    return merge_structured(incoming or {}, grammar, languages)
 
 
 def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=False):
@@ -331,28 +422,42 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
         proposed_metadata = None
         metadata_is_new = False
         reference = None
+        incoming_grammar = None
         row_languages = ("it", "el")
         try:
             if None in row or any(value is None for value in row.values()):
                 raise ValueError("Column count does not match the header.")
             version = row.pop("csv_format", "")
-            if version not in ("", FORMAT_VERSION, FORMAT_VERSION_V2):
+            if version not in (
+                "",
+                FORMAT_VERSION_SIMPLE,
+                FORMAT_VERSION,
+                FORMAT_VERSION_V2,
+                FORMAT_VERSION_V3,
+            ):
                 raise ValueError("Unsupported csv_format version.")
             if version:
                 row = {key: restore_text(value) for key, value in row.items()}
-            if version == FORMAT_VERSION_V2:
+            if version in (FORMAT_VERSION_V2, FORMAT_VERSION_V3):
                 conflicting = [alias for alias in ALIASES if row.get(alias)]
                 if conflicting:
                     raise ValueError(
-                        "Legacy aliases cannot be used with CSV format v2: "
+                        "Legacy aliases cannot be used with CSV format v2/v3: "
                         + ", ".join(sorted(conflicting))
                     )
                 row_languages = parse_v2_row(row, destination_languages)
+                incoming_grammar = row.pop("_structured_grammar", None)
+                if version == FORMAT_VERSION_V3:
+                    incoming_grammar = parse_v3_metadata(
+                        row, incoming_grammar, row_languages
+                    )
                 invalid = invalid_grammar_fields(row, row_languages)
                 if invalid:
                     raise ValueError(
                         "Invalid grammar for: " + ", ".join(invalid) + "."
                     )
+            elif version == FORMAT_VERSION_SIMPLE:
+                row_languages = parse_simple_row(row, destination_languages)
             elif not same_pair(*destination_languages, "it", "el"):
                 raise ValueError("Legacy CSV rows require an Italian–Greek Collection.")
             for alias, field in ALIASES.items():
@@ -400,6 +505,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 ):
                     raise ValueError("Card reference is unavailable.")
                 row_languages = card_languages(reference)
+                incoming_grammar = None
                 row = {
                     field: getattr(reference, field)
                     for field in VocabularyCreate.model_fields
@@ -479,7 +585,12 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 fields = {**previous, **{k: v or None for k, v in row.items()}}
                 fields.pop("source_language", None)
                 fields.pop("target_language", None)
-                entry = VocabularyCreate(**fields)
+                entry = VocabularyImport(**fields)
+                missing = missing_gender_fields(
+                    entry.model_dump(), row_languages
+                )
+                if missing:
+                    raise ValueError(gender_message(missing))
         except ValidationError as exc:
             errors = [
                 ".".join(map(str, e["loc"])) + ": " + e["msg"] for e in exc.errors()
@@ -614,7 +725,7 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                                     setattr(stored, key, supplied[key])
                             if "collection_provenance" in changed_fields:
                                 stored.source_collection_id = target.id
-                        sync_entry_grammar(stored)
+                        sync_entry_grammar(stored, incoming_grammar)
                         if "tags" in original:
                             assigned_tags = []
                             for name in names:
@@ -660,7 +771,12 @@ def evaluate(db, rows, confirm, destination, collection, *, fixed_destination=Fa
                 "changed_fields": changed_fields,
                 "errors": errors,
                 "error_code": None,
-                "entry": entry.model_dump(exclude={"unit_id", "tag_ids", "visibility"})
+                "entry": (
+                    entry.model_dump(
+                        exclude={"unit_id", "tag_ids", "visibility"}
+                    )
+                    | ({"grammar": incoming_grammar} if incoming_grammar else {})
+                )
                 if entry
                 else None,
                 "unit": None,
@@ -811,7 +927,17 @@ def import_router(sessions, gate):
                 },
             },
             "en": {"noun": "house", "verb": "speak", "adjective": "beautiful"},
-            "da": {"noun": "hus", "verb": "tale", "adjective": "smuk"},
+            "da": {
+                "noun": "hus",
+                "verb": "tale",
+                "adjective": "smuk",
+                "grammar": {
+                    "noun": json.dumps(
+                        {"gender": "common", "plural": "huse"},
+                        ensure_ascii=False,
+                    ),
+                },
+            },
             "ja": {"noun": "家", "verb": "話す", "adjective": "美しい"},
             "ar": {"noun": "بيت", "verb": "يتكلم", "adjective": "جميل"},
         }
@@ -851,7 +977,10 @@ def import_router(sessions, gate):
         collection_id: UUID | None = None,
         source_language: str | None = None,
         target_language: str | None = None,
+        format: str = "v2",
     ):
+        if format not in ("simple", "v2", "v3"):
+            raise HTTPException(422, "Choose CSV template simple, v2 or v3.")
         languages = None
         if collection_id is not None:
             with sessions() as db:
@@ -875,14 +1004,51 @@ def import_router(sessions, gate):
             languages = ("el", "it")
 
         source, target = languages
-        columns = v2_columns()
         rows = example_rows(source, target)
+        if format == "simple":
+            columns = (
+                "csv_format",
+                "base",
+                "learning",
+                "word_type",
+                "notes",
+                "tags",
+            )
+            rows = [
+                {
+                    "csv_format": FORMAT_VERSION_SIMPLE,
+                    "base": row[text_column(source)],
+                    "learning": row[text_column(target)],
+                    "word_type": row["word_type"],
+                    "notes": "",
+                    "tags": "[]",
+                }
+                for row in rows
+            ]
+        elif format == "v3":
+            columns = v3_columns(sorted((source, target)))
+            for row in rows:
+                row["schema_version"] = str(DEFINITIONS["version"])
+                row["metadata"] = json.dumps(
+                    {
+                        "grammar": {
+                            language: json.loads(row[grammar_column(language)])
+                            for language in (source, target)
+                            if row.get(grammar_column(language))
+                        },
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+        else:
+            columns = v2_columns(sorted((source, target)))
         output = io.StringIO(newline="")
         writer = csv.writer(output, quoting=csv.QUOTE_ALL, lineterminator="\r\n")
         writer.writerow(columns)
         for row in rows:
             writer.writerow(spreadsheet_text(row.get(column)) for column in columns)
-        filename = f"vocabulary-example-{source}-{target}.csv"
+        suffix = "" if format == "v2" else f"-{format}"
+        filename = f"vocabulary-example-{source}-{target}{suffix}.csv"
         return Response(
             output.getvalue().encode("utf-8-sig"),
             media_type="text/csv; charset=utf-8",

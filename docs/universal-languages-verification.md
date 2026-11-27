@@ -2,6 +2,8 @@
 
 Issue #121 registers Japanese (`ja`) and Arabic (`ar`) as curated **basic** languages through the language registry only. No new grammar definition, card column, migration-owned business rule, React component, CSS branch, or per-language frontend list is needed.
 
+> Historical record for #121. [Issue #143](https://github.com/fvoulgari/lexi/issues/143) later expanded the curated registry to 35 languages and added Danish grammar; see the [current verification record](language-architecture-verification.md).
+
 ## What was verified
 
 ### Data-only registration

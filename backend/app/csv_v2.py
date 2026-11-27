@@ -9,6 +9,7 @@ import json
 
 from app.grammar import (
     GRAMMAR_DEFINITIONS,
+    iter_fields,
     legacy_from_structured,
     structured_from_legacy,
     validate_structured_grammar,
@@ -67,6 +68,11 @@ def v2_columns(languages=None):
     )
 
 
+def v3_columns(languages=None):
+    """Lossless exchange header: v2 plus definition version and full metadata."""
+    return (*v2_columns(languages), "schema_version", "metadata")
+
+
 # Frozen bootstrap header for fixtures and historical format comparisons.
 # Runtime export and import use the registry-driven helpers above.
 TEXT_COLUMNS = tuple(text_column(language) for language in LANGUAGES)
@@ -74,12 +80,16 @@ GRAMMAR_COLUMNS = tuple(grammar_column(language) for language in LANGUAGES)
 COLUMNS = v2_columns(LANGUAGES)
 
 
-def grammar_value(field, value):
-    """Drop legacy values that must not be presented as real grammar."""
+def grammar_value(field, value, language=None):
+    """Drop unresolved legacy aliases, keeping locally valid enum options."""
     if value is None or value == "":
         return None
-    if field.endswith(("_gender", "adjective_gender")) and value == "common":
-        return None
+    if value == "common":
+        spec = None
+        if language in GRAMMAR_DEFINITIONS:
+            spec = dict(iter_fields(GRAMMAR_DEFINITIONS[language])).get(field)
+        if spec is None or "common" not in spec.get("options", ()):
+            return None
     return value
 
 
@@ -96,15 +106,20 @@ def encode_grammar(entry, language):
                 forms = {
                     name: converted
                     for name, found in value.items()
-                    if (converted := grammar_value(name, found)) is not None
+                    if (
+                        converted := grammar_value(
+                            f"forms.{name}", found, language
+                        )
+                    )
+                    is not None
                 }
                 if forms:
                     cell["forms"] = forms
-            elif (converted := grammar_value(key, value)) is not None:
+            elif (converted := grammar_value(key, value, language)) is not None:
                 cell[key] = converted
     else:
         def value(field):
-            return grammar_value(field, getattr(entry, field, None))
+            return grammar_value(field, getattr(entry, field, None), language)
 
         for key, field in (
             ("gender", definition["noun_gender"]),
@@ -113,6 +128,8 @@ def encode_grammar(entry, language):
             ("pronunciation", definition["pronunciation"]),
             ("adjective_gender", definition["adjective_gender"]),
         ):
+            if not field:
+                continue
             found = value(field)
             if found is not None:
                 cell[key] = found
@@ -126,14 +143,14 @@ def encode_grammar(entry, language):
     return json.dumps(cell, ensure_ascii=False, sort_keys=True) if cell else ""
 
 
-def decode_grammar(value, language):
-    """Turn one grammar cell into compatibility-column values.
+def decode_grammar_cell(value, language):
+    """Return ``(legacy_values, structured_cell)`` for one grammar column.
 
-    Unknown keys, values and languages with no grammar definition are row
-    errors so a typo never silently drops a card's optional fields.
+    The structured cell is required for definitions whose fields have no
+    compatibility column; dropping it would silently lose Danish grammar.
     """
     if not value:
-        return {}
+        return {}, None
     if language not in GRAMMAR_DEFINITIONS:
         raise ValueError(f"No grammar definition for {language}.")
     try:
@@ -142,20 +159,42 @@ def decode_grammar(value, language):
         raise ValueError(f"grammar_{language} must be a JSON object.") from None
     if not isinstance(cell, dict):
         raise ValueError(f"grammar_{language} must be a JSON object.")
-    # Legacy exports wrote the unresolved "common" article alias. Keep reading
-    # those cells as unset, as the importer always has.
-    cell = {
-        key: found
-        for key, found in cell.items()
-        if key == "forms" or found != "common"
-    }
+    # Legacy exports wrote the unresolved "common" article alias for Italian
+    # and Greek. Danish declares `common` as a real option, so only drop the
+    # unresolved alias where this definition does not list it.
+    normalized = {}
+    for key, found in cell.items():
+        if key == "forms" and isinstance(found, dict):
+            forms = {
+                name: converted
+                for name, item in found.items()
+                if (
+                    converted := grammar_value(
+                        f"forms.{name}", item, language
+                    )
+                )
+                is not None
+            }
+            if forms:
+                normalized["forms"] = forms
+        elif (converted := grammar_value(key, found, language)) is not None:
+            normalized[key] = converted
+    cell = normalized
     errors = validate_structured_grammar({language: cell}, (language,))
     if errors:
         raise ValueError(
             f"grammar_{language}: "
             + "; ".join(f"{error['path']}: {error['message']}" for error in errors)
         )
-    return legacy_from_structured({language: cell}, languages=(language,))
+    return (
+        legacy_from_structured({language: cell}, languages=(language,)),
+        cell or None,
+    )
+
+
+def decode_grammar(value, language):
+    """Compatibility-column values from one grammar cell."""
+    return decode_grammar_cell(value, language)[0]
 
 
 __all__ = [
@@ -163,6 +202,7 @@ __all__ = [
     "GRAMMAR_COLUMNS",
     "TEXT_COLUMNS",
     "decode_grammar",
+    "decode_grammar_cell",
     "encode_grammar",
     "grammar_column",
     "grammar_columns",

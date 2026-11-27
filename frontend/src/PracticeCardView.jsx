@@ -3,7 +3,12 @@ import { directionLanguages, practiceSides } from "./card-sides.js";
 import { languageTextProps } from "./languages.js";
 import {
   adjectiveGroups,
+  fromStructuredGrammar,
   grammarDefinition,
+  grammarFieldLabelFor,
+  grammarFieldsByKey,
+  grammarValueFields,
+  isGenderField,
   languageOfField,
 } from "./grammar.js";
 
@@ -17,52 +22,78 @@ export default function PracticeCardView({
 }) {
   const sides = practiceSides(entry, direction);
   const [promptLanguage, answerLanguage] = directionLanguages(direction);
+  const values = { ...entry, ...fromStructuredGrammar(entry) };
   const answerGrammar = grammarDefinition(answerLanguage);
   const answerName = answerGrammar?.legacyName || answerLanguage;
   const populated = (fields) =>
-    fields.filter(
-      (field) =>
-        entry[field] &&
-        !(field.endsWith("_gender") && entry[field] === "common"),
-    );
+    fields.filter((field) => {
+      const value = values[field];
+      return (
+        value &&
+        !(
+          value === "common" &&
+          !answerGrammar?.genders?.includes("common") &&
+          isGenderField(field)
+        )
+      );
+    });
   const adjective = entry.word_type === "adjective" && answerGrammar;
   const adjectiveForms = adjective ? adjectiveGroups(entry, answerLanguage) : [];
   const mainGender =
     adjective &&
-    answerGrammar.genders.includes(entry[answerGrammar.adjectiveGender])
-      ? entry[answerGrammar.adjectiveGender]
+    answerGrammar.genders.includes(values[answerGrammar.adjectiveGender])
+      ? values[answerGrammar.adjectiveGender]
       : null;
-  const mainPlural = adjective ? entry[adjectiveForms[0][0]] : null;
+  const mainPlural = adjective ? values[adjectiveForms[0]?.[0]] : null;
   const remaining = adjectiveForms
     .slice(1)
     .map(([singular, plural]) => ({
       gender: singular.split("_")[1],
-      singular: entry[singular],
-      plural: entry[plural],
+      singular: values[singular],
+      plural: values[plural],
     }))
     .filter((row) => row.singular || row.plural);
   const hasAdjectiveMetadata = mainGender || mainPlural || remaining.length > 0;
+  const details = (key) =>
+    grammarFieldsByKey(entry.word_type, [answerLanguage], key);
   const grammar =
     entry.word_type === "noun" && answerGrammar
-      ? [[answerGrammar.nounGender, answerGrammar.nounPlural]]
+      ? [
+          grammarValueFields("noun", [answerLanguage], [
+            "example",
+            "pronunciation",
+          ]),
+        ]
       : [];
   const groups = [
     ...grammar.map(populated),
-    populated(answerGrammar ? [answerGrammar.example] : []),
-    populated(answerGrammar ? [answerGrammar.pronunciation] : []),
+    populated([
+      ...new Set([
+        ...(answerGrammar?.example ? [answerGrammar.example] : []),
+        ...details("example"),
+      ]),
+    ]),
+    populated([
+      ...new Set([
+        ...(answerGrammar?.pronunciation ? [answerGrammar.pronunciation] : []),
+        ...details("pronunciation"),
+      ]),
+    ]),
   ].filter((fields) => fields.length);
   function label(field) {
-    if (field === "pronunciation" || field === "greek_pronunciation")
+    if (
+      field === "pronunciation" ||
+      field === "greek_pronunciation" ||
+      field.endsWith(".pronunciation")
+    )
       return text.cardPronunciation;
-    return (
-      text.cardDetailLabels[field.replace(/^(italian|greek)_/, "")] ||
-      text.fields[field]
-    );
+    return grammarFieldLabelFor(field, text);
   }
   function fieldLanguage(field) {
     if (
       field === "pronunciation" ||
       field === "greek_pronunciation" ||
+      field.endsWith(".pronunciation") ||
       field === "notes"
     )
       return undefined;
@@ -136,9 +167,9 @@ export default function PracticeCardView({
                     <div key={field}>
                       <dt>{label(field)}</dt>
                       <dd {...languageTextProps(fieldLanguage(field))}>
-                        {field.endsWith("_gender")
-                          ? text[entry[field]]
-                          : entry[field]}
+                        {isGenderField(field)
+                          ? text[values[field]] || values[field]
+                          : values[field]}
                       </dd>
                     </div>
                   ))}

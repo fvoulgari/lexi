@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from sqlalchemy import create_engine, text
 
 from app.languages import (
+    LANGUAGES,
     card_slots,
     card_text,
     direction_key,
@@ -18,36 +19,36 @@ from app.languages import (
 from app.registry import refresh_registry
 from app.schemas import ProfileCreate
 
-CURATED = {"ar", "da", "el", "en", "it", "ja"}
+CURATED = set(LANGUAGES)
 
 
 def test_catalogue_exposes_curated_metadata_and_legacy_direction_keys(client):
     payload = client.get("/api/languages").json()
     assert {item["id"] for item in payload["languages"]} == CURATED
+    assert len(CURATED) >= 30
     by_id = {item["id"]: item for item in payload["languages"]}
     assert by_id["el"] == {
         "id": "el",
         "label": "Greek",
+        "native_name": "Ελληνικά",
+        "aliases": [],
         "script": "Grek",
         "text_direction": "ltr",
         "enhanced": True,
     }
-    assert by_id["da"]["enhanced"] is False
+    assert by_id["da"]["enhanced"] is True
+    assert by_id["da"]["native_name"] == "Dansk"
     assert by_id["en"]["script"] == "Latn"
-    assert by_id["ja"] == {
-        "id": "ja",
-        "label": "Japanese",
-        "script": "Jpan",
-        "text_direction": "ltr",
-        "enhanced": False,
-    }
-    assert by_id["ar"] == {
-        "id": "ar",
-        "label": "Arabic",
-        "script": "Arab",
-        "text_direction": "rtl",
-        "enhanced": False,
-    }
+    assert by_id["zh"]["aliases"] == ["Mandarin"]
+    assert by_id["ja"]["text_direction"] == "ltr"
+    assert by_id["ar"]["text_direction"] == "rtl"
+    assert by_id["fa"]["text_direction"] == "rtl"
+    assert by_id["he"]["text_direction"] == "rtl"
+    assert by_id["ur"]["text_direction"] == "rtl"
+    assert all(
+        item["native_name"] and isinstance(item["aliases"], list)
+        for item in payload["languages"]
+    )
 
     directions = {item["key"]: item for item in payload["directions"]}
     assert len(directions) == len(CURATED) * (len(CURATED) - 1)

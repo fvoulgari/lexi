@@ -2,6 +2,53 @@
   "version": 1,
   "word_types": ["noun", "verb", "adjective", "adverb", "expression", "other"],
   "languages": {
+    "da": {
+      "genders": ["common", "neuter"],
+      "fields": {
+        "gender": {
+          "type": "enum",
+          "options": ["common", "neuter"],
+          "word_types": ["noun"],
+          "csv_key": "gender",
+          "label": "Danish gender"
+        },
+        "plural": {
+          "type": "text",
+          "max_length": 500,
+          "word_types": ["noun"],
+          "csv_key": "plural",
+          "label": "Danish plural"
+        },
+        "example": {
+          "type": "long_text",
+          "max_length": 10000,
+          "word_types": [
+            "noun",
+            "verb",
+            "adjective",
+            "adverb",
+            "expression",
+            "other"
+          ],
+          "csv_key": "example",
+          "label": "Danish example"
+        },
+        "pronunciation": {
+          "type": "long_text",
+          "max_length": 10000,
+          "word_types": [
+            "noun",
+            "verb",
+            "adjective",
+            "adverb",
+            "expression",
+            "other"
+          ],
+          "csv_key": "pronunciation",
+          "label": "Danish pronunciation"
+        }
+      }
+    },
     "it": {
       "legacy_name": "italian",
       "genders": ["masculine", "feminine"],

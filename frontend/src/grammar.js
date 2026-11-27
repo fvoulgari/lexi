@@ -15,13 +15,15 @@ function adapt(definition) {
     legacyName: definition.legacy_name,
     genders: definition.genders,
     schema: fields,
-    nounGender: fields.gender.storage,
-    nounPlural: fields.plural.storage,
-    adjectiveGender: fields.adjective_gender.storage,
-    example: fields.example.storage,
-    pronunciation: fields.pronunciation.storage,
+    nounGender: fields.gender?.storage,
+    nounPlural: fields.plural?.storage,
+    adjectiveGender: fields.adjective_gender?.storage,
+    example: fields.example?.storage,
+    pronunciation: fields.pronunciation?.storage,
     forms: Object.fromEntries(
-      Object.entries(fields.forms).map(([name, spec]) => [name, spec.storage]),
+      Object.entries(fields.forms || {})
+        .filter(([, spec]) => spec?.storage)
+        .map(([name, spec]) => [name, spec.storage]),
     ),
   };
 }
@@ -60,22 +62,25 @@ export function grammarDefinition(language) {
 }
 
 export function grammarLanguages(card) {
-  const languages = configuredLanguages();
-  if (!card) return languages;
+  // A draft has no explicit IDs yet, so it uses the historical el/it slots.
   const ids = [
-    card.source_language || "it",
-    card.target_language || "el",
+    card?.source_language || "it",
+    card?.target_language || "el",
   ].map(resolveLanguage);
-  return languages.filter((language) => ids.includes(language));
+  return configuredLanguages().filter((language) => ids.includes(language));
 }
 
 export function definitionFields(definition, wordType) {
   if (!definition) return [];
-  if (wordType === "noun")
-    return [definition.nounGender, definition.nounPlural];
-  if (wordType === "adjective")
-    return [definition.adjectiveGender, ...Object.values(definition.forms)];
-  return [];
+  const fields =
+    wordType === "noun"
+      ? [definition.nounGender, definition.nounPlural]
+      : wordType === "adjective"
+        ? [definition.adjectiveGender, ...Object.values(definition.forms)]
+        : [];
+  // Structured-only fields have no historical column, so they never appear in
+  // the flat legacy value model used by the Vocabulary form and CSV previews.
+  return fields.filter(Boolean);
 }
 
 function definitionsFor(languages) {
@@ -92,13 +97,13 @@ export const nounFields = [
   ...configuredLanguages().map(
     (language) => GRAMMAR_DEFINITIONS[language].nounPlural,
   ),
-];
+].filter(Boolean);
 export const adjectiveFormFields = configuredLanguages().flatMap((language) =>
   Object.values(GRAMMAR_DEFINITIONS[language].forms),
 );
-export const adjectiveGenderFields = configuredLanguages().map(
-  (language) => GRAMMAR_DEFINITIONS[language].adjectiveGender,
-);
+export const adjectiveGenderFields = configuredLanguages()
+  .map((language) => GRAMMAR_DEFINITIONS[language].adjectiveGender)
+  .filter(Boolean);
 export const adjectiveFields = [...adjectiveFormFields, ...adjectiveGenderFields];
 export const grammarFields = [...nounFields, ...adjectiveFields];
 
@@ -107,6 +112,7 @@ export function adjectiveGroups(entry, language) {
   if (!definition) return [];
   // Legacy cards may have no main-gender metadata. Order them without inferring
   // or changing their stored text or gender.
+  if (!definition.adjectiveGender) return [];
   const main = definition.genders.includes(entry[definition.adjectiveGender])
     ? entry[definition.adjectiveGender]
     : "masculine";
@@ -127,6 +133,32 @@ export function grammarFieldsFor(wordType, languages) {
   );
 }
 
+/** Local value keys for a word type, including structured-only fields.
+ *
+ * `omitKeys` filters by the definition's semantic key, so legacy storage
+ * aliases are excluded just like namespaced structured-only keys.
+ */
+export function grammarValueFields(wordType, languages, omitKeys = []) {
+  return (languages || configuredLanguages())
+    .map(resolveLanguage)
+    .flatMap((language) =>
+      schemaFields(language, wordType)
+        .filter((field) => !omitKeys.includes(field.key))
+        .map((field) => field.valueKey),
+    );
+}
+
+/** Value keys for one semantic field, across the given languages. */
+export function grammarFieldsByKey(wordType, languages, key) {
+  return (languages || configuredLanguages())
+    .map(resolveLanguage)
+    .flatMap((language) =>
+      schemaFields(language, wordType)
+        .filter((field) => field.key === key)
+        .map((field) => field.valueKey),
+    );
+}
+
 export function isRelevantField(field, wordType, languages) {
   return (
     !grammarFields.includes(field) ||
@@ -145,13 +177,16 @@ export function cleanGrammar(values, languages) {
 
 export function requiredGenderFields(wordType, languages) {
   return definitionsFor(languages).flatMap((definition) => {
-    if (wordType === "noun") return [definition.nounGender];
-    if (wordType === "adjective") return [definition.adjectiveGender];
+    if (wordType === "noun") return [definition.nounGender].filter(Boolean);
+    if (wordType === "adjective")
+      return [definition.adjectiveGender].filter(Boolean);
     return [];
   });
 }
 
 export function languageOfField(field) {
+  const structured = String(field).match(/^grammar\.([^.]+)\./);
+  if (structured) return structured[1];
   return (
     configuredLanguages().find((language) => {
       const definition = GRAMMAR_DEFINITIONS[language];
@@ -159,7 +194,7 @@ export function languageOfField(field) {
         ...Object.values(definition).filter(
           (value) => typeof value === "string",
         ),
-        ...Object.values(definition.forms),
+        ...Object.values(definition.forms || {}).filter(Boolean),
       ];
       return values.includes(field);
     }) || null
@@ -201,11 +236,22 @@ export function wordTypeOptions() {
   return [...(GRAMMAR_DATA.word_types || [])];
 }
 
-/** Flatten a language's fields into `{key, spec, storage}` rows for a word type.
+/** Local form key for one schema field.
+ *
+ * Legacy definitions use their historical column alias. Definitions without a
+ * compatibility column use a namespaced local key: the value still travels only
+ * through the structured `grammar` payload, never through a new card column.
+ */
+export function grammarValueKey(language, key, spec) {
+  if (spec?.storage) return spec.storage;
+  return `grammar.${resolveLanguage(language)}.${key}`;
+}
+
+/** Flatten a language's fields into rows for a word type.
  *
  * `key` is the structured grammar key (`gender`, `forms.feminine_singular`);
- * `storage` is the historical language-named column alias used by legacy
- * clients and by the shared form's value model.
+ * `storage` is the optional legacy column alias; `valueKey` is the local form
+ * key, which is the alias where one exists and a namespaced key otherwise.
  */
 export function schemaFields(language, wordType) {
   const schema = grammarSchema(language);
@@ -219,17 +265,24 @@ export function schemaFields(language, wordType) {
     if (key === "forms") {
       for (const [form, formSpec] of Object.entries(spec)) {
         if (!applies(formSpec)) continue;
+        const structuredKey = `forms.${form}`;
         rows.push({
-          key: `forms.${form}`,
+          key: structuredKey,
           form,
           spec: formSpec,
           storage: formSpec.storage,
+          valueKey: grammarValueKey(language, structuredKey, formSpec),
         });
       }
       continue;
     }
     if (!applies(spec)) continue;
-    rows.push({ key, spec, storage: spec.storage });
+    rows.push({
+      key,
+      spec,
+      storage: spec.storage,
+      valueKey: grammarValueKey(language, key, spec),
+    });
   }
   return rows;
 }
@@ -247,7 +300,7 @@ export function toStructuredGrammar(values, languages, wordType) {
   for (const language of languages.map(resolveLanguage)) {
     const entry = {};
     for (const field of schemaFields(language, wordType)) {
-      const value = values[field.storage];
+      const value = values[field.valueKey];
       if (value === undefined || value === null || value === "") continue;
       if (field.key.startsWith("forms.")) {
         entry.forms = { ...(entry.forms || {}), [field.form]: value };
@@ -268,7 +321,7 @@ export function fromStructuredGrammar(card) {
       const value = field.key.startsWith("forms.")
         ? entry.forms?.[field.form]
         : entry[field.key];
-      if (value !== undefined && value !== null) values[field.storage] = value;
+      if (value !== undefined && value !== null) values[field.valueKey] = value;
     }
   }
   return values;
@@ -280,15 +333,16 @@ export function missingGrammarFields(values, languages, wordType) {
     .map(resolveLanguage)
     .flatMap((language) =>
       requiredSchemaFields(language, wordType)
-        .filter((field) => !values[field.storage])
-        .map((field) => field.storage),
+        .filter((field) => !values[field.valueKey])
+        .map((field) => field.valueKey),
     );
 }
 
 /** Human-readable label for a schema field, using legacy copy where available. */
 export function grammarFieldLabel(field, text) {
-  const legacy = text?.fields?.[field.storage];
+  const legacy = field.storage && text?.fields?.[field.storage];
   if (legacy) return legacy;
+  if (field.spec?.label) return field.spec.label;
   const detail = text?.cardDetailLabels || {};
   const humanize = (word) =>
     text?.[word] || detail[word] || word.charAt(0).toUpperCase() + word.slice(1);
@@ -299,6 +353,26 @@ export function grammarFieldLabel(field, text) {
   if (field.key === "gender" || field.key === "adjective_gender")
     return detail.gender || humanize(field.key);
   return detail[field.key] || humanize(field.key);
+}
+
+/** True for both legacy gender columns and structured-only gender keys. */
+export function isGenderField(field) {
+  const structured = String(field).match(/^grammar\.[^.]+\.(.+)$/);
+  const key = structured?.[1] || field;
+  return key === "gender" || key === "adjective_gender" || key.endsWith("_gender");
+}
+
+/** Label for any local value key, including synthetic structured-only keys. */
+export function grammarFieldLabelFor(field, text) {
+  if (!String(field).startsWith("grammar.")) {
+    const short = String(field).replace(/^(italian|greek)_/, "");
+    return text?.cardDetailLabels?.[short] || text?.fields?.[field] || field;
+  }
+  for (const language of configuredLanguages()) {
+    const match = schemaFields(language).find((row) => row.valueKey === field);
+    if (match) return grammarFieldLabel(match, text);
+  }
+  return text?.fields?.[field] || field;
 }
 
 /** Option label from the shared copy, with a safe data-driven fallback. */

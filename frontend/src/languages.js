@@ -9,8 +9,19 @@ import { useSyncExternalStore } from "react";
 // Legacy identity belongs to historical text slots, not to the language list.
 export const LEGACY_PAIR = ["el", "it"];
 
+// Shown before the full catalogue in every picker; the rest stays alphabetical.
+export const POPULAR_LANGUAGE_IDS = ["en", "el", "it", "da", "es", "fr", "de", "ja"];
+
 let current = null;
 const listeners = new Set();
+
+/** Accent- and case-insensitive comparison key for language search. */
+export function searchKey(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase();
+}
 
 function normalize(payload) {
   const languages = Array.isArray(payload?.languages) ? payload.languages : [];
@@ -21,6 +32,12 @@ function normalize(payload) {
     ids: languages.map((language) => language.id),
     byId: new Map(languages.map((language) => [language.id, language])),
     byKey: new Map(directions.map((direction) => [direction.key, direction])),
+    byPair: new Map(
+      directions.map((direction) => [
+        `${direction.prompt_language}\u0000${direction.answer_language}`,
+        direction,
+      ]),
+    ),
   };
 }
 
@@ -72,6 +89,48 @@ export function languageInfo(code) {
 
 export function languageLabel(code) {
   return registry().byId.get(code)?.label || String(code);
+}
+
+export function nativeLanguageName(code) {
+  const language = registryInfo(code);
+  return language?.native_name || language?.label || String(code);
+}
+
+export function languageAliases(code) {
+  return registryInfo(code)?.aliases || [];
+}
+
+/** Curated options ranked for discovery, then by display label. */
+export function popularLanguageOptions() {
+  const options = languageOptions();
+  const rank = new Map(
+    POPULAR_LANGUAGE_IDS.map((id, index) => [id, index]),
+  );
+  return options
+    .map((option, index) => ({ option, index }))
+    .sort((a, b) => {
+      const left = rank.get(a.option.id) ?? Number.MAX_SAFE_INTEGER;
+      const right = rank.get(b.option.id) ?? Number.MAX_SAFE_INTEGER;
+      if (left !== right) return left - right;
+      return a.index - b.index;
+    })
+    .map(({ option }) => option);
+}
+
+/** Search labels, native names, aliases and IDs without diacritic Sensitivity. */
+export function searchLanguageOptions(query, exclude = []) {
+  const needle = searchKey(query);
+  const excluded = new Set(exclude);
+  return languageOptions().filter((language) => {
+    if (excluded.has(language.id)) return false;
+    if (!needle) return true;
+    return [
+      language.label,
+      language.native_name,
+      ...(language.aliases || []),
+      language.id,
+    ].some((value) => searchKey(value).includes(needle));
+  });
 }
 
 function registryInfo(code) {
@@ -166,9 +225,7 @@ export function isLegacyPair(first, second) {
 
 /** Explicit direction key for an ordered pair, from the API's direction rows. */
 export function directionKey(from, to) {
-  const direction = registry().directions.find(
-    (item) => item.prompt_language === from && item.answer_language === to,
-  );
+  const direction = registry().byPair.get(`${from}\u0000${to}`);
   if (!direction) throw new Error("Unsupported practice direction.");
   return direction.key;
 }

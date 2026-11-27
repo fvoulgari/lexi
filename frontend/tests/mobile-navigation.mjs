@@ -221,7 +221,11 @@ try {
     await selector.selectOption(collection.id);
     assert.match(await selector.locator("option:checked").textContent(), /Benvenuti/);
     await collections.getByRole("button", { name: "Νέα συλλογή" }).click();
-    const visibility = collections.getByRole("switch", { name: "Δημόσια" });
+    const newCollectionDialog = page.getByRole("dialog");
+    await newCollectionDialog.waitFor();
+    const visibility = newCollectionDialog.getByRole("radio", {
+      name: "Δημόσια",
+    });
     assert.equal(await visibility.isChecked(), false);
     await visibility.focus();
     await visibility.press("Space");
@@ -232,7 +236,10 @@ try {
       ),
       true,
     );
-    await collections.getByRole("button", { name: "Ακύρωση" }).click();
+    await newCollectionDialog
+      .getByRole("button", { name: "Ακύρωση" })
+      .last()
+      .click();
 
     // Import actions live in a scrollable modal; they must stay reachable and clickable.
     await page

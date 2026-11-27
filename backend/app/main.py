@@ -24,6 +24,7 @@ from app.auth import initialize_auth
 from app.collections import collection_router
 from app.config import Settings
 from app.csv_export import export_collections, export_library
+from app.csv_format import FORMAT_VERSION_V2, FORMAT_VERSION_V3
 from app.database import database
 from app.duplicates import normalized_pair
 from app.filters import vocabulary_conditions
@@ -282,9 +283,11 @@ def create_app():
         archived: bool = False,
         format: str | None = None,
     ):
-        if format not in (None, "v1", "v2"):
-            raise HTTPException(422, "Choose CSV format v1 or v2.")
-        use_v2 = format == "v2" or (format is None and collection_id is not None)
+        if format not in (None, "v1", "v2", "v3"):
+            raise HTTPException(422, "Choose CSV format v1, v2 or v3.")
+        use_v2 = format in ("v2", "v3") or (
+            format is None and collection_id is not None
+        )
         conditions = vocabulary_conditions(q, [], False, word_types, tag_ids)
         if archived:
             conditions.append(VocabularyEntry.archived_at.is_not(None))
@@ -302,7 +305,12 @@ def create_app():
                 .order_by(VocabularyEntry.italian, VocabularyEntry.id)
             ).all()
             return Response(
-                export_collections(entries, current_account().id, collection)
+                export_collections(
+                    entries,
+                    current_account().id,
+                    collection,
+                    version=FORMAT_VERSION_V3 if format == "v3" else FORMAT_VERSION_V2,
+                )
                 if use_v2
                 else export_library(
                     entries, current_account().id, include_ids=include_ids
