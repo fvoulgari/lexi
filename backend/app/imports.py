@@ -4,7 +4,6 @@ import csv
 import hashlib
 import io
 import json
-from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -14,7 +13,12 @@ from sqlalchemy import func, select, text
 
 from app.access import collection_capabilities, current_account, require_write
 from app.collections import CollectionBody
-from app.csv_format import FORMAT_VERSION, FORMAT_VERSION_V2, restore_text
+from app.csv_format import (
+    FORMAT_VERSION,
+    FORMAT_VERSION_V2,
+    restore_text,
+    spreadsheet_text,
+)
 from app.csv_v2 import (
     decode_grammar,
     grammar_columns,
@@ -776,19 +780,113 @@ def import_router(sessions, gate):
             make_public=make_public,
         )
 
-    @router.get("/example")
-    def example():
-        sample = json.loads(Path(__file__).with_name("csv_example.json").read_text())
-        output = io.StringIO(newline="")
-        writer = csv.writer(output, lineterminator="\n")
-        writer.writerow(sample["headers"])
-        writer.writerows(sample["rows"])
-        return Response(
-            output.getvalue(),
-            media_type="text/csv; charset=utf-8",
-            headers={
-                "Content-Disposition": 'attachment; filename="vocabulary-example.csv"'
+    def example_rows(source, target):
+        samples = {
+            "it": {
+                "noun": "casa",
+                "verb": "parlare",
+                "adjective": "bello",
+                "grammar": {
+                    "noun": json.dumps(
+                        {"gender": "masculine", "plural": "case"},
+                        ensure_ascii=False,
+                    ),
+                    "adjective": json.dumps(
+                        {"adjective_gender": "masculine"}, ensure_ascii=False
+                    ),
+                },
             },
+            "el": {
+                "noun": "σπίτι",
+                "verb": "μιλάω",
+                "adjective": "όμορφος",
+                "grammar": {
+                    "noun": json.dumps(
+                        {"gender": "neuter", "plural": "σπίτια"},
+                        ensure_ascii=False,
+                    ),
+                    "adjective": json.dumps(
+                        {"adjective_gender": "masculine"}, ensure_ascii=False
+                    ),
+                },
+            },
+            "en": {"noun": "house", "verb": "speak", "adjective": "beautiful"},
+            "da": {"noun": "hus", "verb": "tale", "adjective": "smuk"},
+            "ja": {"noun": "家", "verb": "話す", "adjective": "美しい"},
+            "ar": {"noun": "بيت", "verb": "يتكلم", "adjective": "جميل"},
+        }
+
+        def text(language, kind):
+            return samples.get(language, {}).get(kind, f"{language}-{kind}")
+
+        def grammar(language, kind):
+            return samples.get(language, {}).get("grammar", {}).get(kind, "")
+
+        rows = []
+        for kind, word_type in (
+            ("noun", "noun"),
+            ("verb", "verb"),
+            ("adjective", "adjective"),
+        ):
+            row = {
+                "csv_format": FORMAT_VERSION_V2,
+                "source_language": source,
+                "target_language": target,
+                "card_source_language": source,
+                "card_target_language": target,
+                text_column(source): text(source, kind),
+                text_column(target): text(target, kind),
+                "word_type": word_type,
+                "tags": "[]",
+            }
+            for language in (source, target):
+                value = grammar(language, kind)
+                if value:
+                    row[f"grammar_{language}"] = value
+            rows.append(row)
+        return rows
+
+    @router.get("/example")
+    def example(
+        collection_id: UUID | None = None,
+        source_language: str | None = None,
+        target_language: str | None = None,
+    ):
+        languages = None
+        if collection_id is not None:
+            with sessions() as db:
+                collection = db.get(Collection, collection_id)
+                capabilities = (
+                    collection_capabilities(collection) if collection else None
+                )
+                if (
+                    collection is None
+                    or not capabilities["can_edit"]
+                ):
+                    raise HTTPException(404, "Collection not found.")
+                languages = (collection.source_language, collection.target_language)
+        elif source_language and target_language:
+            try:
+                pair(source_language, target_language)
+            except ValueError:
+                raise HTTPException(422, "Choose a supported language pair.") from None
+            languages = (source_language, target_language)
+        else:
+            languages = ("el", "it")
+
+        source, target = languages
+        columns = v2_columns()
+        rows = example_rows(source, target)
+        output = io.StringIO(newline="")
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL, lineterminator="\r\n")
+        writer.writerow(columns)
+        for row in rows:
+            writer.writerow(spreadsheet_text(row.get(column)) for column in columns)
+        filename = f"vocabulary-example-{source}-{target}.csv"
+        return Response(
+            output.getvalue().encode("utf-8-sig"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     @router.post("/preview", dependencies=[Depends(gate.check_csrf)])

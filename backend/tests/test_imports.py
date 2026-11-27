@@ -1,3 +1,6 @@
+import csv
+import io
+
 import pytest
 from csv_fixtures import with_genders
 from test_vocabulary_editing import headers
@@ -422,7 +425,14 @@ def test_collection_csv_ignores_other_language_pairs(client, account_client):
     )
 
 
-def upload(client, csv, action="preview"):
+def upload(
+    client,
+    csv,
+    action="preview",
+    *,
+    destination="CSV test",
+    pair=("it", "el"),
+):
     csv = with_genders(csv)
     response = client.get("/api/collections")
     if response.status_code != 200:
@@ -432,10 +442,13 @@ def upload(client, csv, action="preview"):
             headers={**headers(client), "Content-Type": "text/csv"},
         )
     groups = response.json()
-    target = next((group for group in groups if group["name"] == "CSV test"), None)
+    target = next((group for group in groups if group["name"] == destination), None)
     if target is None:
+        payload = {"name": destination}
+        if pair is not None:
+            payload["source_language"], payload["target_language"] = pair
         target = client.post(
-            "/api/collections", headers=headers(client), json={"name": "CSV test"}
+            "/api/collections", headers=headers(client), json=payload
         ).json()
     return client.post(
         f"/api/imports/{action}?collection_id={target['id']}",
@@ -535,7 +548,7 @@ def test_row_errors_genders_and_invalid_rows_do_not_reserve_pairs(logged_in):
 
 
 def test_file_validation_and_gate_protection(logged_in):
-    for csv in [
+    for invalid_csv in [
         "italian,greek,word_type,unknown\na,b,noun,x\n",
         "italian,italian,word_type\na,b,noun\n",
         "italian,greek\na,b\n",
@@ -544,7 +557,7 @@ def test_file_validation_and_gate_protection(logged_in):
         "x" * 1_048_577,
         "italian,greek,word_type\n" + "a,b,noun\n" * 2001,
     ]:
-        assert upload(logged_in, csv).status_code == 422
+        assert upload(logged_in, invalid_csv).status_code == 422
     assert (
         logged_in.post(
             "/api/imports/preview", content=b"\xff", headers=headers(logged_in)
@@ -571,21 +584,65 @@ def test_tags_are_trimmed_and_deduplicated_before_assignment(logged_in):
 def test_example_is_gated_utf8_and_importable(logged_in):
     response = logged_in.get("/api/imports/example")
     assert response.status_code == 200
-    assert "attachment" in response.headers["Content-Disposition"]
-    assert (
-        upload(logged_in, "\ufeff" + response.content.decode("utf-8")).json()["counts"][
-            "valid"
-        ]
-        == 3
-    )
-    assert response.text.splitlines() == [
-        "italian,greek,word_type,italian_gender,greek_gender,italian_adjective_gender,greek_adjective_gender",
-        "casa,σπίτι,noun,masculine,neuter,,",
-        "parlare,μιλάω,verb,,,,",
-        "bello,όμορφος,adjective,,,masculine,masculine",
+    assert 'filename="vocabulary-example-el-it.csv"' in response.headers[
+        "Content-Disposition"
     ]
+    body = response.content.decode("utf-8-sig")
+    preview = upload(
+        logged_in,
+        body,
+        destination="CSV test",
+        pair=("el", "it"),
+    )
+    assert preview.json()["counts"] == {
+        "imported": 0,
+        "updated": 0,
+        "valid": 3,
+        "skipped": 0,
+        "duplicate": 0,
+        "error": 0,
+    }
+    rows = list(csv.DictReader(io.StringIO(body)))
+    assert {row["csv_format"] for row in rows} == {"italian-notebook-v2"}
+    assert {row["source_language"] for row in rows} == {"el"}
+    assert {row["target_language"] for row in rows} == {"it"}
+    assert [row["text_it"] for row in rows] == ["casa", "parlare", "bello"]
+    assert [row["text_el"] for row in rows] == ["σπίτι", "μιλάω", "όμορφος"]
     logged_in.cookies.clear()
     assert logged_in.get("/api/imports/example").status_code == 401
+
+
+def test_example_is_pair_aware(logged_in):
+    response = logged_in.get(
+        "/api/imports/example?source_language=en&target_language=da"
+    )
+    assert response.status_code == 200
+    assert 'filename="vocabulary-example-en-da.csv"' in response.headers[
+        "Content-Disposition"
+    ]
+    rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+    assert {row["source_language"] for row in rows} == {"en"}
+    assert {row["target_language"] for row in rows} == {"da"}
+    assert [row["text_en"] for row in rows] == ["house", "speak", "beautiful"]
+    assert [row["text_da"] for row in rows] == ["hus", "tale", "smuk"]
+
+    collection = logged_in.post(
+        "/api/collections",
+        json={"name": "EN/DA", "source_language": "en", "target_language": "da"},
+        headers=headers(logged_in),
+    ).json()
+    by_collection = logged_in.get(
+        f"/api/imports/example?collection_id={collection['id']}"
+    )
+    assert by_collection.status_code == 200
+    collection_rows = list(
+        csv.DictReader(io.StringIO(by_collection.content.decode("utf-8-sig")))
+    )
+    assert [row["text_en"] for row in collection_rows] == [
+        "house",
+        "speak",
+        "beautiful",
+    ]
 
 
 def test_unit_conflicts_and_malformed_rows_are_reported_without_partial_metadata(
