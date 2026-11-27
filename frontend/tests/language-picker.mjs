@@ -105,7 +105,7 @@ try {
 
     // The popup stays inside the viewport and offers curated API options.
     await first.focus();
-    const list = dialog.locator(".language-combobox").first().getByRole("listbox");
+    const list = page.getByRole("listbox");
     await list.waitFor({ state: "visible" });
     await list.getByRole("option", { name: /Danish/ }).waitFor();
     const optionNames = await list.getByRole("option").allTextContents();

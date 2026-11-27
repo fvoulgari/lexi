@@ -25,6 +25,7 @@ from app.csv_v2 import (
     decode_grammar_cell,
     grammar_column,
     grammar_columns,
+    template_columns,
     text_column,
     text_columns,
     v2_columns,
@@ -33,9 +34,11 @@ from app.csv_v2 import (
 from app.duplicates import normalized_language_pair
 from app.grammar import (
     DEFINITIONS,
+    GRAMMAR_DEFINITIONS,
     GRAMMAR_FIELDS,
     clean_grammar,
     invalid_grammar_fields,
+    iter_fields,
     merge_structured,
     missing_gender_fields,
     sync_entry_grammar,
@@ -43,6 +46,7 @@ from app.grammar import (
 )
 from app.languages import card_languages, card_slots, pair, same_pair
 from app.models import Collection, CollectionEntry, Tag, VocabularyEntry
+from app.registry import get_registry
 from app.schemas import TagCreate, UnitCreate, VocabularyCreate, VocabularyImport
 
 MAX_BYTES = 1_048_576
@@ -104,6 +108,77 @@ def invalid(message):
     raise HTTPException(422, {"code": "invalid_csv", "message": message})
 
 
+def column_mapping(request):
+    """Optional explicit mapping from uploaded headers to Lexi columns."""
+    raw = request.query_params.get("column_mapping")
+    if not raw:
+        return {}
+    try:
+        supplied = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        invalid("Column mapping must be a JSON object.")
+    if not isinstance(supplied, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str)
+        for key, value in supplied.items()
+    ):
+        invalid("Column mapping must map header names to column names.")
+    supported = allowed_columns()
+    for source, target in supplied.items():
+        if target and target not in supported:
+            invalid(f"Column “{source}” cannot map to “{target}”.")
+    return supplied
+
+
+def detect_format(fields, explicit_versions):
+    """Recognise a supported exchange format without asking for a version."""
+    names = {ALIASES.get(field, field) for field in fields}
+    explicit = {version for version in explicit_versions if version}
+    if len(explicit) > 1:
+        invalid("This CSV contains conflicting format identifiers.")
+    version = next(iter(explicit), "")
+    language_texts = sorted(
+        name.removeprefix("text_")
+        for name in names
+        if name.startswith("text_")
+        and get_registry().has_language(name.removeprefix("text_"))
+    )
+    simple = {"base", "learning"} <= names
+    legacy = {"italian", "greek"} <= names
+    if version:
+        if version == FORMAT_VERSION_SIMPLE and not simple:
+            invalid("The simple template needs base and learning columns.")
+        if version in (FORMAT_VERSION_V2, FORMAT_VERSION_V3) and (
+            len(language_texts) < 2
+            or not (
+                {"card_source_language", "card_target_language"} <= names
+                or len(language_texts) == 2
+            )
+        ):
+            invalid("Metadata templates need two language-keyed text columns.")
+        if version == FORMAT_VERSION_V2 and {"schema_version", "metadata"} & names:
+            invalid(
+                "This file contains metadata; import it with automatic detection "
+                "so no grammar information is discarded."
+            )
+        if version == FORMAT_VERSION and not legacy:
+            invalid("Legacy templates need italian and greek columns.")
+        return version
+    if "schema_version" in names or "metadata" in names:
+        return FORMAT_VERSION_V3
+    if simple:
+        return FORMAT_VERSION_SIMPLE
+    if len(language_texts) >= 2:
+        return FORMAT_VERSION_V2
+    if legacy:
+        # Unversioned historical files keep pipe-separated tags and legacy
+        # aliases, so they must not be rewritten with a version marker.
+        return ""
+    invalid(
+        "Lexi could not identify the language columns. Map each column to a "
+        "language or vocabulary field and try again."
+    )
+
+
 async def read_csv(request):
     content = bytearray()
     async for chunk in request.stream():
@@ -111,33 +186,66 @@ async def read_csv(request):
         if len(content) > MAX_BYTES:
             invalid("CSV exceeds the 1 MiB limit.")
     try:
-        reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig")), strict=True)
-        fields = reader.fieldnames
+        reader = csv.reader(io.StringIO(content.decode("utf-8-sig")), strict=True)
+        original_fields = next(reader)
+        if not original_fields:
+            invalid("CSV needs a header row.")
+        mapping = column_mapping(request)
+        fields = []
+        kept = []
+        for index, header in enumerate(original_fields):
+            target = mapping.get(header, header)
+            if target == "":
+                continue
+            fields.append(target)
+            kept.append(index)
         if not fields or len(fields) != len(set(fields)):
-            invalid("CSV needs unique column headers.")
+            invalid("CSV needs unique column headers after mapping.")
         supported = allowed_columns()
         if set(fields) - supported:
             invalid(
                 "Unsupported columns: "
                 + ", ".join(sorted(set(fields) - supported))
+                + ". Map or ignore them before importing."
             )
-        canonical = {ALIASES.get(field, field) for field in fields}
-        language_texts = sum(column in canonical for column in text_columns())
-        simple = {"base", "learning"} <= set(fields)
-        if "word_type" not in canonical or not (
-            {"italian", "greek"} <= canonical or language_texts >= 2 or simple
-        ):
-            invalid(
-                "Required columns: word_type and either italian/greek "
-                "or language-keyed text columns."
-            )
-        rows = []
-        for row in reader:
-            if len(rows) >= MAX_ROWS:
+        if "word_type" not in {ALIASES.get(field, field) for field in fields}:
+            invalid("Required column: word_type. Map a column to it before importing.")
+        raw_rows = []
+        for raw_row in reader:
+            if len(raw_rows) >= MAX_ROWS:
                 invalid("CSV exceeds the 2000 row limit.")
-            rows.append(row)
-        if not rows:
+            padded = list(raw_row)
+            if len(padded) < len(original_fields):
+                padded.extend([""] * (len(original_fields) - len(padded)))
+            row = {
+                field: padded[index] for field, index in zip(fields, kept, strict=True)
+            }
+            if len(raw_row) > len(original_fields):
+                row[None] = "extra columns"
+            raw_rows.append(row)
+        if not raw_rows:
             invalid("CSV has no vocabulary rows.")
+        rows = raw_rows
+        version = detect_format(
+            fields, [row.get("csv_format", "") for row in rows]
+        )
+        language_texts = sorted(
+            name.removeprefix("text_")
+            for name in fields
+            if name.startswith("text_")
+            and get_registry().has_language(name.removeprefix("text_"))
+        )
+        inferred_languages = (
+            version in (FORMAT_VERSION_V2, FORMAT_VERSION_V3)
+            and len(language_texts) == 2
+            and not {"card_source_language", "card_target_language"} <= set(fields)
+        )
+        for row in rows:
+            if version and not row.get("csv_format"):
+                row["csv_format"] = version
+            if inferred_languages:
+                row["card_source_language"] = language_texts[0]
+                row["card_target_language"] = language_texts[1]
         return rows
     except UnicodeDecodeError, csv.Error:
         invalid("Upload a valid UTF-8 CSV file.")
@@ -897,63 +1005,68 @@ def import_router(sessions, gate):
         )
 
     def example_rows(source, target):
+        # Text samples make the template readable; grammar values themselves
+        # come from the definitions, so a new option never needs a code edit.
         samples = {
             "it": {
                 "noun": "casa",
                 "verb": "parlare",
                 "adjective": "bello",
-                "grammar": {
-                    "noun": json.dumps(
-                        {"gender": "masculine", "plural": "case"},
-                        ensure_ascii=False,
-                    ),
-                    "adjective": json.dumps(
-                        {"adjective_gender": "masculine"}, ensure_ascii=False
-                    ),
-                },
+                "plural": "case",
             },
             "el": {
                 "noun": "σπίτι",
                 "verb": "μιλάω",
                 "adjective": "όμορφος",
-                "grammar": {
-                    "noun": json.dumps(
-                        {"gender": "neuter", "plural": "σπίτια"},
-                        ensure_ascii=False,
-                    ),
-                    "adjective": json.dumps(
-                        {"adjective_gender": "masculine"}, ensure_ascii=False
-                    ),
-                },
+                "plural": "σπίτια",
             },
             "en": {"noun": "house", "verb": "speak", "adjective": "beautiful"},
             "da": {
                 "noun": "hus",
                 "verb": "tale",
                 "adjective": "smuk",
-                "grammar": {
-                    "noun": json.dumps(
-                        {"gender": "common", "plural": "huse"},
-                        ensure_ascii=False,
-                    ),
-                },
+                "plural": "huse",
             },
             "ja": {"noun": "家", "verb": "話す", "adjective": "美しい"},
             "ar": {"noun": "بيت", "verb": "يتكلم", "adjective": "جميل"},
         }
+        plural_samples = {"da": "huse", "it": "case", "el": "σπίτια"}
+        gender_samples = {"da": "common", "it": "masculine", "el": "neuter"}
 
         def text(language, kind):
             return samples.get(language, {}).get(kind, f"{language}-{kind}")
 
         def grammar(language, kind):
-            return samples.get(language, {}).get("grammar", {}).get(kind, "")
+            definition = GRAMMAR_DEFINITIONS.get(language)
+            if definition is None:
+                return ""
+            cell = {}
+            for path, spec in iter_fields(definition):
+                if spec.get("type") != "enum":
+                    continue
+                expected = {"noun": "gender", "adjective": "adjective_gender"}.get(kind)
+                if path == expected and spec.get("options"):
+                    preferred = (
+                        gender_samples.get(language)
+                        if path == "gender"
+                        else None
+                    ) or spec["options"][0]
+                    cell[path] = (
+                        preferred
+                        if preferred in spec["options"]
+                        else spec["options"][0]
+                    )
+            if kind == "noun" and language in plural_samples:
+                cell["plural"] = plural_samples[language]
+            if not cell:
+                return ""
+            errors = validate_structured_grammar({language: cell}, (language,))
+            if errors:
+                return ""
+            return json.dumps(cell, ensure_ascii=False, sort_keys=True)
 
         rows = []
-        for kind, word_type in (
-            ("noun", "noun"),
-            ("verb", "verb"),
-            ("adjective", "adjective"),
-        ):
+        for kind in ("noun", "verb", "adjective"):
             row = {
                 "csv_format": FORMAT_VERSION_V2,
                 "source_language": source,
@@ -962,13 +1075,13 @@ def import_router(sessions, gate):
                 "card_target_language": target,
                 text_column(source): text(source, kind),
                 text_column(target): text(target, kind),
-                "word_type": word_type,
+                "word_type": kind,
                 "tags": "[]",
             }
             for language in (source, target):
                 value = grammar(language, kind)
                 if value:
-                    row[f"grammar_{language}"] = value
+                    row[grammar_column(language)] = value
             rows.append(row)
         return rows
 
@@ -979,8 +1092,8 @@ def import_router(sessions, gate):
         target_language: str | None = None,
         format: str = "v2",
     ):
-        if format not in ("simple", "v2", "v3"):
-            raise HTTPException(422, "Choose CSV template simple, v2 or v3.")
+        if format not in ("template", "simple", "v2", "v3"):
+            raise HTTPException(422, "Choose a supported CSV template format.")
         languages = None
         if collection_id is not None:
             with sessions() as db:
@@ -1025,6 +1138,8 @@ def import_router(sessions, gate):
                 }
                 for row in rows
             ]
+        elif format == "template":
+            columns = template_columns((source, target))
         elif format == "v3":
             columns = v3_columns(sorted((source, target)))
             for row in rows:
@@ -1047,7 +1162,7 @@ def import_router(sessions, gate):
         writer.writerow(columns)
         for row in rows:
             writer.writerow(spreadsheet_text(row.get(column)) for column in columns)
-        suffix = "" if format == "v2" else f"-{format}"
+        suffix = "" if format in ("v2", "template") else f"-{format}"
         filename = f"vocabulary-example-{source}-{target}{suffix}.csv"
         return Response(
             output.getvalue().encode("utf-8-sig"),

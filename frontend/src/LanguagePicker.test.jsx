@@ -19,7 +19,7 @@ function Harness({ onChange = () => {}, ...props }) {
 function optionNames() {
   return screen
     .queryAllByRole("option")
-    .map((option) => option.querySelector("span")?.textContent);
+    .map((option) => option.querySelector(".language-picker-label")?.textContent);
 }
 
 afterEach(() => hydrateLanguages(REGISTRY_PAYLOAD));
@@ -38,6 +38,44 @@ test("offers every curated catalogue option with its API label and code", async 
       .getAllByRole("option")
       .map((option) => option.querySelector(".language-picker-code")?.textContent),
   ).toEqual(expect.arrayContaining(REGISTRY_PAYLOAD.languages.map((row) => row.id)));
+});
+
+test("stacks the display name above the native name and never duplicates identical names", async () => {
+  const user = userEvent.setup();
+  render(<Harness />);
+  await user.click(screen.getByRole("combobox"));
+
+  const greek = screen.getByRole("option", { name: /Greek/ });
+  const text = greek.querySelector(".language-picker-text");
+  expect([...text.children].map((child) => child.className)).toEqual([
+    "language-picker-label",
+    "language-picker-native",
+    "language-picker-code",
+  ]);
+  expect(greek.querySelector(".language-picker-label")).toHaveTextContent("Greek");
+  expect(greek.querySelector(".language-picker-native")).toHaveTextContent(
+    "Ελληνικά",
+  );
+
+  const english = screen.getByRole("option", { name: /English/ });
+  expect(english.querySelector(".language-picker-native")).toBeNull();
+  // Codes stay available for search and tests without occupying dropdown space.
+  expect(english.querySelector(".language-picker-code")).toHaveTextContent("en");
+});
+
+test("offers a clear search control that restores the full catalogue", async () => {
+  const user = userEvent.setup();
+  render(<Harness />);
+  const input = screen.getByRole("combobox");
+  await user.click(input);
+  await user.type(input, "dansk");
+  expect(screen.queryAllByRole("option")).toHaveLength(1);
+
+  await user.click(screen.getByRole("button", { name: "Clear search" }));
+  expect(input).toHaveFocus();
+  expect(screen.queryAllByRole("option")).toHaveLength(
+    REGISTRY_PAYLOAD.languages.length,
+  );
 });
 
 test("keeps options as direct children of the listbox", async () => {

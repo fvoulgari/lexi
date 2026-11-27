@@ -215,6 +215,7 @@ test("a synthetic registry row alone drives picker and authoring", async () => {
     {
       id: "zz",
       label: "Synthetic",
+      native_name: "اصطناعي",
       script: "Arab",
       text_direction: "rtl",
       enhanced: false,
@@ -224,8 +225,14 @@ test("a synthetic registry row alone drives picker and authoring", async () => {
   render(<LanguagePicker value="" onChange={() => {}} label="Language" />);
   await user.click(screen.getByRole("combobox", { name: "Language" }));
   const option = screen.getByRole("option", { name: /Synthetic/ });
-  expect(option.querySelector("span")).toHaveAttribute("lang", "zz");
-  expect(option.querySelector("span")).toHaveAttribute("dir", "rtl");
+  expect(option.querySelector(".language-picker-native")).toHaveAttribute(
+    "lang",
+    "zz",
+  );
+  expect(option.querySelector(".language-picker-native")).toHaveAttribute(
+    "dir",
+    "rtl",
+  );
 
   const { container } = render(
     wrap(

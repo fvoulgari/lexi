@@ -62,7 +62,8 @@ try {
       const chooseLanguage = async (index, language) => {
         const picker = dialog.locator(".language-combobox").nth(index);
         await picker.getByRole("combobox").fill(language);
-        await picker
+        await page
+          .getByRole("listbox")
           .getByRole("option", { name: new RegExp(`^${language}`) })
           .click();
       };

@@ -14,6 +14,7 @@ from app.csv_v2 import (
     text_column,
     v2_columns,
     v3_columns,
+    vocabulary_columns,
 )
 from app.grammar import DEFINITIONS, grammar_languages
 from app.languages import card_languages, card_text
@@ -81,7 +82,12 @@ def export_library(entries, account_id, *, include_ids=False):
 
 
 def export_collections(
-    entries, account_id, collection=None, version=FORMAT_VERSION_V2
+    entries,
+    account_id,
+    collection=None,
+    version=FORMAT_VERSION_V2,
+    *,
+    vocabulary_only=False,
 ):
     """Export v2/v3 scoped to the destination pair, not the whole registry."""
     if version not in (FORMAT_VERSION_V2, FORMAT_VERSION_V3):
@@ -102,11 +108,12 @@ def export_collections(
                 }
             )
         )
-    columns = (
-        v3_columns(languages)
-        if version == FORMAT_VERSION_V3
-        else v2_columns(languages)
-    )
+    if vocabulary_only:
+        columns = vocabulary_columns(languages)
+    elif version == FORMAT_VERSION_V3:
+        columns = v3_columns(languages)
+    else:
+        columns = v2_columns(languages)
     writer.writerow(columns)
     for entry in entries:
         source = entry.source_collection

@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   languageOptions,
   languageTextProps,
@@ -45,6 +46,7 @@ export default function LanguagePicker({
   disabled = false,
   emptyMessage = "No languages found",
   errorMessage = "Languages could not be loaded. Try again.",
+  clearLabel = "Clear search",
   error = false,
   className = "",
   id,
@@ -60,7 +62,9 @@ export default function LanguagePicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(-1);
+  const [popupStyle, setPopupStyle] = useState({});
   const [recentIds, setRecentIds] = useState(() => recentLanguages(storageKey));
+  const [portalTarget, setPortalTarget] = useState(() => document.body);
 
   const items = useMemo(
     () => options ?? (registry ? languageOptions() : []),
@@ -99,6 +103,49 @@ export default function LanguagePicker({
   useEffect(() => {
     if (active >= choices.length) setActive(choices.length ? 0 : -1);
   }, [active, choices.length]);
+
+  // Portal into the containing dialog so a scrolling form cannot clip the
+  // list while it stays in the modal's top layer and accepts pointer events.
+  useLayoutEffect(() => {
+    const target = rootRef.current?.closest("dialog") ?? document.body;
+    setPortalTarget((current) => (current === target ? current : target));
+  }, [open]);
+
+  // Flip above the input when there is not enough room below, and keep the
+  // popup inside the viewport while preserving the input's width.
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    function position() {
+      const input = inputRef.current;
+      if (!input) return;
+      const rect = input.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom - 8;
+      const above = rect.top - 8;
+      const flip = below < 180 && above > below;
+      const maxHeight = Math.max(140, Math.min(256, flip ? above : below));
+      setPopupStyle({
+        position: "fixed",
+        top: flip ? undefined : rect.bottom + 4,
+        bottom: flip ? window.innerHeight - rect.top + 4 : undefined,
+        left: rect.left,
+        width: rect.width,
+        maxHeight: `${maxHeight}px`,
+      });
+    }
+    position();
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
+    return () => {
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || active < 0) return;
+    const option = document.getElementById(`${listId}-${choices[active]?.id}`);
+    option?.scrollIntoView?.({ block: "nearest" });
+  }, [active, choices, listId, open]);
 
   function close() {
     setOpen(false);
@@ -208,66 +255,97 @@ export default function LanguagePicker({
           if (!rootRef.current?.contains(event.relatedTarget)) close();
         }}
       />
-      <ul
-        hidden={!open}
-        id={listId}
-        role="listbox"
-        aria-labelledby={inputId}
-        className="language-combobox-list"
-      >
-        {error ? (
-          <li className="language-picker-empty" role="alert">
-            {errorMessage}
-          </li>
-        ) : choices.length === 0 ? (
-          <li role="presentation" className="language-picker-empty">
-            {loading ? "Loading languages…" : emptyMessage}
-          </li>
-        ) : (
-          choices.map((item, index) => (
-            <Fragment key={item.id}>
-              {index === 0 && showRecent && (
-                <li role="presentation" className="language-picker-heading">
-                  Recent
-                </li>
-              )}
-              {index === recentCount && (
-                <li role="presentation" className="language-picker-heading">
-                  Popular
-                </li>
-              )}
-              <li
-                id={`${listId}-${item.id}`}
-                role="option"
-                aria-selected={item.id === value}
-                className={`language-picker-option ${index === active ? "is-active" : ""}`}
-                onMouseDown={(event) => {
-                  // Keep focus on the combobox and stop the wrapping label from
-                  // forwarding the option click back to the input.
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  select(item);
-                }}
-              >
-                <span {...languageTextProps(item.id)}>{item.label}</span>
-                <span className="language-picker-native">
-                  {nativeLanguageName(item.id)}
-                </span>
-                <span aria-hidden="true" className="language-picker-code">
-                  {item.id}
-                </span>
-                <span aria-hidden="true" className="language-picker-check">
-                  {item.id === value ? "✓" : ""}
-                </span>
-              </li>
-            </Fragment>
-          ))
-        )}
-      </ul>
+      {open && query && (
+        <button
+          type="button"
+          className="language-combobox-clear"
+          aria-label={clearLabel}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setQuery("");
+            setActive(-1);
+            inputRef.current?.focus();
+          }}
+        >
+          ×
+        </button>
+      )}
+      {createPortal(
+        <ul
+          hidden={!open}
+          id={listId}
+          role="listbox"
+          aria-labelledby={inputId}
+          className="language-combobox-list"
+          style={popupStyle}
+        >
+          {error ? (
+            <li className="language-picker-empty" role="alert">
+              {errorMessage}
+            </li>
+          ) : choices.length === 0 ? (
+            <li role="presentation" className="language-picker-empty">
+              {loading ? "Loading languages…" : emptyMessage}
+            </li>
+          ) : (
+            choices.map((item, index) => {
+              const native = nativeLanguageName(item.id);
+              const duplicateName =
+                !native || native.toLocaleLowerCase() === item.label.toLocaleLowerCase();
+              return (
+                <Fragment key={item.id}>
+                  {index === 0 && showRecent && (
+                    <li role="presentation" className="language-picker-heading">
+                      Recent
+                    </li>
+                  )}
+                  {index === recentCount && (
+                    <li role="presentation" className="language-picker-heading">
+                      Popular
+                    </li>
+                  )}
+                  <li
+                    id={`${listId}-${item.id}`}
+                    role="option"
+                    aria-selected={item.id === value}
+                    className={`language-picker-option ${index === active ? "is-active" : ""}`}
+                    onMouseDown={(event) => {
+                      // Keep focus on the combobox and stop the wrapping label
+                      // from forwarding the option click back to the input.
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      select(item);
+                    }}
+                  >
+                    <span className="language-picker-text">
+                      <span className="language-picker-label">{item.label}</span>
+                      {!duplicateName && (
+                        <span
+                          {...languageTextProps(item.id)}
+                          className="language-picker-native"
+                        >
+                          {native}
+                        </span>
+                      )}
+                      <span aria-hidden="true" className="language-picker-code">
+                        {item.id}
+                      </span>
+                    </span>
+                    <span aria-hidden="true" className="language-picker-check">
+                      {item.id === value ? "✓" : ""}
+                    </span>
+                  </li>
+                </Fragment>
+              );
+            })
+          )}
+        </ul>,
+        portalTarget,
+      )}
     </div>
   );
 }

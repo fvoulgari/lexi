@@ -110,10 +110,52 @@ test("exports the whole selected Collection by default and offers a separately c
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
   );
   expect(requests).toEqual([
-    { collection_id: "one", include_ids: "true", format: "v2" },
-    { collection_id: "one", q: "go", include_ids: "true", format: "v2" },
+    { collection_id: "one", representation: "vocabulary" },
+    { collection_id: "one", q: "go", representation: "vocabulary" },
   ]);
   expect(filenames).toEqual(["Lezione 01.csv", "Lezione 01.csv"]);
+});
+
+test("exports all vocabulary metadata without exposing version choices", async () => {
+  const requests = [];
+  server.use(
+    http.get("*/api/vocabulary/export.csv", ({ request }) => {
+      requests.push(Object.fromEntries(new URL(request.url).searchParams));
+      return new HttpResponse("csv_format,text_el\nitalian-notebook-v2,σπίτι", {
+        headers: { "Content-Type": "text/csv" },
+      });
+    }),
+  );
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static createObjectURL() {
+        return "blob:export";
+      }
+      static revokeObjectURL() {}
+    },
+  );
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  const user = openLibrary();
+  await screen.findByRole("option", { name: "Lezione 01" });
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Collection" }),
+    "one",
+  );
+  const dialog = await openExport(user);
+  expect(dialog.queryByRole("combobox")).toBeNull();
+  await user.click(
+    dialog.getByRole("radio", {
+      name: /Vocabulary with all metadata/,
+    }),
+  );
+  await user.click(dialog.getByRole("button", { name: "Export CSV" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  expect(requests).toEqual([
+    { collection_id: "one", representation: "metadata" },
+  ]);
 });
 
 test("aggregate export has one scope, keeps errors inside the dialog and handles lost admission", async () => {
@@ -135,7 +177,10 @@ test("aggregate export has one scope, keeps errors inside the dialog and handles
   expect(
     await dialog.findByText("All accessible cards · 14 cards"),
   ).toBeInTheDocument();
-  expect(dialog.queryByRole("radio")).toBeNull();
+  expect(dialog.queryAllByRole("radio")).toHaveLength(2);
+  expect(
+    dialog.queryByRole("radio", { name: /All accessible cards/ }),
+  ).toBeNull();
   const button = dialog.getByRole("button", { name: "Export CSV" });
   await user.click(button);
   expect(await dialog.findByRole("alert")).toHaveTextContent(

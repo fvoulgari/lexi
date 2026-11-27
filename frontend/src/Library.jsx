@@ -75,6 +75,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
   }
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFiltered, setExportFiltered] = useState(false);
+  const [exportMetadata, setExportMetadata] = useState(false);
   const [exportState, setExportState] = useState("idle");
   const [exportError, setExportError] = useState(null);
   const [toast, setToast] = useState(null);
@@ -94,8 +95,11 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
       const exportParams = new URLSearchParams(
         exportFiltered ? filterParams : scopeParams,
       );
-      exportParams.set("include_ids", "true");
-      if (exportParams.has("collection_id")) exportParams.set("format", "v2");
+      exportParams.delete("format");
+      exportParams.set(
+        "representation",
+        exportMetadata ? "metadata" : "vocabulary",
+      );
       await downloadLibrary(exportParams, selectedCollection?.name);
       setToast({ message: text.exportStarted });
       setExportOpen(false);
@@ -390,6 +394,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
             disabled={Boolean(collectionId && !selectedCollection)}
             onClick={() => {
               setExportFiltered(false);
+              setExportMetadata(false);
               setExportError(null);
               setExportOpen(true);
             }}
@@ -455,6 +460,29 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
               {wholeTotal === 1 ? t.oneCard : t.cards}
             </p>
           )}
+          <fieldset
+            className="csv-options export-representation"
+            disabled={exportState === "pending"}
+          >
+            <legend>{text.toolsExport}</legend>
+            {[
+              [false, text.exportVocabulary, text.exportVocabularyHint],
+              [true, text.exportMetadata, text.exportMetadataHint],
+            ].map(([metadata, label, hint]) => (
+              <label key={String(metadata)} className="export-choice">
+                <input
+                  type="radio"
+                  name="export-representation"
+                  checked={exportMetadata === metadata}
+                  onChange={() => setExportMetadata(metadata)}
+                />
+                <span>
+                  <strong>{label}</strong>
+                  <small>{hint}</small>
+                </span>
+              </label>
+            ))}
+          </fieldset>
           {exportError && (
             <p role="alert" className="error">
               {text.errors[exportError.code] || text.errors.request_failed}
