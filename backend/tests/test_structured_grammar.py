@@ -13,6 +13,7 @@ from app.csv_v2 import decode_grammar, encode_grammar
 from app.grammar import (
     GRAMMAR_DEFINITIONS,
     GRAMMAR_FIELDS,
+    WORD_TYPES,
     apply_structured_input,
     legacy_from_structured,
     merge_structured,
@@ -28,20 +29,36 @@ H = {"X-CSRF-Token": TEST_CSRF}
 
 def test_definitions_are_data_with_explicit_types_options_and_conditions():
     for language, definition in GRAMMAR_DEFINITIONS.items():
-        assert definition["legacy_name"] in {"italian", "greek"}
         assert definition["genders"]
         fields = definition["schema"]
         assert fields["gender"]["type"] == "enum"
         assert set(fields["gender"]["options"]) == set(definition["genders"])
-        assert fields["gender"]["required_for"] == ["noun"]
-        assert fields["adjective_gender"]["required_for"] == ["adjective"]
-        assert fields["example"]["csv_key"] == "example"
-        assert fields["pronunciation"]["csv_key"] == "pronunciation"
-        assert fields["gender"]["storage"].startswith(definition["legacy_name"])
-        assert fields["example"]["storage"].startswith(definition["legacy_name"])
+        for field, spec in fields.items():
+            nested = spec.values() if field == "forms" else (spec,)
+            for item in nested:
+                assert item["type"] in {"enum", "text", "long_text"}
+                assert item["csv_key"]
+                assert set(item.get("word_types", ())) <= set(WORD_TYPES)
+        for language_name in ("it", "el"):
+            legacy = GRAMMAR_DEFINITIONS[language_name]
+            assert legacy["legacy_name"] in {"italian", "greek"}
+            assert legacy["schema"]["gender"]["required_for"] == ["noun"]
+            assert legacy["schema"]["adjective_gender"]["required_for"] == [
+                "adjective"
+            ]
+            assert legacy["schema"]["gender"]["storage"].startswith(
+                legacy["legacy_name"]
+            )
     assert GRAMMAR_DEFINITIONS["it"]["schema"]["pronunciation"]["storage"] == (
         "pronunciation"
     )
+    # Danish needs no legacy column: `common` is a real local option, not the
+    # unresolved historical article alias.
+    da = GRAMMAR_DEFINITIONS["da"]
+    assert da["genders"] == ("common", "neuter")
+    assert "storage" not in da["schema"]["gender"]
+    assert "common" in da["schema"]["gender"]["options"]
+    assert da["schema"]["gender"].get("required_for") is None
 
 
 def test_structured_validation_reports_actionable_errors():

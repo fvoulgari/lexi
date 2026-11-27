@@ -31,9 +31,14 @@ afterEach(() => server.resetHandlers());
 
 /** Extend the curated API payload with rows only; no component knows the codes. */
 function withLanguages(rows) {
-  const ids = [...REGISTRY_PAYLOAD.languages.map((row) => row.id), ...rows.map((row) => row.id)];
+  const added = new Set(rows.map((row) => row.id));
+  const languages = [
+    ...REGISTRY_PAYLOAD.languages.filter((row) => !added.has(row.id)),
+    ...rows,
+  ];
+  const ids = languages.map((row) => row.id);
   const payload = {
-    languages: [...REGISTRY_PAYLOAD.languages, ...rows],
+    languages,
     directions: [
       ...REGISTRY_PAYLOAD.directions,
       ...ids.flatMap((from) =>
@@ -84,7 +89,7 @@ afterEach(() => resetLanguages());
 test("curated Japanese and Arabic come only from registry metadata", () => {
   withLanguages([JAPANESE, ARABIC]);
   expect(new Set(languageIds())).toEqual(
-    new Set(["ar", "da", "el", "en", "it", "ja"]),
+    new Set(REGISTRY_PAYLOAD.languages.map((row) => row.id)),
   );
   expect(languageOptions().map((option) => option.id)).toEqual(
     expect.arrayContaining(["ja", "ar"]),

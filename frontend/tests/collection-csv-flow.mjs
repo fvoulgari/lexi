@@ -13,6 +13,13 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH,
 });
+async function chooseLanguage(dialog, index, language) {
+  const picker = dialog.locator(".language-combobox").nth(index);
+  await picker.getByRole("combobox").fill(language);
+  await picker
+    .getByRole("option", { name: new RegExp(`^${language}`) })
+    .click();
+}
 function parseCsv(text) {
   return text
     .replace(/^\uFEFF/, "")
@@ -98,9 +105,8 @@ try {
       await createDialog
         .getByRole("textbox", { name: "Collection name" })
         .fill("Standalone");
-      await createDialog
-        .getByRole("combobox", { name: "Collection languages" })
-        .selectOption("el-it");
+      await chooseLanguage(createDialog, 0, "Greek");
+      await chooseLanguage(createDialog, 1, "Italian");
       const creation = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === "/api/collections" &&
@@ -139,9 +145,8 @@ try {
         .getByRole("radio", { name: "New collection", exact: true })
         .check();
       await dialog.getByRole("textbox", { name: "Collection name" }).fill(name);
-      await dialog
-        .getByRole("combobox", { name: "Collection languages" })
-        .selectOption("el-it");
+      await chooseLanguage(dialog, 0, "Greek");
+      await chooseLanguage(dialog, 1, "Italian");
       await dialog.getByRole("button", { name: "Preview" }).click();
       const confirm = dialog.getByRole("button", {
         name: `Import ${rows.length} cards into ${name}`,
@@ -275,9 +280,9 @@ try {
       await createDialog
         .getByRole("textbox", { name: "Collection name", exact: true })
         .fill(name);
-      await createDialog
-        .getByRole("combobox", { name: "Collection languages", exact: true })
-        .selectOption({ label: pair });
+      const [base, learning] = pair.split(" ↔ ");
+      await chooseLanguage(createDialog, 0, base);
+      await chooseLanguage(createDialog, 1, learning);
       const creation = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === "/api/collections" &&

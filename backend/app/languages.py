@@ -35,6 +35,13 @@ LANGUAGE_METADATA = {
     )
     for language in _LANGUAGE_CATALOGUE["languages"]
 }
+LANGUAGE_SEARCH = {
+    language["id"]: (
+        language.get("native_name") or language["label"],
+        tuple(language.get("aliases") or ()),
+    )
+    for language in _LANGUAGE_CATALOGUE["languages"]
+}
 LEGACY_DIRECTIONS = tuple(sorted(_LANGUAGE_CATALOGUE["legacy_directions"]))
 DIRECTION_PAIRS = {
     **{

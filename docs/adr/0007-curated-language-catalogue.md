@@ -4,7 +4,7 @@ The database registry from ADR 0006 is the single source of truth for language m
 
 ## Decision
 
-- `languages` rows carry `display_name`, `script`, `text_direction`, `publicly_available` and `enhanced`. `practice_directions` rows carry their explicit prompt/answer languages and a `legacy` flag.
+- `languages` rows carry `display_name`, `native_name`, `aliases`, `script`, `text_direction`, `publicly_available` and `enhanced`. `practice_directions` rows carry their explicit prompt/answer languages and a `legacy` flag.
 - `GET /api/languages` returns only public languages and directions whose endpoints are both public. Registered but non-curated languages are usable by backend validation and tests but never advertised.
 - Backend validation (pairs, directions, request schemas) reads the same registry. The registry is refreshed from the database per request, so a data-only language registration is visible immediately.
 - The frontend is bootstrapped with the API response and caches it for offline starts. There is no duplicated code list of codes, labels or direction keys; helpers derive all of them from the response.
@@ -19,3 +19,5 @@ The database registry from ADR 0006 is the single source of truth for language m
 ## Consequences
 
 Language labels now come from registry `display_name` values rather than browser-localised names. Adding a basic language is a registry insert plus a curation decision, recorded in an idempotent data-only revision for existing databases; adding a picker or RTL rendering later consumes the same metadata without new hidden branches. The application requires the catalogue API at startup and falls back to the last cached response when offline.
+
+Update (2026-11-27): the curated catalogue contains 35 publicly available languages. One additive, non-destructive revision supplies `native_name` and `aliases` for accent-tolerant, native-name search and registers the extra directions; it does not touch cards, progress, permissions or the two legacy direction IDs. Base and Learning are independent searchable selectors over this one registry; their orientation is explicit and never mutates the unordered collection pair, card identities or shared/public collections. A public collection can be opened in either orientation.

@@ -55,6 +55,10 @@ class Language(Base):
     enhanced: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    native_name: Mapped[str] = mapped_column(
+        String(120), default="", server_default=""
+    )
+    aliases: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
 
 
 class PracticeDirection(Base):

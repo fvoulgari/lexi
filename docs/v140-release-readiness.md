@@ -4,7 +4,7 @@ This page records the original specification, acceptance and rehearsal evidence 
 
 ## Scope of the v1.4.0 work
 
-v1.4.0 was planned as a backward-compatible feature release after v1.3.2 but was not published. “CSV v2” names the **file format** introduced for Collections; v1 CSV files remain importable and the format version is independent of any release tag. Vocabulary card creation stays Italian–Greek; the original v1.4.0 Collections scope used the `da`, `el`, `en`, `it` registry. The registry was later extended to the curated six-language set (`ar`, `da`, `el`, `en`, `it`, `ja`) by #121, with `ja`/`ar` basic and `it`/`el` enhanced. See the [acceptance matrix](multilingual-acceptance.md) for the rule-to-test mapping.
+v1.4.0 was planned as a backward-compatible feature release after v1.3.2 but was not published. “CSV v2/v3” name **file formats** introduced for Collections; v1 CSV files remain importable and format numbers are independent of any release tag. Vocabulary card creation stays Italian–Greek; the original v1.4.0 Collections scope used the `da`, `el`, `en`, `it` registry. The registry was later extended to the curated six-language set (`ar`, `da`, `el`, `en`, `it`, `ja`) by #121, with `ja`/`ar` basic and `it`/`el` enhanced. #143 expanded it to 35 public languages, added Danish as an enhanced structured-only language, and added simple/v3 CSV templates; no release was published. See the [acceptance matrix](multilingual-acceptance.md) for the rule-to-test mapping.
 
 Additive schema/data changes across the initiative:
 
@@ -62,7 +62,7 @@ This is a local logical backup/restore rehearsal. It does not establish managed-
 
 ## Release checklist
 
-- [x] Specification status, ADRs, [glossary](../GLOSSARY.md), [README](../README.md), [CSV format](csv-format.md) and [Collections guide](shareable-collections.md) were reconciled with the shipped six-language curated registry in #122.
+- [x] Specification status, ADRs, [glossary](../GLOSSARY.md), [README](../README.md), [CSV format](csv-format.md) and [Collections guide](shareable-collections.md) were reconciled with the shipped six-language curated registry in #122, then with the 35-language registry and expanded CSV formats in #143.
 - [x] [Acceptance matrix](multilingual-acceptance.md) maps every rule to backend, frontend or browser evidence, including `en↔da`, `en↔el`, `ja/en`, `ar/en`, `ja/ar`, RTL rendering and legacy `el↔it`.
 - [x] Disposable backup/restore and migration rehearsal above records unchanged legacy IDs, content, memberships, reviews, sessions and progress plus successful new-pair flows; the latest rehearsal is in [final verification](language-architecture-verification.md).
 - [x] Draft PR for #107 linked the child issues and stated that no production migration, deployment or release publication was included.

@@ -331,6 +331,15 @@ test("read-only collections have no edit or delete controls but can still be sav
   await waitFor(() => expect(saved).toBe(false));
 });
 
+async function chooseLanguage(user, scope, label, name) {
+  const input = scope.getByRole("combobox", { name: label });
+  await user.click(input);
+  await user.type(input, name);
+  await user.click(
+    await scope.findByRole("option", { name: new RegExp(`^${name}`) }),
+  );
+}
+
 test("creation opens the shared CSV dialog and requires a pair from all available languages", async () => {
   const user = userEvent.setup();
   let createdBody;
@@ -353,14 +362,12 @@ test("creation opens the shared CSV dialog and requires a pair from all availabl
   expect(
     within(dialog).getByRole("radio", { name: "New collection" }),
   ).toBeChecked();
-  const pair = within(dialog).getByRole("combobox", {
-    name: "Collection languages",
+  const base = within(dialog).getByRole("combobox", { name: "Base language" });
+  const learning = within(dialog).getByRole("combobox", {
+    name: "Learning language",
   });
-  expect(pair).toBeRequired();
-  expect(pair).toHaveValue("");
-  expect([...pair.options].map((option) => option.textContent)).toContain(
-    "English ↔ Danish",
-  );
+  expect(base).toHaveValue("");
+  expect(learning).toHaveValue("");
   expect(
     within(dialog).getByRole("button", { name: "Create collection" }),
   ).toBeDisabled();
@@ -368,7 +375,8 @@ test("creation opens the shared CSV dialog and requires a pair from all availabl
     within(dialog).getByRole("textbox", { name: "Collection name" }),
     "New collection",
   );
-  await user.selectOptions(pair, "da-en");
+  await chooseLanguage(user, within(dialog), "Base language", "English");
+  await chooseLanguage(user, within(dialog), "Learning language", "Danish");
   await user.click(within(dialog).getByRole("radio", { name: "Public" }));
   await user.click(
     within(dialog).getByRole("button", { name: "Create collection" }),

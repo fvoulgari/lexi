@@ -10,6 +10,8 @@ from conftest import TEST_CSRF, signin
 from test_generic_directions import collection, queue, rate, records
 
 from app.csv_v2 import COLUMNS as V2_COLUMNS
+from app.csv_v2 import v2_columns, v3_columns
+from app.grammar import DEFINITIONS
 from app.languages import direction_key
 
 H = {"X-CSRF-Token": TEST_CSRF}
@@ -106,8 +108,8 @@ def test_v2_export_uses_language_keyed_columns_for_every_collection(
     assert row["card_target_language"] == entry["target_language"]
     assert row[f"text_{source}"] == source_text
     assert row[f"text_{target}"] == target_text
-    others = {"it", "el", "en", "da"} - {source, target}
-    assert all(row[f"text_{language}"] == "" for language in others)
+    # A collection export is scoped to its own pair, not the whole registry.
+    assert set(row) == set(v2_columns(sorted((source, target))))
     if grammar:
         assert json.loads(row["grammar_it"]) == {
             "gender": "masculine",
@@ -118,6 +120,7 @@ def test_v2_export_uses_language_keyed_columns_for_every_collection(
         assert all(
             not row[f"grammar_{language}"]
             for language in ("it", "el", "en", "da")
+            if f"grammar_{language}" in row
         )
 
 
@@ -197,6 +200,47 @@ def test_v2_round_trip_preserves_identity_progress_and_reversed_membership(
         fresh["source_language"]: fresh["source_text"],
         fresh["target_language"]: fresh["target_text"],
     } == expected
+
+
+def test_v2_reversed_legacy_card_ids_keep_text_with_its_language(client):
+    owner = collection(client, "it", "el", "Reversed card IDs")
+    row = {
+        "csv_format": "italian-notebook-v2",
+        "source_language": "it",
+        "target_language": "el",
+        "card_source_language": "el",
+        "card_target_language": "it",
+        "text_el": "γεια",
+        "text_it": "ciao",
+        "word_type": "noun",
+        "grammar_it": json.dumps({"gender": "masculine"}),
+        "grammar_el": json.dumps({"gender": "feminine"}),
+        "tags": "[]",
+    }
+    content = v2_csv([row], v2_columns(sorted(("it", "el"))))
+    report = send(
+        client,
+        "preview",
+        content,
+        collection_id=owner["id"],
+        fixed_destination="true",
+    )
+    assert report.status_code == 200, report.text
+    assert report.json()["counts"]["error"] == 0
+    result = send(
+        client,
+        "confirm",
+        content,
+        collection_id=owner["id"],
+        fixed_destination="true",
+        expected_valid=1,
+    )
+    assert result.status_code == 200, result.text
+    members = client.get(f"/api/collections/{owner['id']}/entries").json()
+    assert len(members) == 1
+    card = client.get(f"/api/vocabulary/{members[0]['id']}").json()
+    assert (card["source_language"], card["italian"]) == ("it", "ciao")
+    assert (card["target_language"], card["greek"]) == ("el", "γεια")
 
 
 def test_v2_import_creates_non_legacy_collection_destination(client):
@@ -345,3 +389,180 @@ def test_v2_preserves_formula_safety_unicode_and_row_limits(client):
         collection_id=owner["id"],
         fixed_destination="true",
     ).status_code == 422
+
+
+def test_v3_export_import_is_lossless_for_structured_grammar_and_text(client):
+    owner = collection(client, "en", "da", "V3 export")
+    grammar = {
+        "da": {
+            "gender": "common",
+            "plural": "huse",
+            "example": "Huset er stort.",
+        }
+    }
+    make_card(
+        client,
+        owner,
+        "en",
+        "da",
+        "=1+1",
+        "hus — hjem",
+        word_type="noun",
+        grammar=grammar,
+    )
+    response = client.get(
+        "/api/vocabulary/export.csv",
+        params={"collection_id": owner["id"], "format": "v3"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.content.startswith(b"\xef\xbb\xbf")
+    rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+    assert len(rows) == 1
+    row = rows[0]
+    assert set(row) == set(v3_columns(sorted(("en", "da"))))
+    assert row["csv_format"] == "italian-notebook-v3"
+    assert row["schema_version"] == str(DEFINITIONS["version"])
+    assert row["text_en"] == "'=1+1"
+    assert row["text_da"] == "hus — hjem"
+    assert json.loads(row["metadata"]) == {"grammar": grammar}
+
+    destination = collection(client, "en", "da", "V3 import")
+    imported = dict(
+        row,
+        entry_id="",
+        collection_id="",
+        collection_name="",
+        text_en="=2+2",
+        text_da="huse",
+    )
+    content = v2_csv([imported], v3_columns(sorted(("en", "da"))))
+    report = send(
+        client,
+        "preview",
+        content,
+        collection_id=destination["id"],
+        fixed_destination="true",
+    )
+    assert report.status_code == 200, report.text
+    assert report.json()["counts"]["valid"] == 1
+    assert report.json()["counts"]["error"] == 0
+    assert report.json()["rows"][0]["entry"]["grammar"] == grammar
+    result = send(
+        client,
+        "confirm",
+        content,
+        collection_id=destination["id"],
+        fixed_destination="true",
+        expected_valid=1,
+    )
+    assert result.status_code == 200, result.text
+    assert result.json()["counts"]["imported"] == 1
+    members = client.get(
+        f"/api/collections/{destination['id']}/entries"
+    ).json()
+    assert len(members) == 1
+    card = client.get(f"/api/vocabulary/{members[0]['id']}").json()
+    assert card["italian"] == "=2+2"
+    assert card["greek"] == "huse"
+    assert card["grammar"]["da"] == grammar["da"]
+
+
+def test_v3_rejects_unsupported_versions_and_metadata_without_partial_writes(client):
+    owner = collection(client, "en", "da", "V3 guards")
+    columns = v3_columns(sorted(("en", "da")))
+    base = {
+        "csv_format": "italian-notebook-v3",
+        "card_source_language": "en",
+        "card_target_language": "da",
+        "text_en": "house",
+        "text_da": "hus",
+        "word_type": "noun",
+        "tags": "[]",
+        "schema_version": str(DEFINITIONS["version"]),
+        "metadata": json.dumps({"grammar": {"da": {"gender": "common"}}}),
+    }
+    cases = [
+        ({}, "schema_version", "999", "schema version"),
+        ({}, "metadata", '{"extra": 1}', "Unsupported metadata"),
+        ({}, "metadata", "not json", "metadata must be a JSON object"),
+        (
+            {"metadata": ""},
+            "metadata",
+            json.dumps({"grammar": {"da": {"gender": "masculine"}}}),
+            "gender",
+        ),
+        (
+            {"grammar_da": json.dumps({"gender": "neuter"})},
+            "metadata",
+            json.dumps({"grammar": {"da": {"gender": "common"}}}),
+            "conflicts with metadata",
+        ),
+    ]
+    for changes, field, value, fragment in cases:
+        row = {**base, **changes}
+        row[field] = value
+        report = send(
+            client,
+            "preview",
+            v2_csv([row], columns),
+            collection_id=owner["id"],
+            fixed_destination="true",
+        )
+        assert report.status_code == 200, report.text
+        result = report.json()
+        assert result["counts"]["error"] == 1
+        assert fragment in result["rows"][0]["errors"][0]
+        assert result["counts"]["imported"] == 0
+    assert client.get(f"/api/collections/{owner['id']}/entries").json() == []
+
+
+def test_simple_template_is_discoverable_and_imports_base_learning_columns(client):
+    owner = collection(client, "en", "da", "Simple import")
+    response = client.get(
+        "/api/imports/example",
+        params={"collection_id": owner["id"], "format": "simple"},
+        headers=H,
+    )
+    assert response.status_code == 200, response.text
+    assert response.content.startswith(b"\xef\xbb\xbf")
+    rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+    assert list(rows[0]) == [
+        "csv_format",
+        "base",
+        "learning",
+        "word_type",
+        "notes",
+        "tags",
+    ]
+    assert {row["csv_format"] for row in rows} == {"lexi-simple-v1"}
+    assert (rows[0]["base"], rows[0]["learning"]) == ("hus", "house")
+
+    report = send(
+        client,
+        "preview",
+        response.content,
+        collection_id=owner["id"],
+        fixed_destination="true",
+    )
+    assert report.status_code == 200, report.text
+    assert report.json()["counts"]["valid"] == 3
+    assert report.json()["counts"]["error"] == 0
+    result = send(
+        client,
+        "confirm",
+        response.content,
+        collection_id=owner["id"],
+        fixed_destination="true",
+        expected_valid=3,
+    )
+    assert result.status_code == 200, result.text
+    assert result.json()["counts"]["imported"] == 3
+    members = client.get(f"/api/collections/{owner['id']}/entries").json()
+    cards = [client.get(f"/api/vocabulary/{member['id']}").json() for member in members]
+    # The collection stores its pair unordered; Base/Learning texts stay in the
+    # destination's canonical order so the same simple file works either way.
+    assert [(card["italian"], card["greek"]) for card in cards] == [
+        ("hus", "house"),
+        ("tale", "speak"),
+        ("smuk", "beautiful"),
+    ]

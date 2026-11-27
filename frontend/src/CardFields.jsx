@@ -15,6 +15,7 @@ import {
   grammarFieldLabel,
   grammarOptionLabel,
   grammarSchema,
+  grammarValueKey,
   legacyLanguageName,
   requiredSchemaFields,
   schemaFields,
@@ -22,15 +23,17 @@ import {
 } from "./grammar.js";
 
 const defaultId = (storage) => `entry-${storage}`;
+const valueKey = (field) => field.valueKey || field.storage;
 
 function fieldProps(field, { values, change, invalid, idFor, errorId }) {
-  const id = idFor(field.storage);
+  const key = valueKey(field);
+  const id = idFor(key);
   return {
     id,
-    value: values[field.storage] || "",
-    onChange: (event) => change(field.storage, event.target.value),
-    "aria-invalid": invalid.includes(field.storage),
-    "aria-describedby": invalid.includes(field.storage) ? errorId : undefined,
+    value: values[key] || "",
+    onChange: (event) => change(key, event.target.value),
+    "aria-invalid": invalid.includes(key),
+    "aria-describedby": invalid.includes(key) ? errorId : undefined,
   };
 }
 
@@ -45,7 +48,7 @@ function SelectField({
   errorId,
 }) {
   return (
-    <label htmlFor={idFor(field.storage)}>
+    <label htmlFor={idFor(valueKey(field))}>
       {text.cardDetailLabels.gender}
       {required ? " *" : ""}
       <select
@@ -80,7 +83,7 @@ function TextField({
   return (
     <label
       className={multiline ? "wide-field" : undefined}
-      htmlFor={idFor(field.storage)}
+      htmlFor={idFor(valueKey(field))}
     >
       {displayLabel || grammarFieldLabel(field, text)}
       <Input
@@ -101,10 +104,16 @@ function TextField({
 /** Ordered adjective form rows, derived from the language's schema genders. */
 function adjectiveGroups(language, values) {
   const schema = grammarSchema(language);
-  if (!schema) return [];
-  const genderField = schema.fields.adjective_gender;
-  const main = schema.genders.includes(values[genderField.storage])
-    ? values[genderField.storage]
+  const genderSpec = schema?.fields?.adjective_gender;
+  if (!genderSpec?.storage || !schema?.fields?.forms) return [];
+  const genderField = {
+    key: "adjective_gender",
+    spec: genderSpec,
+    storage: genderSpec.storage,
+    valueKey: genderSpec.storage,
+  };
+  const main = schema.genders.includes(values[valueKey(genderField)])
+    ? values[valueKey(genderField)]
     : schema.genders[0];
   const forms = Object.entries(schema.fields.forms).map(
     ([name, spec]) => [
@@ -114,6 +123,7 @@ function adjectiveGroups(language, values) {
         form: name,
         spec,
         storage: spec.storage,
+        valueKey: grammarValueKey(language, `forms.${name}`, spec),
         language,
       },
     ],
@@ -160,7 +170,7 @@ export function GrammarFields({
     return targets.flatMap((target) =>
       requiredSchemaFields(target, wordType).map((field) => (
         <SelectField
-          key={`${target}-${field.storage}`}
+          key={`${target}-${valueKey(field)}`}
           field={{ ...field, language: target }}
           values={values}
           text={text}
@@ -181,7 +191,7 @@ export function GrammarFields({
         {targets.flatMap((target) =>
           rowsFor(target, (field) => field.key === key).map((field) => (
             <TextField
-              key={`${target}-${field.storage}`}
+              key={`${target}-${valueKey(field)}`}
               field={field}
               values={values}
               text={text}
@@ -210,7 +220,7 @@ export function GrammarFields({
             <div className="entry-fields">
               {rowsFor(target, (field) => field.key === "plural").map((field) => (
                 <TextField
-                  key={field.storage}
+                  key={valueKey(field)}
                   field={field}
                   values={values}
                   text={text}
@@ -223,11 +233,11 @@ export function GrammarFields({
               {wordType === "adjective" &&
                 values[schemaFields(target, wordType).find(
                   (field) => field.key === "adjective_gender",
-                )?.storage] &&
+                )?.valueKey] &&
                 adjectiveGroups(target, values).map((group, index) => (
                   <div
                     className="entry-adjective-group wide-field"
-                    key={group[0].storage}
+                    key={valueKey(group[0])}
                   >
                     {index > 0 && (
                       <h3>{grammarOptionLabel(group[0].form.split("_")[0], text)}</h3>
@@ -237,7 +247,7 @@ export function GrammarFields({
                         const number = field.form.split("_")[1];
                         return (
                           <TextField
-                            key={field.storage}
+                            key={valueKey(field)}
                             field={field}
                             values={values}
                             text={text}

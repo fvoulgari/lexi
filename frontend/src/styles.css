@@ -2556,23 +2556,46 @@ button:disabled {
   box-shadow: 0 10px 24px rgb(26 48 30 / 16%);
 }
 .language-combobox-list[hidden] { display: none; }
-.language-combobox-list li {
-  display: flex;
-  justify-content: space-between;
+.language-combobox-list > li { padding: 0; }
+.language-picker-option {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr) auto 1rem;
   align-items: center;
   gap: 0.5rem;
+  min-height: 44px;
   padding: 0.55rem 0.6rem;
   border-radius: 8px;
   cursor: pointer;
 }
-.language-combobox-list li[aria-selected="true"] { font-weight: 700; }
-.language-combobox-list li.is-active,
-.language-combobox-list li:hover { background: #eaf1e6; }
-.language-combobox-empty { cursor: default; color: #5c6f5e; }
-.language-combobox-code { color: #5c6f5e; font-size: 0.8rem; }
+.language-picker-option[aria-selected="true"] { font-weight: 700; }
+.language-picker-option.is-active,
+.language-picker-option:hover { background: #eaf1e6; }
+.language-picker-native,
+.language-combobox-code {
+  overflow: hidden;
+  color: #5c6f5e;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.language-picker-check { font-weight: 700; text-align: center; }
+.language-picker-heading {
+  margin: 0.45rem 0.6rem 0.15rem;
+  color: #5c6f5e;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.language-picker-empty {
+  padding: 0.7rem 0.6rem;
+  color: #5c6f5e;
+  cursor: default;
+}
 @media (max-width: 760px) {
   .language-combobox, .language-combobox > input { width: 100%; min-width: 0; }
   .language-combobox-list { max-height: 14rem; }
+  .language-picker-native { display: none; }
 }
 .collection-heading {
   display: flex;
@@ -2669,6 +2692,15 @@ button:disabled {
   outline-offset: 2px;
 }
 .csv-fields:disabled { opacity: 0.75; }
+.csv-language-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+.csv-orientation { margin: 0; color: #5c6f5e; font-size: 0.9rem; }
+.csv-template-field { display: inline-flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; }
+.csv-template-field select { min-height: 44px; border: 1px solid #cad9c6; border-radius: 10px; background: #fffdf8; color: inherit; font: inherit; }
+.csv-detected-format { margin: 0.35rem 0 0; color: #5c6f5e; font-size: 0.9rem; }
+.csv-mapping { border: 1px solid #d8dfce; border-radius: 10px; padding: 0.5rem 0.7rem; }
+.csv-mapping summary { cursor: pointer; font-weight: 650; }
+.csv-mapping dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.25rem 0.75rem; margin: 0.5rem 0 0; }
+.csv-mapping dt, .csv-mapping dd { margin: 0; overflow-wrap: anywhere; }
 .csv-import-preview { margin-block-start: 1rem; display: grid; gap: 0.6rem; }
 .csv-import-preview .import-rows { max-height: 30dvh; overflow: auto; margin: 0; padding: 0; list-style: none; }
 .csv-dialog-actions { margin-block-start: 1rem; justify-content: flex-end; }

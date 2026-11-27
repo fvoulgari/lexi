@@ -59,9 +59,18 @@ try {
       await dialog
         .getByRole("textbox", { name: "Collection name", exact: true })
         .fill(name);
-      await dialog
-        .getByRole("combobox", { name: "Collection languages", exact: true })
-        .selectOption(pair ? { label: pair } : "el-it");
+      const chooseLanguage = async (index, language) => {
+        const picker = dialog.locator(".language-combobox").nth(index);
+        await picker.getByRole("combobox").fill(language);
+        await picker
+          .getByRole("option", { name: new RegExp(`^${language}`) })
+          .click();
+      };
+      const [base, learning] = pair
+        ? pair.split(" ↔ ")
+        : ["Greek", "Italian"];
+      await chooseLanguage(0, base);
+      await chooseLanguage(1, learning);
       const creation = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === "/api/collections" &&

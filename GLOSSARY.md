@@ -41,10 +41,10 @@ A learning language Lexi can express on a card, independent of the interface lan
 _Avoid_: Interface language, text position, hardcoded frontend list
 
 **Basic language**:
-A registry-backed supported language with no enhanced grammar definition. It uses the shared card fields and needs no new column, React component, CSS rule or grammar definition. Arabic, Danish, English and Japanese are basic curated languages.
+A registry-backed supported language with no enhanced grammar definition. It uses the shared card fields and needs no new column, React component, CSS rule or grammar definition. All curated languages except Danish, Greek and Italian are basic, including Arabic, English and Japanese.
 
 **Enhanced language**:
-A registry-backed supported language that adds optional grammar declared in `backend/app/grammar_definitions.json`. Italian and Greek are the enhanced curated languages; their historical fields, values and CSV representation are preserved.
+A registry-backed supported language that adds optional grammar declared in `backend/app/grammar_definitions.json`. Italian and Greek are enhanced and keep their historical fields, values and CSV representation; Danish is enhanced and structured-only, with `common`/`neuter`, plural, example and pronunciation stored in the existing grammar JSON.
 
 **Common card field**:
 A card detail meaningful in every language, such as its texts, word type and themes. It needs no language-specific definition when a new learning language is introduced.
@@ -53,8 +53,22 @@ A card detail meaningful in every language, such as its texts, word type and the
 Optional grammatical detail that belongs to one language, such as gender or inflected forms. A card only offers the definitions for its own languages. The structured store is one nullable `grammar` column keyed by language ID, not one column per language.
 _Avoid_: Generic grammar, per-language grammar columns
 
+**Base language (Γλώσσα αναφοράς)**:
+The language whose text is used as the prompt for a chosen learning orientation. It is selected from the same language registry as Learning language and never changes card identity, collection pair order or progress.
+_Avoid_: Native language
+
+**Learning language (Γλώσσα εκμάθησης)**:
+The language whose text is recalled for a chosen learning orientation. Base and Learning are independent UI/destination choices; the collection pair itself stays unordered.
+_Avoid_: Native language
+
 **CSV format v2**:
-A Collection CSV exchange format whose text and grammar columns are keyed by language ID and whose rows carry card and Collection identity. It round-trips any supported language pair without positional inference while version 1 and legacy aliases remain importable.
+A Collection CSV exchange format whose text and grammar columns are keyed by language ID and whose rows carry card and Collection identity. Exports are scoped to the destination pair while historical registry-wide files remain importable. It round-trips any supported language pair without positional inference while version 1 and legacy aliases remain importable.
+
+**CSV format v3**:
+The v2 columns plus `schema_version` and a versioned `metadata` cell carrying the full structured grammar map. It preserves fields without legacy compatibility columns, notably Danish, and rejects unsupported versions or metadata keys.
+
+**Simple CSV template**:
+The `lexi-simple-v1` manual format with `base` and `learning` text columns instead of language IDs. The import dialog maps those columns onto the chosen Base/Learning orientation.
 
 **Published shared vocabulary**:
 Shared vocabulary explicitly made available to all registered learners for reading and practice. Existing shared vocabulary retains its current audience until explicitly classified.

@@ -6,17 +6,22 @@ import {
   adjectiveFormFields,
   adjectiveGroups,
   cleanGrammar,
+  fromStructuredGrammar,
   grammarFieldsFor,
   grammarLanguages,
+  grammarValueFields,
   languageOfField,
   nounFields,
   registerGrammarDefinition,
   requiredGenderFields,
+  schemaFields,
+  toStructuredGrammar,
   unregisterGrammarDefinition,
 } from "./grammar.js";
 
-test("grammar definitions are keyed by language ID and cover it and el only", () => {
-  expect(Object.keys(GRAMMAR_DEFINITIONS)).toEqual(["it", "el"]);
+test("grammar definitions are keyed by language ID and cover configured languages only", () => {
+  expect(Object.keys(GRAMMAR_DEFINITIONS)).toEqual(["da", "it", "el"]);
+  expect(GRAMMAR_DEFINITIONS.da.genders).toEqual(["common", "neuter"]);
   expect(GRAMMAR_DEFINITIONS.it.genders).toEqual(["masculine", "feminine"]);
   expect(GRAMMAR_DEFINITIONS.el.genders).toEqual([
     "masculine",
@@ -51,10 +56,10 @@ test("frontend definitions come from the shared backend configuration", () => {
 
 test("card language IDs select the applicable grammar definitions", () => {
   expect(grammarLanguages({ source_language: "en", target_language: "da" })).toEqual(
-    [],
+    ["da"],
   );
   expect(grammarLanguages({ source_language: "da", target_language: "it" })).toEqual(
-    ["it"],
+    ["da", "it"],
   );
   expect(grammarLanguages({ source_language: "el", target_language: "it" })).toEqual(
     ["it", "el"],
@@ -65,6 +70,33 @@ test("card language IDs select the applicable grammar definitions", () => {
   expect(requiredGenderFields("noun", ["en", "it"])).toEqual([
     "italian_gender",
   ]);
+});
+
+test("storage-less grammar uses namespaced local keys and structured payloads", () => {
+  const fields = schemaFields("da", "noun");
+  expect(fields.map((field) => field.valueKey)).toEqual([
+    "grammar.da.gender",
+    "grammar.da.plural",
+    "grammar.da.example",
+    "grammar.da.pronunciation",
+  ]);
+  expect(fields.every((field) => field.storage === undefined)).toBe(true);
+  expect(grammarValueFields("noun", ["da"])).toContain("grammar.da.gender");
+  expect(languageOfField("grammar.da.gender")).toBe("da");
+  const structured = toStructuredGrammar(
+    { word_type: "noun", "grammar.da.gender": "common", "grammar.da.plural": "huse" },
+    ["da"],
+    "noun",
+  );
+  expect(structured).toEqual({
+    da: { gender: "common", plural: "huse" },
+  });
+  expect(
+    fromStructuredGrammar({ word_type: "noun", grammar: structured }),
+  ).toEqual({
+    "grammar.da.gender": "common",
+    "grammar.da.plural": "huse",
+  });
 });
 
 test("legacy grammar values stay readable and editable through definitions", () => {

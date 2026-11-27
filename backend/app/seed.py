@@ -16,6 +16,7 @@ from app.languages import (
     DIRECTION_PAIRS,
     LANGUAGE_LABELS,
     LANGUAGE_METADATA,
+    LANGUAGE_SEARCH,
     LANGUAGES,
     LEGACY_DIRECTIONS,
 )
@@ -46,6 +47,7 @@ def seed(owner_id=None):
                 enhanced,
                 publicly_available,
             ) = LANGUAGE_METADATA[code]
+            native_name, aliases = LANGUAGE_SEARCH[code]
             db.execute(
                 insert(Language)
                 .values(
@@ -55,6 +57,8 @@ def seed(owner_id=None):
                     text_direction=text_direction,
                     enhanced=enhanced,
                     publicly_available=publicly_available,
+                    native_name=native_name,
+                    aliases=list(aliases),
                 )
                 .on_conflict_do_nothing()
             )

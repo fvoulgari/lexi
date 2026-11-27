@@ -2,14 +2,20 @@ import csv
 import io
 import json
 
-from app.csv_format import FORMAT_VERSION, FORMAT_VERSION_V2, spreadsheet_text
+from app.csv_format import (
+    FORMAT_VERSION,
+    FORMAT_VERSION_V2,
+    FORMAT_VERSION_V3,
+    spreadsheet_text,
+)
 from app.csv_v2 import (
     encode_grammar,
     grammar_column,
     text_column,
     v2_columns,
+    v3_columns,
 )
-from app.grammar import grammar_languages
+from app.grammar import DEFINITIONS, grammar_languages
 from app.languages import card_languages, card_text
 
 COLUMNS = (
@@ -74,11 +80,33 @@ def export_library(entries, account_id, *, include_ids=False):
     return output.getvalue().encode("utf-8-sig")
 
 
-def export_collections(entries, account_id, collection=None):
-    """Export v2 with texts and grammar keyed by each card's language IDs."""
+def export_collections(
+    entries, account_id, collection=None, version=FORMAT_VERSION_V2
+):
+    """Export v2/v3 scoped to the destination pair, not the whole registry."""
+    if version not in (FORMAT_VERSION_V2, FORMAT_VERSION_V3):
+        raise ValueError(f"Unsupported collection CSV format: {version}")
     output = io.StringIO(newline="")
     writer = csv.writer(output, quoting=csv.QUOTE_ALL)
-    columns = v2_columns()
+    if collection is not None:
+        languages = tuple(
+            sorted({collection.source_language, collection.target_language})
+        )
+    else:
+        languages = tuple(
+            sorted(
+                {
+                    language
+                    for entry in entries
+                    for language in card_languages(entry)
+                }
+            )
+        )
+    columns = (
+        v3_columns(languages)
+        if version == FORMAT_VERSION_V3
+        else v2_columns(languages)
+    )
     writer.writerow(columns)
     for entry in entries:
         source = entry.source_collection
@@ -87,7 +115,7 @@ def export_collections(entries, account_id, collection=None):
         scope = collection or source
         card_source, card_target = card_languages(entry)
         values = {
-            "csv_format": FORMAT_VERSION_V2,
+            "csv_format": version,
             "entry_id": str(entry.id),
             "collection_id": str(scope.id) if scope is not None else "",
             "collection_name": scope.title if scope is not None else "",
@@ -108,7 +136,20 @@ def export_collections(entries, account_id, collection=None):
         }
         for language in (card_source, card_target):
             values[text_column(language)] = card_text(entry, language)
-        for language in grammar_languages():
+        for language in grammar_languages(languages):
             values[grammar_column(language)] = encode_grammar(entry, language)
+        if version == FORMAT_VERSION_V3:
+            values["schema_version"] = str(DEFINITIONS["version"])
+            values["metadata"] = json.dumps(
+                {
+                    "grammar": {
+                        language: cell
+                        for language, cell in (entry.grammar or {}).items()
+                        if language in (card_source, card_target)
+                    },
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
         writer.writerow(spreadsheet_text(values.get(field)) for field in columns)
     return output.getvalue().encode("utf-8-sig")
