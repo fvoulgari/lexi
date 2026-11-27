@@ -875,7 +875,7 @@ def import_router(sessions, gate):
             languages = ("el", "it")
 
         source, target = languages
-        columns = v2_columns()
+        columns = v2_columns((source, target))
         rows = example_rows(source, target)
         output = io.StringIO(newline="")
         writer = csv.writer(output, quoting=csv.QUOTE_ALL, lineterminator="\r\n")

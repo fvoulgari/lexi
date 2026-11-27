@@ -106,8 +106,9 @@ def test_v2_export_uses_language_keyed_columns_for_every_collection(
     assert row["card_target_language"] == entry["target_language"]
     assert row[f"text_{source}"] == source_text
     assert row[f"text_{target}"] == target_text
-    others = {"it", "el", "en", "da"} - {source, target}
-    assert all(row[f"text_{language}"] == "" for language in others)
+    others = {"it", "el", "en", "da", "ja", "ar"} - {source, target}
+    assert all(f"text_{language}" not in row for language in others)
+    assert all(f"grammar_{language}" not in row for language in others)
     if grammar:
         assert json.loads(row["grammar_it"]) == {
             "gender": "masculine",
@@ -117,7 +118,7 @@ def test_v2_export_uses_language_keyed_columns_for_every_collection(
     else:
         assert all(
             not row[f"grammar_{language}"]
-            for language in ("it", "el", "en", "da")
+            for language in (source, target)
         )
 
 

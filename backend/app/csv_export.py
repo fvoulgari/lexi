@@ -75,10 +75,22 @@ def export_library(entries, account_id, *, include_ids=False):
 
 
 def export_collections(entries, account_id, collection=None):
-    """Export v2 with texts and grammar keyed by each card's language IDs."""
+    """Export v2 with texts and grammar keyed by the export language pair."""
+    languages = None
+    if collection is not None:
+        languages = (collection.source_language, collection.target_language)
+    else:
+        seen = []
+        for entry in entries:
+            for language in card_languages(entry):
+                if language not in seen:
+                    seen.append(language)
+        if seen:
+            languages = tuple(seen)
+
     output = io.StringIO(newline="")
     writer = csv.writer(output, quoting=csv.QUOTE_ALL)
-    columns = v2_columns()
+    columns = v2_columns(languages)
     writer.writerow(columns)
     for entry in entries:
         source = entry.source_collection
@@ -107,8 +119,12 @@ def export_collections(entries, account_id, collection=None):
             "unit_sort_order": source.source_unit_sort_order if source else "",
         }
         for language in (card_source, card_target):
-            values[text_column(language)] = card_text(entry, language)
+            column = text_column(language)
+            if column in columns:
+                values[column] = card_text(entry, language)
         for language in grammar_languages():
-            values[grammar_column(language)] = encode_grammar(entry, language)
+            column = grammar_column(language)
+            if column in columns:
+                values[column] = encode_grammar(entry, language)
         writer.writerow(spreadsheet_text(values.get(field)) for field in columns)
     return output.getvalue().encode("utf-8-sig")
