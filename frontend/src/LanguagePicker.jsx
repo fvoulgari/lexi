@@ -48,6 +48,11 @@ export default function LanguagePicker({
   errorMessage = "Languages could not be loaded. Try again.",
   clearLabel = "Clear search",
   error = false,
+  loading = false,
+  empty = false,
+  loadingMessage = "Loading languages…",
+  recentHeading = "Recent",
+  popularHeading = "Popular",
   className = "",
   id,
   recentKey = "default",
@@ -70,7 +75,7 @@ export default function LanguagePicker({
     () => options ?? (registry ? languageOptions() : []),
     [options, registry],
   );
-  const loading = options === undefined && !registry;
+  const isLoading = loading || (options === undefined && !registry);
   const selected = useMemo(
     () => items.find((item) => item.id === value),
     [items, value],
@@ -283,25 +288,29 @@ export default function LanguagePicker({
             <li className="language-picker-empty" role="alert">
               {errorMessage}
             </li>
-          ) : choices.length === 0 ? (
+          ) : isLoading ? (
             <li role="presentation" className="language-picker-empty">
-              {loading ? "Loading languages…" : emptyMessage}
+              {loadingMessage}
+            </li>
+          ) : empty || choices.length === 0 ? (
+            <li role="presentation" className="language-picker-empty">
+              {emptyMessage}
             </li>
           ) : (
             choices.map((item, index) => {
-              const native = nativeLanguageName(item.id);
+              const native = item.native_name ?? nativeLanguageName(item.id);
               const duplicateName =
                 !native || native.toLocaleLowerCase() === item.label.toLocaleLowerCase();
               return (
                 <Fragment key={item.id}>
                   {index === 0 && showRecent && (
                     <li role="presentation" className="language-picker-heading">
-                      Recent
+                      {recentHeading}
                     </li>
                   )}
                   {index === recentCount && (
                     <li role="presentation" className="language-picker-heading">
-                      Popular
+                      {popularHeading}
                     </li>
                   )}
                   <li
@@ -325,7 +334,7 @@ export default function LanguagePicker({
                       <span className="language-picker-label">{item.label}</span>
                       {!duplicateName && (
                         <span
-                          {...languageTextProps(item.id)}
+                          {...(item.textProps || languageTextProps(item.id))}
                           className="language-picker-native"
                         >
                           {native}

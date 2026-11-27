@@ -109,3 +109,14 @@ test("revoked profile access locks the account and request failures can retry", 
     "My learner",
   );
 });
+
+test("profile preferences expose every registered direction, including generic pairs", async () => {
+  profile = { ...profile, preferred_direction: "en_to_da" };
+  open();
+  const select = await screen.findByLabelText(copy.en.settingsDirection);
+  expect(select).toHaveValue("en_to_da");
+  expect([...select.options].map((option) => option.value)).toContain("fa_to_ar");
+  expect([...select.options].map((option) => option.value)).toContain(
+    "greek_to_italian",
+  );
+});

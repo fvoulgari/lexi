@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { request } from "./api.js";
 import { copy } from "./copy.js";
+import { practiceUrlForCollection } from "./practice-links.js";
 import CsvDialog from "./CsvDialog.jsx";
 import Import from "./Import.jsx";
 import PublicationDialog from "./PublicationDialog.jsx";
@@ -256,6 +257,11 @@ export default function SharedCollections({ language = "en", csrf, onLocked }) {
                 >
                   {c.saved ? t.removeReference : t.saveReference}
                 </button>
+              )}
+              {c.card_count > 0 && (
+                <Link to={practiceUrlForCollection(c)}>
+                  {t.practiseCollection}
+                </Link>
               )}
             </div>
           </article>

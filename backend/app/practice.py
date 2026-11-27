@@ -25,6 +25,7 @@ from app.models import (
     Tag,
     VocabularyEntry,
 )
+from app.registry import get_registry
 from app.schemas import RevealCard, ReviewCard, SessionCreate, VocabularyOutput
 
 
@@ -37,6 +38,61 @@ def difficult_progress(profile_id, direction):
         LearningProgress.weight > 0,
         LearningProgress.weighted_sum >= 0.5 * LearningProgress.weight,
     )
+
+
+def practice_availability_router(sessions, gate):
+    """Permission-scoped summary of pairs with at least one eligible card."""
+
+    router = APIRouter(
+        prefix="/api/practice", dependencies=[Depends(gate.require)]
+    )
+
+    @router.get("/available-pairs")
+    def available_pairs():
+        with sessions() as db:
+            # No collection join: a card shared through several collections must
+            # still be counted once. ORM visibility scoping applies here, so
+            # private, archived and revoked references cannot create an option.
+            rows = db.execute(
+                select(
+                    VocabularyEntry.source_language.label("source"),
+                    VocabularyEntry.target_language.label("target"),
+                    func.count(VocabularyEntry.id).label("card_count"),
+                )
+                .group_by(
+                    VocabularyEntry.source_language, VocabularyEntry.target_language
+                )
+                .order_by(
+                    VocabularyEntry.source_language, VocabularyEntry.target_language
+                )
+            ).all()
+
+        registry = get_registry()
+        totals = {}
+        for row in rows:
+            try:
+                first, second = registry.validate_pair(row.source, row.target)
+                directions = list(registry.pair_directions(first, second))
+            except ValueError:
+                continue
+            if not (
+                registry.catalogued(first) and registry.catalogued(second)
+            ):
+                continue
+            key = f"{first}-{second}"
+            pair = totals.setdefault(
+                key,
+                {
+                    "key": key,
+                    "languages": [first, second],
+                    "directions": directions,
+                    "card_count": 0,
+                },
+            )
+            pair["card_count"] += row.card_count
+        return {"pairs": list(totals.values())}
+
+    return router
 
 
 def mixed_entries(db, selection, profile_id, direction, size):
@@ -300,8 +356,9 @@ def practice_router(sessions, gate):
                 snapshot = VocabularyOutput.model_validate(entry).model_dump(
                     mode="json"
                 )
-                # Practice snapshots keep their historical flat grammar shape.
-                snapshot.pop("grammar", None)
+                # Keep the historical flat fields and add structured grammar so
+                # structured-only languages remain visible during practice.
+                # Existing snapshots are immutable and need no migration.
                 source = entry.source_collection
                 if (
                     source is not None

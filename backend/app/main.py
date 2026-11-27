@@ -45,7 +45,11 @@ from app.models import (
     Tag,
     VocabularyEntry,
 )
-from app.practice import difficult_progress, practice_router
+from app.practice import (
+    difficult_progress,
+    practice_availability_router,
+    practice_router,
+)
 from app.progress import progress_router
 from app.registry import refresh_registry
 from app.schemas import (
@@ -198,6 +202,7 @@ def create_app():
     app.include_router(language_router(sessions))
     app.include_router(account_router(sessions, gate))
     app.include_router(collection_router(sessions, gate))
+    app.include_router(practice_availability_router(sessions, gate))
     app.include_router(practice_router(sessions, gate))
     app.include_router(progress_router(sessions, gate))
     app.include_router(import_router(sessions, gate))

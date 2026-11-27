@@ -61,3 +61,25 @@ test("a mixed pair renders grammar from the defined language only", () => {
   expect(screen.getByText("biglietti")).toBeVisible();
   expect(screen.queryByText("εισιτήρια")).not.toBeInTheDocument();
 });
+
+test("structured grammar from a new snapshot is rendered for generic languages", () => {
+  render(
+    <PracticeCardView
+      entry={{
+        source_language: "en",
+        target_language: "da",
+        source_text: "house",
+        target_text: "hus",
+        word_type: "noun",
+        grammar: { da: { gender: "common", plural: "huse" } },
+      }}
+      text={text}
+      direction="en_to_da"
+      revealed
+    />,
+  );
+  expect(screen.getByText("Danish gender")).toBeVisible();
+  expect(screen.getByText(text.common)).toBeVisible();
+  expect(screen.getByText("Danish plural")).toBeVisible();
+  expect(screen.getByText("huse")).toBeVisible();
+});

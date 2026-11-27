@@ -342,7 +342,7 @@ test("detailed progress labels a generic non-legacy direction from language IDs"
     screen.getByRole("link", { name: copy.en.practiseDifficult }),
   ).toHaveAttribute(
     "href",
-    "/practice?mode=difficult&direction=en_to_da",
+    "/practice?mode=difficult&pair=da-en&direction=en_to_da",
   );
   expect(await screen.findByText("house")).toHaveAttribute("lang", "en");
   expect(screen.getByText("hus")).toHaveAttribute("lang", "da");
@@ -377,7 +377,7 @@ test("detailed difficult-card retry preserves language pairs and direction link"
   const link = screen.getByRole("link", { name: "Practise difficult cards" });
   expect(link).toHaveAttribute(
     "href",
-    "/practice?mode=difficult&direction=italian_to_greek",
+    "/practice?mode=difficult&pair=el-it&direction=italian_to_greek",
   );
   expect(
     screen.getAllByRole("link", { name: "Practise difficult cards" }),

@@ -4,7 +4,7 @@ import { request } from "./api.js";
 import {
   directionLabel,
   languageLabel,
-  pairDirections,
+  registeredDirections,
 } from "./languages.js";
 
 export default function Profiles({ text, csrf, onLocked }) {
@@ -67,10 +67,15 @@ function ProfileForm({
   disabled,
   onSavePending,
 }) {
-  const profileDirections = pairDirections("el", "it");
+  const profileDirections = registeredDirections();
+  const legacyDefault = profileDirections.includes("greek_to_italian")
+    ? "greek_to_italian"
+    : profileDirections[0];
   const [name, setName] = useState(profile?.display_name || "");
-  const [direction, setDirection] = useState(
-    profile?.preferred_direction || "greek_to_italian",
+  const [direction, setDirection] = useState(() =>
+    profileDirections.includes(profile?.preferred_direction)
+      ? profile.preferred_direction
+      : legacyDefault,
   );
   const [size, setSize] = useState(
     profile ? (profile.default_session_size ?? "all") : 25,

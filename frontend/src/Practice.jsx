@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import {
@@ -12,21 +12,168 @@ import {
 import PropTypes from "prop-types";
 import { request } from "./api.js";
 import Choices from "./Choices.jsx";
+import PairPicker from "./PairPicker.jsx";
 import PracticeCardView from "./PracticeCardView.jsx";
 import { cardLanguageIds, practiceSides } from "./card-sides.js";
 import {
-  directionLanguages,
   directionLabel,
+  isRegisteredDirection,
   languageLabel,
   languageTextProps,
-  pairDirections,
+  pairKey,
+  parsePairKey,
+  safeDirectionKey,
+  safeDirectionLanguages,
+  safePairDirections,
 } from "./languages.js";
+import {
+  firstDirectionForLanguages,
+  practicePairForDirection,
+} from "./practice-links.js";
 
 import {
   collectionCopy,
   collectionLabel,
   isMyCollection,
 } from "./collection-copy.js";
+
+const PRACTICE_SELECTION_KEY = "lexi-practice-selection";
+const LEGACY_PAIR = ["el", "it"];
+
+function storedPracticeSelection() {
+  try {
+    const value = JSON.parse(localStorage.getItem(PRACTICE_SELECTION_KEY) || "{}");
+    return value && typeof value === "object" ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function rememberPracticeSelection(pair, direction) {
+  if (!pair || !direction) return;
+  try {
+    localStorage.setItem(
+      PRACTICE_SELECTION_KEY,
+      JSON.stringify({ pair, direction }),
+    );
+  } catch {
+    // A private browser can reject storage; the current selection still works.
+  }
+}
+
+function collectionPair(collection) {
+  if (!collection) return null;
+  // Older collections predate pair metadata and describe the original course.
+  const languages =
+    collection.source_language && collection.target_language
+      ? [collection.source_language, collection.target_language]
+      : LEGACY_PAIR;
+  const key = pairKey(...languages);
+  return parsePairKey(key) ? key : null;
+}
+
+function directionForPair(pair, candidates = []) {
+  const languages = parsePairKey(pair);
+  if (!languages) return null;
+  const directions = safePairDirections(...languages);
+  return (
+    candidates.find(
+      (candidate) =>
+        isRegisteredDirection(candidate) && directions.includes(candidate),
+    ) || directions[0] || null
+  );
+}
+
+/** Declared Base→Learning direction for a collection, when registered. */
+function collectionDirection(collection) {
+  const direction = safeDirectionKey(
+    collection?.source_language,
+    collection?.target_language,
+  );
+  return isRegisteredDirection(direction) ? direction : null;
+}
+
+/** Resolve one pair/direction without ever inventing a Base/Learning order. */
+function initialPracticeSelection(searchParams, profile, collections = []) {
+  const stored = storedPracticeSelection();
+  const requestedDirection = searchParams.get("direction");
+  if (isRegisteredDirection(requestedDirection)) {
+    return {
+      pair: practicePairForDirection(requestedDirection),
+      direction: requestedDirection,
+      explicit: true,
+    };
+  }
+  const requestedPair = parsePairKey(searchParams.get("pair"));
+  if (requestedPair) {
+    const pair = pairKey(...requestedPair);
+    return {
+      pair,
+      direction: directionForPair(pair, [
+        profile?.preferred_direction,
+        stored.direction,
+      ]),
+      explicit: true,
+    };
+  }
+  const requestedCollection = searchParams
+    .get("collection")
+    ?.split(",")
+    .find(Boolean);
+  const requested = collections.find(
+    (collection) => collection.id === requestedCollection,
+  );
+  const requestedCollectionPair = collectionPair(requested);
+  if (requestedCollectionPair) {
+    return {
+      pair: requestedCollectionPair,
+      direction: directionForPair(requestedCollectionPair, [
+        profile?.preferred_direction,
+        collectionDirection(requested),
+        stored.direction,
+      ]),
+      explicit: true,
+    };
+  }
+  const storedPair = parsePairKey(stored.pair);
+  if (
+    storedPair &&
+    isRegisteredDirection(stored.direction) &&
+    practicePairForDirection(stored.direction) === pairKey(...storedPair)
+  ) {
+    return {
+      pair: pairKey(...storedPair),
+      direction: stored.direction,
+      explicit: true,
+    };
+  }
+  const linked = collections.find((collection) => collectionPair(collection));
+  const linkedPair = collectionPair(linked);
+  if (linkedPair) {
+    return {
+      pair: linkedPair,
+      direction: directionForPair(linkedPair, [
+        profile?.preferred_direction,
+        collectionDirection(linked),
+        stored.direction,
+      ]),
+      explicit: false,
+    };
+  }
+  const preferred = profile?.preferred_direction;
+  if (isRegisteredDirection(preferred)) {
+    return {
+      pair: practicePairForDirection(preferred),
+      direction: preferred,
+      explicit: true,
+    };
+  }
+  return {
+    pair: pairKey(...LEGACY_PAIR),
+    direction: firstDirectionForLanguages(...LEGACY_PAIR),
+    explicit: false,
+  };
+}
 
 export default function Practice({ text, csrf, onLocked, language = "en" }) {
   const profiles = useQuery({
@@ -75,13 +222,16 @@ export default function Practice({ text, csrf, onLocked, language = "en" }) {
     setPending(true);
     setError(null);
     try {
-      const result = await post("/api/sessions", {
+      const body = {
         profile_id: profile.id,
         direction,
         size,
-        ...(type === "category" ? filters : {}),
-        ...(["difficult", "mixed"].includes(type) ? { mode: type } : {}),
-      });
+      };
+      if (type === "category") Object.assign(body, filters);
+      else if (filters.collection_ids?.length)
+        body.collection_ids = filters.collection_ids;
+      if (["difficult", "mixed"].includes(type)) body.mode = type;
+      const result = await post("/api/sessions", body);
       setSession({ ...result, profile_id: profile.id, direction, type });
     } catch (error) {
       showError(error);
@@ -160,8 +310,12 @@ export default function Practice({ text, csrf, onLocked, language = "en" }) {
   );
 }
 function Direction({ text, value, languages, onChange, disabled = false }) {
-  const options = pairDirections(...languages);
-  const choices = options.includes(value) ? options : [value, ...options];
+  const options = safePairDirections(...languages);
+  const choices = options.length
+    ? options
+    : isRegisteredDirection(value)
+      ? [value]
+      : [];
   return (
     <>
       <label htmlFor="practice-direction">{text.direction}</label>
@@ -191,44 +345,137 @@ function Setup({
   onProfileUnavailable,
 }) {
   const [searchParams] = useSearchParams();
-  const legacyDirections = pairDirections("el", "it");
+  const initial = useMemo(
+    () => initialPracticeSelection(searchParams, profile),
+    [searchParams, profile],
+  );
+  const [pair, setPair] = useState(initial.pair);
+  const [direction, setDirection] = useState(
+    initial.direction || firstDirectionForLanguages(...LEGACY_PAIR),
+  );
+  const [selectionLocked, setSelectionLocked] = useState(initial.explicit);
   const [type, setType] = useState(
     searchParams.get("mode") === "difficult" ? "difficult" : "random",
   );
+  const linkedCollectionIds = useMemo(
+    () => (searchParams.get("collection") || "").split(",").filter(Boolean),
+    [searchParams],
+  );
   const emptyFilters = {
-    collection_ids: [],
+    collection_ids: linkedCollectionIds,
     word_types: [],
   };
   const [filters, setFilters] = useState(emptyFilters);
+
+  const availablePairs = useQuery({
+    queryKey: ["practice-available-pairs"],
+    queryFn: () => request("/api/practice/available-pairs"),
+    retry: false,
+  });
   const collections = useQuery({
     queryKey: ["collections"],
     queryFn: () => request("/api/collections"),
-    enabled: type === "category",
     refetchOnWindowFocus: "always",
   });
   useEffect(() => {
-    if (collections.error?.status === 401) onLocked();
-  }, [collections.error, onLocked]);
-  const availableCollections = (collections.data || []).filter(isMyCollection);
+    if (availablePairs.error?.status === 401 || collections.error?.status === 401)
+      onLocked();
+  }, [availablePairs.error, collections.error, onLocked]);
+
+  const pairs = useMemo(
+    () =>
+      (availablePairs.data?.pairs || []).filter(
+        (candidate) =>
+          parsePairKey(candidate.key) &&
+          candidate.directions?.length === 2 &&
+          candidate.directions.every(isRegisteredDirection),
+      ),
+    [availablePairs.data],
+  );
+  const selectedLanguages = parsePairKey(pair) || LEGACY_PAIR;
+  const registeredDirections = safePairDirections(...selectedLanguages);
+  const selectedPair = pairs.find((candidate) => candidate.key === pair);
+  const availableCollections = (collections.data || []).filter(
+    (collection) => isMyCollection(collection) && collectionPair(collection) === pair,
+  );
   const selectedCollections = filters.collection_ids.filter((id) =>
     availableCollections.some((collection) => collection.id === id),
   );
   const collectionSelectionUnavailable =
-    type === "category" &&
+    (type === "category" || linkedCollectionIds.length > 0) &&
     filters.collection_ids.length > 0 &&
     selectedCollections.length === 0;
   const filterError = type === "category" && collections.isError;
   const filterLoading = type === "category" && collections.isPending;
   const changeFilter = (key, value) =>
     setFilters((current) => ({ ...current, [key]: value }));
-  const [direction, setDirection] = useState(() => {
-    const requested = searchParams.get("direction");
-    if (legacyDirections.includes(requested)) return requested;
-    const preferred = profile?.preferred_direction;
-    return legacyDirections.includes(preferred)
-      ? preferred
-      : legacyDirections[0];
-  });
+
+  function selectPair(nextPair) {
+    if (!parsePairKey(nextPair)) return;
+    const nextDirection =
+      directionForPair(nextPair, [direction]) ||
+      firstDirectionForLanguages(...parsePairKey(nextPair));
+    setPair(nextPair);
+    setDirection(nextDirection);
+    setSelectionLocked(true);
+    rememberPracticeSelection(nextPair, nextDirection);
+    setFilters((current) => ({
+      ...current,
+      collection_ids: current.collection_ids.filter((id) =>
+        (collections.data || []).some(
+          (collection) => collection.id === id && collectionPair(collection) === nextPair,
+        ),
+      ),
+    }));
+  }
+
+  function selectDirection(nextDirection) {
+    if (!isRegisteredDirection(nextDirection)) return;
+    const nextPair = practicePairForDirection(nextDirection);
+    setDirection(nextDirection);
+    if (nextPair) setPair(nextPair);
+    setSelectionLocked(true);
+    rememberPracticeSelection(nextPair || pair, nextDirection);
+    setFilters((current) => ({
+      ...current,
+      collection_ids: current.collection_ids.filter((id) =>
+        (collections.data || []).some(
+          (collection) => collection.id === id && collectionPair(collection) === nextPair,
+        ),
+      ),
+    }));
+  }
+
+  // An explicit URL or stored choice wins. Only an unresolved selection may be
+  // oriented by a linked or first accessible collection once those arrive.
+  useEffect(() => {
+    if (selectionLocked || !collections.data) return;
+    const requested = collections.data.find(
+      (collection) => collection.id === linkedCollectionIds[0],
+    );
+    const linked =
+      requested || collections.data.find((collection) => collectionPair(collection));
+    const nextPair = collectionPair(linked);
+    if (!nextPair) return;
+    const nextDirection =
+      directionForPair(nextPair, [
+        profile?.preferred_direction,
+        collectionDirection(linked),
+        storedPracticeSelection().direction,
+        direction,
+      ]) || firstDirectionForLanguages(...parsePairKey(nextPair));
+    setPair(nextPair);
+    setDirection(nextDirection);
+    rememberPracticeSelection(nextPair, nextDirection);
+    if (requested || linkedCollectionIds.length) setSelectionLocked(true);
+  }, [
+    collections.data,
+    direction,
+    linkedCollectionIds,
+    profile?.preferred_direction,
+    selectionLocked,
+  ]);
+
   const difficult = useQuery({
     queryKey: ["difficult-entries", profile?.id, direction],
     queryFn: () =>
@@ -246,17 +493,56 @@ function Setup({
   const [size, setSize] = useState(
     String(profile ? (profile.default_session_size ?? "all") : 25),
   );
+  const noEligiblePairs = availablePairs.isSuccess && pairs.length === 0;
+  const selectedPairUnavailable =
+    availablePairs.isSuccess && pairs.length > 0 && !selectedPair;
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         if (collectionSelectionUnavailable) return;
+        rememberPracticeSelection(pair, direction);
         onStart(direction, size === "all" ? null : Number(size), type, {
           ...filters,
           collection_ids: selectedCollections,
         });
       }}
     >
+      <div className="setup-pair">
+        <PairPicker
+          pairs={pairs}
+          value={pair}
+          onChange={selectPair}
+          label={text.setupLanguagePair}
+          emptyMessage={text.setupNoPairs}
+          errorMessage={text.setupPairsError}
+          loadingMessage={text.setupLoadingPairs}
+          clearLabel={text.setupClearSearch}
+          recentHeading={text.setupRecentPairs}
+          popularHeading={text.setupPopularPairs}
+          loading={availablePairs.isPending}
+          error={availablePairs.isError}
+          empty={availablePairs.isSuccess && pairs.length === 0}
+          disabled={pending}
+        />
+        {(noEligiblePairs || selectedPairUnavailable) && (
+          <p role="status" className="setup-pair-hint">
+            {text.setupNoPairs}
+          </p>
+        )}
+      </div>
+      <SetupOptions
+        legend={text.setupDirection}
+        name="setup-direction"
+        value={direction}
+        onChange={selectDirection}
+        disabled={pending}
+        className="setup-direction-options"
+        options={registeredDirections.map((key) => ({
+          value: key,
+          label: directionLabel(key, languageLabel),
+        }))}
+      />
       <SetupOptions
         legend={text.setupPracticeType}
         name="practice-type"
@@ -289,12 +575,7 @@ function Setup({
           {filterError && (
             <div>
               <p role="alert">{text.errors.request_failed}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  collections.refetch();
-                }}
-              >
+              <button type="button" onClick={() => collections.refetch()}>
                 {text.retry}
               </button>
             </div>
@@ -333,18 +614,6 @@ function Setup({
           </button>
         </section>
       )}
-      <SetupOptions
-        legend={text.setupDirection}
-        name="setup-direction"
-        value={direction}
-        onChange={setDirection}
-        disabled={pending}
-        className="setup-direction-options"
-        options={legacyDirections.map((key) => ({
-          value: key,
-          label: directionLabel(key, languageLabel),
-        }))}
-      />
       {type === "difficult" && profile && (
         <section
           className="setup-difficult-info"
@@ -410,6 +679,7 @@ function Setup({
           pending ||
           filterLoading ||
           filterError ||
+          noEligiblePairs ||
           collectionSelectionUnavailable
         }
       >
@@ -504,7 +774,13 @@ function ActivePractice({
             text={text}
             card={card}
             direction={direction}
-            onDirection={setDirection}
+            onDirection={(nextDirection) => {
+              setDirection(nextDirection);
+              rememberPracticeSelection(
+                practicePairForDirection(nextDirection),
+                nextDirection,
+              );
+            }}
             post={post}
             sessionId={session.id}
             onLocked={onLocked}
@@ -692,7 +968,6 @@ function Summary({
   onLocked,
   onProfileUnavailable,
 }) {
-  const [promptLanguage, answerLanguage] = directionLanguages(direction);
   const summary = useQuery({
     queryKey: ["practice-summary", sessionId],
     queryFn: () => request(`/api/sessions/${sessionId}/summary`),
@@ -773,7 +1048,12 @@ function Summary({
               </summary>
               <ul>
                 {summary.data.needs_practice.map((e) => {
-                  const sides = practiceSides(e.snapshot, direction);
+                  const reviewDirection = isRegisteredDirection(e.direction)
+                    ? e.direction
+                    : direction;
+                  const [promptLanguage, answerLanguage] =
+                    safeDirectionLanguages(reviewDirection);
+                  const sides = practiceSides(e.snapshot, reviewDirection);
                   return (
                     <li key={e.id}>
                       <div className="summary-card-words">
@@ -785,6 +1065,9 @@ function Summary({
                           {sides.answer}
                         </span>
                       </div>
+                      <span className="summary-direction">
+                        {directionLabel(reviewDirection, languageLabel)}
+                      </span>
                       <span className="summary-rating" data-rating={e.rating}>
                         {text[e.rating]}
                       </span>
