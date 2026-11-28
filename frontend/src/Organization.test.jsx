@@ -93,13 +93,13 @@ test("combined filters persist through pages and changing search resets page", a
   expect(lastParams.has("unit_ids")).toBe(false);
   expect(lastParams.getAll("word_types")).toEqual(["noun", "expression"]);
   expect(lastParams.getAll("tag_ids")).toEqual(["t"]);
-  await user.type(screen.getByLabelText("Search Italian or Greek"), "σπίτι");
+  await user.type(screen.getByLabelText("Search vocabulary"), "σπίτι");
   await waitFor(() => expect(lastParams.get("q")).toBe("σπίτι"));
   expect(lastParams.get("page")).toBe("1");
   expect(lastParams.get("page_size")).toBe("12");
   await user.click(screen.getByRole("button", { name: "Clear filters" }));
   await waitFor(() => expect(lastParams.has("tag_ids")).toBe(false));
-  expect(screen.getByLabelText("Search Italian or Greek")).toHaveValue("");
+  expect(screen.getByLabelText("Search vocabulary")).toHaveValue("");
 });
 
 test("new cards use collections while tag controls remain hidden", async () => {
