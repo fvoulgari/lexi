@@ -167,7 +167,7 @@ try {
   await page.getByText("Learner", { exact: true }).waitFor();
   await noOverflow();
   await page.getByRole("button", { name: "Start practice", exact: true }).tap();
-  const reveal = page.getByRole("button", { name: "Reveal answer" });
+  const reveal = page.getByRole("button", { name: "Tap to reveal answer" });
   await reveal.waitFor();
   await reveal.focus();
   await page.keyboard.press("Enter");
@@ -175,7 +175,7 @@ try {
   assert.ok(
     await page
       .getByRole("heading", { name: "casa", exact: true })
-      .evaluate((el) => el.parentElement === document.activeElement),
+      .evaluate((el) => el === document.activeElement),
   );
   assert.ok(
     await page.evaluate(

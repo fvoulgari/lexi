@@ -156,7 +156,7 @@ test("keyboard reveal conceals hints and a failed save retries before advancing 
   expect(screen.queryByText("la casa")).not.toBeInTheDocument();
   expect(screen.queryByText("welcome")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
-  const reveal = screen.getByRole("button", { name: /Reveal answer/ });
+  const reveal = screen.getByRole("button", { name: /Tap to reveal answer/ });
   reveal.focus();
   await user.keyboard("{Enter}");
   expect(await screen.findByText("la casa")).toBeInTheDocument();
@@ -193,14 +193,14 @@ test("switching direction retains the queue and requires a fresh reveal", async 
   await screen.findByText("Foteini");
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   await user.click(
-    await screen.findByRole("button", { name: "Reveal answer" }),
+    await screen.findByRole("button", { name: "Tap to reveal answer" }),
   );
   expect(await screen.findByText("la casa")).toBeInTheDocument();
   await chooseDirection(user, "italian_to_greek");
   expect(screen.getByRole("button", { name: "Hard" })).toBeDisabled();
   expect(screen.queryByText("το σπίτι")).not.toBeInTheDocument();
   expect(screen.queryByText("KA-za")).not.toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Tap to reveal answer" }));
   await user.click(await screen.findByRole("button", { name: "Easy" }));
   expect(
     await screen.findByRole("heading", { name: "Session summary" }),
@@ -256,7 +256,7 @@ test("finishing without a review is defined and reloading starts fresh setup", a
     await screen.findByRole("button", { name: "Start practice" }),
   ).toBeInTheDocument();
   expect(
-    screen.queryByRole("button", { name: "Reveal answer" }),
+    screen.queryByRole("button", { name: "Tap to reveal answer" }),
   ).not.toBeInTheDocument();
 });
 
@@ -270,7 +270,7 @@ test("Memory blank becomes available after revealing the answer", async () => {
   const memoryBlank = screen.getByRole("button", { name: "Memory blank" });
   expect(memoryBlank).toBeDisabled();
 
-  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Tap to reveal answer" }));
   expect(await screen.findByText("la casa")).toBeVisible();
   expect(saves).toEqual([]);
   expect(memoryBlank).toBeEnabled();
@@ -300,12 +300,12 @@ test("a lost reveal can be retried before saving Memory blank and retrying a los
   await user.click(
     await screen.findByRole("button", { name: "Start practice" }),
   );
-  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Tap to reveal answer" }));
   expect(await screen.findByRole("alert")).toBeInTheDocument();
   expect(screen.queryByText("la casa")).not.toBeInTheDocument();
   expect(saves).toEqual([]);
 
-  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Tap to reveal answer" }));
   expect(await screen.findByText("la casa")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Memory blank" }));
   expect(await screen.findByRole("alert")).toBeInTheDocument();
@@ -337,7 +337,7 @@ test("ratings stay disabled while reveal or review is saving", async () => {
   await screen.findByText("Foteini");
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   await user.click(
-    await screen.findByRole("button", { name: "Reveal answer" }),
+    await screen.findByRole("button", { name: "Tap to reveal answer" }),
   );
   await user.click(await screen.findByRole("button", { name: "Hard" }));
   expect(await screen.findByText(copy.en.savingAnswer)).toBeInTheDocument();
@@ -398,7 +398,7 @@ test("a lost response retries the selected review before switching the remaining
   await screen.findByText("Foteini");
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   await user.click(
-    await screen.findByRole("button", { name: "Reveal answer" }),
+    await screen.findByRole("button", { name: "Tap to reveal answer" }),
   );
   await user.dblClick(await screen.findByRole("button", { name: "Hard" }));
   expect(await screen.findByRole("alert")).toBeInTheDocument();
@@ -414,7 +414,7 @@ test("a lost response retries the selected review before switching the remaining
   await chooseDirection(user, "italian_to_greek");
   expect(screen.queryByText("το βιβλίο")).not.toBeInTheDocument();
   expect(screen.getByText("il libro")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Tap to reveal answer" }));
   await user.click(await screen.findByRole("button", { name: "Easy" }));
   expect(
     await screen.findByRole("heading", { name: "Session summary" }),
@@ -470,7 +470,7 @@ test("category practice combines selections, explains shortages and reaches summ
   ).toBeInTheDocument();
   expect(screen.getByText(/Only 1 cards/)).toBeInTheDocument();
   expect(screen.getByText("la casa")).toBeInTheDocument();
-  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Tap to reveal answer" }));
   await user.click(await screen.findByRole("button", { name: "Hard" }));
   expect(
     await screen.findByRole("heading", { name: "Session summary" }),
@@ -556,7 +556,7 @@ test("difficult selection follows direction and uses the review flow", async () 
   await screen.findByText("1 available card");
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   await user.click(
-    await screen.findByRole("button", { name: "Reveal answer" }),
+    await screen.findByRole("button", { name: "Tap to reveal answer" }),
   );
   await user.click(await screen.findByRole("button", { name: "Hard" }));
   expect(
@@ -611,7 +611,7 @@ test.each(["reveal", "reviews"])(
     await screen.findByText("Foteini");
     await user.click(screen.getByRole("button", { name: "Start practice" }));
     await user.click(
-      await screen.findByRole("button", { name: "Reveal answer" }),
+      await screen.findByRole("button", { name: "Tap to reveal answer" }),
     );
     if (stage === "reviews")
       await user.click(await screen.findByRole("button", { name: "Hard" }));
@@ -625,7 +625,7 @@ test.each(["reveal", "reviews"])(
     expect(
       screen.getByRole("button", { name: "Finish and see summary" }),
     ).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+    await user.click(screen.getByRole("button", { name: "Tap to reveal answer" }));
     await user.click(await screen.findByRole("button", { name: "Easy" }));
     expect(
       await screen.findByRole("heading", { name: "Session summary" }),
@@ -654,7 +654,7 @@ test("deleting the final unreviewed card reaches a zero-review summary with an e
   await screen.findByText("Foteini");
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   await user.click(
-    await screen.findByRole("button", { name: "Reveal answer" }),
+    await screen.findByRole("button", { name: "Tap to reveal answer" }),
   );
   expect(
     await screen.findByRole("heading", { name: "Session summary" }),
@@ -700,7 +700,7 @@ test("mixed setup follows the reveal, review and summary journey", async () => {
     size: null,
     mode: "mixed",
   });
-  await user.click(screen.getByRole("button", { name: "Reveal answer" }));
+  await user.click(screen.getByRole("button", { name: "Tap to reveal answer" }));
   await user.click(screen.getByRole("button", { name: "Easy" }));
   expect(
     await screen.findByRole("heading", { name: "Session summary" }),
@@ -941,7 +941,7 @@ test("visible collections can be selected directly without profile assignment", 
   ).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Start practice" }));
   expect(
-    await screen.findByRole("button", { name: "Reveal answer" }),
+    await screen.findByRole("button", { name: "Tap to reveal answer" }),
   ).toBeInTheDocument();
 });
 
@@ -1154,11 +1154,11 @@ test.each(["start", "reveal", "review"])(
       await user.click(
         screen.getByRole("button", { name: copy.en.startPractice }),
       );
-      await screen.findByRole("button", { name: copy.en.revealAnswer });
+      await screen.findByRole("button", { name: copy.en.tapToReveal });
     }
     if (stage === "review") {
       await user.click(
-        screen.getByRole("button", { name: copy.en.revealAnswer }),
+        screen.getByRole("button", { name: copy.en.tapToReveal }),
       );
       await screen.findByText("la casa");
     }
@@ -1182,7 +1182,7 @@ test.each(["start", "reveal", "review"])(
           stage === "start"
             ? copy.en.startPractice
             : stage === "reveal"
-              ? copy.en.revealAnswer
+              ? copy.en.tapToReveal
               : copy.en.hard,
       }),
     );
@@ -1207,7 +1207,7 @@ test("practice writes do not refetch the profile", async () => {
   );
   await user.click(screen.getByRole("button", { name: copy.en.startPractice }));
   await user.click(
-    await screen.findByRole("button", { name: copy.en.revealAnswer }),
+    await screen.findByRole("button", { name: copy.en.tapToReveal }),
   );
   await screen.findByText("la casa");
   await user.click(screen.getByRole("button", { name: copy.en.hard }));
@@ -1223,7 +1223,7 @@ test("backend learner rejection stops practice without offering another learner"
     await screen.findByRole("button", { name: copy.en.startPractice }),
   );
   await user.click(
-    await screen.findByRole("button", { name: copy.en.revealAnswer }),
+    await screen.findByRole("button", { name: copy.en.tapToReveal }),
   );
   await screen.findByText("la casa");
   server.use(
@@ -1250,7 +1250,7 @@ test("failed review preserves the card for an identical retry", async () => {
     await screen.findByRole("button", { name: copy.en.startPractice }),
   );
   await user.click(
-    await screen.findByRole("button", { name: copy.en.revealAnswer }),
+    await screen.findByRole("button", { name: copy.en.tapToReveal }),
   );
   await screen.findByText("la casa");
   server.use(
@@ -1370,7 +1370,7 @@ test("a generic URL direction initializes the pair, direction and card languages
   });
   expect(await screen.findByText("house")).toHaveAttribute("lang", "en");
   await user.click(
-    await screen.findByRole("button", { name: "Reveal answer" }),
+    await screen.findByRole("button", { name: "Tap to reveal answer" }),
   );
   expect(await screen.findByText("hus")).toHaveAttribute("lang", "da");
 });
@@ -1549,7 +1549,7 @@ test("difficult and mixed modes carry the selected generic pair direction", asyn
     screen.getByRole("radio", { name: "Difficult cards", exact: true }),
   );
   await user.click(screen.getByRole("button", { name: "Start practice" }));
-  await screen.findByRole("button", { name: "Reveal answer" });
+  await screen.findByRole("button", { name: "Tap to reveal answer" });
   expect(payloads[0]).toMatchObject({
     direction: "en_to_da",
     mode: "difficult",
@@ -1563,7 +1563,7 @@ test("difficult and mixed modes carry the selected generic pair direction", asyn
     screen.getByRole("radio", { name: "Mixed practice", exact: true }),
   );
   await user.click(screen.getByRole("button", { name: "Start practice" }));
-  await screen.findByRole("button", { name: "Reveal answer" });
+  await screen.findByRole("button", { name: "Tap to reveal answer" });
   expect(payloads[1]).toMatchObject({ direction: "en_to_da", mode: "mixed" });
 });
 
