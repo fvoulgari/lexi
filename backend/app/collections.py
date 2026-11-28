@@ -845,7 +845,7 @@ def collection_router(sessions, gate):
             sync_entry_grammar(entry, grammar)
             if body.word_type is not None:
                 entry.word_type = word_type
-            if notes is not None:
+            if "notes" in body.model_fields_set:
                 entry.notes = notes
             if tag_ids is not None:
                 set_card_tags(db, entry, tag_ids)

@@ -77,6 +77,14 @@ def test_all_common_fields_round_trip_for_a_universal_pair(logged_in):
     vocabulary = client.get(f"/api/vocabulary/{saved['id']}").json()
     assert vocabulary["notes"] == "Updated note"
 
+    response = client.patch(
+        f"/api/collections/cards/{saved['id']}",
+        headers=H,
+        json={"source_text": "home", "target_text": "hjem", "notes": None},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["notes"] is None
+
 
 def test_structured_grammar_and_common_fields_edit_together(logged_in):
     client = logged_in

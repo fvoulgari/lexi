@@ -207,7 +207,7 @@ export default function CollectionCardForm({
         <button className="primary" disabled={busy}>
           {t.save}
         </button>
-        <button type="button" onClick={onCancel}>
+        <button type="button" disabled={busy} onClick={onCancel}>
           {t.cancel}
         </button>
       </div>

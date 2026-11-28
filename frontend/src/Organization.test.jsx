@@ -308,3 +308,73 @@ test("library loading, retry and empty results remain accessible", async () => {
     screen.queryByRole("button", { name: "Clear filters" }),
   ).not.toBeInTheDocument();
 });
+
+test("Vocabulary creates and edits cards in a non-legacy collection", async () => {
+  const existing = {
+    id: "danish-card",
+    source_language: "da",
+    target_language: "en",
+    source_text: "hus",
+    target_text: "house",
+    word_type: "noun",
+    grammar: { da: { gender: "neuter", plural: "huse" } },
+    can_edit: true,
+    visibility: "private",
+    tags: [],
+  };
+  let created;
+  let edited;
+  server.use(
+    http.get("*/api/collections", () => HttpResponse.json([
+      {
+        id: "danish",
+        name: "Danish vocabulary",
+        source_language: "en",
+        target_language: "da",
+        card_count: 1,
+        can_edit: true,
+        visibility: "private",
+      },
+    ])),
+    http.get("*/api/vocabulary", () => HttpResponse.json({ items: [existing], total: 1 })),
+    http.post("*/api/collections/danish/cards", async ({ request }) => {
+      created = await request.json();
+      return HttpResponse.json({ ...created, id: "new-card" }, { status: 201 });
+    }),
+    http.patch("*/api/collections/cards/danish-card", async ({ request }) => {
+      edited = await request.json();
+      return HttpResponse.json({ ...existing, ...edited });
+    }),
+  );
+
+  const user = userEvent.setup();
+  open();
+  const collection = screen.getByRole("combobox", { name: "Collection", exact: true });
+  await within(collection).findByRole("option", { name: "Danish vocabulary" });
+  await user.selectOptions(collection, "danish");
+  await user.click(screen.getByRole("button", { name: "New card" }));
+  await user.type(screen.getByRole("textbox", { name: "Danish", exact: true }), "hej");
+  await user.type(screen.getByRole("textbox", { name: "English", exact: true }), "hello");
+  await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+  await waitFor(() => expect(created).toMatchObject({
+    source_language: "da",
+    target_language: "en",
+    source_text: "hej",
+    target_text: "hello",
+  }));
+  await screen.findByText("Card saved.", { exact: false });
+
+  await user.click(screen.getByRole("button", { name: `${copy.en.cardActions}: hus` }));
+  await user.click(screen.getByRole("menuitem", { name: `${copy.en.editEntry}: hus` }));
+  const translation = screen.getByRole("textbox", { name: "English", exact: true });
+  await user.clear(translation);
+  await user.type(translation, "home");
+  await user.click(screen.getByRole("button", { name: "Save", exact: true }));
+  await waitFor(() => expect(edited).toMatchObject({
+    source_language: "da",
+    target_language: "en",
+    source_text: "hus",
+    target_text: "home",
+    grammar: { da: { gender: "neuter", plural: "huse" } },
+  }));
+});

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { MoreHorizontal } from "lucide-react";
 import PropTypes from "prop-types";
 import CardPreview from "./CardPreview.jsx";
+import { cardLanguageIds, cardText } from "./card-sides.js";
 
 export default function CardActions({
   entry,
@@ -15,6 +16,7 @@ export default function CardActions({
   onEdit,
   onDelete,
 }) {
+  const displayedWord = cardText(entry, cardLanguageIds(entry)[0]);
   const trigger = useRef(null);
   const menu = useRef(null);
   const lastFirst = useRef(false);
@@ -150,7 +152,7 @@ export default function CardActions({
         className="card-actions-trigger"
         disabled={busy}
         ref={trigger}
-        aria-label={`${text.cardActions}: ${entry.italian}`}
+        aria-label={`${text.cardActions}: ${displayedWord}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
@@ -177,7 +179,7 @@ export default function CardActions({
             id={id}
             ref={menu}
             role="menu"
-            aria-label={`${text.cardActions}: ${entry.italian}`}
+            aria-label={`${text.cardActions}: ${displayedWord}`}
             className="card-actions-menu"
             style={position}
             onKeyDown={navigate}
@@ -187,7 +189,7 @@ export default function CardActions({
                 type="button"
                 role="menuitem"
                 tabIndex={-1}
-                aria-label={`${text.editEntry}: ${entry.italian}`}
+                aria-label={`${text.editEntry}: ${displayedWord}`}
                 disabled={editDisabled}
                 onClick={() => {
                   dismiss(false);
@@ -201,7 +203,7 @@ export default function CardActions({
               type="button"
               role="menuitem"
               tabIndex={-1}
-              aria-label={`${text.cardPreview}: ${entry.italian}`}
+              aria-label={`${text.cardPreview}: ${displayedWord}`}
               onClick={() => {
                 dismiss(false);
                 setPreviewing(true);
@@ -215,7 +217,7 @@ export default function CardActions({
                 role="menuitem"
                 tabIndex={-1}
                 className="card-action-delete"
-                aria-label={`${text.deleteEntry}: ${entry.italian}`}
+                aria-label={`${text.deleteEntry}: ${displayedWord}`}
                 disabled={deleteDisabled}
                 onClick={() => {
                   dismiss(false);
@@ -233,7 +235,7 @@ export default function CardActions({
           <dialog
             ref={previewDialog}
             className="card-preview-dialog"
-            aria-label={`${text.cardPreview}: ${entry.italian}`}
+            aria-label={`${text.cardPreview}: ${displayedWord}`}
             onCancel={(event) => {
               event.preventDefault();
               previewDialog.current.close();

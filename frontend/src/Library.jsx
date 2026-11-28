@@ -16,6 +16,7 @@ import CardActions from "./CardActions.jsx";
 import Import from "./Import.jsx";
 import CsvDialog from "./CsvDialog.jsx";
 import Choices from "./Choices.jsx";
+import CollectionCardForm from "./CollectionCardForm.jsx";
 import VocabularyForm from "./VocabularyForm.jsx";
 import { downloadLibrary, request } from "./api.js";
 import { practiceUrlForCollection } from "./practice-links.js";
@@ -130,6 +131,8 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
   }, [deleting]);
   const [saved, setSaved] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [cardError, setCardError] = useState(null);
+  const cardSaveLock = useRef(false);
   useEffect(() => {
     if (saved && !isSaving) document.getElementById("add-entry")?.focus();
   }, [saved, isSaving]);
@@ -160,11 +163,15 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
     routeCollectionId && collections.data && !selectedCollection,
   );
   const selectedTitle = selectedCollection?.name || t.allAccessible;
-  const legacyPair =
-    !selectedCollection?.source_language ||
-    [selectedCollection.source_language, selectedCollection.target_language]
-      .sort()
-      .join() === "el,it";
+  const collectionPair = [
+    selectedCollection?.source_language,
+    selectedCollection?.target_language,
+  ];
+  const multilingualEditor =
+    editing !== undefined &&
+    (editing?.id
+      ? !isLegacyPair(...cardLanguageIds(editing))
+      : collectionPair.every(Boolean) && !isLegacyPair(...collectionPair));
   const scopeParams = new URLSearchParams();
   if (collectionId) scopeParams.set("collection_id", collectionId);
   const filterParams = new URLSearchParams(scopeParams);
@@ -289,6 +296,54 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
       await client.invalidateQueries({ queryKey: [key] });
   }
 
+  function closeEditor() {
+    setEditing(undefined);
+    setCardError(null);
+    document.getElementById("add-entry")?.focus();
+  }
+
+  async function cardSaved(result) {
+    const wasEditing = Boolean(editing?.id);
+    if (!wasEditing) setPage(1);
+    setSaved(result);
+    setEditing(undefined);
+    if (wasEditing) await refreshLibrary();
+    else {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["vocabulary"] }),
+        client.invalidateQueries({ queryKey: ["collections"] }),
+        client.invalidateQueries({ queryKey: ["practice-available-pairs"] }),
+      ]);
+    }
+    document.getElementById("add-entry")?.focus();
+  }
+
+  async function saveCollectionCard(body) {
+    if (cardSaveLock.current) return;
+    cardSaveLock.current = true;
+    setIsSaving(true);
+    setCardError(null);
+    try {
+      const entry = await request(
+        editing?.id
+          ? `/api/collections/cards/${editing.id}`
+          : `/api/collections/${collectionId}/cards`,
+        {
+          method: editing?.id ? "PATCH" : "POST",
+          headers: { "X-CSRF-Token": csrf },
+          body: JSON.stringify(body),
+        },
+      );
+      await cardSaved({ entry, duplicate_ids: [] });
+    } catch (error) {
+      if (error.status === 401) onLocked();
+      else setCardError(error);
+    } finally {
+      cardSaveLock.current = false;
+      setIsSaving(false);
+    }
+  }
+
   function closeDelete() {
     setDeleting(null);
     setDeleteError(null);
@@ -370,11 +425,11 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
               deletePending ||
               selecting ||
               bulkBusy ||
-              !legacyPair ||
               selectedCollection?.can_edit === false
             }
             onClick={() => {
               setSaved(null);
+              setCardError(null);
               setEditing(null);
             }}
           >
@@ -595,7 +650,27 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
           </button>
         )}
       </section>
-      {editing !== undefined && (
+      {multilingualEditor && (
+        <>
+          <CollectionCardForm
+            key={editing?.id || collectionId}
+            card={editing}
+            pair={editing?.id ? cardLanguageIds(editing) : collectionPair}
+            collection={selectedCollection}
+            text={text}
+            t={t}
+            busy={isSaving}
+            onSubmit={saveCollectionCard}
+            onCancel={closeEditor}
+          />
+          {cardError && (
+            <p role="alert" className="error">
+              {text.errors[cardError.code] || text.errors.request_failed}
+            </p>
+          )}
+        </>
+      )}
+      {editing !== undefined && !multilingualEditor && (
         <VocabularyForm
           key={editing?.id || "new"}
           entry={editing}
@@ -604,23 +679,8 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
           csrf={csrf}
           onSavingChange={setIsSaving}
           onLocked={onLocked}
-          onCancel={() => {
-            setEditing(undefined);
-            document.getElementById("add-entry")?.focus();
-          }}
-          onSaved={async (result) => {
-            const wasEditing = Boolean(editing);
-            if (!wasEditing) setPage(1);
-            setSaved(result);
-            setEditing(undefined);
-            if (wasEditing) await refreshLibrary();
-            else
-              await Promise.all([
-                client.invalidateQueries({ queryKey: ["vocabulary"] }),
-                client.invalidateQueries({ queryKey: ["collections"] }),
-              ]);
-            document.getElementById("add-entry")?.focus();
-          }}
+          onCancel={closeEditor}
+          onSaved={cardSaved}
         />
       )}
       {deleting && (
@@ -806,12 +866,6 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                   open={openCard === entry.id}
                   onOpenChange={(open) => setOpenCard(open ? entry.id : null)}
                   editDisabled={
-                    (entry.source_language &&
-                      entry.target_language &&
-                      !isLegacyPair(
-                        entry.source_language,
-                        entry.target_language,
-                      )) ||
                     !entry.can_edit ||
                     Boolean(entry.archived_at) ||
                     isSaving ||
@@ -831,6 +885,7 @@ export default function Library({ text, csrf, onLocked, language = "en" }) {
                   onEdit={() => {
                     setSaved(null);
                     setDeleted(false);
+                    setCardError(null);
                     setEditing(entry);
                   }}
                   onDelete={(trigger) => {
