@@ -52,13 +52,17 @@ jobs:
 
   backend:
     if: needs.source.outputs.eligible == 'true'
-    name: Backend checks
+    name: Backend checks (${{ matrix.group }})
     needs: source
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     defaults:
       run:
         working-directory: backend
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [language and practice, remaining]
     services:
       postgres:
         image: postgres:18-alpine
@@ -88,12 +92,29 @@ jobs:
       - name: Install backend dependencies
         run: python -m pip install -r requirements-dev.txt
       - name: Backend tests
-        run: python -m pytest
+        env:
+          BACKEND_TEST_GROUP: ${{ matrix.group }}
+        shell: bash
+        run: |
+          # Group the slowest files from the full CI run on their own runner.
+          # Everything else, including new test files, belongs to the other group.
+          slow_tests=(
+            tests/test_card_language_mapping.py
+            tests/test_csv_v2.py
+            tests/test_grammar.py
+            tests/test_imports.py
+            tests/test_practice.py
+          )
+          if [[ "$BACKEND_TEST_GROUP" == "language and practice" ]]; then
+            python -m pytest "${slow_tests[@]}"
+          else
+            python -m pytest "${slow_tests[@]/#/--ignore=}"
+          fi
       - name: Backend lint
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.group == 'remaining' }}
         run: python -m ruff check app tests alembic
       - name: Compile backend
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.group == 'remaining' }}
         run: python -m compileall -q app
 
   frontend:
