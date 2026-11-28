@@ -177,9 +177,12 @@ test("keeps the file, refreshes the preview for each destination, and selects ea
     );
     await chooseLanguage(user, dialog, "Base language", "Greek");
     await chooseLanguage(user, dialog, "Learning language", "Italian");
-    const confirm = await dialog.findByRole("button", {
-      name: `Import 1 card into ${name}`,
-    });
+    // The preview is debounced and can be delayed while CI runs other tests.
+    const confirm = await dialog.findByRole(
+      "button",
+      { name: `Import 1 card into ${name}` },
+      { timeout: 3000 },
+    );
     expect(dialog.getByRole("radio", { name: "Only you" })).toBeChecked();
     expect(
       dialog.getByRole("button", { name: `${copy.en.csvErrorRows} (1)` }),
