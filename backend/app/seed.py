@@ -32,6 +32,7 @@ from app.models import (
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 
+
 def seed_id(name):
     return uuid5(NAMESPACE_URL, "italian-notebook/seed/" + name)
 
@@ -40,39 +41,37 @@ def seed(owner_id=None):
     engine, sessions = database(Settings().database_url)
     initial = json.loads((DATA / "initial_setup.json").read_text(encoding="utf-8"))
     with sessions.begin() as db:
+        languages = []
         for code in LANGUAGES:
-            (
-                script,
-                text_direction,
-                enhanced,
-                publicly_available,
-            ) = LANGUAGE_METADATA[code]
+            script, text_direction, enhanced, publicly_available = LANGUAGE_METADATA[
+                code
+            ]
             native_name, aliases = LANGUAGE_SEARCH[code]
-            db.execute(
-                insert(Language)
-                .values(
-                    id=code,
-                    display_name=LANGUAGE_LABELS[code],
-                    script=script,
-                    text_direction=text_direction,
-                    enhanced=enhanced,
-                    publicly_available=publicly_available,
-                    native_name=native_name,
-                    aliases=list(aliases),
-                )
-                .on_conflict_do_nothing()
+            languages.append(
+                {
+                    "id": code,
+                    "display_name": LANGUAGE_LABELS[code],
+                    "script": script,
+                    "text_direction": text_direction,
+                    "enhanced": enhanced,
+                    "publicly_available": publicly_available,
+                    "native_name": native_name,
+                    "aliases": list(aliases),
+                }
             )
-        for name, (prompt, answer) in DIRECTION_PAIRS.items():
-            db.execute(
-                insert(PracticeDirection)
-                .values(
-                    name=name,
-                    prompt_language=prompt,
-                    answer_language=answer,
-                    legacy=name in LEGACY_DIRECTIONS,
-                )
-                .on_conflict_do_nothing()
-            )
+        db.execute(insert(Language).on_conflict_do_nothing(), languages)
+        db.execute(
+            insert(PracticeDirection).on_conflict_do_nothing(),
+            [
+                {
+                    "name": name,
+                    "prompt_language": prompt,
+                    "answer_language": answer,
+                    "legacy": name in LEGACY_DIRECTIONS,
+                }
+                for name, (prompt, answer) in DIRECTION_PAIRS.items()
+            ],
+        )
         for name in initial["profiles"]:
             db.execute(
                 insert(Profile)
