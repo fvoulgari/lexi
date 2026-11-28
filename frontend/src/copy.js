@@ -205,7 +205,7 @@ export const copy = {
     selectedRating: "Selected rating",
 
     assignTags: "Assign tags",
-    search: "Search Italian or Greek",
+    search: "Search vocabulary",
     filters: "Filters",
     units: "Units",
     tags: "Tags",
@@ -595,7 +595,7 @@ export const copy = {
     selectedRating: "Επιλεγμένη αξιολόγηση",
 
     assignTags: "Επιλογή ετικετών",
-    search: "Αναζήτηση στα ιταλικά ή ελληνικά",
+    search: "Αναζήτηση λεξιλογίου",
     filters: "Φίλτρα",
     units: "Ενότητες",
     tags: "Ετικέτες",
@@ -990,7 +990,7 @@ export const copy = {
     selectedRating: "Valutazione selezionata",
 
     assignTags: "Assegna etichette",
-    search: "Cerca in italiano o greco",
+    search: "Cerca nel vocabolario",
     filters: "Filtri",
     units: "Unità",
     tags: "Etichette",
@@ -1185,21 +1185,21 @@ const connectionCopy = {
     offlineNote:
       "Connect to open your notebook. Vocabulary and practice need an internet connection. Keep this page open to retry the current card.",
     installNote:
-      "Install Italian Notebook from your browser menu. On iPhone or iPad, use Share → Add to Home Screen.",
+      "Install Lexi from your browser menu. On iPhone or iPad, use Share → Add to Home Screen.",
   },
   el: {
     offlineTitle: "Είσαι εκτός σύνδεσης",
     offlineNote:
       "Συνδέσου για να ανοίξεις το τετράδιο. Το λεξιλόγιο και η εξάσκηση χρειάζονται σύνδεση στο διαδίκτυο. Κράτησε τη σελίδα ανοιχτή για να δοκιμάσεις ξανά την τρέχουσα κάρτα.",
     installNote:
-      "Εγκατάστησε το Italian Notebook από το μενού του προγράμματος περιήγησης. Σε iPhone ή iPad: Κοινή χρήση → Προσθήκη στην αρχική οθόνη.",
+      "Εγκατάστησε το Lexi από το μενού του προγράμματος περιήγησης. Σε iPhone ή iPad: Κοινή χρήση → Προσθήκη στην αρχική οθόνη.",
   },
   it: {
     offlineTitle: "Sei offline",
     offlineNote:
       "Connettiti per aprire il quaderno. Vocabolario e pratica richiedono una connessione internet. Lascia aperta questa pagina per riprovare la scheda corrente.",
     installNote:
-      "Installa Italian Notebook dal menu del browser. Su iPhone o iPad: Condividi → Aggiungi alla schermata Home.",
+      "Installa Lexi dal menu del browser. Su iPhone o iPad: Condividi → Aggiungi alla schermata Home.",
   },
 };
 for (const language of Object.keys(connectionCopy))

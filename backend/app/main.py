@@ -98,7 +98,7 @@ def create_app():
             refresh_registry(db)
 
     app = FastAPI(
-        title="Italian Notebook",
+        title="Lexi",
         lifespan=lifespan,
         dependencies=[Depends(refresh_catalogue)],
         docs_url=None,
@@ -310,7 +310,7 @@ def create_app():
         if archived:
             conditions.append(VocabularyEntry.archived_at.is_not(None))
         with sessions() as db:
-            filename = "italian-notebook.csv"
+            filename = "lexi-vocabulary.csv"
             collection = None
             if collection_id is not None:
                 collection, membership = collection_membership(db, collection_id)
@@ -343,7 +343,7 @@ def create_app():
                     "Content-Disposition": (
                         f"attachment; filename*=UTF-8''{quote(filename, safe='')}"
                         if collection_id is not None
-                        else 'attachment; filename="italian-notebook.csv"'
+                        else f'attachment; filename="{filename}"'
                     )
                 },
             )
