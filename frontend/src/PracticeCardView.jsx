@@ -19,6 +19,10 @@ export default function PracticeCardView({
   revealed,
   answerRef,
   children,
+  cardRef,
+  gestureProps,
+  ratingHint,
+  onAnswerKeyDown,
 }) {
   const sides = practiceSides(entry, direction);
   const [promptLanguage, answerLanguage] = directionLanguages(direction);
@@ -38,7 +42,9 @@ export default function PracticeCardView({
       );
     });
   const adjective = entry.word_type === "adjective" && answerGrammar;
-  const adjectiveForms = adjective ? adjectiveGroups(entry, answerLanguage) : [];
+  const adjectiveForms = adjective
+    ? adjectiveGroups(entry, answerLanguage)
+    : [];
   const mainGender =
     adjective &&
     answerGrammar.genders.includes(values[answerGrammar.adjectiveGender])
@@ -59,10 +65,11 @@ export default function PracticeCardView({
   const grammar =
     entry.word_type === "noun" && answerGrammar
       ? [
-          grammarValueFields("noun", [answerLanguage], [
-            "example",
-            "pronunciation",
-          ]),
+          grammarValueFields(
+            "noun",
+            [answerLanguage],
+            ["example", "pronunciation"],
+          ),
         ]
       : [];
   const groups = [
@@ -100,17 +107,30 @@ export default function PracticeCardView({
     return languageOfField(field) || answerLanguage;
   }
   return (
-    <div className="flashcard">
+    <div className="flashcard" ref={cardRef}>
       <div className="card-metadata">
         {entry.word_type && <span>{text[entry.word_type]}</span>}
       </div>
-      <p {...languageTextProps(promptLanguage)} className="card-prompt">
+      <p
+        {...languageTextProps(promptLanguage)}
+        className="card-prompt"
+        {...(revealed ? gestureProps : undefined)}
+      >
         {sides.prompt}
       </p>
       {children}
       {revealed && (
-        <div className="card-answer" ref={answerRef} tabIndex={-1}>
-          <h2 {...languageTextProps(answerLanguage)}>{sides.answer}</h2>
+        <div className="card-answer">
+          <h2
+            {...languageTextProps(answerLanguage)}
+            {...gestureProps}
+            ref={answerRef}
+            tabIndex={answerRef ? 0 : undefined}
+            onKeyDown={onAnswerKeyDown}
+            aria-describedby={ratingHint ? "practice-swipe-hint" : undefined}
+          >
+            {sides.answer}
+          </h2>
           {(groups.length > 0 || hasAdjectiveMetadata) && (
             <div className="card-detail-groups" aria-label={text[answerName]}>
               {hasAdjectiveMetadata && (
@@ -179,6 +199,7 @@ export default function PracticeCardView({
           )}
         </div>
       )}
+      {ratingHint}
     </div>
   );
 }
@@ -189,4 +210,8 @@ PracticeCardView.propTypes = {
   revealed: PropTypes.bool.isRequired,
   answerRef: PropTypes.object,
   children: PropTypes.node,
+  cardRef: PropTypes.object,
+  gestureProps: PropTypes.object,
+  ratingHint: PropTypes.node,
+  onAnswerKeyDown: PropTypes.func,
 };

@@ -178,7 +178,7 @@ try {
         .getByLabel("Learning direction", { exact: true })
         .selectOption(direction);
       assert.equal(await page.locator(".card-prompt").innerText(), prompt);
-      await page.getByRole("button", { name: /Reveal answer/ }).click();
+      await page.getByRole("button", { name: /Tap to reveal answer/ }).click();
       assert.equal(await page.locator(".card-answer h2").innerText(), answer);
     }
     await page.screenshot({

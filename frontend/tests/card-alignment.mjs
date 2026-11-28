@@ -34,6 +34,23 @@ const italianCard = {
   pronunciation: "KA-za",
 };
 
+const adjective = {
+  ...italianCard,
+  id: "card-three",
+  word_type: "adjective",
+  source_text: "ψηλός",
+  target_text: "alto",
+  italian_feminine_singular: "alta",
+  italian_masculine_plural: "alti",
+  italian_feminine_plural: "alte",
+  italian_example: Array.from(
+    { length: 20 },
+    () => "Gli alberi sono alti.",
+  ).join("\n"),
+};
+const reviews = [];
+let loseReview = false;
+
 function session(direction) {
   const snapshot = direction === "greek_to_italian" ? italianCard : arabicCard;
   return {
@@ -43,7 +60,15 @@ function session(direction) {
     requested_size: null,
     available: 1,
     active_count: 1,
-    cards: [{ position: 0, entry_id: snapshot.id, snapshot, skipped: false }],
+    cards: [
+      snapshot,
+      direction === "greek_to_italian" ? adjective : arabicCard,
+    ].map((entry, position) => ({
+      position,
+      entry_id: entry.id,
+      snapshot: entry,
+      skipped: false,
+    })),
   };
 }
 
@@ -92,6 +117,21 @@ const server = createServer(async (req, res) => {
       body = session(JSON.parse(payload).direction);
     if (/^\/api\/sessions\/[^/]+\/cards\/\d+\/(reveal|reviews)$/.test(path))
       body = {};
+    if (path.endsWith("/summary"))
+      body = {
+        total: 2,
+        counts: { easy: 0, hard: 1, again: 1 },
+        remembered: 50,
+        needs_practice: [],
+      };
+    if (path.endsWith("/reviews")) {
+      reviews.push(JSON.parse(payload));
+      if (loseReview) {
+        loseReview = false;
+        res.statusCode = 503;
+        body = { detail: "Review response unavailable" };
+      }
+    }
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(body));
     return;
@@ -194,6 +234,158 @@ async function startPractice(page, direction) {
   await page.locator(".flashcard .card-prompt").waitFor();
 }
 
+async function verifyGestures(context, page, mobile) {
+  const cdp = mobile ? await context.newCDPSession(page) : null;
+  const touch = (type, x, y) =>
+    cdp.send("Input.dispatchTouchEvent", {
+      type,
+      touchPoints: /End|Cancel/.test(type) ? [] : [{ x, y }],
+    });
+  const card = page.locator(".flashcard");
+  const answer = page.locator(".card-answer h2");
+  const reveal = page.getByRole("button", { name: "Tap to reveal answer" });
+  const drag = async (surface, dx, dy) => {
+    await surface.scrollIntoViewIfNeeded();
+    const box = await surface.boundingBox();
+    const x = box.x + box.width / 2;
+    const y = box.y + Math.min(box.height / 2, 60);
+    if (mobile) {
+      await touch("touchStart", x, y);
+      await touch("touchMove", x + dx, y + dy);
+    } else {
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x + dx, y + dy, { steps: 4 });
+    }
+  };
+  const release = () => (mobile ? touch("touchEnd") : page.mouse.up());
+  const screenshot = async (name) => {
+    if (process.env.MOBILE_SCREENSHOT_DIR)
+      await page.screenshot({
+        fullPage: name === "adjective",
+        path: resolve(
+          process.env.MOBILE_SCREENSHOT_DIR,
+          `lexi-gesture-${mobile ? "mobile" : "desktop"}-${name}.png`,
+        ),
+      });
+  };
+  const base = reviews.length;
+  await startPractice(page, "greek_to_italian");
+  await screenshot("unrevealed");
+  await drag(reveal, 110, 0);
+  await release();
+  assert.equal(await answer.count(), 0, "Unrevealed drag must not reveal");
+  assert.equal(reviews.length, base);
+
+  const promptBox = await card.locator(".card-prompt").boundingBox();
+  const x = promptBox.x + promptBox.width / 2;
+  const y = promptBox.y + promptBox.height / 2;
+  if (mobile) await page.touchscreen.tap(x, y);
+  else await page.mouse.click(x, y);
+  await answer.waitFor();
+  await screenshot("revealed");
+  await drag(answer, 26, 0);
+  await screenshot("short-drag");
+  await release();
+  await page.waitForFunction(
+    () =>
+      getComputedStyle(document.querySelector(".flashcard")).transform ===
+      "matrix(1, 0, 0, 1, 0, 0)",
+  );
+  await screenshot("returned");
+  await drag(answer, 100, -100);
+  await release();
+  assert.equal(reviews.length, base, "Short and diagonal drags must not rate");
+
+  for (const [rating, dx, dy] of [
+    ["hard", -130, 0],
+    ["easy", 130, 0],
+    ["again", 0, -125],
+  ]) {
+    await drag(answer, dx, dy);
+    await page.locator(`.flashcard[data-drag-rating="${rating}"]`).waitFor();
+    await screenshot(rating);
+    if (mobile) await touch("touchCancel");
+    else {
+      await answer.evaluate((el) =>
+        el.dispatchEvent(
+          new PointerEvent("pointercancel", {
+            pointerId: 1,
+            bubbles: true,
+          }),
+        ),
+      );
+      await release();
+    }
+    await card.locator("xpath=self::*[not(@data-dragging)]").waitFor();
+  }
+  assert.equal(reviews.length, base, "Cancelled gestures must not rate");
+
+  loseReview = true;
+  await drag(answer, 130, 0);
+  await release();
+  // A competing input during the request must not add a second review.
+  await page.getByRole("button", { name: "Hard" }).dispatchEvent("click");
+  await page.getByRole("alert").waitFor();
+  assert.equal(await answer.textContent(), "casa");
+  assert.deepEqual(reviews.slice(base), [
+    { direction: "greek_to_italian", rating: "easy" },
+  ]);
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await reveal.waitFor();
+  assert.deepEqual(
+    reviews.slice(base),
+    Array(2).fill({ direction: "greek_to_italian", rating: "easy" }),
+  );
+  assert.equal(await card.locator(".card-prompt").textContent(), "ψηλός");
+  await screenshot("next");
+
+  await reveal.click();
+  await page.getByText("alte", { exact: false }).first().waitFor();
+  await screenshot("adjective");
+  if (mobile) {
+    const example = page.getByText("Gli alberi sono alti.", { exact: false });
+    await example.scrollIntoViewIfNeeded();
+    const before = await page.evaluate(() => scrollY);
+    await drag(example, 0, -125);
+    await release();
+    await page.waitForFunction((y) => scrollY > y, before);
+    assert.equal(reviews.length, base + 2, "Scrolling grammar must not rate");
+  }
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await startPractice(page, "en_to_ar");
+  await page.locator("#practice-direction").selectOption("ar_to_en");
+  await reveal.click();
+  await answer.waitFor();
+  assert.equal(
+    await card.evaluate((el) => getComputedStyle(el).transitionDuration),
+    "0s",
+  );
+  assert.equal(
+    await answer.evaluate(
+      (el) => getComputedStyle(el.parentElement).animationName,
+    ),
+    "none",
+  );
+  if (mobile) {
+    await drag(answer, 0, -125);
+    await release();
+  } else {
+    await answer.press("ArrowUp");
+  }
+  await reveal.waitFor();
+  assert.deepEqual(reviews.at(-1), { direction: "ar_to_en", rating: "again" });
+  await reveal.click();
+  await answer.waitFor();
+  await drag(answer, -130, 0);
+  await release();
+  await page.getByRole("heading", { name: "Session summary" }).waitFor();
+  assert.deepEqual(reviews.at(-1), { direction: "ar_to_en", rating: "hard" });
+  assert.equal(reviews.length, base + 4);
+  await cdp?.detach();
+}
+
 try {
   for (const width of [390, 1280]) {
     const context = await browser.newContext({
@@ -247,7 +439,7 @@ try {
       });
     }
 
-    await page.getByRole("button", { name: "Reveal answer" }).click();
+    await page.getByRole("button", { name: "Tap to reveal answer" }).click();
     await page.locator(".flashcard .card-answer h2").waitFor();
     const revealedCard = await cardBox(page);
     near(revealedCard.x, beforeCard.x, `${width}px card x after reveal`);
@@ -319,7 +511,7 @@ try {
       reversedCard,
       `${width}px wrapped RTL prompt`,
     );
-    await page.getByRole("button", { name: "Reveal answer" }).click();
+    await page.getByRole("button", { name: "Tap to reveal answer" }).click();
     await page.locator(".flashcard .card-answer h2").waitFor();
     const reversedAnswer = await centeredText(
       page,
@@ -336,7 +528,7 @@ try {
     );
 
     await startPractice(page, "greek_to_italian");
-    await page.getByRole("button", { name: "Reveal answer" }).click();
+    await page.getByRole("button", { name: "Tap to reveal answer" }).click();
     await page.locator(".card-detail-groups").waitFor();
     const grammarCard = await cardBox(page);
     await centeredText(
@@ -366,9 +558,10 @@ try {
       true,
       `${width}px: flashcard overflows horizontally`,
     );
+    await verifyGestures(context, page, width < 540);
     assert.deepEqual(errors, []);
     console.log(
-      `${width}px: centered prompt/answer, start-aligned metadata, stable geometry and RTL scripts passed`,
+      `${width}px: centered prompt/answer, start-aligned metadata, stable geometry, RTL scripts and practice gestures passed`,
     );
     await context.close();
   }
