@@ -55,14 +55,14 @@ jobs:
     name: Backend checks (${{ matrix.group }})
     needs: source
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        group: [language and practice, remaining]
     timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [language and practice, remaining]
     services:
       postgres:
         image: postgres:18-alpine
