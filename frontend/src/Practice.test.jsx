@@ -1431,6 +1431,29 @@ test("a valid stored non-legacy RTL selection is not reset by the profile defaul
   ).toEqual(["Arabic → Persian", "Persian → Arabic"]);
 });
 
+test("a fresh learner starts on the accessible collection when the profile default has no cards", async () => {
+  server.use(
+    http.get("*/api/practice/available-pairs", () =>
+      HttpResponse.json({ pairs: availablePairs.pairs.slice(1) }),
+    ),
+    http.get("*/api/collections", () =>
+      HttpResponse.json([
+        {
+          id: "danish",
+          name: "Danish",
+          source_language: "en",
+          target_language: "da",
+        },
+      ]),
+    ),
+  );
+  openPractice();
+  await waitFor(() =>
+    expect(screen.getByRole("radio", { name: "English → Danish" })).toBeChecked(),
+  );
+  expect(screen.getByRole("button", { name: "Start practice" })).toBeEnabled();
+});
+
 test("pair availability exposes localized loading, error and empty states", async () => {
   server.use(
     http.get("*/api/practice/available-pairs", async () => {
