@@ -62,7 +62,10 @@ def test_export_full_library_with_unicode_and_metadata(logged_in):
     response = logged_in.get("/api/vocabulary/export.csv?page_size=1")
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/csv")
-    assert "attachment;" in response.headers["content-disposition"]
+    assert (
+        response.headers["content-disposition"]
+        == 'attachment; filename="lexi-vocabulary.csv"'
+    )
     assert response.headers["cache-control"] == "no-store"
     exported = rows(response)
     assert len(exported) == 11

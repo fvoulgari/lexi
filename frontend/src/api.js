@@ -47,7 +47,7 @@ export async function downloadLibrary(params, collectionName) {
   const link = document.createElement("a");
   link.href = url;
   const name = collectionName?.replace(/[<>:"/\\|?*]/g, "-").trim();
-  link.download = name ? `${name}.csv` : "italian-notebook.csv";
+  link.download = name ? `${name}.csv` : "lexi-vocabulary.csv";
   document.body.append(link);
   try {
     link.click();

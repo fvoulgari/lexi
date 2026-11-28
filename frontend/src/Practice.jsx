@@ -169,7 +169,7 @@ function initialPracticeSelection(searchParams, profile, collections = []) {
     return {
       pair: practicePairForDirection(preferred),
       direction: preferred,
-      explicit: true,
+      explicit: false,
     };
   }
   return {
@@ -450,32 +450,38 @@ function Setup({
     }));
   }
 
-  // An explicit URL or stored choice wins. Only an unresolved selection may be
-  // oriented by a linked or first accessible collection once those arrive.
+  // Resolve implicit defaults against the pairs with eligible cards once both
+  // queries settle. Explicit URL, stored and in-session choices take precedence.
   useEffect(() => {
-    if (selectionLocked || !collections.data) return;
-    const requested = collections.data.find(
+    if (selectionLocked || collections.isPending || !pairs.length) return;
+    const preferred = profile?.preferred_direction;
+    const preferredPair = isRegisteredDirection(preferred)
+      ? practicePairForDirection(preferred)
+      : null;
+    const eligibleCollections = (collections.data || []).filter((collection) =>
+      pairs.some((candidate) => candidate.key === collectionPair(collection)),
+    );
+    const requested = eligibleCollections.find(
       (collection) => collection.id === linkedCollectionIds[0],
     );
-    const linked =
-      requested || collections.data.find((collection) => collectionPair(collection));
-    const nextPair = collectionPair(linked);
-    if (!nextPair) return;
-    const nextDirection =
-      directionForPair(nextPair, [
-        profile?.preferred_direction,
-        collectionDirection(linked),
-        storedPracticeSelection().direction,
-        direction,
-      ]) || firstDirectionForLanguages(...parsePairKey(nextPair));
+    if (!requested && pairs.some((candidate) => candidate.key === preferredPair))
+      return;
+    const linked = requested || eligibleCollections[0];
+    const nextPair = collectionPair(linked) || pairs[0].key;
+    const nextDirection = directionForPair(nextPair, [
+      preferred,
+      collectionDirection(linked),
+      direction,
+    ]);
     setPair(nextPair);
     setDirection(nextDirection);
-    rememberPracticeSelection(nextPair, nextDirection);
-    if (requested || linkedCollectionIds.length) setSelectionLocked(true);
+    if (requested) setSelectionLocked(true);
   }, [
     collections.data,
+    collections.isPending,
     direction,
     linkedCollectionIds,
+    pairs,
     profile?.preferred_direction,
     selectionLocked,
   ]);
