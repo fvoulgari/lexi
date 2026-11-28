@@ -7,6 +7,9 @@ import {
   RotateCcw,
   Layers,
   ArrowRight,
+  ArrowLeft,
+  ArrowUp,
+  Hand,
   ChevronDown,
 } from "lucide-react";
 import PropTypes from "prop-types";
@@ -14,6 +17,7 @@ import { request } from "./api.js";
 import Choices from "./Choices.jsx";
 import PairPicker from "./PairPicker.jsx";
 import PracticeCardView from "./PracticeCardView.jsx";
+import usePracticeGesture from "./usePracticeGesture.js";
 import { cardLanguageIds, practiceSides } from "./card-sides.js";
 import {
   directionLabel,
@@ -820,6 +824,12 @@ function ActivePractice({
     </section>
   );
 }
+const ratingControls = [
+  { value: "hard", Icon: ArrowLeft, shortcut: "ArrowLeft" },
+  { value: "again", Icon: ArrowUp, shortcut: "ArrowUp" },
+  { value: "easy", Icon: ArrowRight, shortcut: "ArrowRight" },
+];
+
 function Flashcard({
   text,
   card,
@@ -841,10 +851,15 @@ function Flashcard({
   const inFlight = useRef(false);
   useEffect(() => {
     revealButton.current?.focus();
-  }, []);
+  }, [direction]);
   useEffect(() => {
-    if (revealed) answer.current?.focus();
+    if (revealed) answer.current?.focus({ preventScroll: true });
   }, [revealed]);
+  const gesture = usePracticeGesture({
+    revealed,
+    disabled: pending || !!rating,
+    onRate: save,
+  });
   const entry = card.snapshot;
   function failed(error) {
     if (error.code === "entry_deleted") {
@@ -872,8 +887,9 @@ function Flashcard({
       onBusy(false);
     }
   }
-  async function save(value) {
-    if (inFlight.current) return;
+  async function save(value, dragged = false) {
+    if (!revealed || inFlight.current || (rating && rating !== value)) return;
+    if (!dragged) gesture.reset();
     inFlight.current = true;
     setRating(value);
     setPending(true);
@@ -884,6 +900,7 @@ function Flashcard({
         direction,
         rating: value,
       });
+      await gesture.exit(value);
       onBusy(false);
       onSaved();
     } catch (error) {
@@ -891,6 +908,7 @@ function Flashcard({
     } finally {
       inFlight.current = false;
       setPending(false);
+      gesture.reset();
       // Until acceptance is confirmed, finishing could hide a review whose
       // response was lost. Keep the card available for the identical retry.
     }
@@ -903,10 +921,11 @@ function Flashcard({
         languages={cardLanguageIds(entry)}
         disabled={pending || !!rating}
         onChange={(value) => {
+          if (inFlight.current || rating) return;
+          gesture.reset();
           onDirection(value);
           setRevealed(false);
           setError(null);
-          revealButton.current?.focus();
         }}
       />
       <PracticeCardView
@@ -915,27 +934,80 @@ function Flashcard({
         direction={direction}
         revealed={revealed}
         answerRef={answer}
+        cardRef={gesture.cardRef}
+        gestureProps={revealed ? gesture.surfaceProps : undefined}
+        onAnswerKeyDown={(event) => {
+          if (
+            pending ||
+            rating ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            event.repeat
+          )
+            return;
+          const control = ratingControls.find(
+            ({ shortcut }) => shortcut === event.key,
+          );
+          if (!control) return;
+          event.preventDefault();
+          void save(control.value);
+        }}
+        ratingHint={
+          revealed && (
+            <>
+              <p
+                id="practice-swipe-hint"
+                className="practice-swipe-hint"
+                {...gesture.surfaceProps}
+              >
+                {text.swipeToRate}
+              </p>
+              {ratingControls.map(({ value, Icon }) => (
+                <span
+                  className="practice-rating-stamp"
+                  data-rating={value}
+                  key={value}
+                  aria-hidden="true"
+                >
+                  <Icon size={14} /> {text[value]}
+                </span>
+              ))}
+            </>
+          )
+        }
       >
         {!revealed && (
           <button
             ref={revealButton}
-            className="primary"
+            type="button"
+            className="practice-reveal"
             disabled={pending}
-            onClick={reveal}
+            {...gesture.surfaceProps}
+            onClick={(event) => {
+              if (gesture.canReveal(event)) void reveal();
+            }}
           >
-            {pending ? text.revealingAnswer : text.revealAnswer}
+            <Hand size={16} aria-hidden="true" />
+            {pending ? text.revealingAnswer : text.tapToReveal}
           </button>
         )}
       </PracticeCardView>
 
       <div className="rating-buttons">
-        {["again", "hard", "easy"].map((value) => (
+        {ratingControls.map(({ value, Icon, shortcut }) => (
           <button
+            type="button"
+            data-rating={value}
+            aria-keyshortcuts={shortcut}
             key={value}
             disabled={!revealed || pending || !!rating}
             onClick={() => save(value)}
           >
-            {text[value]}
+            {value !== "easy" && <Icon size={16} aria-hidden="true" />}
+            <span>{text[value]}</span>
+            {value === "easy" && <Icon size={16} aria-hidden="true" />}
           </button>
         ))}
       </div>
@@ -960,6 +1032,7 @@ function Flashcard({
     </>
   );
 }
+
 function Summary({
   text,
   sessionId,
