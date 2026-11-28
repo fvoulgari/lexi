@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Italian Notebook",
-  "short_name": "Notebook",
+  "name": "Lexi",
+  "short_name": "Lexi",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

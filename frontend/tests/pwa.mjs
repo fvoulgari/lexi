@@ -133,7 +133,11 @@ try {
   const cdp = await context.newCDPSession(page);
   const manifest = await cdp.send("Page.getAppManifest");
   assert.equal(manifest.errors.length, 0);
-  assert.equal(JSON.parse(manifest.data).display, "standalone");
+  const appManifest = JSON.parse(manifest.data);
+  assert.equal(appManifest.id, "/");
+  assert.equal(appManifest.name, "Lexi");
+  assert.equal(appManifest.short_name, "Lexi");
+  assert.equal(appManifest.display, "standalone");
   assert.deepEqual(
     (await cdp.send("Page.getInstallabilityErrors")).installabilityErrors,
     [],
